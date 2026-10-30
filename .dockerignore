@@ -1,0 +1,16 @@
+.git
+.venv
+venv
+__pycache__
+*.pyc
+library
+pgdata
+web/node_modules
+web/dist
+.env
+.DS_Store
+tests
+.ruff_cache
+.pytest_cache
+.github
+*.tsbuildinfo
