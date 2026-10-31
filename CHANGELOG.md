@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.1] - 2026-10-31
+
+### Changed
+- The web UI opens on **Unfiled** at every page load, so new arrivals waiting
+  to be organized are the first thing you see.
+
 ## [1.0.0] - 2026-10-30
 
 First public release.
