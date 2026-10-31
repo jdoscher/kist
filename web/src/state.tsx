@@ -33,6 +33,9 @@ interface AppState {
 
 const PANEL_KEY = 'kist.panelOpen'
 
+// Every page load opens on Unfiled, the inbox of things still to organize.
+const initialQuery: Query = { ...emptyQuery, folder: 'none' }
+
 function loadPanelOpen(): boolean {
   try {
     return localStorage.getItem(PANEL_KEY) !== '0'
@@ -44,7 +47,7 @@ function loadPanelOpen(): boolean {
 const Ctx = createContext<AppState | null>(null)
 
 export function AppStateProvider({ children }: { children: ReactNode }) {
-  const [query, setQueryRaw] = useState<Query>(emptyQuery)
+  const [query, setQueryRaw] = useState<Query>(initialQuery)
   const [selection, setSelection] = useState<Set<string>>(new Set())
   const [previewId, setPreviewId] = useState<string | null>(null)
   const anchor = useRef<string | null>(null)
