@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- New app icon (a K whose upper arm is an arrow) in the top bar, replacing the
+  ⟡ glyph, and as the browser tab, bookmark and home-screen icon
+  (`favicon.svg`, `favicon-32.png`, `apple-touch-icon.png`).
+
 ## [1.0.1] - 2026-10-31
 
 ### Changed

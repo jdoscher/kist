@@ -81,7 +81,8 @@ export function TopBar() {
   return (
     <header className="topbar">
       <div className="brand" title="Kist">
-        ⟡ Kist
+        <img src="/favicon.svg" alt="" className="brand-icon" />
+        Kist
       </div>
 
       <div className="searchbox" ref={boxRef}>

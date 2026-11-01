@@ -126,10 +126,18 @@ select:focus {
   border-bottom: 1px solid var(--border);
 }
 .brand {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   font-weight: 600;
   font-size: 15px;
   margin-right: 8px;
   white-space: nowrap;
+}
+.brand-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
 }
 .searchbox {
   position: relative;
