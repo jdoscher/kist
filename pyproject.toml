@@ -1,6 +1,6 @@
 [project]
 name = "kist"
-version = "1.0.1"
+version = "1.0.2"
 description = "Self-hosted visual asset manager with a first-class MCP interface"
 requires-python = ">=3.12"
 license = { text = "MIT" }
