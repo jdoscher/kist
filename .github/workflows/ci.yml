@@ -65,3 +65,24 @@ jobs:
           push: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      # the hardened stack (non-root, read-only root fs, no capabilities)
+      # must still start, ingest, and make previews
+      - name: Smoke-test the compose stack
+        env:
+          KIST_TOKEN: ci-smoke-token-0123456789abcdef
+          KIST_LIBRARY: ${{ runner.temp }}/library
+        run: |
+          set -eux
+          mkdir -p "$KIST_LIBRARY" && sudo chown 1000:1000 "$KIST_LIBRARY"
+          docker compose up -d --build --wait
+          test "$(docker compose exec -T app id -u)" = 1000
+          test "$(docker inspect -f '{{.HostConfig.ReadonlyRootfs}}' "$(docker compose ps -q app)")" = true
+          python3 -c "import base64,sys; sys.stdout.buffer.write(base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='))" > dot.png
+          ID=$(curl -sf -H "Authorization: Bearer $KIST_TOKEN" -F file=@dot.png http://localhost:8080/api/items | python3 -c "import json,sys; print(json.load(sys.stdin)['item']['id'])")
+          curl -sf -o /dev/null -H "Authorization: Bearer $KIST_TOKEN" "http://localhost:8080/api/items/$ID/thumb"
+          curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $KIST_TOKEN" -H "Content-Type: application/json" -d '{"url":"http://127.0.0.1:8000/api/health"}' http://localhost:8080/api/items | grep -q 422
+      - name: Compose logs
+        if: always()
+        run: docker compose logs --no-color | tail -100
+        env:
+          KIST_TOKEN: ci-smoke-token-0123456789abcdef

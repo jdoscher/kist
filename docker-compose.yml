@@ -17,10 +17,26 @@ services:
   app:
     build: .
     command: ["api"]
+    # hardening: unprivileged user, read-only root filesystem (writes go to
+    # the library volume and /tmp), no capabilities, no privilege escalation,
+    # and resource caps so one bad file can't take the host down
+    user: "${KIST_UID:-1000}:${KIST_GID:-1000}"
+    read_only: true
+    tmpfs:
+      - /tmp:size=2g,mode=1777
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: ${KIST_MEM_LIMIT:-4g}
+    pids_limit: 512
     environment:
       KIST_TOKEN: ${KIST_TOKEN:?set KIST_TOKEN in .env}
       KIST_DATABASE_URL: postgresql+psycopg://kist:${KIST_DB_PASSWORD:-kist}@db:5432/kist
       KIST_USER_AGENT: ${KIST_USER_AGENT:-}
+      KIST_URL_ALLOW_PRIVATE: ${KIST_URL_ALLOW_PRIVATE:-false}
+      KIST_URL_ALLOW_HOSTS: ${KIST_URL_ALLOW_HOSTS:-}
+      KIST_DOWNLOAD_TIMEOUT_SECONDS: ${KIST_DOWNLOAD_TIMEOUT_SECONDS:-120}
+      KIST_PREVIEW_TIMEOUT_SECONDS: ${KIST_PREVIEW_TIMEOUT_SECONDS:-300}
+      KIST_HSTS_SECONDS: ${KIST_HSTS_SECONDS:-15552000}
     ports:
       - "${KIST_PORT:-8080}:8000"
     volumes:
@@ -39,10 +55,26 @@ services:
   worker:
     build: .
     command: ["worker"]
+    # hardening: unprivileged user, read-only root filesystem (writes go to
+    # the library volume and /tmp), no capabilities, no privilege escalation,
+    # and resource caps so one bad file can't take the host down
+    user: "${KIST_UID:-1000}:${KIST_GID:-1000}"
+    read_only: true
+    tmpfs:
+      - /tmp:size=2g,mode=1777
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: ${KIST_MEM_LIMIT:-4g}
+    pids_limit: 512
     environment:
       KIST_TOKEN: ${KIST_TOKEN:?set KIST_TOKEN in .env}
       KIST_DATABASE_URL: postgresql+psycopg://kist:${KIST_DB_PASSWORD:-kist}@db:5432/kist
       KIST_USER_AGENT: ${KIST_USER_AGENT:-}
+      KIST_URL_ALLOW_PRIVATE: ${KIST_URL_ALLOW_PRIVATE:-false}
+      KIST_URL_ALLOW_HOSTS: ${KIST_URL_ALLOW_HOSTS:-}
+      KIST_DOWNLOAD_TIMEOUT_SECONDS: ${KIST_DOWNLOAD_TIMEOUT_SECONDS:-120}
+      KIST_PREVIEW_TIMEOUT_SECONDS: ${KIST_PREVIEW_TIMEOUT_SECONDS:-300}
+      KIST_HSTS_SECONDS: ${KIST_HSTS_SECONDS:-15552000}
     volumes:
       - ${KIST_LIBRARY:-./library}:/library
     depends_on:
