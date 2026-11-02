@@ -44,3 +44,36 @@ def test_smart_folder_crud(client):
     assert [s["name"] for s in listed] == ["Animals"]
     client.delete(f"/api/smart-folders/{made['id']}")
     assert client.get("/api/smart-folders").json() == []
+
+
+def test_folder_includes_subfolders(client, upload):
+    top = client.post("/api/folders", json={"name": "Renders"}).json()
+    mid = client.post("/api/folders", json={"name": "cobalt", "parent_id": top["id"]}).json()
+    leaf = client.post("/api/folders", json={"name": "Stand", "parent_id": mid["id"]}).json()
+    other = client.post("/api/folders", json={"name": "Elsewhere"}).json()
+
+    deep = upload(folder_id=leaf["id"])["item"]
+    shallow = upload(folder_id=top["id"])["item"]
+    upload(folder_id=other["id"])
+    # filed twice inside the same subtree: still one item
+    client.put(f"/api/items/{deep['id']}/folders", json={"folder_ids": [leaf["id"], mid["id"]]})
+
+    def ids(folder_id):
+        return sorted(i["id"] for i in client.get(f"/api/items?folder={folder_id}").json()["items"])
+
+    assert ids(top["id"]) == sorted([deep["id"], shallow["id"]])
+    assert ids(mid["id"]) == [deep["id"]]
+    assert ids(leaf["id"]) == [deep["id"]]
+    assert client.get(f"/api/items?folder={top['id']}").json()["total"] == 2
+
+    counts = {f["id"]: f["item_count"] for f in client.get("/api/folders").json()}
+    assert counts[top["id"]] == 2
+    assert counts[mid["id"]] == 1
+    assert counts[leaf["id"]] == 1
+    assert counts[other["id"]] == 1
+
+    # trashed items drop out of the counts and the listing
+    client.delete(f"/api/items/{deep['id']}")
+    counts = {f["id"]: f["item_count"] for f in client.get("/api/folders").json()}
+    assert counts[top["id"]] == 1 and counts[leaf["id"]] == 0
+    assert ids(top["id"]) == [shallow["id"]]

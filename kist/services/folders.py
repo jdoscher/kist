@@ -25,18 +25,44 @@ def snapshot(session: Session) -> None:
     )
 
 
+def subtree_counts(folders: list[Folder], memberships: list[tuple[str, str]]) -> dict[str, int]:
+    """Distinct item count per folder, including items filed in any subfolder.
+
+    An item filed in two folders of the same subtree counts once.
+    """
+    children: dict[str | None, list[str]] = {}
+    for f in folders:
+        children.setdefault(f.parent_id, []).append(f.id)
+    direct: dict[str, set[str]] = {}
+    for item_id, folder_id in memberships:
+        direct.setdefault(folder_id, set()).add(item_id)
+
+    cache: dict[str, set[str]] = {}
+
+    def items_under(folder_id: str, seen: frozenset[str] = frozenset()) -> set[str]:
+        if folder_id in cache:
+            return cache[folder_id]
+        if folder_id in seen:  # defensive: parent cycles are rejected on update
+            return set()
+        found = set(direct.get(folder_id, ()))
+        for child in children.get(folder_id, ()):
+            found |= items_under(child, seen | {folder_id})
+        cache[folder_id] = found
+        return found
+
+    return {f.id: len(items_under(f.id)) for f in folders}
+
+
 def list_folders(session: Session) -> list[dict]:
-    counts = dict(
-        session.execute(
-            sa.select(ItemFolder.folder_id, sa.func.count())
-            .join(Item, Item.id == ItemFolder.item_id)
-            .where(Item.deleted_at.is_(None))
-            .group_by(ItemFolder.folder_id)
-        ).all()
-    )
     folders = session.execute(
         sa.select(Folder).order_by(Folder.position, Folder.name)
     ).scalars().all()
+    memberships = session.execute(
+        sa.select(ItemFolder.item_id, ItemFolder.folder_id)
+        .join(Item, Item.id == ItemFolder.item_id)
+        .where(Item.deleted_at.is_(None))
+    ).all()
+    counts = subtree_counts(list(folders), [tuple(m) for m in memberships])
     return [
         {
             "id": f.id,

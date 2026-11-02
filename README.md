@@ -10,8 +10,9 @@ organize it.
   the database from it at any time.
 - **One small stack.** A single `docker compose up`: the app, a background
   worker, and Postgres. Runs fine on a home server or NAS.
-- **Organize your way.** Folders (an item can live in several), tags,
-  ratings, notes, source URLs, smart folders (saved searches), and a trash.
+- **Organize your way.** Nested folders (an item can live in several; a folder
+  shows its subfolders' items too), tags, ratings, notes, source URLs, smart
+  folders (saved searches), and a trash.
 - **Agents as first-class users.** A streamable-HTTP MCP endpoint exposes
   search, viewing (the model receives the image itself), adding, tagging, and
   filing. Nothing an agent does can permanently delete anything.
@@ -151,7 +152,7 @@ POST   /api/items                multipart upload, or JSON {"url": …}. Both ac
                                  deleted_at files the item straight into the trash),
                                  so importers can carry metadata over from other tools
 GET    /api/items                q, tags (csv, all), tags_any (csv, any), untagged,
-                                 folder (id or "none"), type, rating, order,
+                                 folder (id, subfolders included; or "none"), type, rating, order,
                                  created_after, created_before, deleted, limit, cursor
 GET    /api/items/{id}
 PATCH  /api/items/{id}           filename, rating, notes, source_url, created_at,

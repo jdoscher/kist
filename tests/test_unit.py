@@ -3,6 +3,7 @@ import pytest
 
 from kist.app import check_token
 from kist.filetypes import kind_for
+from kist.services.folders import subtree_counts
 from kist.services.ingest import filename_from_url, page_image_url, sanitize_filename
 from kist.services.search import decode_cursor, encode_cursor
 
@@ -68,3 +69,16 @@ def test_weak_tokens_are_refused(token):
 
 def test_strong_token_is_accepted():
     check_token("a" * 32)
+
+
+def test_subtree_counts_are_distinct_and_recursive():
+    from types import SimpleNamespace as F
+
+    folders = [
+        F(id="a", parent_id=None),
+        F(id="b", parent_id="a"),
+        F(id="c", parent_id="b"),
+        F(id="d", parent_id=None),
+    ]
+    memberships = [("x", "c"), ("x", "b"), ("y", "a"), ("z", "d")]
+    assert subtree_counts(folders, memberships) == {"a": 2, "b": 1, "c": 1, "d": 1}

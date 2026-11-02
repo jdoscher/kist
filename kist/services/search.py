@@ -8,7 +8,7 @@ from typing import Any
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
-from ..models import Item, ItemFolder, ItemTag, Tag
+from ..models import Folder, Item, ItemFolder, ItemTag, Tag
 
 # order key -> (column, direction) ; id is always the tiebreaker
 ORDERS: dict[str, tuple[Any, bool]] = {
@@ -45,6 +45,16 @@ def decode_cursor(cursor: str) -> tuple[Any, str]:
     if isinstance(value, dict) and "$dt" in value:
         value = datetime.fromisoformat(value["$dt"])
     return value, item_id
+
+
+def folder_subtree(folder_id: str):
+    """Recursive CTE of a folder's id plus every descendant folder id."""
+    tree = (
+        sa.select(Folder.id)
+        .where(Folder.id == folder_id)
+        .cte(name="folder_subtree", recursive=True)
+    )
+    return tree.union(sa.select(Folder.id).where(Folder.parent_id == tree.c.id))
 
 
 def build_filters(
@@ -95,9 +105,11 @@ def build_filters(
             sa.not_(sa.exists().where(ItemFolder.item_id == Item.id))
         )
     elif folder:
+        # a folder includes everything filed in its subfolders, at any depth
         filters.append(
             sa.exists().where(
-                ItemFolder.item_id == Item.id, ItemFolder.folder_id == folder
+                ItemFolder.item_id == Item.id,
+                ItemFolder.folder_id.in_(sa.select(folder_subtree(folder).c.id)),
             )
         )
     if kind and kind in KIND_FILTERS:

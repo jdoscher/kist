@@ -48,7 +48,8 @@ def _item_out(item: Item) -> dict[str, Any]:
         "Search the asset library. Returns item metadata plus thumb/file URL "
         "paths (same bearer token as this endpoint). Filters combine with AND; "
         "tags must all match, tags_any matches items carrying at least one, "
-        "untagged=true matches items with no tags. type is one of "
+        "untagged=true matches items with no tags. folder is a folder id (its "
+        "subfolders are included) or 'none' for unfiled items. type is one of "
         "image|video|pdf|other. Pass the returned next_cursor to fetch the "
         "following page."
     )
@@ -240,7 +241,12 @@ def trash_item(id: str) -> dict[str, Any]:
         return _item_out(item)
 
 
-@mcp.tool(description="List all folders (id, name, parent_id, item_count).")
+@mcp.tool(
+    description=(
+        "List all folders (id, name, parent_id, item_count). item_count includes "
+        "items filed in subfolders, matching search_items(folder=...)."
+    )
+)
 def list_folders() -> list[dict[str, Any]]:
     with SessionLocal() as session:
         return folders_svc.list_folders(session)
