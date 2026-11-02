@@ -4,6 +4,23 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- A folder now shows everything in its subfolders too, at any depth: clicking
+  it lists those items and its count includes them (an item filed in two
+  subfolders counts once). The same applies to `GET /api/items?folder=`, smart
+  folders, and the MCP `search_items` / `list_folders` tools.
+- **All items** clears every filter (tags, smart-folder tag sets, untagged,
+  dates, search text, type and rating) and keeps the sort order. The app still
+  opens on Unfiled.
+
+### Fixed
+- Filters set by a smart folder (`tags_any`, untagged, date range) stayed
+  active after you left it, with nothing on screen showing them, so folders
+  could look empty. Every active filter now shows as a removable chip in the
+  search bar.
+
 ## [1.0.2] - 2026-11-01
 
 ### Changed

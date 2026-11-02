@@ -180,7 +180,8 @@ export function Sidebar() {
       <div className="section">
         <div
           className={`row ${!query.folder && !query.deleted ? 'active' : ''}`}
-          onClick={() => setQuery({ folder: null, deleted: false })}
+          onClick={() => setQuery({ ...emptyQuery, order: query.order })}
+          title="Show everything and clear all filters"
         >
           <span className="icon">◆</span>
           <span className="name">All items</span>

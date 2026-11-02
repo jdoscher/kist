@@ -25,6 +25,14 @@ export function TopBar() {
 
   useEffect(() => setText(query.q), [query.q])
 
+  // every active filter shows as a chip, so nothing narrows the grid invisibly
+  const hasChips =
+    query.tags.length > 0 ||
+    query.tags_any.length > 0 ||
+    query.untagged ||
+    !!query.created_after ||
+    !!query.created_before
+
   // debounce free-text search
   useEffect(() => {
     const t = setTimeout(() => {
@@ -92,9 +100,33 @@ export function TopBar() {
             <button onClick={() => setQuery({ tags: query.tags.filter((x) => x !== t) })}>×</button>
           </span>
         ))}
+        {query.tags_any.length > 0 && (
+          <span className="chip" title="Items with at least one of these tags">
+            any of {query.tags_any.map((t) => `#${t}`).join(' ')}
+            <button title="Clear" onClick={() => setQuery({ tags_any: [] })}>×</button>
+          </span>
+        )}
+        {query.untagged && (
+          <span className="chip">
+            untagged
+            <button title="Clear" onClick={() => setQuery({ untagged: false })}>×</button>
+          </span>
+        )}
+        {query.created_after && (
+          <span className="chip">
+            added after {query.created_after.slice(0, 10)}
+            <button title="Clear" onClick={() => setQuery({ created_after: null })}>×</button>
+          </span>
+        )}
+        {query.created_before && (
+          <span className="chip">
+            added before {query.created_before.slice(0, 10)}
+            <button title="Clear" onClick={() => setQuery({ created_before: null })}>×</button>
+          </span>
+        )}
         <input
           value={text}
-          placeholder={query.tags.length ? 'Add search…' : 'Search filenames, #tags…'}
+          placeholder={hasChips ? 'Add search…' : 'Search filenames, #tags…'}
           onChange={(e) => {
             setText(e.target.value)
             setOpen(true)
