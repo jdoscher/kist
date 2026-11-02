@@ -4,6 +4,20 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **True-shape grid** (the new default): tiles follow each image's own
+  proportions in justified rows, as in Eagle. Every row fills the width; a
+  row's height flexes up to 15% to fit, and the last row keeps the normal
+  height. Very tall or wide images are cropped to between 1:2 and 3:1 so they
+  stay readable. Items without a preview stay square.
+- A **tile size slider** in the top bar (120–400 px, default 200; double-click
+  resets) and a **square / true-shape switch**. Both are remembered in the
+  browser.
+- Up/Down arrow keys move to the nearest tile in the row above or below.
+- Web layout tests (`npm test`), run in CI.
+
 ## [1.0.3] - 2026-11-02
 
 ### Changed

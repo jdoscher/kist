@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { TILE_SIZE_MAX, TILE_SIZE_MIN } from '../layout'
 import { useAppState, useTags } from '../state'
 import { PasteButton } from './PasteButton'
 import { useUploads } from './UploadManager'
@@ -14,7 +15,8 @@ const ORDERS: [string, string][] = [
 ]
 
 export function TopBar() {
-  const { query, setQuery, panelOpen, setPanelOpen } = useAppState()
+  const { query, setQuery, panelOpen, setPanelOpen, gridLayout, setGridLayout, tileSize, setTileSize } =
+    useAppState()
   const { data: tags } = useTags()
   const uploads = useUploads()
   const [text, setText] = useState(query.q)
@@ -148,6 +150,33 @@ export function TopBar() {
             ))}
           </div>
         )}
+      </div>
+
+      <div className="view-controls">
+        <button
+          className="layout-toggle"
+          onClick={() => setGridLayout(gridLayout === 'justified' ? 'square' : 'justified')}
+          title={
+            gridLayout === 'justified'
+              ? 'True shape: tiles follow each image\'s proportions. Click for square tiles.'
+              : 'Square tiles. Click to show each image in its true shape.'
+          }
+          aria-label="Toggle tile shape"
+        >
+          {gridLayout === 'justified' ? '▭' : '▢'}
+        </button>
+        <input
+          type="range"
+          className="size-slider"
+          min={TILE_SIZE_MIN}
+          max={TILE_SIZE_MAX}
+          step={10}
+          value={tileSize}
+          onChange={(e) => setTileSize(Number(e.target.value))}
+          onDoubleClick={() => setTileSize(200)}
+          title={`Tile size: ${tileSize} px (double-click to reset)`}
+          aria-label="Tile size"
+        />
       </div>
 
       <select

@@ -14,6 +14,12 @@ import {
   type ReactNode,
 } from 'react'
 import { api, emptyQuery, type Item, type Query } from './api'
+import {
+  TILE_SIZE_DEFAULT,
+  TILE_SIZE_MAX,
+  TILE_SIZE_MIN,
+  type GridLayout,
+} from './layout'
 
 interface AppState {
   query: Query
@@ -29,9 +35,45 @@ interface AppState {
   setPreviewId: (id: string | null) => void
   panelOpen: boolean
   setPanelOpen: (open: boolean) => void
+  gridLayout: GridLayout
+  setGridLayout: (layout: GridLayout) => void
+  tileSize: number
+  setTileSize: (size: number) => void
 }
 
 const PANEL_KEY = 'kist.panelOpen'
+const LAYOUT_KEY = 'kist.gridLayout'
+const SIZE_KEY = 'kist.tileSize'
+
+function loadSetting(key: string): string | null {
+  try {
+    return localStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
+
+function saveSetting(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value)
+  } catch {
+    /* private mode */
+  }
+}
+
+function clampSize(n: number): number {
+  if (!Number.isFinite(n)) return TILE_SIZE_DEFAULT
+  return Math.min(TILE_SIZE_MAX, Math.max(TILE_SIZE_MIN, Math.round(n)))
+}
+
+function loadLayout(): GridLayout {
+  return loadSetting(LAYOUT_KEY) === 'square' ? 'square' : 'justified'
+}
+
+function loadTileSize(): number {
+  const raw = loadSetting(SIZE_KEY)
+  return raw === null ? TILE_SIZE_DEFAULT : clampSize(Number(raw))
+}
 
 // Every page load opens on Unfiled, the inbox of things still to organize.
 const initialQuery: Query = { ...emptyQuery, folder: 'none' }
@@ -60,6 +102,20 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     } catch {
       /* private mode */
     }
+  }, [])
+
+  const [gridLayout, setGridLayoutRaw] = useState<GridLayout>(loadLayout)
+  const [tileSize, setTileSizeRaw] = useState<number>(loadTileSize)
+
+  const setGridLayout = useCallback((layout: GridLayout) => {
+    setGridLayoutRaw(layout)
+    saveSetting(LAYOUT_KEY, layout)
+  }, [])
+
+  const setTileSize = useCallback((size: number) => {
+    const n = clampSize(size)
+    setTileSizeRaw(n)
+    saveSetting(SIZE_KEY, String(n))
   }, [])
 
   const setQuery = useCallback((patch: Partial<Query>) => {
@@ -123,8 +179,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       setPreviewId,
       panelOpen,
       setPanelOpen,
+      gridLayout,
+      setGridLayout,
+      tileSize,
+      setTileSize,
     }),
-    [query, selection, previewId, panelOpen, setPanelOpen, setQuery, resetQuery, selectOnly, toggleSelect, rangeSelect, clearSelection, selectAll],
+    [query, selection, previewId, panelOpen, setPanelOpen, gridLayout, setGridLayout, tileSize, setTileSize, setQuery, resetQuery, selectOnly, toggleSelect, rangeSelect, clearSelection, selectAll],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

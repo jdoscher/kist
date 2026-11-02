@@ -351,6 +351,25 @@ select:focus {
   border-top: 1px solid var(--border);
 }
 
+/* ---------- view controls (tile shape + size) ---------- */
+.view-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.layout-toggle {
+  width: 30px;
+  padding-left: 0;
+  padding-right: 0;
+  font-size: 15px;
+  line-height: 1;
+}
+.size-slider {
+  width: 96px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
 /* ---------- grid ---------- */
 .grid-area {
   flex: 1;

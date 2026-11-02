@@ -130,8 +130,9 @@ def make_thumbs_from(source: Path, item_dir: Path) -> tuple[int | None, int | No
     """Generate thumbnails from a raster-able source. Returns (width, height).
 
     thumb_256 / thumb_1024: longest side fits the size (previews, MCP).
-    thumb_512: SHORT side is 512 — the grid crops to square tiles, so the
-    short side is what has to cover the tile at 2x pixel density.
+    thumb_512: SHORT side is 512 — grid tiles are cover-cropped (square, or
+    the image's own shape clamped to 1:2..3:1), so the short side is what has
+    to cover the tile at 2x pixel density.
     """
     import pyvips
 

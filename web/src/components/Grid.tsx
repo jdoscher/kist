@@ -1,6 +1,7 @@
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { thumbUrl, type Item } from '../api'
+import { layoutRows, pickThumbSize } from '../layout'
 import { flattenItems, useAppState, useItems } from '../state'
 import { BulkBar } from './BulkBar'
 
@@ -19,27 +20,28 @@ function fmtDuration(s: number): string {
 
 function Tile({
   item,
-  size,
+  width,
+  height,
   selected,
   onPointerDown,
   onDoubleClick,
   onDragStart,
 }: {
   item: Item
-  size: number
+  width: number
+  height: number
   selected: boolean
   onPointerDown: (e: React.MouseEvent) => void
   onDoubleClick: () => void
   onDragStart: (e: React.DragEvent) => void
 }) {
-  // tiles are square + cover-cropped, so the thumb's short side must reach
-  // the tile's physical pixel size; thumb_512 is sized by its short side
-  const physical = (size - 8) * (window.devicePixelRatio || 1)
-  const thumb = thumbUrl(item, physical <= 512 ? 512 : 1024)
+  // tiles are cover-cropped, so pick the thumb that covers the tile at the
+  // screen's pixel density (thumb_512 is sized by its short side)
+  const thumb = thumbUrl(item, pickThumbSize(item, width, height, window.devicePixelRatio || 1))
   return (
     <div
       className={`tile ${selected ? 'selected' : ''}`}
-      style={{ width: size - 8, height: size - 8 }}
+      style={{ width, height }}
       onMouseDown={onPointerDown}
       onDoubleClick={onDoubleClick}
       draggable
@@ -64,8 +66,19 @@ function Tile({
 }
 
 export function Grid() {
-  const { query, selection, selectOnly, toggleSelect, rangeSelect, clearSelection, selectAll, previewId, setPreviewId } =
-    useAppState()
+  const {
+    query,
+    selection,
+    selectOnly,
+    toggleSelect,
+    rangeSelect,
+    clearSelection,
+    selectAll,
+    previewId,
+    setPreviewId,
+    gridLayout,
+    tileSize,
+  } = useAppState()
   const result = useItems(query)
   const items = useMemo(() => flattenItems(result.data?.pages), [result.data])
   const flatIds = useMemo(() => items.map((i) => i.id), [items])
@@ -88,21 +101,37 @@ export function Grid() {
     setWidth(el.clientWidth)
   }, [])
 
-  const cols = Math.max(2, Math.floor((width - 16) / 210))
-  const cellSize = Math.floor((width - 16) / cols)
-  const rowCount = Math.ceil(items.length / cols)
+  // .grid-scroll has 8 px side padding
+  const rows = useMemo(
+    () => layoutRows(items, width - 16, tileSize, gridLayout),
+    [items, width, tileSize, gridLayout],
+  )
+  const rowCount = rows.length
+
+  // item index -> its row and horizontal centre, for up/down arrow keys
+  const positions = useMemo(() => {
+    const pos: { row: number; center: number }[] = []
+    rows.forEach((row, r) => {
+      let x = 0
+      for (const t of row.tiles) {
+        pos[t.index] = { row: r, center: x + 4 + t.width / 2 }
+        x += t.width + 8
+      }
+    })
+    return pos
+  }, [rows])
 
   const virtualizer = useVirtualizer({
     count: rowCount,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => cellSize,
+    estimateSize: (i) => (rows[i]?.height ?? tileSize) + 8,
     overscan: 4,
   })
 
-  // re-measure when the column size changes
+  // re-measure when the row heights change (resize, slider, layout switch)
   useEffect(() => {
     virtualizer.measure()
-  }, [cellSize]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [rows]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const virtualRows = virtualizer.getVirtualItems()
 
@@ -156,8 +185,19 @@ export function Grid() {
       let next = -1
       if (e.key === 'ArrowRight') next = Math.min(idx + 1, flatIds.length - 1)
       else if (e.key === 'ArrowLeft') next = Math.max(idx - 1, 0)
-      else if (e.key === 'ArrowDown') next = Math.min(idx + cols, flatIds.length - 1)
-      else if (e.key === 'ArrowUp') next = Math.max(idx - cols, 0)
+      else if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && positions[idx]) {
+        // the tile in the next/previous row whose centre is nearest
+        const here = positions[idx]
+        const target = rows[here.row + (e.key === 'ArrowDown' ? 1 : -1)]
+        if (!target) next = idx
+        else {
+          next = target.tiles[0].index
+          for (const t of target.tiles) {
+            if (Math.abs(positions[t.index].center - here.center) < Math.abs(positions[next].center - here.center))
+              next = t.index
+          }
+        }
+      } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') next = 0
       else if (e.key === 'Enter' && focusedId.current) {
         setPreviewId(focusedId.current)
         return
@@ -169,12 +209,12 @@ export function Grid() {
         focusedId.current = flatIds[next]
         if (e.shiftKey) rangeSelect(flatIds[next], flatIds)
         else selectOnly(flatIds[next])
-        virtualizer.scrollToIndex(Math.floor(next / cols))
+        if (positions[next]) virtualizer.scrollToIndex(positions[next].row)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [flatIds, cols, previewId, rangeSelect, selectOnly, selectAll, clearSelection, setPreviewId, virtualizer])
+  }, [flatIds, rows, positions, previewId, rangeSelect, selectOnly, selectAll, clearSelection, setPreviewId, virtualizer])
 
   if (result.isLoading) return <main className="grid-area center">Loading library…</main>
   if (result.isError)
@@ -208,14 +248,14 @@ export function Grid() {
               className="grid-row"
               style={{ transform: `translateY(${row.start}px)` }}
             >
-              {Array.from({ length: cols }, (_, c) => {
-                const item = items[row.index * cols + c]
-                if (!item) return <div key={c} style={{ width: cellSize - 8 }} />
+              {rows[row.index]?.tiles.map((t) => {
+                const item = items[t.index]
                 return (
                   <Tile
                     key={item.id}
                     item={item}
-                    size={cellSize}
+                    width={t.width}
+                    height={rows[row.index].height}
                     selected={selection.has(item.id)}
                     onPointerDown={(e) => handlePointerDown(item, e)}
                     onDoubleClick={() => setPreviewId(item.id)}
