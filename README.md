@@ -45,6 +45,13 @@ Open `http://<host>:8080`, paste your token, and drop files in.
 | `KIST_LIBRARY` | `./library` | Host path of the asset library |
 | `KIST_DB_PASSWORD` | `kist` | Postgres password (internal to the compose network) |
 | `KIST_USER_AGENT` | `kist/<version> (self-hosted asset manager)` | User-Agent for URL downloads; some sites (e.g. Wikimedia) require contact info in it |
+| `KIST_URL_ALLOW_PRIVATE` | `false` | Let "add from URL" fetch private/LAN/loopback addresses. Off by default so a web page can't point Kist at devices on your network |
+| `KIST_URL_ALLOW_HOSTS` | — | Comma list of host names or CIDR ranges allowed anyway, e.g. `nas.lan,192.168.1.0/24` |
+| `KIST_DOWNLOAD_TIMEOUT_SECONDS` | `120` | Overall time limit for one URL download |
+| `KIST_PREVIEW_TIMEOUT_SECONDS` | `300` | Time limit for generating one item's previews |
+| `KIST_HSTS_SECONDS` | `15552000` | `Strict-Transport-Security` max-age (180 days); `0` turns it off |
+| `KIST_UID` / `KIST_GID` | `1000` | User the containers run as; the library folder must be owned by it |
+| `KIST_MEM_LIMIT` | `4g` | Memory cap for each of the app and worker containers |
 
 Kist speaks plain HTTP. To reach it from outside your LAN, put it behind a
 TLS-terminating reverse proxy (Caddy, nginx, Traefik). Over HTTPS the
@@ -142,8 +149,7 @@ action in the web UI.
 
 ## REST API
 
-Every route except `/api/health` needs `Authorization: Bearer $KIST_TOKEN`
-(`?token=` also works, for curl).
+Every route except `/api/health` needs `Authorization: Bearer $KIST_TOKEN`.
 
 ```
 POST   /api/items                multipart upload, or JSON {"url": …}. Both accept

@@ -4,6 +4,39 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Security
+- **Add from URL no longer reaches your private network.** Private, loopback,
+  link-local, CGNAT, multicast and unique-local addresses are refused,
+  including through redirects and a page's preview image. Kist connects to
+  the exact address it checked, so a DNS answer can't change between check
+  and connect. Allow trusted LAN sources with `KIST_URL_ALLOW_HOSTS` (host
+  names or CIDR ranges) or all of them with `KIST_URL_ALLOW_PRIVATE=true`.
+- URL adds keep only images, videos and PDFs, have an overall time limit
+  (`KIST_DOWNLOAD_TIMEOUT_SECONDS`, default 120), and report network errors
+  without detail so they can't be used to map a network.
+- Uploads and URL adds no longer block the server: their work runs off the
+  event loop, so a slow download or a heavy file can't stall the UI, the API
+  or MCP.
+- Previews are generated in a child process with a time limit
+  (`KIST_PREVIEW_TIMEOUT_SECONDS`, default 300). PDF posters render at most
+  2048 px on the long side: a 553-byte PDF declaring a huge page used 4.2 GB
+  of memory before, about 90 MB now. ffmpeg reads only local files, in the
+  container format the extension names.
+- The containers run as an unprivileged user (uid 1000) with a read-only
+  root filesystem, no Linux capabilities, no privilege escalation, and memory
+  and process limits (`KIST_MEM_LIMIT`, default 4g). **Upgrading:** the
+  library folder must be owned by uid 1000 (or set `KIST_UID`/`KIST_GID` to
+  its owner).
+- The `?token=` query parameter is no longer accepted: query strings land in
+  access logs. Use the `Authorization: Bearer` header.
+- Every response carries a strict Content-Security-Policy, X-Frame-Options,
+  Referrer-Policy, Cross-Origin-Opener-Policy, Permissions-Policy and HSTS
+  (`KIST_HSTS_SECONDS`, default 180 days; browsers ignore it over plain HTTP).
+- Originals opened on their own are sandboxed documents, except PDFs, which
+  Chromium-based browsers won't render sandboxed.
+
 ## [1.1.0] - 2026-11-02
 
 ### Added

@@ -26,12 +26,26 @@ class Probe:
         self.duration_s: float | None = None
 
 
+# Read video files as the container their extension names, and only from
+# local files: without this ffmpeg picks a demuxer by sniffing the content,
+# so a playlist saved as .mp4 could make it open other files or URLs.
+VIDEO_FORMATS = {"mp4": "mov", "m4v": "mov", "mov": "mov", "webm": "matroska"}
+
+
+def ffmpeg_input_args(path: Path) -> list[str]:
+    args = ["-protocol_whitelist", "file"]
+    fmt = VIDEO_FORMATS.get(path.suffix.lstrip(".").lower())
+    if fmt:
+        args += ["-f", fmt]
+    return args + ["-i", str(path)]
+
+
 def probe_video(path: Path) -> Probe:
     p = Probe()
     out = subprocess.run(
         [
             "ffprobe", "-v", "error", "-print_format", "json",
-            "-show_streams", "-show_format", str(path),
+            "-show_streams", "-show_format", *ffmpeg_input_args(path),
         ],
         capture_output=True, text=True, timeout=60,
     )
@@ -52,12 +66,25 @@ def probe_video(path: Path) -> Probe:
 def video_poster(path: Path, out_png: Path, duration_s: float | None) -> None:
     seek = min(1.0, (duration_s or 0) * 0.25) if duration_s else 0
     cmd = [
-        "ffmpeg", "-y", "-v", "error", "-ss", str(seek), "-i", str(path),
-        "-frames:v", "1", str(out_png),
+        "ffmpeg", "-nostdin", "-y", "-v", "error", "-ss", str(seek),
+        *ffmpeg_input_args(path), "-frames:v", "1", str(out_png),
     ]
     out = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
     if out.returncode != 0 or not out_png.exists():
         raise RuntimeError(f"ffmpeg poster failed: {out.stderr[:500]}")
+
+
+PDF_MAX_RENDER_PX = 2048
+
+
+def pdf_render_scale(width_pt: float, height_pt: float) -> float:
+    """2x for normal pages, less for big ones so the poster's long side never
+    exceeds PDF_MAX_RENDER_PX. A tiny PDF can declare a 200 x 200 inch page;
+    rendered at 2x that's a 28,800 px square and gigabytes of memory."""
+    longest = max(width_pt, height_pt)
+    if not longest > 0:
+        raise RuntimeError("PDF page has no size")
+    return min(2.0, PDF_MAX_RENDER_PX / longest)
 
 
 def pdf_poster(path: Path, out_png: Path) -> None:
@@ -66,7 +93,7 @@ def pdf_poster(path: Path, out_png: Path) -> None:
     pdf = pdfium.PdfDocument(str(path))
     try:
         page = pdf[0]
-        bitmap = page.render(scale=2.0)
+        bitmap = page.render(scale=pdf_render_scale(*page.get_size()))
         bitmap.to_pil().save(out_png)
     finally:
         pdf.close()
@@ -219,6 +246,52 @@ def generate_previews(original: Path, item_dir: Path, mime: str, ext: str) -> Pr
         return probe  # no preview for 'other'
 
     return probe
+
+
+PREVIEW_FILES = ("thumb_256.webp", "thumb_512.webp", "thumb_1024.webp", "display.webp")
+
+
+def generate_previews_isolated(
+    original: Path, item_dir: Path, mime: str, ext: str, *, cleanup: bool = True
+) -> Probe:
+    """generate_previews() in a child process with a time limit.
+
+    The decoders (libvips, pdfium, ffmpeg, libheif) handle files from anywhere.
+    In a child, a crash, a hang or a memory blow-up costs that one preview
+    instead of the API or worker process. Raises on failure; with cleanup,
+    leftovers from a failed attempt are removed so a new item never has half
+    its previews (regen passes cleanup=False to keep an item's old previews).
+    """
+    from ..config import get_settings
+
+    try:
+        out = subprocess.run(
+            [sys.executable, "-m", "kist.services.preview_child",
+             str(original), str(item_dir), mime, ext],
+            capture_output=True, text=True,
+            timeout=get_settings().preview_timeout_seconds,
+        )
+    except subprocess.TimeoutExpired:
+        if cleanup:
+            _remove_previews(item_dir)
+        raise RuntimeError("preview generation timed out") from None
+    if out.returncode != 0:
+        if cleanup:
+            _remove_previews(item_dir)
+        raise RuntimeError(
+            f"preview generation failed (exit {out.returncode}): {out.stderr[-800:]}"
+        )
+    data = json.loads(out.stdout.strip().splitlines()[-1])
+    probe = Probe()
+    probe.width, probe.height, probe.duration_s = (
+        data.get("width"), data.get("height"), data.get("duration_s"),
+    )
+    return probe
+
+
+def _remove_previews(item_dir: Path) -> None:
+    for name in PREVIEW_FILES:
+        (item_dir / name).unlink(missing_ok=True)
 
 
 def enrich(item_dir: Path) -> tuple[int | None, list[dict] | None]:

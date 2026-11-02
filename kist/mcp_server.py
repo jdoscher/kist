@@ -126,9 +126,15 @@ def add_item(
         raise ValueError("provide exactly one of url or file_path")
     with SessionLocal() as session:
         if url:
-            result = ingest.ingest_url(
-                session, url, folder_id=folder_id, tag_names=tags, notes=notes
-            )
+            try:
+                result = ingest.ingest_url(
+                    session, url, folder_id=folder_id, tag_names=tags, notes=notes
+                )
+            except Exception as exc:
+                described = ingest.describe_download_error(exc)
+                if described is None:
+                    raise
+                raise ValueError(described[1]) from None
         else:
             settings = get_settings()
             path = Path(file_path).resolve()  # type: ignore[arg-type]

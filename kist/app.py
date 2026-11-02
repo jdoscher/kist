@@ -9,6 +9,7 @@ from . import __version__
 from .api import api_router
 from .auth import BearerTokenMiddleware
 from .config import get_settings
+from .headers import SecurityHeadersMiddleware
 from .mcp_server import mcp, mcp_http_app
 
 WEB_DIST = Path(__file__).resolve().parent.parent / "web" / "dist"
@@ -56,6 +57,7 @@ app.include_router(api_router, prefix="/api")
 app.mount("/mcp", mcp_http_app)
 app.add_middleware(BearerTokenMiddleware)
 app.add_middleware(McpPathRewrite)
+app.add_middleware(SecurityHeadersMiddleware)  # outermost: 401s get headers too
 
 if WEB_DIST.is_dir():
     app.mount("/assets", StaticFiles(directory=WEB_DIST / "assets"), name="assets")

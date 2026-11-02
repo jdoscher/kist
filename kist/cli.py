@@ -208,7 +208,9 @@ def regen_previews(do_all: bool) -> int:
                 failed += 1
                 continue
             try:
-                probe = thumbs.generate_previews(original, item_dir, item.mime, item.ext)
+                probe = thumbs.generate_previews_isolated(
+                    original, item_dir, item.mime, item.ext, cleanup=False
+                )
                 phash, colors = thumbs.enrich(item_dir)
                 if probe.width is not None:
                     item.width, item.height = probe.width, probe.height

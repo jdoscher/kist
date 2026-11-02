@@ -13,6 +13,18 @@ class Settings(BaseSettings):
     inbox_poll_seconds: float = 5.0
     worker_poll_seconds: float = 2.0
     max_download_mb: int = 512
+    # "add from URL" refuses private/LAN/loopback addresses unless allowed:
+    # url_allow_private=true allows them all; url_allow_hosts is a comma list
+    # of host names and/or CIDR ranges allowed anyway (e.g. "nas.lan,10.0.5.0/24")
+    url_allow_private: bool = False
+    url_allow_hosts: str = ""
+    # overall limit for one URL download (each read also times out after 30 s)
+    download_timeout_seconds: int = 120
+    # preview generation runs in a child process; it is killed after this long
+    preview_timeout_seconds: int = 300
+    # Strict-Transport-Security max-age; browsers only honour it over HTTPS.
+    # 0 turns it off (e.g. when Kist is served over plain HTTP on purpose)
+    hsts_seconds: int = 15552000
     # sent when downloading URLs; some sites (Wikimedia) require contact info
     user_agent: str = ""
     thumb_sizes: tuple[int, int] = (256, 1024)

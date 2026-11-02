@@ -11,18 +11,34 @@ accounts or per-user permissions.
 - **Use TLS beyond your LAN.** Kist serves plain HTTP. Put it behind a
   reverse proxy that terminates TLS before exposing it to the internet.
 - **Token transport.** The token is accepted as an `Authorization: Bearer`
-  header, a `?token=` query parameter (convenient for curl, but query strings
-  can end up in proxy logs), or the `kist_token` cookie the web UI sets. The
-  cookie only authorizes GET/HEAD requests, so another site can't make
-  state-changing requests that ride on it.
-- **Untrusted files.** Originals are served with `X-Content-Type-Options:
-  nosniff`. SVGs are served under a sandboxing Content-Security-Policy, and
-  anything that isn't an image, video, or PDF is served as a download, so a
-  stored file can't run script in Kist's origin.
-- **Server-side downloads.** "Add from URL" makes the server fetch the URL
-  you give it, which can include addresses on your internal network. Only
-  token holders can do this, but keep it in mind if you share your token
-  with an agent.
+  header or the `kist_token` cookie the web UI sets. The cookie only
+  authorizes GET/HEAD requests, so another site can't make state-changing
+  requests that ride on it. There is no `?token=` form, because query strings
+  end up in access logs.
+- **Browser hardening.** Every response carries a strict
+  Content-Security-Policy (scripts only from Kist itself), `nosniff`,
+  same-origin framing, a same-origin Referrer-Policy and HSTS
+  (`KIST_HSTS_SECONDS`, on by default; browsers ignore it over plain HTTP).
+- **Untrusted files.** Originals are served with `nosniff`. Opened on their
+  own, originals are sandboxed documents (`Content-Security-Policy: sandbox`),
+  and anything that isn't an image, video or PDF downloads instead of
+  opening, so a stored file can't run script in Kist's origin. PDFs are the
+  exception: Chromium-based browsers won't render a PDF in a sandboxed
+  document. Their built-in viewers run PDF script isolated from the page's
+  origin.
+- **Decoders.** Previews are generated in a child process with a time limit,
+  so a malformed file can crash or hang only its own preview. PDF posters are
+  rendered at a capped size, and ffmpeg only reads local files in the
+  container format the file's extension names. The containers run as an
+  unprivileged user with a read-only root filesystem, no Linux capabilities,
+  no privilege escalation, and memory and process limits.
+- **Server-side downloads.** "Add from URL" refuses private, loopback,
+  link-local, CGNAT, multicast and unique-local addresses, including through
+  redirects or a page's preview image, and connects to the exact address it
+  checked. Allow trusted LAN sources with `KIST_URL_ALLOW_HOSTS` (or all of
+  them with `KIST_URL_ALLOW_PRIVATE=true`). URL adds keep only images, videos
+  and PDFs, downloads have an overall time limit, and network errors are
+  reported without detail so they can't be used to map your network.
 - **Agents.** The MCP tools can't permanently delete anything, and
   `add_item(file_path=…)` can only read from `library/import/` and
   `library/inbox/`.

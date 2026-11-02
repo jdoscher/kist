@@ -6,6 +6,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import UploadFile
 
 from ..config import get_settings
@@ -91,7 +92,10 @@ async def create_item(
             with staging.open("wb") as out:
                 while chunk := await file.read(1024 * 1024):
                     out.write(chunk)
-            result = ingest.ingest_file(
+            # hashing, ffmpeg/libvips/pdfium work: keep it off the event loop
+            # so one slow item can't stall every other request
+            result = await run_in_threadpool(
+                ingest.ingest_file,
                 session, staging,
                 ingest.sanitize_filename(
                     str(form.get("filename") or "") or file.filename or "upload"
@@ -116,20 +120,21 @@ async def create_item(
                 422, "provide a multipart 'file' or a JSON body with 'url'"
             ) from None
         try:
-            result = ingest.ingest_url(
-                session, body.url,
-                folder_id=body.folder_id, folder_ids=body.folder_ids,
-                tag_names=body.tags, notes=body.notes,
-                source_url=body.source_url, rating=body.rating,
-                created_at=body.created_at, modified_at=body.modified_at,
-                deleted_at=body.deleted_at,
+            result = await run_in_threadpool(
+                lambda: ingest.ingest_url(
+                    session, body.url,
+                    folder_id=body.folder_id, folder_ids=body.folder_ids,
+                    tag_names=body.tags, notes=body.notes,
+                    source_url=body.source_url, rating=body.rating,
+                    created_at=body.created_at, modified_at=body.modified_at,
+                    deleted_at=body.deleted_at,
+                )
             )
-        except ingest.NotMediaError as exc:
-            raise HTTPException(422, str(exc)) from exc
-        except ValueError as exc:
-            raise HTTPException(413, str(exc)) from exc
-        except httpx.HTTPError as exc:
-            raise HTTPException(502, f"download failed: {exc}") from exc
+        except (ValueError, httpx.HTTPError) as exc:
+            described = ingest.describe_download_error(exc)
+            if described is None:
+                raise
+            raise HTTPException(described[0], described[1]) from exc
 
     return ItemCreateResponse(item=ItemOut.from_item(result.item), created=result.created)
 
@@ -236,6 +241,17 @@ def get_file(item_id: str, session: Annotated[Session, Depends(get_session)]):
         headers["Content-Security-Policy"] = (
             "default-src 'none'; img-src data:; style-src 'unsafe-inline'; sandbox"
         )
+    elif kind == "pdf":
+        # Chromium-based browsers refuse to render a PDF in a sandboxed
+        # document, which would break the preview and "open original". The
+        # browsers' PDF viewers already run PDF script isolated from this
+        # origin. Only framing is restricted (the preview frames it itself);
+        # a stricter policy can block the viewer's own embed.
+        headers["Content-Security-Policy"] = "frame-ancestors 'self'"
+    else:
+        # opened on its own, an original is a sandboxed document: it can never
+        # run script with this origin's storage (where the token lives)
+        headers["Content-Security-Policy"] = "sandbox"
     return FileResponse(
         path,
         media_type=item.mime,

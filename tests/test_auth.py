@@ -14,7 +14,8 @@ def test_api_requires_token(client):
     anon = bare(client)
     assert anon.get("/api/items").status_code == 401
     assert anon.get("/api/items", headers={"Authorization": "Bearer nope"}).status_code == 401
-    assert anon.get(f"/api/items?token={TOKEN}").status_code == 200
+    assert anon.get(f"/api/items?token={TOKEN}").status_code == 401  # never logged-URL tokens
+    assert anon.get("/api/items", headers={"Authorization": f"Bearer {TOKEN}"}).status_code == 200
 
 
 def test_cookie_only_authenticates_reads(client):

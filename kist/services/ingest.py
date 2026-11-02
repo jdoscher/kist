@@ -26,8 +26,8 @@ from ..filetypes import MIME_TO_EXT
 from ..ids import new_ulid
 from ..models import Item, Job
 from . import meta as meta_svc
+from . import netguard, thumbs
 from . import tags as tags_svc
-from . import thumbs
 
 
 def items_folders_resolve(session: Session, folder_ids: list[str]):
@@ -113,7 +113,7 @@ def ingest_file(
 
         probe = thumbs.Probe()
         try:
-            probe = thumbs.generate_previews(original, item_dir, mime, ext)
+            probe = thumbs.generate_previews_isolated(original, item_dir, mime, ext)
         except Exception:
             log.exception("preview generation failed for %s (%s)", filename, mime)
         phash, colors = thumbs.enrich(item_dir)
@@ -214,6 +214,16 @@ def ingest_url(
             staging.unlink(missing_ok=True)
             raise NotMediaError("the page's preview image could not be downloaded")
 
+    # URL adds keep only media: anything else (JSON, HTML, archives…) is more
+    # likely an internal page or an error body than something worth keeping
+    mime = sniff_mime(staging)
+    if not is_media_mime(mime):
+        staging.unlink(missing_ok=True)
+        raise NotMediaError(
+            f"that URL isn't an image, video or PDF ({mime}); "
+            "download it and upload the file instead"
+        )
+
     return ingest_file(
         session, staging, filename,
         folder_id=folder_id, folder_ids=folder_ids, tag_names=tag_names,
@@ -226,37 +236,71 @@ class NotMediaError(ValueError):
     pass
 
 
+def describe_download_error(exc: Exception) -> tuple[int, str] | None:
+    """(HTTP status, user-facing message) for a failed URL add, or None if
+    exc isn't a download failure. Network errors are deliberately vague:
+    detailed ones ("connection refused" vs "timed out") map the network."""
+    if isinstance(exc, netguard.BlockedURLError):
+        return 422, str(exc)
+    if isinstance(exc, NotMediaError):
+        return 422, str(exc)
+    if isinstance(exc, netguard.DownloadTimeout):
+        return 504, str(exc)
+    if isinstance(exc, httpx.HTTPStatusError):
+        return 502, f"download failed: the server answered {exc.response.status_code}"
+    if isinstance(exc, httpx.HTTPError):
+        return 502, "download failed: could not fetch that URL"
+    if isinstance(exc, ValueError):  # size cap
+        return 413, str(exc)
+    return None
+
+
+def is_media_mime(mime: str) -> bool:
+    return mime.startswith(("image/", "video/")) or mime == "application/pdf"
+
+
 DEFAULT_USER_AGENT = f"kist/{__version__} (self-hosted asset manager)"
 
 
-def _download(url: str) -> tuple[Path, str, str]:
-    """Stream url into staging. Returns (path, filename, bare content type)."""
+def _download(url: str, *, transport=None) -> tuple[Path, str, str]:
+    """Stream url into staging through the network guard.
+
+    Returns (path, filename, bare content type). Raises netguard.BlockedURLError
+    for private/local targets, netguard.DownloadTimeout past the deadline,
+    ValueError past the size cap, and httpx errors for network failures.
+    """
     settings = get_settings()
     settings.staging_dir.mkdir(parents=True, exist_ok=True)
     staging = settings.staging_dir / f"dl-{new_ulid()}"
     max_bytes = settings.max_download_mb * 1024 * 1024
+    headers = {
+        "User-Agent": settings.user_agent or DEFAULT_USER_AGENT,
+        "Accept": "image/avif,image/webp,image/*,video/*,*/*;q=0.8",
+    }
 
-    with httpx.stream(
-        "GET", url, follow_redirects=True, timeout=60,
-        headers={
-            "User-Agent": settings.user_agent or DEFAULT_USER_AGENT,
-            "Accept": "image/avif,image/webp,image/*,video/*,*/*;q=0.8",
-        },
-    ) as resp:
-        resp.raise_for_status()
-        filename = filename_from_url(str(resp.url), resp)
-        content_type = resp.headers.get("content-type", "").split(";")[0].strip().lower()
-        received = 0
-        with staging.open("wb") as f:
-            for chunk in resp.iter_bytes(1024 * 256):
-                received += len(chunk)
-                if received > max_bytes:
-                    f.close()
-                    staging.unlink(missing_ok=True)
-                    raise ValueError(
-                        f"download exceeds max size ({settings.max_download_mb} MB)"
-                    )
-                f.write(chunk)
+    try:
+        with netguard.guarded_get(url, headers, transport=transport) as (
+            resp, final_url, deadline
+        ):
+            filename = filename_from_url(final_url, resp)
+            content_type = resp.headers.get("content-type", "").split(";")[0].strip().lower()
+            received = 0
+            with staging.open("wb") as f:
+                for chunk in resp.iter_bytes(1024 * 256):
+                    received += len(chunk)
+                    if received > max_bytes:
+                        raise ValueError(
+                            f"download exceeds max size ({settings.max_download_mb} MB)"
+                        )
+                    if time.monotonic() > deadline:
+                        raise netguard.DownloadTimeout(
+                            "download took longer than "
+                            f"{settings.download_timeout_seconds} s"
+                        )
+                    f.write(chunk)
+    except BaseException:
+        staging.unlink(missing_ok=True)
+        raise
     return staging, filename, content_type
 
 
