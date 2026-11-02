@@ -4,7 +4,7 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.0.3] - 2026-11-02
 
 ### Changed
 - A folder now shows everything in its subfolders too, at any depth: clicking
