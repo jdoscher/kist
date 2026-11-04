@@ -14,6 +14,7 @@ import {
   type ReactNode,
 } from 'react'
 import { api, emptyQuery, type Item, type Query } from './api'
+import { mergeQuery, unfiledQuery } from './query'
 import {
   TILE_SIZE_DEFAULT,
   TILE_SIZE_MAX,
@@ -75,8 +76,7 @@ function loadTileSize(): number {
   return raw === null ? TILE_SIZE_DEFAULT : clampSize(Number(raw))
 }
 
-// Every page load opens on Unfiled, the inbox of things still to organize.
-const initialQuery: Query = { ...emptyQuery, folder: 'none' }
+const initialQuery: Query = { ...emptyQuery, ...unfiledQuery }
 
 function loadPanelOpen(): boolean {
   try {
@@ -119,7 +119,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const setQuery = useCallback((patch: Partial<Query>) => {
-    setQueryRaw((prev) => ({ ...prev, ...patch }))
+    setQueryRaw((prev) => mergeQuery(prev, patch))
     setSelection(new Set())
     setPreviewId(null)
   }, [])

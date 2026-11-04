@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- **Unfiled** is now the inbox of items with no folder *and* no tags, so
+  tagging an item or putting it in a folder takes it out. The app still
+  opens there. Clicking Unfiled clears other filters (keeping the sort), and
+  leaving it (a folder, a tag, Trash) drops its "untagged" condition.
+  `GET /api/items?folder=none` is unchanged (no folder, tags or not).
+
 ## [1.2.0] - 2026-11-03
 
 ### Security

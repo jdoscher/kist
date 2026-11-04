@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { TILE_SIZE_MAX, TILE_SIZE_MIN } from '../layout'
+import { isUnfiledView } from '../query'
 import { useAppState, useTags } from '../state'
 import { PasteButton } from './PasteButton'
 import { useUploads } from './UploadManager'
@@ -31,7 +32,7 @@ export function TopBar() {
   const hasChips =
     query.tags.length > 0 ||
     query.tags_any.length > 0 ||
-    query.untagged ||
+    (query.untagged && !isUnfiledView(query)) ||
     !!query.created_after ||
     !!query.created_before
 
@@ -108,7 +109,7 @@ export function TopBar() {
             <button title="Clear" onClick={() => setQuery({ tags_any: [] })}>×</button>
           </span>
         )}
-        {query.untagged && (
+        {query.untagged && !isUnfiledView(query) && (
           <span className="chip">
             untagged
             <button title="Clear" onClick={() => setQuery({ untagged: false })}>×</button>

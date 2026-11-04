@@ -11,6 +11,7 @@ import {
   useTags,
   flattenItems,
 } from '../state'
+import { isUnfiledView, unfiledQuery } from '../query'
 
 interface TreeNode extends Folder {
   children: TreeNode[]
@@ -188,8 +189,9 @@ export function Sidebar() {
           <span className="count">{stats?.total_items ?? ''}</span>
         </div>
         <div
-          className={`row ${query.folder === 'none' && !query.deleted ? 'active' : ''}`}
-          onClick={() => setQuery({ folder: 'none', deleted: false })}
+          className={`row ${isUnfiledView(query) ? 'active' : ''}`}
+          onClick={() => setQuery({ ...emptyQuery, ...unfiledQuery, order: query.order })}
+          title="Items in no folder and with no tags: your inbox"
         >
           <span className="icon">◇</span>
           <span className="name">Unfiled</span>
