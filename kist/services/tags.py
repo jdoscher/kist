@@ -36,3 +36,16 @@ def list_with_counts(session: Session) -> list[dict]:
         .order_by(sa.text("count DESC"), Tag.name)
     ).all()
     return [{"id": r.id, "name": r.name, "count": r.count} for r in rows]
+
+
+def prune_unused(session: Session) -> list[str]:
+    """Delete tags that no item uses, trashed items included (so a restore keeps
+    its tags). Returns the deleted names, sorted."""
+    used = sa.select(ItemTag.tag_id)
+    names = session.execute(
+        sa.select(Tag.name).where(Tag.id.not_in(used)).order_by(Tag.name)
+    ).scalars().all()
+    if names:
+        session.execute(sa.delete(Tag).where(Tag.id.not_in(used)))
+        session.commit()
+    return list(names)

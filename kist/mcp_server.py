@@ -277,6 +277,17 @@ def list_tags() -> list[dict[str, Any]]:
 
 @mcp.tool(
     description=(
+        "Delete every tag that no item uses (tags on trashed items are kept). "
+        "Returns the deleted tag names."
+    )
+)
+def prune_unused_tags() -> dict[str, Any]:
+    with SessionLocal() as session:
+        return {"deleted": tags_svc.prune_unused(session)}
+
+
+@mcp.tool(
+    description=(
         "Find visually similar items by perceptual-hash distance "
         "(0 = identical-looking, 6 is a good default threshold)."
     )

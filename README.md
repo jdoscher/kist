@@ -170,6 +170,7 @@ PUT    /api/items/{id}/folders   {"folder_ids": [...]}
 GET    /api/items/{id}/file      the original
 GET    /api/items/{id}/thumb     ?size=256|512|1024
 GET    /api/tags                 with counts
+DELETE /api/tags/unused          delete tags no item uses (trashed items count)
 GET/POST/PATCH/DELETE /api/folders
 GET/POST/PATCH/DELETE /api/smart-folders
 GET    /api/duplicates           ?threshold=6 (perceptual-hash distance)

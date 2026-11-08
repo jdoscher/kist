@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **Remove unused tags.** `DELETE /api/tags/unused` (and the MCP tool
+  `prune_unused_tags`) deletes every tag that no item uses and returns the
+  names. Tags on trashed items are kept, so restoring an item keeps its tags.
+
 ## [1.3.0] - 2026-11-08
 
 ### Added
