@@ -21,6 +21,7 @@ import {
   TILE_SIZE_MIN,
   type GridLayout,
 } from './layout'
+import type { MobileCols } from './mobile'
 
 interface AppState {
   query: Query
@@ -40,11 +41,17 @@ interface AppState {
   setGridLayout: (layout: GridLayout) => void
   tileSize: number
   setTileSize: (size: number) => void
+  /** phone layout: the folder drawer and the grid's column count */
+  drawerOpen: boolean
+  setDrawerOpen: (open: boolean) => void
+  mobileCols: MobileCols
+  setMobileCols: (cols: MobileCols) => void
 }
 
 const PANEL_KEY = 'kist.panelOpen'
 const LAYOUT_KEY = 'kist.gridLayout'
 const SIZE_KEY = 'kist.tileSize'
+const COLS_KEY = 'kist.mobileCols'
 
 function loadSetting(key: string): string | null {
   try {
@@ -106,6 +113,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const [gridLayout, setGridLayoutRaw] = useState<GridLayout>(loadLayout)
   const [tileSize, setTileSizeRaw] = useState<number>(loadTileSize)
+
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [mobileCols, setMobileColsRaw] = useState<MobileCols>(() =>
+    loadSetting(COLS_KEY) === '2' ? 2 : 3,
+  )
+  const setMobileCols = useCallback((cols: MobileCols) => {
+    setMobileColsRaw(cols)
+    saveSetting(COLS_KEY, String(cols))
+  }, [])
 
   const setGridLayout = useCallback((layout: GridLayout) => {
     setGridLayoutRaw(layout)
@@ -183,8 +199,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       setGridLayout,
       tileSize,
       setTileSize,
+      drawerOpen,
+      setDrawerOpen,
+      mobileCols,
+      setMobileCols,
     }),
-    [query, selection, previewId, panelOpen, setPanelOpen, gridLayout, setGridLayout, tileSize, setTileSize, setQuery, resetQuery, selectOnly, toggleSelect, rangeSelect, clearSelection, selectAll],
+    [query, selection, previewId, panelOpen, setPanelOpen, gridLayout, setGridLayout, tileSize, setTileSize, drawerOpen, mobileCols, setMobileCols, setQuery, resetQuery, selectOnly, toggleSelect, rangeSelect, clearSelection, selectAll],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

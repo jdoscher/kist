@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { TILE_SIZE_MAX, TILE_SIZE_MIN } from '../layout'
 import { isUnfiledView } from '../query'
 import { useAppState, useTags } from '../state'
+import type { MobileCols } from '../mobile'
 import { PasteButton } from './PasteButton'
 import { useUploads } from './UploadManager'
 
@@ -15,9 +16,20 @@ const ORDERS: [string, string][] = [
   ['-modified', 'Recently edited'],
 ]
 
-export function TopBar() {
-  const { query, setQuery, panelOpen, setPanelOpen, gridLayout, setGridLayout, tileSize, setTileSize } =
-    useAppState()
+export function TopBar({ mobile = false }: { mobile?: boolean }) {
+  const {
+    query,
+    setQuery,
+    panelOpen,
+    setPanelOpen,
+    gridLayout,
+    setGridLayout,
+    tileSize,
+    setTileSize,
+    setDrawerOpen,
+    mobileCols,
+    setMobileCols,
+  } = useAppState()
   const { data: tags } = useTags()
   const uploads = useUploads()
   const [text, setText] = useState(query.q)
@@ -91,6 +103,11 @@ export function TopBar() {
 
   return (
     <header className="topbar">
+      {mobile && (
+        <button className="menu-btn" onClick={() => setDrawerOpen(true)} aria-label="Folders and tags">
+          ☰
+        </button>
+      )}
       <div className="brand" title="Kist">
         <img src="/favicon.svg?v=3" alt="" className="brand-icon" />
         Kist
@@ -153,6 +170,8 @@ export function TopBar() {
         )}
       </div>
 
+      {mobile && <div className="topbar-break" />}
+
       <div className="view-controls">
         <button
           className="layout-toggle"
@@ -166,6 +185,21 @@ export function TopBar() {
         >
           {gridLayout === 'justified' ? '▭' : '▢'}
         </button>
+        {mobile ? (
+          <div className="cols-toggle" role="group" aria-label="Columns" title="Columns">
+            {([2, 3] as MobileCols[]).map((c) => (
+              <button
+                key={c}
+                className={mobileCols === c ? 'on' : ''}
+                aria-pressed={mobileCols === c}
+                onClick={() => setMobileCols(c)}
+                aria-label={`${c} columns`}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+        ) : (
         <input
           type="range"
           className="size-slider"
@@ -178,6 +212,7 @@ export function TopBar() {
           title={`Tile size: ${tileSize} px (double-click to reset)`}
           aria-label="Tile size"
         />
+        )}
       </div>
 
       <select
@@ -185,7 +220,7 @@ export function TopBar() {
         onChange={(e) => setQuery({ type: e.target.value || null })}
         title="Type"
       >
-        <option value="">All types</option>
+        <option value="">{mobile ? 'Type' : 'All types'}</option>
         {TYPES.map((t) => (
           <option key={t} value={t}>
             {t}
@@ -198,7 +233,7 @@ export function TopBar() {
         onChange={(e) => setQuery({ rating: Number(e.target.value) })}
         title="Minimum rating"
       >
-        <option value={0}>Any rating</option>
+        <option value={0}>{mobile ? 'Rating' : 'Any rating'}</option>
         {[1, 2, 3, 4, 5].map((r) => (
           <option key={r} value={r}>
             {'★'.repeat(r)}+
@@ -209,11 +244,13 @@ export function TopBar() {
       <select value={query.order} onChange={(e) => setQuery({ order: e.target.value })} title="Sort">
         {ORDERS.map(([v, label]) => (
           <option key={v} value={v}>
-            {label}
+            {mobile && v === '-modified' ? 'Edited' : label}
           </option>
         ))}
       </select>
 
+      {!mobile && (
+        <>
       <PasteButton />
       <button className="primary" onClick={() => fileRef.current?.click()}>
         Upload
@@ -236,6 +273,8 @@ export function TopBar() {
       >
         Info
       </button>
+        </>
+      )}
     </header>
   )
 }

@@ -4,6 +4,19 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **Phone layout.** On narrow screens (and phones held sideways) the grid
+  fills the screen. Folders, smart folders and tags slide in from a ☰
+  button and close when you pick one. Tapping an item opens a read-only
+  sheet (tags, folders, notes, details); tap a tag or folder there to
+  filter by it. The full-screen preview swipes left/right between items and
+  down to close. A 2 / 3 column switch replaces the size slider; inputs use
+  16 px text so iPhone Safari doesn't zoom, and the layout respects the
+  notch and home bar. Editing stays on desktop for now. The desktop layout
+  is unchanged.
+
 ## [1.2.1] - 2026-11-03
 
 ### Changed

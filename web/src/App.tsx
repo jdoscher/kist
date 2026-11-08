@@ -1,12 +1,13 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useState } from 'react'
 import { api, getToken, setToken, setUnauthorizedHandler } from './api'
-import { DetailPanel } from './components/DetailPanel'
+import { DetailPanel, DetailSheet } from './components/DetailPanel'
 import { Grid } from './components/Grid'
 import { Preview } from './components/Preview'
-import { Sidebar } from './components/Sidebar'
+import { Drawer, Sidebar } from './components/Sidebar'
 import { TopBar } from './components/TopBar'
 import { UploadManager } from './components/UploadManager'
+import { useIsMobile } from './mobile'
 import { AppStateProvider } from './state'
 
 function TokenGate({ onDone }: { onDone: () => void }) {
@@ -48,6 +49,7 @@ function TokenGate({ onDone }: { onDone: () => void }) {
 export default function App() {
   const [authed, setAuthed] = useState<boolean | null>(null)
   const qc = useQueryClient()
+  const mobile = useIsMobile()
 
   const recheck = useCallback(() => {
     setAuthed(true)
@@ -74,12 +76,12 @@ export default function App() {
   return (
     <AppStateProvider>
       <UploadManager>
-        <div className="app-shell">
-          <TopBar />
+        <div className={`app-shell${mobile ? ' mobile' : ''}`}>
+          <TopBar mobile={mobile} />
           <div className="app-body">
-            <Sidebar />
-            <Grid />
-            <DetailPanel />
+            {mobile ? <Drawer /> : <Sidebar />}
+            <Grid mobile={mobile} />
+            {mobile ? <DetailSheet /> : <DetailPanel />}
           </div>
           <Preview />
         </div>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { api, emptyQuery, type Folder } from '../api'
 import {
   useAppState,
@@ -120,7 +120,7 @@ function FolderRow({
   )
 }
 
-export function Sidebar() {
+export function Sidebar({ mobile = false }: { mobile?: boolean }) {
   const { query, setQuery } = useAppState()
   const { data: folders } = useFolders()
   const { data: tags } = useTags()
@@ -295,8 +295,33 @@ export function Sidebar() {
       {stats && (
         <div className="section stats">
           {stats.total_items} items · {fmtBytes(stats.total_size_bytes)}
+          {mobile && ` · ${stats.tag_count} tags`}
         </div>
       )}
     </aside>
+  )
+}
+
+/** Phone layout: the sidebar slides in over the grid from the ☰ button. */
+export function Drawer() {
+  const { query, drawerOpen, setDrawerOpen } = useAppState()
+
+  // picking a folder, smart folder or tag changes the query: close the drawer
+  const mounted = useRef(false)
+  useEffect(() => {
+    if (mounted.current) setDrawerOpen(false)
+    mounted.current = true
+  }, [query, setDrawerOpen])
+
+  return (
+    <>
+      <div
+        className={`drawer-backdrop${drawerOpen ? ' open' : ''}`}
+        onClick={() => setDrawerOpen(false)}
+      />
+      <div className={`drawer${drawerOpen ? ' open' : ''}`} aria-hidden={!drawerOpen}>
+        <Sidebar mobile />
+      </div>
+    </>
   )
 }

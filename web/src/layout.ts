@@ -140,3 +140,20 @@ export function pickThumbSize(
   if (c512 >= 1) return 512
   return cover(s1024) > c512 ? 1024 : 512
 }
+
+/**
+ * Tile size that gives `cols` columns across `avail` px: the square layout's
+ * edge, or the justified layout's target row height. For justified rows pass
+ * the items' typical aspect (see typicalAspect) so a row holds about `cols`
+ * of them whether the folder is mostly portrait or landscape.
+ */
+export function mobileTileSize(avail: number, cols: number, aspect = 1): number {
+  return Math.max(40, Math.floor((avail / cols - TILE_GAP - 2) / aspect))
+}
+
+/** Median tile aspect of the items (1 when there are none). */
+export function typicalAspect(items: Sized[]): number {
+  if (items.length === 0) return 1
+  const a = items.map(tileAspect).sort((x, y) => x - y)
+  return a[Math.floor(a.length / 2)]
+}

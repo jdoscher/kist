@@ -1,7 +1,7 @@
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { thumbUrl, type Item } from '../api'
-import { layoutRows, pickThumbSize } from '../layout'
+import { layoutRows, mobileTileSize, pickThumbSize, typicalAspect } from '../layout'
 import { flattenItems, useAppState, useItems } from '../state'
 import { BulkBar } from './BulkBar'
 
@@ -26,6 +26,7 @@ function Tile({
   onPointerDown,
   onDoubleClick,
   onDragStart,
+  draggable,
 }: {
   item: Item
   width: number
@@ -34,6 +35,7 @@ function Tile({
   onPointerDown: (e: React.MouseEvent) => void
   onDoubleClick: () => void
   onDragStart: (e: React.DragEvent) => void
+  draggable: boolean
 }) {
   // tiles are cover-cropped, so pick the thumb that covers the tile at the
   // screen's pixel density (thumb_512 is sized by its short side)
@@ -44,7 +46,7 @@ function Tile({
       style={{ width, height }}
       onMouseDown={onPointerDown}
       onDoubleClick={onDoubleClick}
-      draggable
+      draggable={draggable}
       onDragStart={onDragStart}
       title={item.filename}
     >
@@ -65,7 +67,7 @@ function Tile({
   )
 }
 
-export function Grid() {
+export function Grid({ mobile = false }: { mobile?: boolean }) {
   const {
     query,
     selection,
@@ -77,7 +79,8 @@ export function Grid() {
     previewId,
     setPreviewId,
     gridLayout,
-    tileSize,
+    tileSize: desktopTileSize,
+    mobileCols,
   } = useAppState()
   const result = useItems(query)
   const items = useMemo(() => flattenItems(result.data?.pages), [result.data])
@@ -102,6 +105,11 @@ export function Grid() {
   }, [])
 
   // .grid-scroll has 8 px side padding
+  const aspect = useMemo(
+    () => (mobile && gridLayout === 'justified' ? typicalAspect(items) : 1),
+    [mobile, gridLayout, items],
+  )
+  const tileSize = mobile ? mobileTileSize(width - 16, mobileCols, aspect) : desktopTileSize
   const rows = useMemo(
     () => layoutRows(items, width - 16, tileSize, gridLayout),
     [items, width, tileSize, gridLayout],
@@ -223,7 +231,7 @@ export function Grid() {
   const total = result.data?.pages[0]?.total ?? items.length
 
   return (
-    <main className="grid-area">
+    <main className={`grid-area${mobile && selection.size === 1 ? ' sheet-open' : ''}`}>
       <div className="grid-meta">
         {query.deleted ? 'Trash · ' : ''}
         {total} item{total === 1 ? '' : 's'}
@@ -260,6 +268,7 @@ export function Grid() {
                     onPointerDown={(e) => handlePointerDown(item, e)}
                     onDoubleClick={() => setPreviewId(item.id)}
                     onDragStart={(e) => handleDragStart(item, e)}
+                    draggable={!mobile}
                   />
                 )
               })}
@@ -267,7 +276,7 @@ export function Grid() {
           ))}
         </div>
       </div>
-      <BulkBar items={itemById} />
+      {!mobile && <BulkBar items={itemById} />}
     </main>
   )
 }

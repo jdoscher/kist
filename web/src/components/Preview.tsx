@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fileUrl, thumbUrl, type Item } from '../api'
+import { swipeDirection } from '../mobile'
 import { flattenItems, useAppState, useItems } from '../state'
 
 // formats every browser renders natively — load the original itself
@@ -67,10 +68,35 @@ export function Preview() {
     return () => window.removeEventListener('keydown', onKey)
   }, [item, go, setPreviewId])
 
+  // touch: swipe left/right for the next/previous item, down to close
+  const touch = useRef<{ x: number; y: number; n: number } | null>(null)
+
   if (!item) return null
 
+  const onTouchStart = (e: React.TouchEvent) => {
+    if ((e.target as HTMLElement).closest('video')) return // scrubbing
+    const t = e.touches[0]
+    touch.current = { x: t.clientX, y: t.clientY, n: e.touches.length }
+  }
+  const onTouchEnd = (e: React.TouchEvent) => {
+    const s = touch.current
+    touch.current = null
+    if (!s || s.n > 1 || e.touches.length > 0) return // pinch-zoom, not a swipe
+    if (window.visualViewport && window.visualViewport.scale > 1.05) return // zoomed in: panning
+    const t = e.changedTouches[0]
+    const dir = swipeDirection(t.clientX - s.x, t.clientY - s.y)
+    if (dir === 'left') go(1)
+    else if (dir === 'right') go(-1)
+    else if (dir === 'down') setPreviewId(null)
+  }
+
   return (
-    <div className="preview-overlay" onClick={() => setPreviewId(null)}>
+    <div
+      className="preview-overlay"
+      onClick={() => setPreviewId(null)}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+    >
       <button
         className="preview-nav prev"
         disabled={idx <= 0}
