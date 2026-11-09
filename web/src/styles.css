@@ -1198,9 +1198,17 @@ select:focus {
 .notice button {
   padding: 1px 8px;
 }
-.mobile .notice button {
-  min-height: 36px;
-  padding: 0 12px;
+/* phone (same query as MOBILE_QUERY in mobile.ts; notices render outside
+ * .app-shell): show them at the top, clear of the item sheet and keyboard */
+@media (max-width: 760px), (max-height: 500px) and (pointer: coarse) {
+  .notices {
+    top: calc(env(safe-area-inset-top, 0px) + 8px);
+    bottom: auto;
+  }
+  .notice button {
+    min-height: 36px;
+    padding: 0 12px;
+  }
 }
 .modal.dialog {
   width: min(420px, 100%);
