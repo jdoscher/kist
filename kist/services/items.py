@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
-from .. import lifecycle
+from .. import access, lifecycle
 from ..lifecycle import JobKind, JobStatus
 from ..models import Folder, Item, Job
 from . import meta as meta_svc
@@ -38,7 +38,18 @@ def get_item(
     )
     if item is None or (not with_deleted and item.deleted_at is not None):
         raise NotFound(item_id)
+    if not visible(item):
+        raise NotFound(item_id)
     return item
+
+
+def visible(item: Item) -> bool:
+    """Can the caller see this item? Only a folder-limited read token can't
+    see some: those see live items filed in their folders (or below)."""
+    p = access.restricted()
+    if p is None:
+        return True
+    return item.deleted_at is None and any(f.id in p.visible_folders for f in item.folders)
 
 
 def save(session: Session, item: Item) -> Item:

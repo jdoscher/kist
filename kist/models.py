@@ -12,7 +12,7 @@ from sqlalchemy import (
     Text,
     func,
 )
-from sqlalchemy.dialects.postgresql import CITEXT, JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, CITEXT, JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -119,6 +119,25 @@ class Item(Base):
     folders: Mapped[list[Folder]] = relationship(
         secondary="item_folders", lazy="selectin"
     )
+
+
+class ApiToken(Base):
+    """A named token with scopes (access.Scope). Only its SHA-256 is kept;
+    library/.kist/tokens.json is the durable copy rebuild-index restores."""
+
+    __tablename__ = "api_tokens"
+
+    id: Mapped[str] = mapped_column(String(26), primary_key=True)
+    name: Mapped[str] = mapped_column(Text)
+    token_sha256: Mapped[str] = mapped_column(String(64), unique=True)
+    scopes: Mapped[list[str]] = mapped_column(ARRAY(Text))
+    folder_ids: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list, server_default="{}")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class Job(Base):

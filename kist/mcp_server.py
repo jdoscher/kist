@@ -17,7 +17,8 @@ from typing import Any
 from mcp.server.mcpserver import Image, MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 
-from . import __version__
+from . import __version__, access
+from .access import Action
 from .config import get_settings
 from .db import SessionLocal
 from .lifecycle import PreviewStatus, TransitionError
@@ -54,6 +55,7 @@ EXPECTED_ERRORS = (
     folders_svc.FolderError,
     TransitionError,
     ValueError,  # validation.ValidationError, BadCursor, NotMediaError, ...
+    access.Forbidden,
     ToolError,
 )
 
@@ -63,12 +65,24 @@ def as_tool_error(exc: BaseException) -> ToolError:
     return ToolError(described[1] if described else str(exc) or type(exc).__name__)
 
 
-def tool(description: str):
-    """@mcp.tool with Kist's error mapping."""
+def check_access(needs: Action, restricted_ok: bool) -> None:
+    """The token's scope must cover the tool. A folder-limited read token
+    may only use the tools that filter items to its folders."""
+    p = access.current()
+    if p is None:  # BearerTokenMiddleware always sets one: fail closed
+        raise ToolError(access.FORBIDDEN_MESSAGE)
+    if not p.can(needs) or (p.restricted and not restricted_ok):
+        raise ToolError(access.FORBIDDEN_MESSAGE)
+
+
+def tool(description: str, needs: Action = Action.READ, restricted_ok: bool = False):
+    """@mcp.tool with Kist's scope check and error mapping. `needs` is the
+    action the token must be allowed (access.Action)."""
 
     def decorate(fn):
         @functools.wraps(fn)
         def wrapper(*args, **kwargs):
+            check_access(needs, restricted_ok)
             try:
                 return fn(*args, **kwargs)
             except EXPECTED_ERRORS as exc:
@@ -98,7 +112,8 @@ item_out = ItemOut.for_agent
     "to search the trash. preview_status ('failed', 'pending', 'ready', "
     "'none') finds items by preview state. type is one of image|video|pdf|other. "
     "order is -created (default), created, filename, -size, -rating or -modified. "
-    "Pass the returned next_cursor to fetch the following page."
+    "Pass the returned next_cursor to fetch the following page.",
+    restricted_ok=True,
 )
 def search_items(
     query: str | None = None,
@@ -127,7 +142,7 @@ def search_items(
         return {"items": [item_out(i) for i in rows], "next_cursor": next_cursor, "total": total}
 
 
-@tool("Get full metadata for one item by id.")
+@tool("Get full metadata for one item by id.", restricted_ok=True)
 def get_item(id: str) -> dict[str, Any]:
     with SessionLocal() as session:
         return item_out(items_svc.get_item(session, id))
@@ -142,7 +157,8 @@ NO_PREVIEW = {
 @tool(
     "View an item: returns the actual image content (thumbnail) so you "
     "can see the asset. size is 256, 512, or 1024 (default). Works for images, "
-    "video poster frames, and PDF first pages."
+    "video poster frames, and PDF first pages.",
+    restricted_ok=True,
 )
 def view_item(id: str, size: int = 1024) -> Image:
     size = 1024 if size > 512 else 512 if size > 256 else 256
@@ -167,7 +183,8 @@ def view_item(id: str, size: int = 1024) -> Image:
     "exactly one of url or file_path. Returns the item; created=false "
     "means the exact same file already existed (the folder, tags and notes "
     "you passed are still added to it), and if that item's state is "
-    "'trashed' it is in the trash (restore_item brings it back)."
+    "'trashed' it is in the trash (restore_item brings it back).",
+    needs=Action.ADD,
 )
 def add_item(
     url: str | None = None,
@@ -195,7 +212,8 @@ def add_item(
     "Update an item's rating (0-5), notes, filename, or source_url (an "
     "http(s) URL; empty string clears it). folder_id ADDS the item to that "
     "folder and keeps its other folders; use set_folders to remove one. "
-    "Only the fields you pass change. Returns the updated item."
+    "Only the fields you pass change. Returns the updated item.",
+    needs=Action.EDIT,
 )
 def update_item(
     id: str,
@@ -227,7 +245,7 @@ def update_item(
         return item_out(item)
 
 
-@tool("Add and/or remove tags on an item. Returns the updated item.")
+@tool("Add and/or remove tags on an item. Returns the updated item.", needs=Action.EDIT)
 def set_tags(
     id: str,
     add: list[str] | None = None,
@@ -241,7 +259,8 @@ def set_tags(
 
 @tool(
     "Add and/or remove an item's folder memberships (items can be in "
-    "several folders at once). Returns the updated item."
+    "several folders at once). Returns the updated item.",
+    needs=Action.EDIT,
 )
 def set_folders(
     id: str,
@@ -270,7 +289,8 @@ def list_smart_folders() -> list[dict[str, Any]]:
 
 @tool(
     "Move an item to the trash (state -> trashed). Restorable with "
-    "restore_item. Trashing an item already in the trash changes nothing."
+    "restore_item. Trashing an item already in the trash changes nothing.",
+    needs=Action.EDIT,
 )
 def trash_item(id: str) -> dict[str, Any]:
     with SessionLocal() as session:
@@ -279,7 +299,8 @@ def trash_item(id: str) -> dict[str, Any]:
 
 @tool(
     "Take an item out of the trash (state -> active). Restoring an active "
-    "item changes nothing. Find trashed items with search_items(state='trashed')."
+    "item changes nothing. Find trashed items with search_items(state='trashed').",
+    needs=Action.EDIT,
 )
 def restore_item(id: str) -> dict[str, Any]:
     with SessionLocal() as session:
@@ -288,7 +309,8 @@ def restore_item(id: str) -> dict[str, Any]:
 
 @tool(
     "Queue a new attempt at an item's thumbnails (preview_status -> pending). "
-    "Use it for items whose preview_status is 'failed'. Returns the item."
+    "Use it for items whose preview_status is 'failed'. Returns the item.",
+    needs=Action.EDIT,
 )
 def retry_preview(id: str) -> dict[str, Any]:
     with SessionLocal() as session:
@@ -310,7 +332,8 @@ def list_jobs(status: str | None = None, limit: int = 25) -> list[dict[str, Any]
 
 @tool(
     "Run a failed job again with fresh attempts (status failed -> pending). "
-    "A failed inbox file is moved back from the library's failed folder."
+    "A failed inbox file is moved back from the library's failed folder.",
+    needs=Action.EDIT,
 )
 def retry_job(id: int) -> dict[str, Any]:
     with SessionLocal() as session:
@@ -319,14 +342,15 @@ def retry_job(id: int) -> dict[str, Any]:
 
 @tool(
     "List all folders (id, name, parent_id, position, item_count). item_count "
-    "includes items filed in subfolders, matching search_items(folder=...)."
+    "includes items filed in subfolders, matching search_items(folder=...).",
+    restricted_ok=True,
 )
 def list_folders() -> list[dict[str, Any]]:
     with SessionLocal() as session:
         return folders_svc.list_folders(session)
 
 
-@tool("Create a folder, optionally under a parent folder id.")
+@tool("Create a folder, optionally under a parent folder id.", needs=Action.EDIT)
 def create_folder(name: str, parent_id: str | None = None) -> dict[str, Any]:
     with SessionLocal() as session:
         return folders_svc.folder_dict(folders_svc.create_folder(session, name, parent_id))
@@ -340,7 +364,8 @@ def list_tags() -> list[dict[str, Any]]:
 
 @tool(
     "Delete every tag that no item uses (tags on trashed items are kept). "
-    "Returns the deleted tag names."
+    "Returns the deleted tag names.",
+    needs=Action.EDIT,
 )
 def prune_unused_tags() -> dict[str, Any]:
     with SessionLocal() as session:

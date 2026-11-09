@@ -8,6 +8,7 @@ from typing import Any
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
+from .. import access
 from ..filetypes import KINDS, OCTET_STREAM, VIDEO_EXTS
 from ..lifecycle import ItemState, PreviewStatus
 from ..models import Folder, Item, ItemFolder, ItemTag, Tag
@@ -162,6 +163,18 @@ def build_filters(
         filters.append(Item.created_at >= created_after)
     if created_before:
         filters.append(Item.created_at <= created_before)
+    reader = access.restricted()
+    if reader is not None:
+        if folder and folder != "none" and folder not in reader.visible_folders:
+            filters.append(sa.false())  # not even which items are filed there
+        # a folder-limited token sees only live items filed in its folders
+        filters.append(Item.deleted_at.is_(None))
+        filters.append(
+            sa.exists().where(
+                ItemFolder.item_id == Item.id,
+                ItemFolder.folder_id.in_(sorted(reader.visible_folders) or [""]),
+            )
+        )
     return filters
 
 

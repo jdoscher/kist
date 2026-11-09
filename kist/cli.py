@@ -33,7 +33,7 @@ from .config import get_settings
 from .db import SessionLocal
 from .filetypes import kind_for
 from .lifecycle import JobKind, PreviewStatus, preview_status_for
-from .models import Folder, Item, ItemFolder, ItemTag, Job, SmartFolder, Tag
+from .models import ApiToken, Folder, Item, ItemFolder, ItemTag, Job, SmartFolder, Tag
 
 
 def parse_dt(value: str | None) -> datetime | None:
@@ -202,6 +202,7 @@ def recover_without_meta(session, item_dir: Path) -> str | None:
 
 def rebuild_index(wipe: bool) -> int:
     from .services import folders as folders_svc
+    from .services import tokens as tokens_svc
 
     settings = get_settings()
     items_dir = settings.items_dir
@@ -231,7 +232,17 @@ def rebuild_index(wipe: bool) -> int:
             session.execute(sa.delete(Tag))
             session.execute(sa.delete(SmartFolder))
             session.execute(sa.delete(Folder))
+            if tokens_svc.path().is_file():
+                # tokens come back from tokens.json just below
+                session.execute(sa.delete(ApiToken))
             session.commit()
+
+        restored_tokens, token_problem = tokens_svc.restore(session)
+        if token_problem:
+            warn(f"tokens.json unreadable: {token_problem}")
+            warnings += 1
+        elif restored_tokens:
+            print(f"tokens: {restored_tokens} restored")
 
         if data is not None:
             folder_ids, folder_warnings = restore_folders(session, data)
@@ -328,6 +339,7 @@ def rebuild_index(wipe: bool) -> int:
 
 def rewrite_meta() -> int:
     from .services import meta as meta_svc
+    from .services import tokens as tokens_svc
 
     written = failed = 0
     with SessionLocal() as session:
@@ -340,6 +352,7 @@ def rewrite_meta() -> int:
             elif session.get(Item, item_id) is not None and meta_svc.item_dir(item_id).is_dir():
                 failed += 1
         folders_ok = meta_svc.sync_folders(session)
+        folders_ok = tokens_svc.sync_file(session) and folders_ok
     if not failed and folders_ok:
         meta_svc.clear_pending()
     print(f"rewrote meta.json for {written} items (+ folders.json)"

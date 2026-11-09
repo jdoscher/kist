@@ -6,6 +6,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__
+from .access import FORBIDDEN_MESSAGE, Forbidden
 from .api import api_router
 from .auth import BearerTokenMiddleware
 from .compress import CompressText
@@ -19,6 +20,7 @@ from .services import folders as folders_svc
 from .services import items as items_svc
 from .services import jobs as jobs_svc
 from .services import smart_folders as smart_svc
+from .services import tokens as tokens_svc
 from .services.search import BadCursor
 from .services.validation import ValidationError
 
@@ -86,8 +88,14 @@ def _error(status: int, detail) -> JSONResponse:
 @app.exception_handler(jobs_svc.NotFound)
 @app.exception_handler(smart_svc.NotFound)
 @app.exception_handler(folders_svc.FolderNotFound)
+@app.exception_handler(tokens_svc.NotFound)
 async def not_found(request: Request, exc: Exception):
     return _error(404, str(exc))
+
+
+@app.exception_handler(Forbidden)
+async def forbidden(request: Request, exc: Forbidden):
+    return _error(403, str(exc) or FORBIDDEN_MESSAGE)
 
 
 @app.exception_handler(ValidationError)

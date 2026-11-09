@@ -25,7 +25,7 @@ os.environ["KIST_LIBRARY_DIR"] = str(LIBRARY)
 if TEST_DB:
     os.environ["KIST_DATABASE_URL"] = TEST_DB
 
-TABLES = "item_tags, item_folders, items, tags, smart_folders, folders, jobs"
+TABLES = "item_tags, item_folders, items, tags, smart_folders, folders, jobs, api_tokens"
 
 
 @pytest.fixture(scope="session")

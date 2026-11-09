@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import UploadFile
 
+from .. import access
 from ..config import get_settings
 from ..db import get_session
 from ..filetypes import serve_inline
@@ -214,6 +215,7 @@ def delete_item(
     hard: bool = False,
 ):
     if hard:
+        access.require(access.Action.HARD_DELETE)
         items_svc.hard_delete(session, item_id)
         return {"status": "deleted", "hard": True}
     item = items_svc.soft_delete(session, item_id)

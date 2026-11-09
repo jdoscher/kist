@@ -1,10 +1,15 @@
+import logging
 import secrets
 
+from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from . import access
 from .config import get_settings
+
+log = logging.getLogger("kist.auth")
 
 PUBLIC_PATHS = {"/api/health"}
 # FastAPI's interactive docs describe the whole API: token only. In a
@@ -24,15 +29,38 @@ def token_matches(given: str, expected: str) -> bool:
     return secrets.compare_digest(given.encode("utf-8"), expected.encode("utf-8"))
 
 
-class BearerTokenMiddleware:
-    """Require the shared bearer token on /api, /mcp and the API docs.
+def resolve(token: str) -> access.Principal | None:
+    """The principal a bearer token stands for, or None. KIST_TOKEN is the
+    owner (admin); anything else is looked up among the named tokens."""
+    if token_matches(token, get_settings().token):
+        return access.OWNER
+    if not token.startswith("kist_") or len(token) > 200:
+        return None
+    from .db import SessionLocal
+    from .services import tokens as tokens_svc
 
-    The token is accepted via `Authorization: Bearer <token>` or — for
-    GET/HEAD only — the `kist_token` cookie the web UI sets so <img>/<video>
+    with SessionLocal() as session:
+        return tokens_svc.authenticate(session, token)
+
+
+def _json(status: int, detail: str) -> JSONResponse:
+    return JSONResponse({"detail": detail}, status_code=status)
+
+
+class BearerTokenMiddleware:
+    """Require a token on /api, /mcp and the API docs, and check its scope.
+
+    The token is accepted via `Authorization: Bearer <token>` or (for
+    GET/HEAD only) the `kist_token` cookie the web UI sets so <img>/<video>
     tags work. Keeping the cookie read-only means another site can't make
     state-changing requests that ride on it. There is deliberately no
     `?token=` form: query strings end up in access logs (Kist's and the
     reverse proxy's), which would leak the token.
+
+    The caller (access.Principal) is set for the rest of the request:
+    routes, services and MCP tools read it with access.current(). A scope
+    that doesn't cover the request gets 403 "This token can't do that"; a
+    folder-limited read token gets 404 for every path outside its view.
     """
 
     def __init__(self, app: ASGIApp):
@@ -49,15 +77,38 @@ class BearerTokenMiddleware:
 
         request = Request(scope)
         token = ""
+        via_cookie = False
         auth = request.headers.get("authorization", "")
         if auth.lower().startswith("bearer "):
             token = auth[7:].strip()
         if not token and scope["method"] in ("GET", "HEAD"):
             token = request.cookies.get("kist_token", "")
+            via_cookie = bool(token)
 
-        if not token or not token_matches(token, get_settings().token):
-            response = JSONResponse({"detail": "invalid or missing token"}, status_code=401)
-            await response(scope, receive, send)
+        principal = None
+        if token:
+            try:
+                principal = await run_in_threadpool(resolve, token)
+            except Exception:
+                log.exception("token lookup failed")
+                await _json(503, "Kist can't check that token right now")(scope, receive, send)
+                return
+        if principal is None:
+            await _json(401, "invalid or missing token")(scope, receive, send)
             return
 
-        await self.app(scope, receive, send)
+        query = scope.get("query_string", b"").decode("latin-1")
+        denied = access.request_allowed(principal, scope["method"], path, query)
+        if path in DOCS_PATHS and not principal.can(access.Action.READ):
+            denied = 403
+        if denied == 404:
+            await _json(404, "Not Found")(scope, receive, send)
+            return
+        if denied:
+            await _json(403, access.FORBIDDEN_MESSAGE)(scope, receive, send)
+            return
+
+        scope.setdefault("state", {})["principal"] = principal
+        scope["state"]["via_cookie"] = via_cookie
+        with access.acting_as(principal):
+            await self.app(scope, receive, send)

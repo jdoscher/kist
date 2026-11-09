@@ -1,6 +1,7 @@
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
+from .. import access
 from ..ids import new_ulid
 from ..models import Folder, Item, ItemFolder
 from . import meta as meta_svc
@@ -75,6 +76,14 @@ def list_folders(session: Session) -> list[dict]:
         .where(Item.deleted_at.is_(None))
     ).all()
     counts = subtree_counts(list(folders), [tuple(m) for m in memberships])
+    reader = access.restricted()
+    if reader is not None:
+        # a folder-limited token sees its folders as the top of the tree
+        return [
+            {**folder_dict(f, counts.get(f.id, 0)),
+             "parent_id": f.parent_id if f.parent_id in reader.visible_folders else None}
+            for f in folders if f.id in reader.visible_folders
+        ]
     return [folder_dict(f, counts.get(f.id, 0)) for f in folders]
 
 

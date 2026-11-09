@@ -3,6 +3,7 @@ from typing import Any, Literal
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 
+from . import access
 from .config import get_settings
 from .filetypes import kind_for
 from .lifecycle import PreviewStatus, item_state
@@ -63,7 +64,7 @@ class ItemOut(BaseModel):
             phash=item.phash,
             dominant_colors=item.dominant_colors,
             thumbhash=item.thumbhash or None,
-            folder_ids=sorted(f.id for f in item.folders),
+            folder_ids=sorted(access.visible_folder_filter(f.id for f in item.folders)),
             rating=item.rating,
             notes=item.notes,
             source_url=item.source_url,

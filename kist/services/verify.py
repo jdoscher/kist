@@ -130,9 +130,12 @@ def check_folders(session: Session, report: Report) -> None:
 
 
 def run(session: Session) -> Report:
+    from . import tokens as tokens_svc
+
     report = Report()
     check_items(session, report)
     check_folders(session, report)
+    report.problems.extend(tokens_svc.check_file(session))
     for key in meta_svc.pending():
         report.problems.append(f"{key}: an earlier write to disk failed")
     return report
