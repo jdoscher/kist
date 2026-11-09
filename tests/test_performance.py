@@ -85,3 +85,14 @@ def test_hashed_assets_are_immutable(client):
     r = client.get(f"/assets/{assets[0].name}", headers={"Accept-Encoding": "gzip"})
     assert r.headers["cache-control"] == "public, max-age=31536000, immutable"
     assert r.headers.get("content-encoding") == "gzip"
+
+
+def test_unknown_api_path_is_404_not_the_web_app(client):
+    from kist.app import WEB_DIST
+
+    if not WEB_DIST.is_dir():
+        pytest.skip("web/dist not built")
+    r = client.get("/api/items/nope/original")
+    assert r.status_code == 404
+    assert r.headers["content-type"].startswith("application/json")
+    assert client.get("/all").headers["content-type"].startswith("text/html")

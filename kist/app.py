@@ -134,6 +134,9 @@ if WEB_DIST.is_dir():
 
     @app.get("/{path:path}", include_in_schema=False)
     async def spa(path: str):
+        # an unknown API path is an error, not the web app
+        if path.split("/", 1)[0] in ("api", "mcp"):
+            return JSONResponse({"detail": "Not Found"}, status_code=404)
         candidate = (WEB_DIST / path).resolve()
         if path and candidate.is_file() and candidate.is_relative_to(WEB_DIST):
             return FileResponse(candidate)
