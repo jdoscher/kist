@@ -1,8 +1,27 @@
+# Logs: every service keeps at most 5 x 10 MB of json-file logs, and they
+# survive `docker compose restart` (but not a container re-create). When
+# something is wrong, save them before redeploying:
+#   docker compose logs -t > pre-deploy.log
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+x-kist-build: &kist-build
+  context: .
+  args:
+    # the commit the image is built from, shown by /api/version and deep
+    # health. Build with: KIST_GIT_COMMIT=$(git rev-parse --short HEAD) docker compose build
+    KIST_GIT_COMMIT: ${KIST_GIT_COMMIT:-unknown}
+
 services:
   db:
     image: postgres:16
     environment:
       POSTGRES_USER: kist
+      # internal to the compose network (Postgres publishes no port), but
+      # set KIST_DB_PASSWORD in .env anyway
       POSTGRES_PASSWORD: ${KIST_DB_PASSWORD:-kist}
       POSTGRES_DB: kist
     volumes:
@@ -13,9 +32,10 @@ services:
       timeout: 3s
       retries: 10
     restart: unless-stopped
+    logging: *logging
 
   app:
-    build: .
+    build: *kist-build
     command: ["api"]
     # hardening: unprivileged user, read-only root filesystem (writes go to
     # the library volume and /tmp), no capabilities, no privilege escalation,
@@ -38,8 +58,15 @@ services:
       KIST_PREVIEW_TIMEOUT_SECONDS: ${KIST_PREVIEW_TIMEOUT_SECONDS:-300}
       KIST_HSTS_SECONDS: ${KIST_HSTS_SECONDS:-15552000}
       KIST_PUBLIC_URL: ${KIST_PUBLIC_URL:-}
+      KIST_JOB_LEASE_SECONDS: ${KIST_JOB_LEASE_SECONDS:-900}
+      KIST_MAX_UPLOAD_BYTES: ${KIST_MAX_UPLOAD_BYTES:-4294967296}
+      KIST_MAX_DOWNLOAD_MB: ${KIST_MAX_DOWNLOAD_MB:-512}
+      KIST_LOG_LEVEL: ${KIST_LOG_LEVEL:-INFO}
+    # KIST_BIND is the host address to listen on. 0.0.0.0 (the default) is
+    # every interface: anyone on the LAN can reach Kist over plain HTTP.
+    # With the reverse proxy on the same host, set KIST_BIND=127.0.0.1.
     ports:
-      - "${KIST_PORT:-8080}:8000"
+      - "${KIST_BIND:-0.0.0.0}:${KIST_PORT:-8080}:8000"
     volumes:
       - ${KIST_LIBRARY:-./library}:/library
     depends_on:
@@ -52,9 +79,10 @@ services:
       retries: 5
       start_period: 20s
     restart: unless-stopped
+    logging: *logging
 
   worker:
-    build: .
+    build: *kist-build
     command: ["worker"]
     # hardening: unprivileged user, read-only root filesystem (writes go to
     # the library volume and /tmp), no capabilities, no privilege escalation,
@@ -75,20 +103,28 @@ services:
       KIST_URL_ALLOW_HOSTS: ${KIST_URL_ALLOW_HOSTS:-}
       KIST_DOWNLOAD_TIMEOUT_SECONDS: ${KIST_DOWNLOAD_TIMEOUT_SECONDS:-120}
       KIST_PREVIEW_TIMEOUT_SECONDS: ${KIST_PREVIEW_TIMEOUT_SECONDS:-300}
-      KIST_HSTS_SECONDS: ${KIST_HSTS_SECONDS:-15552000}
       KIST_JOB_LEASE_SECONDS: ${KIST_JOB_LEASE_SECONDS:-900}
+      KIST_VERIFY_INTERVAL_HOURS: ${KIST_VERIFY_INTERVAL_HOURS:-24}
+      KIST_MAX_DOWNLOAD_MB: ${KIST_MAX_DOWNLOAD_MB:-512}
+      KIST_INBOX_POLL_SECONDS: ${KIST_INBOX_POLL_SECONDS:-5}
+      KIST_WORKER_POLL_SECONDS: ${KIST_WORKER_POLL_SECONDS:-2}
+      KIST_LOG_LEVEL: ${KIST_LOG_LEVEL:-INFO}
     volumes:
       - ${KIST_LIBRARY:-./library}:/library
     depends_on:
       db:
         condition: service_healthy
+    # the worker writes library/.kist/worker-heartbeat every 15 s after a
+    # database round trip, from its own thread, so a long preview or
+    # download doesn't make it look dead
     healthcheck:
       test: ["CMD", "python", "-m", "kist.worker", "--healthcheck"]
       interval: 15s
       timeout: 5s
       retries: 4
-      start_period: 20s
+      start_period: 30s
     restart: unless-stopped
+    logging: *logging
 
 volumes:
   pgdata:

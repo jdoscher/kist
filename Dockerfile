@@ -35,6 +35,11 @@ RUN groupadd --system --gid 1000 kist \
     && useradd --system --uid 1000 --gid 1000 --no-create-home --shell /usr/sbin/nologin kist
 USER 1000:1000
 
+# the commit this image was built from (/api/version, deep health); last so
+# a new commit doesn't invalidate the cached layers above
+ARG KIST_GIT_COMMIT=unknown
+ENV KIST_GIT_COMMIT=$KIST_GIT_COMMIT
+
 EXPOSE 8000
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["api"]
