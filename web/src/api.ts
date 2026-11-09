@@ -29,6 +29,8 @@ export interface Item {
   sha256: string
   phash: number | null
   dominant_colors: { hex: string; pct: number }[] | null
+  /** base64 ThumbHash for the loading placeholder (newer servers only) */
+  thumbhash?: string | null
   folder_ids: string[]
   rating: number
   notes: string

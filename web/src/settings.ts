@@ -4,12 +4,16 @@
 
 import { TILE_SIZE_DEFAULT, TILE_SIZE_MAX, TILE_SIZE_MIN, type GridLayout } from './layout.ts'
 import type { MobileCols } from './mobile.ts'
+import { isDensity, isThemePref, type Density, type ThemePref } from './theme.ts'
 
 export interface Prefs {
   panelOpen: boolean
   gridLayout: GridLayout
   tileSize: number
   mobileCols: MobileCols
+  /** colour theme: System (default) follows the OS */
+  theme: ThemePref
+  density: Density
 }
 
 const KEYS: Record<keyof Prefs, string> = {
@@ -17,6 +21,8 @@ const KEYS: Record<keyof Prefs, string> = {
   gridLayout: 'kist.gridLayout',
   tileSize: 'kist.tileSize',
   mobileCols: 'kist.mobileCols',
+  theme: 'kist.theme',
+  density: 'kist.density',
 }
 
 type Store = Pick<Storage, 'getItem' | 'setItem'>
@@ -49,6 +55,8 @@ export function readPrefs(store: Store | null = browserStore()): Prefs {
     gridLayout: get('gridLayout') === 'square' ? 'square' : 'justified',
     tileSize: size === null ? TILE_SIZE_DEFAULT : clampSize(Number(size)),
     mobileCols: get('mobileCols') === '2' ? 2 : 3,
+    theme: isThemePref(get('theme')) ? (get('theme') as ThemePref) : 'system',
+    density: isDensity(get('density')) ? (get('density') as Density) : 'comfortable',
   }
 }
 

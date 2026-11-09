@@ -1,3 +1,4 @@
+import { ChevronLeft, ChevronRight, ExternalLink, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fileUrl, thumbUrl, type Item } from '../api'
 import { swipeDirection } from '../mobile'
@@ -122,7 +123,7 @@ export function Preview() {
       onTouchEnd={onTouchEnd}
     >
       <button ref={closeRef} className="preview-close" aria-label="Close preview" onClick={() => setPreviewId(null)}>
-        <span aria-hidden="true">✕</span>
+        <X size={20} strokeWidth={1.75} aria-hidden="true" />
       </button>
 
       <button
@@ -134,7 +135,7 @@ export function Preview() {
           go(-1)
         }}
       >
-        <span aria-hidden="true">‹</span>
+        <ChevronLeft size={36} strokeWidth={1.5} aria-hidden="true" />
       </button>
 
       <figure onClick={(e) => e.stopPropagation()}>
@@ -158,7 +159,7 @@ export function Preview() {
             {idx >= 0 ? `${item.width && item.height ? ' · ' : ''}${idx + 1} / ${items.length}` : ''}
           </span>
           <a href={fileUrl(item)} target="_blank" rel="noreferrer">
-            Open original <span aria-hidden="true">↗</span>
+            Open original <ExternalLink size={13} strokeWidth={1.75} aria-hidden="true" />
             <span className="sr-only"> (new tab)</span>
           </a>
         </figcaption>
@@ -173,7 +174,7 @@ export function Preview() {
           go(1)
         }}
       >
-        <span aria-hidden="true">›</span>
+        <ChevronRight size={36} strokeWidth={1.5} aria-hidden="true" />
       </button>
     </div>
   )

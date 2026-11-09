@@ -13,7 +13,7 @@ function memStore() {
 }
 
 test('defaults when nothing is stored or storage is unavailable', () => {
-  const want = { panelOpen: true, gridLayout: 'justified', tileSize: 200, mobileCols: 3 }
+  const want = { panelOpen: true, gridLayout: 'justified', tileSize: 200, mobileCols: 3, theme: 'system', density: 'comfortable' }
   assert.deepEqual(readPrefs(memStore()), want)
   assert.deepEqual(readPrefs(null), want)
   const throwing = {
@@ -34,7 +34,14 @@ test('prefs round-trip and bad values are clamped', () => {
   savePref('gridLayout', 'square', s)
   savePref('tileSize', 260, s)
   savePref('mobileCols', 2, s)
-  assert.deepEqual(readPrefs(s), { panelOpen: false, gridLayout: 'square', tileSize: 260, mobileCols: 2 })
+  assert.deepEqual(readPrefs(s), {
+    panelOpen: false,
+    gridLayout: 'square',
+    tileSize: 260,
+    mobileCols: 2,
+    theme: 'system',
+    density: 'comfortable',
+  })
   assert.equal(s.m.get('kist.panelOpen'), '0') // same keys as before the split
   s.m.set('kist.tileSize', 'banana')
   assert.equal(readPrefs(s).tileSize, 200)

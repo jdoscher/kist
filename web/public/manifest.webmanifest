@@ -1,0 +1,23 @@
+{
+  "name": "Kist",
+  "short_name": "Kist",
+  "description": "Keep what catches your eye. A self-hosted visual library for people and their AI agents.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#131312",
+  "theme_color": "#1C1C1A",
+  "user_preferences": {
+    "color_scheme_dark": { "background_color": "#131312", "theme_color": "#1C1C1A" },
+    "color_scheme_light": { "background_color": "#FAF9F6", "theme_color": "#FFFFFF" }
+  },
+  "icons": [
+    { "src": "/icon-192.png?v=4", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png?v=4", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png?v=4", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icon-mono.svg?v=4", "sizes": "any", "type": "image/svg+xml", "purpose": "monochrome" },
+    { "src": "/favicon.svg?v=4", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

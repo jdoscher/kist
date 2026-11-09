@@ -1,3 +1,4 @@
+import { ExternalLink, Star, X } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { emptyQuery, fileUrl, thumbUrl } from '../api'
 import { useCurrentItems, useFolderNames, useItem } from '../data'
@@ -63,7 +64,9 @@ export function DetailSheet() {
           <h2 className="fname">{item.filename}</h2>
           {item.rating > 0 && (
             <div className="sheet-stars" role="img" aria-label={`${item.rating} of 5 stars`}>
-              {'★'.repeat(item.rating)}
+              {Array.from({ length: item.rating }, (_, i) => (
+                <Star key={i} size={14} fill="currentColor" strokeWidth={0} aria-hidden="true" />
+              ))}
             </div>
           )}
           <button className="primary" onClick={() => setPreviewId(item.id)}>
@@ -71,7 +74,7 @@ export function DetailSheet() {
           </button>
         </div>
         <button className="sheet-close" onClick={clearSelection} aria-label="Close item details">
-          <span aria-hidden="true">✕</span>
+          <X size={16} strokeWidth={1.75} aria-hidden="true" />
         </button>
       </div>
 
@@ -113,7 +116,7 @@ export function DetailSheet() {
         )}
         <ItemMeta item={item} />
         <a className="open-original" href={fileUrl(item)} target="_blank" rel="noreferrer">
-          Open original <span aria-hidden="true">↗</span>
+          Open original <ExternalLink size={13} strokeWidth={1.75} aria-hidden="true" />
           <span className="sr-only"> (new tab)</span>
         </a>
       </div>

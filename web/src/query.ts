@@ -147,7 +147,7 @@ export function emptyState(
   if (opts.libraryEmpty && !q.deleted)
     return {
       text: opts.mobile
-        ? 'Your library is empty. Tap ☰ and then Upload to add photos from this phone.'
+        ? 'Your library is empty. Open the menu and tap Upload to add photos from this phone.'
         : 'Your library is empty. Drop files anywhere, paste an image, or use Upload.',
       action: null,
     }

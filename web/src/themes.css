@@ -1,0 +1,119 @@
+/* Colour themes. Every colour in the UI is one of these variables; the
+ * contrast pairs are checked numerically by tests/contrast.test.ts (which
+ * parses this file), so keep one `--name: #hex;` per line, hex only.
+ *
+ * dark    – the default for dark-mode devices: near-neutral greys, brass accent
+ * light   – warm paper; brass deepens to #8C5A00 so it passes on white
+ * gallery – neutral greys around an 18 % mid-grey canvas (#767676) for
+ *           judging colour; chrome stays darker so text passes AA
+ *
+ * --canvas is the surround of the images (grid and preview); --bg* are the
+ * chrome. The full-screen preview stays dark in light mode, the way photo
+ * apps do, so images are judged against the same surround. */
+
+:root,
+[data-theme='dark'] {
+  --bg: #131312;
+  --bg-raised: #1c1c1a;
+  --bg-hover: #272725;
+  --bg-active: #31302d;
+  --border: #34332f;
+  --field-border: #6e6c66;
+  --text: #eceae4;
+  --text-dim: #9c9a93;
+  --accent: #e8b04b;
+  --accent-hover: #f0c26f;
+  --on-accent: #1a1408;
+  --accent-soft: #3a3121;
+  --soft-dim: #c9c0ad;
+  --focus: #e8b04b;
+  --star: #e8b04b;
+  --danger: #f2716a;
+  --danger-border: #7a3530;
+  --danger-bg: #4a1d1a;
+  --danger-on: #ffd9d6;
+  --success: #5fc48a;
+  --warn: #e8b04b;
+  --warn-border: #8a6d1a;
+  --info: #7fb2ff;
+  --canvas: #131312;
+  --canvas-text: #eceae4;
+  --canvas-dim: #9c9a93;
+  --canvas-focus: #e8b04b;
+  --preview-bg: #0d0d0c;
+  --scrim: #000000a0;
+  --shadow: #00000080;
+}
+
+[data-theme='light'] {
+  --bg: #faf9f6;
+  --bg-raised: #ffffff;
+  --bg-hover: #f0eee9;
+  --bg-active: #e6e3dc;
+  --border: #e2dfd8;
+  --field-border: #8a877f;
+  --text: #1c1b19;
+  --text-dim: #5f5d57;
+  --accent: #8c5a00;
+  --accent-hover: #744a00;
+  --on-accent: #ffffff;
+  --accent-soft: #f5ead6;
+  --soft-dim: #57524a;
+  --focus: #8c5a00;
+  --star: #8c5a00;
+  --danger: #b42318;
+  --danger-border: #e3a29c;
+  --danger-bg: #fbe4e2;
+  --danger-on: #7a1710;
+  --success: #1e7a46;
+  --warn: #8c5a00;
+  --warn-border: #c99a3e;
+  --info: #1f5fbf;
+  --canvas: #faf9f6;
+  --canvas-text: #1c1b19;
+  --canvas-dim: #5f5d57;
+  --canvas-focus: #8c5a00;
+  --preview-bg: #0d0d0c;
+  --scrim: #1c1b1966;
+  --shadow: #1c1b1929;
+}
+
+[data-theme='gallery'] {
+  --bg: #353535;
+  --bg-raised: #3d3d3d;
+  --bg-hover: #474747;
+  --bg-active: #515151;
+  --border: #555555;
+  --field-border: #9a9a9a;
+  --text: #f5f5f5;
+  --text-dim: #d0d0d0;
+  --accent: #e8b04b;
+  --accent-hover: #f0c26f;
+  --on-accent: #1a1408;
+  --accent-soft: #554a35;
+  --soft-dim: #e4dccb;
+  --focus: #e8b04b;
+  --star: #e8b04b;
+  --danger: #ffa29c;
+  --danger-border: #a0524c;
+  --danger-bg: #5a2420;
+  --danger-on: #ffe1de;
+  --success: #8fe0b0;
+  --warn: #e8b04b;
+  --warn-border: #a88a3a;
+  --info: #a9cbff;
+  --canvas: #767676;
+  --canvas-text: #ffffff;
+  --canvas-dim: #ffffff;
+  --canvas-focus: #ffffff;
+  --preview-bg: #767676;
+  --scrim: #000000a0;
+  --shadow: #00000080;
+}
+
+html {
+  color-scheme: dark;
+}
+html[data-theme='light'] {
+  color-scheme: light;
+}

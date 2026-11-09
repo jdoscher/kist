@@ -1,3 +1,4 @@
+import { ChevronRight, FolderSearch, Hash, Inbox, LayoutGrid, Pencil, Plus, Trash2, TriangleAlert, Upload, X } from 'lucide-react'
 import { useMemo, useRef, useState, useEffect, type ReactNode } from 'react'
 import { api, emptyQuery, type Folder, type SmartFolder } from '../api'
 import { bulkReport, useBulkAction } from '../bulk'
@@ -8,6 +9,7 @@ import { useLayer } from '../useShortcuts'
 import { useWrite } from '../useWrite'
 import { useDialog } from './Dialog'
 import { useNotices } from './Notices'
+import { AppearanceControls } from './Appearance'
 import { useUploads } from './UploadManager'
 import { isUnfiledView, smartFolderQuery, unfiledQuery } from '../query'
 import { fmtBytes } from '../format'
@@ -35,6 +37,8 @@ function buildTree(folders: Folder[]): TreeNode[] {
  * keyboard. Views and folders say aria-current when shown; tags, which
  * toggle, say aria-pressed.
  */
+const ROW_ICON = { size: 15, strokeWidth: 1.75 } as const
+
 function Row({
   icon,
   name,
@@ -49,7 +53,7 @@ function Row({
   actions,
   rowProps,
 }: {
-  icon?: string
+  icon?: ReactNode
   name: string
   count?: number | string
   active: boolean
@@ -170,19 +174,19 @@ function FolderRow({
             tabIndex={hasChildren ? undefined : -1}
             onClick={() => setExpanded(!expanded)}
           >
-            <span aria-hidden="true">▸</span>
+            <ChevronRight size={14} strokeWidth={2} aria-hidden="true" />
           </button>
         }
         actions={
           <>
             <button title="New subfolder" aria-label={`New subfolder in ${node.name}`} onClick={() => void addChild()}>
-              <span aria-hidden="true">+</span>
+              <Plus size={14} strokeWidth={2} aria-hidden="true" />
             </button>
             <button title="Rename" aria-label={`Rename ${node.name}`} onClick={() => void rename()}>
-              <span aria-hidden="true">✎</span>
+              <Pencil size={13} strokeWidth={1.75} aria-hidden="true" />
             </button>
             <button title="Delete" aria-label={`Delete ${node.name}`} onClick={() => void remove()}>
-              <span aria-hidden="true">🗑</span>
+              <Trash2 size={13} strokeWidth={1.75} aria-hidden="true" />
             </button>
           </>
         }
@@ -218,7 +222,7 @@ function PhoneUpload() {
   const fileRef = useRef<HTMLInputElement>(null)
   return (
     <>
-      <Row icon="⇪" name="Upload photos or files" active={false} onActivate={() => fileRef.current?.click()} />
+      <Row icon={<Upload {...ROW_ICON} />} name="Upload photos or files" active={false} onActivate={() => fileRef.current?.click()} />
       <input
         ref={fileRef}
         type="file"
@@ -338,7 +342,7 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
       <nav className="section" aria-label="Views">
         {mobile && <PhoneUpload />}
         <Row
-          icon="◆"
+          icon={<LayoutGrid {...ROW_ICON} />}
           name="All items"
           count={stats?.total_items ?? ''}
           active={isAll}
@@ -346,14 +350,14 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
           title="Show everything and clear all filters"
         />
         <Row
-          icon="◇"
+          icon={<Inbox {...ROW_ICON} />}
           name="Unfiled"
           active={isUnfiledView(query) && !smartId}
           onActivate={() => setQuery({ ...emptyQuery, ...unfiledQuery, order: query.order } as Query)}
           title="Items with no folder and no tag: your inbox"
         />
         <Row
-          icon="🗑"
+          icon={<Trash2 {...ROW_ICON} />}
           name="Trash"
           count={stats?.trashed_items || ''}
           active={query.deleted && !smartId}
@@ -362,7 +366,7 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
         {attention > 0 && (
           <Row
             className="attention-row"
-            icon="⚠"
+            icon={<TriangleAlert {...ROW_ICON} />}
             name="Needs attention"
             count={attention}
             active={false}
@@ -376,7 +380,7 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
         <div className="section-head">
           <h2>Folders</h2>
           <button className="icon-btn" onClick={() => void newFolder()} title="New folder" aria-label="New folder">
-            <span aria-hidden="true">+</span>
+            <Plus size={14} strokeWidth={2} aria-hidden="true" />
           </button>
         </div>
         {tree.map((n) => (
@@ -394,23 +398,23 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
             title="Save this search as a smart folder"
             aria-label="Save this search as a smart folder"
           >
-            <span aria-hidden="true">+</span>
+            <Plus size={14} strokeWidth={2} aria-hidden="true" />
           </button>
         </div>
         {(smartFolders ?? []).map((s) => (
           <Row
             key={s.id}
-            icon="◎"
+            icon={<FolderSearch {...ROW_ICON} />}
             name={s.name}
             active={smartId === s.id}
             onActivate={() => applySmartFolder(s.id, s.query)}
             actions={
               <>
                 <button title="Rename" aria-label={`Rename smart folder ${s.name}`} onClick={() => void renameSmart(s)}>
-                  <span aria-hidden="true">✎</span>
+                  <Pencil size={13} strokeWidth={1.75} aria-hidden="true" />
                 </button>
                 <button title="Delete" aria-label={`Delete smart folder ${s.name}`} onClick={() => void deleteSmart(s)}>
-                  <span aria-hidden="true">🗑</span>
+                  <Trash2 size={13} strokeWidth={1.75} aria-hidden="true" />
                 </button>
               </>
             }
@@ -439,7 +443,7 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
           return (
             <Row
               key={t.id}
-              icon="#"
+              icon={<Hash {...ROW_ICON} />}
               name={t.name}
               count={t.count}
               active={active}
@@ -458,6 +462,14 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
         )}
       </div>
 
+      {mobile && (
+        <section className="section" aria-labelledby="appearance-head">
+          <div className="section-head">
+            <h2 id="appearance-head">Appearance</h2>
+          </div>
+          <AppearanceControls />
+        </section>
+      )}
       {stats && (
         <div className="section stats" title={versionText || undefined}>
           {stats.total_items} items · {fmtBytes(stats.total_size_bytes)}
@@ -469,7 +481,7 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
   )
 }
 
-/** Phone layout: the sidebar slides in over the grid from the ☰ button. A
+/** Phone layout: the sidebar slides in over the grid from the menu button. A
  * modal dialog while open (the page behind is inert, Escape or ✕ closes
  * it, focus goes back to ☰); inert when closed, so Tab never walks the
  * hidden rows. */
@@ -512,7 +524,7 @@ export function Drawer() {
       >
         <div className="drawer-head">
           <button className="drawer-close" aria-label="Close menu" onClick={closeDrawer}>
-            <span aria-hidden="true">✕</span>
+            <X size={18} strokeWidth={1.75} aria-hidden="true" />
           </button>
         </div>
         <Sidebar mobile />

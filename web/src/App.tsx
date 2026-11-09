@@ -15,6 +15,8 @@ import { useIsMobile } from './mobile'
 import { AppStateProvider } from './state'
 import { useFocusTrap, useInertBackground } from './useInert'
 import { useLayer } from './useShortcuts'
+import { Mark, Wordmark } from './components/Brand'
+import { useAppState } from './state'
 import { bannerText, describeError, hasDrafts } from './writes'
 
 function TokenGate({ onDone, overlay = false }: { onDone: () => void; overlay?: boolean }) {
@@ -52,7 +54,11 @@ function TokenGate({ onDone, overlay = false }: { onDone: () => void; overlay?: 
       aria-labelledby={`${id}-title`}
     >
       <form onSubmit={submit}>
-        <h1 id={`${id}-title`}>Kist</h1>
+        <h1 id={`${id}-title`} className="gate-brand">
+          <Mark className="gate-mark" />
+          <Wordmark className="gate-wordmark" />
+        </h1>
+        <p className="tagline">Keep what catches your eye.</p>
         <p>
           {overlay
             ? 'The access token stopped working. Enter it again to carry on: your uploads and unsaved edits are still here.'
@@ -88,6 +94,12 @@ function TokenGate({ onDone, overlay = false }: { onDone: () => void; overlay?: 
       </form>
     </div>
   )
+}
+
+/** Gallery density tucks the sidebar away until Panels is pressed. */
+function DesktopSidebar() {
+  const { density, chromeShown } = useAppState()
+  return density === 'gallery' && !chromeShown ? null : <Sidebar />
 }
 
 /** The server stopped answering (restart, network): say so instead of
@@ -154,7 +166,7 @@ export default function App() {
               <ServerBanner />
               <TopBar mobile={mobile} />
               <div className="app-body">
-                {mobile ? <Drawer /> : <Sidebar />}
+                {mobile ? <Drawer /> : <DesktopSidebar />}
                 <Grid mobile={mobile} />
                 {mobile ? <DetailSheet /> : <DetailPanel />}
               </div>

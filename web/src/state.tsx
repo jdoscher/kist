@@ -19,6 +19,8 @@ import { mergeQuery, normalizeSaved } from './query'
 import { fromUrl, type Place } from './url'
 import { usePrefs } from './usePrefs'
 import { inMenuLayer, pushMenuLayer, useUrlSync } from './urlSync'
+import type { Density, ThemePref } from './theme'
+import { heroFor, heroTransition } from './viewTransition'
 
 interface AppState {
   query: Query
@@ -52,6 +54,14 @@ interface AppState {
   mobile: boolean
   mobileCols: MobileCols
   setMobileCols: (cols: MobileCols) => void
+  /** appearance prefs (theme.ts) */
+  theme: ThemePref
+  setTheme: (t: ThemePref) => void
+  density: Density
+  setDensity: (d: Density) => void
+  /** gallery density tucks the sidebars away; this shows them for the session */
+  chromeShown: boolean
+  setChromeShown: (shown: boolean) => void
 }
 
 const Ctx = createContext<AppState | null>(null)
@@ -64,7 +74,16 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
   const [selection, setSelection] = useState<Set<string>>(
     () => new Set(initial.item ? [initial.item] : []),
   )
-  const [previewId, setPreviewId] = useState<string | null>(initial.full ? initial.item : null)
+  const [previewId, setPreviewIdRaw] = useState<string | null>(initial.full ? initial.item : null)
+  const previewRef = useRef(previewId)
+  previewRef.current = previewId
+  // opening and closing morph the tile into the preview (viewTransition.ts)
+  const setPreviewId = useCallback((id: string | null) => {
+    const prev = previewRef.current
+    if (prev === id) return
+    heroTransition(() => setPreviewIdRaw(id), heroFor(prev, id), prev === null)
+  }, [])
+  const [chromeShown, setChromeShown] = useState(false)
   const [jobsOpen, setJobsOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const anchor = useRef<string | null>(null)
@@ -74,14 +93,14 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
     setQueryRaw((prev) => mergeQuery(prev, patch))
     setSmartId(null)
     setSelection(new Set())
-    setPreviewId(null)
+    setPreviewIdRaw(null)
   }, [])
 
   const applySmartFolder = useCallback((id: string, q: Partial<Query>) => {
     setQueryRaw(normalizeSaved(q))
     setSmartId(id)
     setSelection(new Set())
-    setPreviewId(null)
+    setPreviewIdRaw(null)
   }, [])
 
   const place: Place = useMemo(
@@ -102,7 +121,7 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
       setQueryRaw(p.query)
       setSmartId(p.smartId)
       setSelection(new Set(p.item ? [p.item] : []))
-      setPreviewId(p.full ? p.item : null)
+      setPreviewIdRaw(p.full ? p.item : null)
     },
   })
 
@@ -150,8 +169,20 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
   const clearSelection = useCallback(() => setSelection(new Set()), [])
   const selectAll = useCallback((ids: string[]) => setSelection(new Set(ids)), [])
 
-  const { panelOpen, setPanelOpen, gridLayout, setGridLayout, tileSize, setTileSize, mobileCols, setMobileCols } =
-    prefs
+  const {
+    panelOpen,
+    setPanelOpen,
+    gridLayout,
+    setGridLayout,
+    tileSize,
+    setTileSize,
+    mobileCols,
+    setMobileCols,
+    theme,
+    setTheme,
+    density,
+    setDensity,
+  } = prefs
   const value = useMemo(
     () => ({
       query,
@@ -181,8 +212,14 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
       mobile,
       mobileCols,
       setMobileCols,
+      theme,
+      setTheme,
+      density,
+      setDensity,
+      chromeShown,
+      setChromeShown,
     }),
-    [query, setQuery, smartId, applySmartFolder, selection, selectOnly, toggleSelect, rangeSelect, clearSelection, selectAll, previewId, panelOpen, setPanelOpen, gridLayout, setGridLayout, tileSize, setTileSize, drawerOpen, openDrawer, closeDrawer, jobsOpen, mobile, mobileCols, setMobileCols],
+    [query, setQuery, smartId, applySmartFolder, selection, selectOnly, toggleSelect, rangeSelect, clearSelection, selectAll, previewId, setPreviewId, panelOpen, setPanelOpen, gridLayout, setGridLayout, tileSize, setTileSize, drawerOpen, openDrawer, closeDrawer, jobsOpen, mobile, mobileCols, setMobileCols, theme, setTheme, density, setDensity, chromeShown],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
