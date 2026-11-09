@@ -30,6 +30,26 @@ Measured on a 4,417-item library; details in the performance review.
   loading the library.
 
 ### Fixed
+- **Edits no longer fail silently or overwrite each other** (from a trace of
+  network drops, server errors, slow responses, sign-outs and double
+  submits):
+  - Tags and folders are changed with add/remove
+    (`PATCH /api/items/{id}/tags` and `/folders`, `{add, remove}`) instead of
+    sending the whole list, so two quick clicks, or a browser tab and an
+    agent working on the same item, can't undo each other.
+  - Writes to one item go out in click order, so the server ends on your
+    last click.
+  - A failed save says why ("No connection to the server", "Server error
+    (500)", "The server took too long") with Retry. Unsaved notes and
+    names are kept, marked "not saved yet", survive selecting another item,
+    and the browser asks before closing the tab on them.
+  - Requests time out after 30 s (URL adds after 150 s) instead of hanging.
+  - Bulk actions carry on past a failure, then say "Tagged 37 of 40. 3
+    failed: …" with Retry, keeping just the failed items selected.
+  - When the token stops working, the token screen appears over the app
+    instead of replacing it: queued uploads and typed text survive, and
+    uploads now notice a sign-out too.
+  - Folder and smart-folder actions say when they fail.
 - The token screen accepted any token: it checked `/api/health`, which needs
   none. It now checks with a request that does.
 - **A file dropped in the inbox can no longer be lost.** If importing it

@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, emptyQuery, fileUrl, thumbUrl, type Item } from '../api'
 import { swipeDirection } from '../mobile'
+import { clearDraft, describeError, draftKey, getDraft, serialize, setDraft } from '../writes'
 import {
   flattenItems,
   useAppState,
@@ -44,9 +45,9 @@ export function ItemStatus({ item }: { item: Item }) {
     setBusy(true)
     setError('')
     try {
-      apply([await fn()])
+      apply([await serialize(item.id, fn)])
     } catch (e) {
-      setError(String((e as Error).message ?? e))
+      setError(describeError(e))
     } finally {
       setBusy(false)
     }
@@ -98,50 +99,126 @@ export function ItemStatus({ item }: { item: Item }) {
   )
 }
 
-function SingleItem({ item }: { item: Item }) {
+/**
+ * Every edit to one item: goes out in order (serialize), says when it's
+ * saving and when it failed, and offers Retry. Typed text that hasn't
+ * reached the server is kept as a draft until it has.
+ */
+function useItemWrite(itemId: string) {
   const apply = useApplyItems()
+  const [saving, setSaving] = useState<Set<string>>(new Set())
+  const [failure, setFailure] = useState<{ field: string; message: string; retry: () => void } | null>(
+    null,
+  )
+  const write = useCallback(
+    async (field: string, fn: () => Promise<Item>, onSaved?: () => void): Promise<boolean> => {
+      setSaving((s) => new Set(s).add(field))
+      try {
+        apply([await serialize(itemId, fn)])
+        setFailure((f) => (f?.field === field ? null : f))
+        onSaved?.()
+        return true
+      } catch (e) {
+        setFailure({ field, message: describeError(e), retry: () => void write(field, fn, onSaved) })
+        return false
+      } finally {
+        setSaving((s) => {
+          const n = new Set(s)
+          n.delete(field)
+          return n
+        })
+      }
+    },
+    [itemId, apply],
+  )
+  return { write, saving, failure, dismiss: () => setFailure(null) }
+}
+
+/** A text field saved on blur that never loses what you typed. */
+function useDraftField(itemId: string, field: string, serverValue: string) {
+  const key = draftKey(itemId, field)
+  const [value, setValue] = useState(() => getDraft(key) ?? serverValue)
+  // follow the server value unless there's unsaved text
+  useEffect(() => {
+    if (getDraft(key) === undefined) setValue(serverValue)
+  }, [key, serverValue])
+  const change = (v: string) => {
+    setValue(v)
+    if (v === serverValue) clearDraft(key)
+    else setDraft(key, v)
+  }
+  return { value, change, dirty: value !== serverValue, saved: () => clearDraft(key) }
+}
+
+const FIELD_LABEL: Record<string, string> = {
+  filename: 'the name',
+  notes: 'the notes',
+  rating: 'the rating',
+  tags: 'the tags',
+  folders: 'the folders',
+}
+
+function SingleItem({ item }: { item: Item }) {
+  const { write, saving, failure, dismiss } = useItemWrite(item.id)
   const { data: folders } = useFolders()
   const folderName = useMemo(
     () => new Map((folders ?? []).map((f) => [f.id, f.name])),
     [folders],
   )
-  const [filename, setFilename] = useState(item.filename)
-  const [notes, setNotes] = useState(item.notes)
+  const filename = useDraftField(item.id, 'filename', item.filename)
+  const notes = useDraftField(item.id, 'notes', item.notes)
   const [tagText, setTagText] = useState('')
 
-  useEffect(() => {
-    setFilename(item.filename)
-    setNotes(item.notes)
-  }, [item.id, item.filename, item.notes])
-
-  const save = async (patch: Parameters<typeof api.patchItem>[1]) => {
-    apply([await api.patchItem(item.id, patch)])
+  const saveFilename = () => {
+    const v = filename.value.trim()
+    if (!v || !filename.dirty) return
+    void write('filename', () => api.patchItem(item.id, { filename: v }), filename.saved)
+  }
+  const saveNotes = () => {
+    if (!notes.dirty) return
+    const v = notes.value
+    void write('notes', () => api.patchItem(item.id, { notes: v }), notes.saved)
   }
 
+  // tags and folders send only the change, never the whole list, so a
+  // second click or another writer (an agent) can't be overwritten
   const addTags = async () => {
     const extra = tagText.split(',').map((t) => t.trim()).filter(Boolean)
     if (!extra.length) return
-    const updated = await api.putTags(item.id, [...new Set([...item.tags, ...extra])])
+    const text = tagText
     setTagText('')
-    apply([updated])
+    const ok = await write('tags', () => api.patchTags(item.id, { add: extra }))
+    if (!ok) setTagText(text)
   }
-
-  const removeTag = async (tag: string) => {
-    apply([await api.putTags(item.id, item.tags.filter((t) => t !== tag))])
-  }
+  const removeTag = (tag: string) => write('tags', () => api.patchTags(item.id, { remove: [tag] }))
 
   return (
     <>
       <ItemStatus item={item} />
+      {failure && (
+        <div className="save-error" role="alert">
+          <span>Couldn't save {FIELD_LABEL[failure.field] ?? failure.field}: {failure.message}</span>
+          <button onClick={failure.retry}>Retry</button>
+          <button aria-label="Dismiss" onClick={dismiss}>
+            ✕
+          </button>
+        </div>
+      )}
       <input
-        className="detail-filename"
-        value={filename}
-        onChange={(e) => setFilename(e.target.value)}
-        onBlur={() => filename.trim() && filename !== item.filename && save({ filename: filename.trim() })}
+        className={`detail-filename${filename.dirty ? ' unsaved' : ''}`}
+        value={filename.value}
+        onChange={(e) => filename.change(e.target.value)}
+        onBlur={saveFilename}
         onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
       />
 
-      <Stars value={item.rating} onChange={(rating) => save({ rating })} />
+      <div className="stars-row">
+        <Stars
+          value={item.rating}
+          onChange={(rating) => void write('rating', () => api.patchItem(item.id, { rating }))}
+        />
+        {saving.size > 0 && <span className="saving">saving…</span>}
+      </div>
 
       <div className="detail-section">
         <label>Tags</label>
@@ -149,7 +226,7 @@ function SingleItem({ item }: { item: Item }) {
           {item.tags.map((t) => (
             <span key={t} className="chip">
               #{t}
-              <button onClick={() => removeTag(t)}>×</button>
+              <button onClick={() => void removeTag(t)}>×</button>
             </span>
           ))}
         </div>
@@ -157,7 +234,7 @@ function SingleItem({ item }: { item: Item }) {
           placeholder="Add tags, comma-sep, Enter"
           value={tagText}
           onChange={(e) => setTagText(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && addTags()}
+          onKeyDown={(e) => e.key === 'Enter' && void addTags()}
         />
       </div>
 
@@ -168,9 +245,9 @@ function SingleItem({ item }: { item: Item }) {
             <span key={fid} className="chip folder-chip">
               {folderName.get(fid) ?? fid}
               <button
-                onClick={async () => {
-                  apply([await api.putFolders(item.id, item.folder_ids.filter((f) => f !== fid))])
-                }}
+                onClick={() =>
+                  void write('folders', () => api.patchFolders(item.id, { remove: [fid] }))
+                }
               >
                 ×
               </button>
@@ -179,9 +256,10 @@ function SingleItem({ item }: { item: Item }) {
         </div>
         <select
           value=""
-          onChange={async (e) => {
-            if (e.target.value && !item.folder_ids.includes(e.target.value)) {
-              apply([await api.putFolders(item.id, [...item.folder_ids, e.target.value])])
+          onChange={(e) => {
+            const fid = e.target.value
+            if (fid && !item.folder_ids.includes(fid)) {
+              void write('folders', () => api.patchFolders(item.id, { add: [fid] }))
             }
           }}
         >
@@ -197,12 +275,14 @@ function SingleItem({ item }: { item: Item }) {
       </div>
 
       <div className="detail-section">
-        <label>Notes</label>
+        <label>
+          Notes{notes.dirty && <span className="unsaved-note"> · not saved yet</span>}
+        </label>
         <textarea
           rows={4}
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          onBlur={() => notes !== item.notes && save({ notes })}
+          value={notes.value}
+          onChange={(e) => notes.change(e.target.value)}
+          onBlur={saveNotes}
           placeholder="Notes…"
         />
       </div>
@@ -309,7 +389,7 @@ export function DetailPanel() {
       {selection.size === 0 ? (
         <LibrarySummary />
       ) : selection.size === 1 ? (
-        single ? <SingleItem item={single} /> : <div className="hint">Loading…</div>
+        single ? <SingleItem key={single.id} item={single} /> : <div className="hint">Loading…</div>
       ) : (
         <div className="multi-summary">
           <h3>{selected.length} items selected</h3>

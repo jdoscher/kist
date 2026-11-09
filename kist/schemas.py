@@ -107,6 +107,14 @@ class FoldersPut(BaseModel):
     folder_ids: list[str]
 
 
+class MembershipPatch(BaseModel):
+    """Add and/or remove entries without sending the whole list, so two
+    writers (a browser tab and an agent) never overwrite each other."""
+
+    add: list[str] = []
+    remove: list[str] = []
+
+
 class UrlAdd(BaseModel):
     url: str
     folder_id: str | None = None

@@ -1,20 +1,55 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Item } from '../api'
-import { useAppState, useBulkAction, useFolders } from '../state'
+import { useAppState, useBulkAction, useFolders, type BulkInput, type BulkResult } from '../state'
 
-export function BulkBar({ items }: { items: Map<string, Item> }) {
-  const { query, selection, clearSelection } = useAppState()
+const VERB: Record<BulkInput['action']['kind'], string> = {
+  move: 'Moved',
+  addFolder: 'Added',
+  trash: 'Trashed',
+  restore: 'Restored',
+  hardDelete: 'Deleted',
+  addTags: 'Tagged',
+  removeTag: 'Untagged',
+  rating: 'Rated',
+}
+
+// actions that take the items out of this view: clear the selection after
+const LEAVES_VIEW = new Set(['trash', 'restore', 'hardDelete'])
+
+export function BulkBar(_props: { items: Map<string, Item> }) {
+  const { query, selection, clearSelection, selectAll } = useAppState()
   const { data: folders } = useFolders()
   const bulk = useBulkAction()
   const [tagText, setTagText] = useState('')
+  const [report, setReport] = useState<BulkResult | null>(null)
 
   const ids = useMemo(() => [...selection], [selection])
 
-  const itemTags = useMemo(() => {
-    const m = new Map<string, string[]>()
-    for (const id of ids) m.set(id, items.get(id)?.tags ?? [])
-    return m
-  }, [ids, items])
+  // the report belongs to the failed items it selected; any other selection
+  // means the user moved on
+  const showReport =
+    report !== null &&
+    report.failed.length === ids.length &&
+    report.failed.every((f) => selection.has(f.id))
+
+  const run = (action: BulkInput['action']) => {
+    if (bulk.isPending || ids.length === 0) return
+    setReport(null)
+    bulk.mutate(
+      { ids, action },
+      {
+        onSuccess: (r) => {
+          if (r.failed.length) {
+            // keep only what failed selected, with the reason and a Retry
+            selectAll(r.failed.map((f) => f.id))
+            setReport(r)
+          } else if (LEAVES_VIEW.has(action.kind)) {
+            clearSelection()
+          }
+        },
+      },
+    )
+  }
 
   // Delete key → trash (or delete forever in trash view)
   useEffect(() => {
@@ -26,32 +61,42 @@ export function BulkBar({ items }: { items: Map<string, Item> }) {
         e.preventDefault()
         if (query.deleted) {
           if (confirm(`Permanently delete ${ids.length} item(s)? This cannot be undone.`)) {
-            bulk.mutate({ ids, action: { kind: 'hardDelete' } })
-            clearSelection()
+            run({ kind: 'hardDelete' })
           }
         } else {
-          bulk.mutate({ ids, action: { kind: 'trash' } })
-          clearSelection()
+          run({ kind: 'trash' })
         }
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [ids, query.deleted, bulk, clearSelection])
+  }) // re-bound every render: it needs the current selection and run()
 
   if (ids.length === 0) return null
 
   const addTags = () => {
     const tags = tagText.split(',').map((t) => t.trim()).filter(Boolean)
     if (tags.length) {
-      bulk.mutate({ ids, action: { kind: 'addTags', tags, itemTags } })
+      run({ kind: 'addTags', tags })
       setTagText('')
     }
   }
 
+  const busy = bulk.isPending
+
   return (
     <div className="bulkbar">
-      <span className="sel-count">{ids.length} selected</span>
+      {showReport ? (
+        <span className="bulk-report">
+          {VERB[report.input.action.kind]} {report.ok} of {report.ok + report.failed.length}.{' '}
+          {report.failed.length} failed: {report.failed[0].error}.{' '}
+          <button disabled={busy} onClick={() => run(report.input.action)}>
+            Retry
+          </button>
+        </span>
+      ) : (
+        <span className="sel-count">{ids.length} selected</span>
+      )}
 
       {!query.deleted && (
         <>
@@ -61,24 +106,17 @@ export function BulkBar({ items }: { items: Map<string, Item> }) {
             onChange={(e) => setTagText(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && addTags()}
           />
-          <button onClick={addTags} disabled={!tagText.trim()}>
+          <button onClick={addTags} disabled={busy || !tagText.trim()}>
             Tag
           </button>
 
           <select
             value=""
+            disabled={busy}
             onChange={(e) => {
               if (e.target.value === '') return
-              if (e.target.value === '__none__') {
-                bulk.mutate({ ids, action: { kind: 'move', folderId: null } })
-                return
-              }
-              const itemFolders = new Map<string, string[]>()
-              for (const id of ids) itemFolders.set(id, items.get(id)?.folder_ids ?? [])
-              bulk.mutate({
-                ids,
-                action: { kind: 'addFolder', folderId: e.target.value, itemFolders },
-              })
+              if (e.target.value === '__none__') run({ kind: 'move', folderId: null })
+              else run({ kind: 'addFolder', folderId: e.target.value })
             }}
           >
             <option value="">Add to folder…</option>
@@ -90,13 +128,7 @@ export function BulkBar({ items }: { items: Map<string, Item> }) {
             ))}
           </select>
 
-          <button
-            className="danger"
-            onClick={() => {
-              bulk.mutate({ ids, action: { kind: 'trash' } })
-              clearSelection()
-            }}
-          >
+          <button className="danger" disabled={busy} onClick={() => run({ kind: 'trash' })}>
             Trash
           </button>
         </>
@@ -104,20 +136,15 @@ export function BulkBar({ items }: { items: Map<string, Item> }) {
 
       {query.deleted && (
         <>
-          <button
-            onClick={() => {
-              bulk.mutate({ ids, action: { kind: 'restore' } })
-              clearSelection()
-            }}
-          >
+          <button disabled={busy} onClick={() => run({ kind: 'restore' })}>
             Restore
           </button>
           <button
             className="danger"
+            disabled={busy}
             onClick={() => {
               if (confirm(`Permanently delete ${ids.length} item(s)? This cannot be undone.`)) {
-                bulk.mutate({ ids, action: { kind: 'hardDelete' } })
-                clearSelection()
+                run({ kind: 'hardDelete' })
               }
             }}
           >
@@ -127,7 +154,7 @@ export function BulkBar({ items }: { items: Map<string, Item> }) {
       )}
 
       <button onClick={clearSelection}>✕</button>
-      {bulk.isPending && <span className="working">working…</span>}
+      {busy && <span className="working">working…</span>}
     </div>
   )
 }

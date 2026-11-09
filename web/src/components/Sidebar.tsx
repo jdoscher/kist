@@ -5,17 +5,28 @@ import {
   useBulkAction,
   useFolders,
   useInvalidateItems,
-  useItems,
   useSmartFolders,
   useStats,
   useTags,
-  flattenItems,
 } from '../state'
 import { isUnfiledView, unfiledQuery } from '../query'
+import { describeError } from '../writes'
 import type { Query } from '../api'
 
 interface TreeNode extends Folder {
   children: TreeNode[]
+}
+
+/** Run a sidebar action; on failure say why instead of failing silently.
+ * Returns whether it worked. */
+async function attempt(fn: () => Promise<unknown>): Promise<boolean> {
+  try {
+    await fn()
+    return true
+  } catch (e) {
+    window.alert(`That didn't work: ${describeError(e)}.`)
+    return false
+  }
 }
 
 function buildTree(folders: Folder[]): TreeNode[] {
@@ -55,7 +66,7 @@ function FolderRow({
   const rename = async () => {
     const name = prompt('Rename folder', node.name)
     if (name && name.trim() && name !== node.name) {
-      await api.patchFolder(node.id, { name: name.trim() })
+      if (!(await attempt(() => api.patchFolder(node.id, { name: name.trim() })))) return
       invalidate()
     }
   }
@@ -68,7 +79,7 @@ function FolderRow({
       `Delete folder “${node.name}”${sub}? The items inside are kept; ` +
       'any that end up in no folder and with no tags go back to Unfiled.'
     if (!confirm(msg)) return
-    await api.deleteFolder(node.id)
+    if (!(await attempt(() => api.deleteFolder(node.id)))) return
     if (query.folder === node.id) setQuery({ folder: null })
     invalidate()
   }
@@ -76,7 +87,7 @@ function FolderRow({
   const addChild = async () => {
     const name = prompt('New folder name')
     if (name?.trim()) {
-      await api.createFolder(name.trim(), node.id)
+      if (!(await attempt(() => api.createFolder(name.trim(), node.id)))) return
       setExpanded(true)
       invalidate()
     }
@@ -133,7 +144,6 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
   const { data: tags } = useTags()
   const { data: stats } = useStats()
   const { data: smartFolders } = useSmartFolders()
-  const itemsResult = useItems(query)
   const invalidate = useInvalidateItems()
   const bulk = useBulkAction()
   const [tagFilter, setTagFilter] = useState('')
@@ -143,36 +153,43 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
   const newFolder = async () => {
     const name = prompt('New folder name')
     if (name?.trim()) {
-      await api.createFolder(name.trim(), null)
+      if (!(await attempt(() => api.createFolder(name.trim(), null)))) return
       invalidate()
     }
   }
 
   const onDropItems = (folderId: string, ids: string[]) => {
     // dragging onto a folder ADDS membership (items can live in many folders)
-    const itemFolders = new Map<string, string[]>()
-    for (const item of flattenItems(itemsResult.data?.pages)) {
-      if (ids.includes(item.id)) itemFolders.set(item.id, item.folder_ids)
-    }
-    bulk.mutate({ ids, action: { kind: 'addFolder', folderId, itemFolders } })
+    bulk.mutate(
+      { ids, action: { kind: 'addFolder', folderId } },
+      {
+        onSuccess: (r) => {
+          if (r.failed.length)
+            window.alert(`Added ${r.ok} of ${ids.length} to the folder. ${r.failed[0].error}.`)
+        },
+      },
+    )
   }
 
   const saveSmartFolder = async () => {
     const name = prompt('Save current search as smart folder:')
     if (!name?.trim()) return
-    await api.createSmartFolder(name.trim(), {
-      q: query.q,
-      tags: query.tags,
-      tags_any: query.tags_any,
-      untagged: query.untagged,
-      view: query.view,
-      folder: query.folder,
-      type: query.type,
-      rating: query.rating,
-      order: query.order,
-      created_after: query.created_after,
-      created_before: query.created_before,
-    })
+    const saved = await attempt(() =>
+      api.createSmartFolder(name.trim(), {
+        q: query.q,
+        tags: query.tags,
+        tags_any: query.tags_any,
+        untagged: query.untagged,
+        view: query.view,
+        folder: query.folder,
+        type: query.type,
+        rating: query.rating,
+        order: query.order,
+        created_after: query.created_after,
+        created_before: query.created_before,
+      }),
+    )
+    if (!saved) return
     invalidate()
   }
 
@@ -262,7 +279,7 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
                   e.stopPropagation()
                   const name = prompt('Rename smart folder', s.name)
                   if (name?.trim() && name !== s.name) {
-                    await api.patchSmartFolder(s.id, { name: name.trim() })
+                    if (!(await attempt(() => api.patchSmartFolder(s.id, { name: name.trim() })))) return
                     invalidate()
                   }
                 }}
@@ -274,7 +291,7 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
                 onClick={async (e) => {
                   e.stopPropagation()
                   if (confirm(`Delete smart folder “${s.name}”?`)) {
-                    await api.deleteSmartFolder(s.id)
+                    if (!(await attempt(() => api.deleteSmartFolder(s.id)))) return
                     invalidate()
                   }
                 }}

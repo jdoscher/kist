@@ -17,6 +17,7 @@ import {
 import { api, emptyQuery, type Item, type Query } from './api'
 import { folderSubtree, mergeQuery, stillMatches } from './query'
 import { fromUrl, historyAction, layerOf, toUrl, type Place } from './url'
+import { runEach, serialize } from './writes'
 import {
   TILE_SIZE_DEFAULT,
   TILE_SIZE_MAX,
@@ -455,64 +456,55 @@ export interface BulkInput {
   ids: string[]
   action:
     | { kind: 'move'; folderId: string | null } // replace memberships
-    | { kind: 'addFolder'; folderId: string; itemFolders: Map<string, string[]> }
+    | { kind: 'addFolder'; folderId: string }
     | { kind: 'trash' }
     | { kind: 'restore' }
     | { kind: 'hardDelete' }
-    | { kind: 'addTags'; tags: string[]; itemTags: Map<string, string[]> }
-    | { kind: 'removeTag'; tag: string; itemTags: Map<string, string[]> }
+    | { kind: 'addTags'; tags: string[] }
+    | { kind: 'removeTag'; tag: string }
     | { kind: 'rating'; rating: number }
 }
 
+export interface BulkResult {
+  input: BulkInput
+  ok: number
+  failed: { id: string; error: string }[]
+}
+
+/** Bulk actions run item by item and carry on past failures; the result
+ * says which failed and why, so the bar can offer Retry for just those. */
 export function useBulkAction() {
   const apply = useApplyItems()
   return useMutation({
-    mutationFn: async ({ ids, action }: BulkInput) => {
-      const updated: Item[] = []
+    mutationFn: async (input: BulkInput): Promise<BulkResult> => {
+      const { ids, action } = input
       const removed: string[] = []
-      try {
-        for (const id of ids) {
+      const res = await runEach<Item | null>(ids, (id) =>
+        serialize(id, async () => {
           switch (action.kind) {
             case 'move':
-              updated.push(await api.putFolders(id, action.folderId ? [action.folderId] : []))
-              break
-            case 'addFolder': {
-              const current = action.itemFolders.get(id) ?? []
-              if (!current.includes(action.folderId)) {
-                updated.push(await api.putFolders(id, [...current, action.folderId]))
-              }
-              break
-            }
+              return api.putFolders(id, action.folderId ? [action.folderId] : [])
+            case 'addFolder':
+              return api.patchFolders(id, { add: [action.folderId] })
             case 'trash':
-              updated.push((await api.trashItem(id)).item)
-              break
+              return (await api.trashItem(id)).item
             case 'restore':
-              updated.push(await api.restoreItem(id))
-              break
+              return api.restoreItem(id)
             case 'hardDelete':
               await api.hardDeleteItem(id)
               removed.push(id)
-              break
-            case 'addTags': {
-              const current = action.itemTags.get(id) ?? []
-              const merged = [...new Set([...current, ...action.tags])]
-              updated.push(await api.putTags(id, merged))
-              break
-            }
-            case 'removeTag': {
-              const current = action.itemTags.get(id) ?? []
-              updated.push(await api.putTags(id, current.filter((t) => t !== action.tag)))
-              break
-            }
+              return null
+            case 'addTags':
+              return api.patchTags(id, { add: action.tags })
+            case 'removeTag':
+              return api.patchTags(id, { remove: [action.tag] })
             case 'rating':
-              updated.push(await api.patchItem(id, { rating: action.rating }))
-              break
+              return api.patchItem(id, { rating: action.rating })
           }
-        }
-      } finally {
-        // whatever went through is shown, even if a later item failed
-        apply(updated, removed)
-      }
+        }),
+      )
+      apply(res.done.filter((i): i is Item => i !== null), removed)
+      return { input, ok: res.done.length, failed: res.failed }
     },
   })
 }

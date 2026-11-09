@@ -20,6 +20,7 @@ from ..schemas import (
     ItemOut,
     ItemPage,
     ItemPatch,
+    MembershipPatch,
     TagsPut,
     UrlAdd,
 )
@@ -236,6 +237,32 @@ def put_tags(
 ):
     _get_or_404(session, item_id)
     return ItemOut.from_item(items_svc.set_tags(session, item_id, replace=body.tags))
+
+
+@router.patch("/{item_id}/tags", response_model=ItemOut)
+def patch_tags(
+    item_id: str,
+    body: MembershipPatch,
+    session: Annotated[Session, Depends(get_session)],
+):
+    """Add/remove tags against what the server has (safe with other writers)."""
+    _get_or_404(session, item_id)
+    return ItemOut.from_item(
+        items_svc.set_tags(session, item_id, add=body.add, remove=body.remove)
+    )
+
+
+@router.patch("/{item_id}/folders", response_model=ItemOut)
+def patch_folders(
+    item_id: str,
+    body: MembershipPatch,
+    session: Annotated[Session, Depends(get_session)],
+):
+    """Add/remove folder memberships against what the server has."""
+    _get_or_404(session, item_id)
+    return ItemOut.from_item(
+        items_svc.set_folders(session, item_id, add=body.add, remove=body.remove)
+    )
 
 
 @router.put("/{item_id}/folders", response_model=ItemOut)

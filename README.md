@@ -189,6 +189,8 @@ POST   /api/items/{id}/restore
 POST   /api/items/{id}/preview   queue another attempt at the item's previews
 PUT    /api/items/{id}/tags      {"tags": [...]}
 PUT    /api/items/{id}/folders   {"folder_ids": [...]}
+PATCH  /api/items/{id}/tags      {"add": [...], "remove": [...]}: changes only those,
+PATCH  /api/items/{id}/folders   so concurrent writers never overwrite each other
 GET    /api/items/{id}/file      the original
 GET    /api/items/{id}/thumb     ?size=256|512|1024, 2048 (full-screen copy), 4096 (HEIC);
                                  &v=<preview_rev> makes the answer cacheable for good

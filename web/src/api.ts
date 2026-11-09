@@ -148,20 +148,41 @@ export function setUnauthorizedHandler(fn: () => void) {
   onUnauthorized = fn
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const res = await fetch(path, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${getToken()}`,
-      ...(init.headers ?? {}),
-    },
-  })
+/** JSON requests give up after this long (URL adds get longer: the server
+ * may spend up to 120 s downloading). */
+export const REQUEST_TIMEOUT_MS = 30_000
+
+/** Tell the app the token stopped working (any request, including uploads). */
+export function notifyUnauthorized() {
+  onUnauthorized?.()
+}
+
+async function request<T>(
+  path: string,
+  init: RequestInit = {},
+  timeoutMs = REQUEST_TIMEOUT_MS,
+): Promise<T> {
+  let res: Response
+  try {
+    res = await fetch(path, {
+      ...init,
+      signal: init.signal ?? AbortSignal.timeout(timeoutMs),
+      headers: {
+        Authorization: `Bearer ${getToken()}`,
+        ...(init.headers ?? {}),
+      },
+    })
+  } catch (e) {
+    if (e instanceof DOMException && (e.name === 'TimeoutError' || e.name === 'AbortError'))
+      throw new ApiError(408, 'The server took too long')
+    throw new ApiError(0, 'No connection to the server')
+  }
   if (res.status === 401) {
-    onUnauthorized?.()
+    notifyUnauthorized()
     throw new ApiError(401, 'unauthorized')
   }
   if (!res.ok) {
-    let detail = res.statusText
+    let detail = res.statusText || `error ${res.status}`
     try {
       const data = await res.json()
       if (data.detail) detail = typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)
@@ -213,6 +234,11 @@ export const api = {
     request<Item>(`/api/items/${id}/tags`, { ...json({ tags }), method: 'PUT' }),
   putFolders: (id: string, folder_ids: string[]) =>
     request<Item>(`/api/items/${id}/folders`, { ...json({ folder_ids }), method: 'PUT' }),
+  // add/remove against what the server has: never overwrites another writer
+  patchTags: (id: string, change: { add?: string[]; remove?: string[] }) =>
+    request<Item>(`/api/items/${id}/tags`, { ...json(change), method: 'PATCH' }),
+  patchFolders: (id: string, change: { add?: string[]; remove?: string[] }) =>
+    request<Item>(`/api/items/${id}/folders`, { ...json(change), method: 'PATCH' }),
   listSmartFolders: () => request<SmartFolder[]>('/api/smart-folders'),
   createSmartFolder: (name: string, query: Partial<Query>) =>
     request<SmartFolder>('/api/smart-folders', json({ name, query })),
@@ -228,6 +254,7 @@ export const api = {
     request<{ item: Item; created: boolean }>(
       '/api/items',
       json({ url, folder_id: folder_id && folder_id !== 'none' ? folder_id : null }),
+      150_000,
     ),
   listFolders: () => request<Folder[]>('/api/folders'),
   createFolder: (name: string, parent_id: string | null) =>
@@ -270,7 +297,8 @@ export function uploadFile(
         } catch {
           /* ignore */
         }
-        reject(new ApiError(xhr.status, detail))
+        if (xhr.status === 401) notifyUnauthorized()
+        reject(new ApiError(xhr.status, xhr.status === 401 ? 'unauthorized' : detail))
       }
     }
     xhr.onerror = () => reject(new ApiError(0, 'network error'))

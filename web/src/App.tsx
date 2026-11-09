@@ -10,8 +10,9 @@ import { TopBar } from './components/TopBar'
 import { UploadManager } from './components/UploadManager'
 import { useIsMobile } from './mobile'
 import { AppStateProvider } from './state'
+import { describeError, hasDrafts } from './writes'
 
-function TokenGate({ onDone }: { onDone: () => void }) {
+function TokenGate({ onDone, overlay = false }: { onDone: () => void; overlay?: boolean }) {
   const [value, setValue] = useState('')
   const [error, setError] = useState('')
 
@@ -21,16 +22,24 @@ function TokenGate({ onDone }: { onDone: () => void }) {
     try {
       await api.stats() // needs the token (/api/health doesn't, so it can't check one)
       onDone()
-    } catch {
-      setError('That token was rejected. Check KIST_TOKEN in your .env.')
+    } catch (err) {
+      setError(
+        (err as { status?: number })?.status === 401
+          ? 'That token was rejected. Check KIST_TOKEN in your .env.'
+          : `Couldn't check it: ${describeError(err)}.`,
+      )
     }
   }
 
   return (
-    <div className="token-gate">
+    <div className={`token-gate${overlay ? ' overlay' : ''}`}>
       <form onSubmit={submit}>
         <h1>Kist</h1>
-        <p>Enter the API token (KIST_TOKEN) to unlock the library.</p>
+        <p>
+          {overlay
+            ? 'The token stopped working. Enter it again to carry on: your uploads and unsaved edits are still here.'
+            : 'Enter the API token (KIST_TOKEN) to unlock the library.'}
+        </p>
         <input
           type="password"
           autoFocus
@@ -69,19 +78,32 @@ export default function App() {
     if (token) setToken(token) // refresh the media cookie
     return !!token
   })
+  // once the app has been shown, a lost token puts the token screen OVER it
+  // instead of replacing it, so the upload queue and typed text survive
+  const [shown, setShown] = useState(authed)
   const qc = useQueryClient()
   const mobile = useIsMobile()
 
   const recheck = useCallback(() => {
     setAuthed(true)
-    qc.clear()
+    setShown(true)
+    qc.invalidateQueries() // refetch what failed with the old token
   }, [qc])
 
   useEffect(() => {
     setUnauthorizedHandler(() => setAuthed(false))
   }, [])
 
-  if (!authed) return <TokenGate onDone={recheck} />
+  // closing the tab with text that never reached the server: ask first
+  useEffect(() => {
+    const onUnload = (e: BeforeUnloadEvent) => {
+      if (hasDrafts()) e.preventDefault()
+    }
+    window.addEventListener('beforeunload', onUnload)
+    return () => window.removeEventListener('beforeunload', onUnload)
+  }, [])
+
+  if (!authed && !shown) return <TokenGate onDone={recheck} />
 
   return (
     <AppStateProvider mobile={mobile}>
@@ -96,6 +118,7 @@ export default function App() {
           </div>
           <Preview />
           <JobsPanel />
+          {!authed && <TokenGate onDone={recheck} overlay />}
         </div>
       </UploadManager>
     </AppStateProvider>

@@ -12,6 +12,7 @@ import { api, uploadFile } from '../api'
 import { jobLabel, jobsFromDataTransfer, type AddJob } from '../clipboard'
 import { useAppState, useInvalidateItems } from '../state'
 import { nextQueued, uploadsReducer } from '../uploads'
+import { describeError } from '../writes'
 
 interface UploadsApi {
   enqueue: (files: File[]) => void
@@ -80,7 +81,7 @@ export function UploadManager({ children }: { children: ReactNode }) {
         })
       } catch (err) {
         busy.current = false
-        dispatch({ type: 'fail', key, error: String((err as Error).message ?? err) })
+        dispatch({ type: 'fail', key, error: describeError(err) })
       }
       refreshSoon()
     })()
@@ -116,7 +117,7 @@ export function UploadManager({ children }: { children: ReactNode }) {
       dispatch({ type: 'restored', key, at: Date.now() })
       invalidate()
     } catch (err) {
-      window.alert(`Couldn't restore it: ${String((err as Error).message ?? err)}`)
+      window.alert(`Couldn't restore it: ${describeError(err)}`)
     }
   }
 
