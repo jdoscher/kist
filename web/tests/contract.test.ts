@@ -1,7 +1,7 @@
 // The web side of the Kist 1.5 API contract. Run with `npm test`.
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { ApiError, conflictItem, detailText, emptyQuery, type Item } from '../src/api.ts'
+import { api, ApiError, CLIENT_HEADERS, conflictItem, detailText, emptyQuery, type Item } from '../src/api.ts'
 import { normalizeSaved, smartFolderQuery } from '../src/query.ts'
 import { fromUrl, toUrl } from '../src/url.ts'
 import {
@@ -108,4 +108,25 @@ test('a smart folder over the trash keeps its own URL', () => {
   assert.equal(back.query.deleted, true)
   // plain trash is unchanged
   assert.equal(toUrl({ ...place, smartId: null }), '/trash?q=cat')
+})
+
+test('API requests say they come from the web app', async () => {
+  assert.deepEqual(CLIENT_HEADERS, { 'X-Kist-Client': 'web' })
+  const realFetch = globalThis.fetch
+  let sent: Headers | undefined
+  globalThis.fetch = (async (_url: RequestInfo | URL, init?: RequestInit) => {
+    sent = new Headers(init?.headers)
+    return new Response(JSON.stringify({ items: [], next_cursor: null, total: null }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }) as typeof fetch
+  try {
+    const page = await api.listItems(emptyQuery, 'c2')
+    assert.equal(page.total, null) // later pages carry no total
+    assert.equal(sent?.get('X-Kist-Client'), 'web')
+    assert.match(sent?.get('Authorization') ?? '', /^Bearer/)
+  } finally {
+    globalThis.fetch = realFetch
+  }
 })

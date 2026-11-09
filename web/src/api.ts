@@ -117,6 +117,10 @@ export interface SmartFolder {
   position: number
 }
 
+/** Sent on every API request: the server records edits made here with
+ * source "web" in the item history (otherwise "api"). */
+export const CLIENT_HEADERS: Readonly<Record<string, string>> = { 'X-Kist-Client': 'web' }
+
 const TOKEN_KEY = 'kist_token'
 
 export function getToken(): string {
@@ -202,6 +206,7 @@ async function request<T>(
       signal: init.signal ?? AbortSignal.timeout(timeoutMs),
       headers: {
         Authorization: `Bearer ${getToken()}`,
+        ...CLIENT_HEADERS,
         ...(init.headers ?? {}),
       },
     })
@@ -324,6 +329,7 @@ export function uploadFile(
     const xhr = new XMLHttpRequest()
     xhr.open('POST', '/api/items')
     xhr.setRequestHeader('Authorization', `Bearer ${getToken()}`)
+    for (const [k, v] of Object.entries(CLIENT_HEADERS)) xhr.setRequestHeader(k, v)
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100))
     }
