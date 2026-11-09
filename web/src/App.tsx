@@ -1,20 +1,26 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useState } from 'react'
 import { api, getToken, setToken, setUnauthorizedHandler } from './api'
-import { DetailPanel, DetailSheet } from './components/DetailPanel'
+import { DetailPanel } from './components/DetailPanel'
+import { DetailSheet } from './components/DetailSheet'
+import { DialogProvider } from './components/Dialog'
 import { Grid } from './components/Grid'
 import { JobsPanel } from './components/JobsPanel'
+import { NoticesProvider } from './components/Notices'
 import { Preview } from './components/Preview'
 import { Drawer, Sidebar } from './components/Sidebar'
 import { TopBar } from './components/TopBar'
 import { UploadManager } from './components/UploadManager'
 import { useIsMobile } from './mobile'
 import { AppStateProvider } from './state'
+import { useLayer } from './useShortcuts'
 import { describeError, hasDrafts } from './writes'
 
 function TokenGate({ onDone, overlay = false }: { onDone: () => void; overlay?: boolean }) {
   const [value, setValue] = useState('')
   const [error, setError] = useState('')
+  // over the app, the token screen is a modal layer: no grid shortcuts
+  useLayer('modal', overlay)
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -106,21 +112,25 @@ export default function App() {
   if (!authed && !shown) return <TokenGate onDone={recheck} />
 
   return (
-    <AppStateProvider mobile={mobile}>
-      <UploadManager>
-        <div className={`app-shell${mobile ? ' mobile' : ''}`}>
-          <ServerBanner />
-          <TopBar mobile={mobile} />
-          <div className="app-body">
-            {mobile ? <Drawer /> : <Sidebar />}
-            <Grid mobile={mobile} />
-            {mobile ? <DetailSheet /> : <DetailPanel />}
-          </div>
-          <Preview />
-          <JobsPanel />
-          {!authed && <TokenGate onDone={recheck} overlay />}
-        </div>
-      </UploadManager>
-    </AppStateProvider>
+    <NoticesProvider>
+      <DialogProvider>
+        <AppStateProvider mobile={mobile}>
+          <UploadManager>
+            <div className={`app-shell${mobile ? ' mobile' : ''}`}>
+              <ServerBanner />
+              <TopBar mobile={mobile} />
+              <div className="app-body">
+                {mobile ? <Drawer /> : <Sidebar />}
+                <Grid mobile={mobile} />
+                {mobile ? <DetailSheet /> : <DetailPanel />}
+              </div>
+              <Preview />
+              <JobsPanel />
+              {!authed && <TokenGate onDone={recheck} overlay />}
+            </div>
+          </UploadManager>
+        </AppStateProvider>
+      </DialogProvider>
+    </NoticesProvider>
   )
 }

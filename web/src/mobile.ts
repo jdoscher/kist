@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
  * When the phone layout applies: narrow screens, plus phones held sideways
  * (short and touch-only). Keep in sync with the @media block in styles.css.
  */
-export const MOBILE_QUERY = '(max-width: 760px), (max-height: 500px) and (pointer: coarse)'
+const MOBILE_QUERY = '(max-width: 760px), (max-height: 500px) and (pointer: coarse)'
 
 export type MobileCols = 2 | 3
 

@@ -10,8 +10,10 @@ import {
 } from 'react'
 import { api, uploadFile } from '../api'
 import { jobLabel, jobsFromDataTransfer, type AddJob } from '../clipboard'
-import { useAppState, useInvalidateItems } from '../state'
+import { useApplyItems, useRefresh } from '../data'
+import { useAppState } from '../state'
 import { nextQueued, uploadsReducer } from '../uploads'
+import { useWrite } from '../useWrite'
 import { describeError } from '../writes'
 
 interface UploadsApi {
@@ -32,21 +34,24 @@ let nextKey = 1
 export function UploadManager({ children }: { children: ReactNode }) {
   const [entries, dispatch] = useReducer(uploadsReducer<AddJob>, [])
   const [dragging, setDragging] = useState(false)
-  const invalidate = useInvalidateItems()
+  const refresh = useRefresh()
+  const apply = useApplyItems()
+  const w = useWrite()
   const { query } = useAppState()
   const queryRef = useRef(query)
   queryRef.current = query
   const busy = useRef(false)
   // one list refresh after a batch, not one per file (each refresh reloads
-  // every loaded page)
+  // the loaded pages of the list on screen; new items' place in the sort
+  // order is the server's call)
   const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const refreshSoon = useCallback(() => {
     if (refreshTimer.current) clearTimeout(refreshTimer.current)
     refreshTimer.current = setTimeout(() => {
-      if (!busy.current) invalidate()
+      if (!busy.current) refresh.itemsAdded()
       else refreshSoon()
     }, 1500)
-  }, [invalidate]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [refresh]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // send the next queued entry, one at a time (states: uploads.ts)
   useEffect(() => {
@@ -111,15 +116,18 @@ export function UploadManager({ children }: { children: ReactNode }) {
     })
   }, [])
 
-  const restore = async (key: number, itemId: string) => {
-    try {
-      await api.restoreItem(itemId)
-      dispatch({ type: 'restored', key, at: Date.now() })
-      invalidate()
-    } catch (err) {
-      window.alert(`Couldn't restore it: ${describeError(err)}`)
-    }
-  }
+  const restore = (key: number, itemId: string) =>
+    void w.run(`restore:${key}`, () => api.restoreItem(itemId), {
+      what: 'restore it',
+      serializeKey: itemId,
+      onDone: (item) => {
+        dispatch({ type: 'restored', key, at: Date.now() })
+        // patch it where it's loaded (drops it from Trash), then reload the
+        // list on screen so it shows up where it now belongs
+        apply([item])
+        refresh.itemsAdded()
+      },
+    })
 
   const enqueue = useCallback(
     (files: File[]) => addJobs(files.map((file) => ({ kind: 'file', file }))),
@@ -199,7 +207,9 @@ export function UploadManager({ children }: { children: ReactNode }) {
               {e.status === 'inTrash' && (
                 <>
                   <span>already in library, in Trash</span>
-                  <button onClick={() => e.itemId && restore(e.key, e.itemId)}>Restore</button>
+                  <button disabled={w.busy(`restore:${e.key}`)} onClick={() => e.itemId && restore(e.key, e.itemId)}>
+                    Restore
+                  </button>
                   <button
                     aria-label="Dismiss"
                     onClick={() => dispatch({ type: 'dismiss', key: e.key })}

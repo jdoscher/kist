@@ -83,3 +83,24 @@ test('bulk runs carry on past failures and stop at sign-out', async () => {
   assert.equal(calls, 2) // nothing sent after the 401
   assert.deepEqual(s.failed.map((f) => f.id), ['b', 'c', 'd'])
 })
+
+test('writeReducer: saving keys, failure per key, success clears only its own', async () => {
+  const { writeReducer, idleWrites, failureText, isSignedOut } = await import('../src/writes.ts')
+  let s = writeReducer(idleWrites, { type: 'start', key: 'notes' })
+  s = writeReducer(s, { type: 'start', key: 'rating' })
+  s = writeReducer(s, { type: 'start', key: 'rating' }) // two quick clicks
+  assert.deepEqual(s.saving, ['notes', 'rating', 'rating'])
+  s = writeReducer(s, { type: 'fail', key: 'notes', message: 'offline' })
+  assert.deepEqual(s.failure, { key: 'notes', message: 'offline' })
+  s = writeReducer(s, { type: 'ok', key: 'rating' })
+  assert.deepEqual(s.saving, ['rating']) // one still in flight
+  assert.ok(s.failure) // a rating success doesn't hide the notes failure
+  s = writeReducer(s, { type: 'ok', key: 'rating' })
+  s = writeReducer(s, { type: 'start', key: 'notes' })
+  s = writeReducer(s, { type: 'ok', key: 'notes' }) // the retry worked
+  assert.deepEqual(s, idleWrites)
+  assert.equal(writeReducer(s, { type: 'dismiss' }), s)
+  assert.equal(failureText('save the notes', 'offline'), "Couldn't save the notes: offline")
+  assert.equal(isSignedOut(new ApiError(401, 'unauthorized')), true)
+  assert.equal(isSignedOut(new ApiError(500, 'x')), false)
+})

@@ -1,35 +1,28 @@
-import {
-  useInfiniteQuery,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from '@tanstack/react-query'
+// The app's view state: what is shown (query, smart folder), what is
+// selected, which layers are open, plus the persisted prefs. Server data
+// lives in data.ts, bulk actions in bulk.ts, URL/history sync in urlSync.ts,
+// pref storage in settings.ts.
+
 import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useRef,
   useState,
   type ReactNode,
 } from 'react'
-import { api, emptyQuery, type Item, type Query } from './api'
-import { folderSubtree, mergeQuery, stillMatches } from './query'
-import { fromUrl, historyAction, layerOf, toUrl, type Place } from './url'
-import { runEach, serialize } from './writes'
-import {
-  TILE_SIZE_DEFAULT,
-  TILE_SIZE_MAX,
-  TILE_SIZE_MIN,
-  type GridLayout,
-} from './layout'
+import type { Query } from './api'
+import type { GridLayout } from './layout'
 import type { MobileCols } from './mobile'
+import { mergeQuery, normalizeSaved } from './query'
+import { fromUrl, type Place } from './url'
+import { usePrefs } from './usePrefs'
+import { inMenuLayer, pushMenuLayer, useUrlSync } from './urlSync'
 
 interface AppState {
   query: Query
   setQuery: (patch: Partial<Query>) => void
-  resetQuery: () => void
   /** the smart folder being shown (cleared by any other filter change) */
   smartId: string | null
   applySmartFolder: (id: string, query: Partial<Query>) => void
@@ -61,58 +54,6 @@ interface AppState {
   setMobileCols: (cols: MobileCols) => void
 }
 
-const PANEL_KEY = 'kist.panelOpen'
-const LAYOUT_KEY = 'kist.gridLayout'
-const SIZE_KEY = 'kist.tileSize'
-const COLS_KEY = 'kist.mobileCols'
-
-function loadSetting(key: string): string | null {
-  try {
-    return localStorage.getItem(key)
-  } catch {
-    return null
-  }
-}
-
-function saveSetting(key: string, value: string) {
-  try {
-    localStorage.setItem(key, value)
-  } catch {
-    /* private mode */
-  }
-}
-
-function clampSize(n: number): number {
-  if (!Number.isFinite(n)) return TILE_SIZE_DEFAULT
-  return Math.min(TILE_SIZE_MAX, Math.max(TILE_SIZE_MIN, Math.round(n)))
-}
-
-function loadLayout(): GridLayout {
-  return loadSetting(LAYOUT_KEY) === 'square' ? 'square' : 'justified'
-}
-
-function loadTileSize(): number {
-  const raw = loadSetting(SIZE_KEY)
-  return raw === null ? TILE_SIZE_DEFAULT : clampSize(Number(raw))
-}
-
-/** Older smart folders stored Unfiled as "no folder + untagged". */
-function normalizeSaved(q: Partial<Query>): Query {
-  const merged: Query = { ...emptyQuery, ...q, deleted: false }
-  if (merged.folder === 'none' && merged.untagged && !merged.view) {
-    return { ...merged, view: 'unfiled', folder: null, untagged: false }
-  }
-  return merged
-}
-
-function loadPanelOpen(): boolean {
-  try {
-    return localStorage.getItem(PANEL_KEY) !== '0'
-  } catch {
-    return true
-  }
-}
-
 const Ctx = createContext<AppState | null>(null)
 
 export function AppStateProvider({ children, mobile }: { children: ReactNode; mobile: boolean }) {
@@ -125,50 +66,12 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
   )
   const [previewId, setPreviewId] = useState<string | null>(initial.full ? initial.item : null)
   const [jobsOpen, setJobsOpen] = useState(false)
-  const anchor = useRef<string | null>(null)
-  const [panelOpen, setPanelOpenRaw] = useState(loadPanelOpen)
-
-  const setPanelOpen = useCallback((open: boolean) => {
-    setPanelOpenRaw(open)
-    try {
-      localStorage.setItem(PANEL_KEY, open ? '1' : '0')
-    } catch {
-      /* private mode */
-    }
-  }, [])
-
-  const [gridLayout, setGridLayoutRaw] = useState<GridLayout>(loadLayout)
-  const [tileSize, setTileSizeRaw] = useState<number>(loadTileSize)
-
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [mobileCols, setMobileColsRaw] = useState<MobileCols>(() =>
-    loadSetting(COLS_KEY) === '2' ? 2 : 3,
-  )
-  const setMobileCols = useCallback((cols: MobileCols) => {
-    setMobileColsRaw(cols)
-    saveSetting(COLS_KEY, String(cols))
-  }, [])
-
-  const setGridLayout = useCallback((layout: GridLayout) => {
-    setGridLayoutRaw(layout)
-    saveSetting(LAYOUT_KEY, layout)
-  }, [])
-
-  const setTileSize = useCallback((size: number) => {
-    const n = clampSize(size)
-    setTileSizeRaw(n)
-    saveSetting(SIZE_KEY, String(n))
-  }, [])
+  const anchor = useRef<string | null>(null)
+  const prefs = usePrefs()
 
   const setQuery = useCallback((patch: Partial<Query>) => {
     setQueryRaw((prev) => mergeQuery(prev, patch))
-    setSmartId(null)
-    setSelection(new Set())
-    setPreviewId(null)
-  }, [])
-
-  const resetQuery = useCallback(() => {
-    setQueryRaw(emptyQuery)
     setSmartId(null)
     setSelection(new Set())
     setPreviewId(null)
@@ -181,7 +84,6 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
     setPreviewId(null)
   }, [])
 
-  // ---- URL sync (see url.ts for the routes and the Back rules) ----
   const place: Place = useMemo(
     () => ({
       query,
@@ -191,69 +93,26 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
     }),
     [query, smartId, selection, previewId],
   )
-  const url = toUrl(place)
-  const shown = useRef<Place>(initial) // what the address bar shows now
-  const afterBack = useRef<Place | null>(null)
-
-  useEffect(() => {
-    // normalize the address once (e.g. /unfiled -> /, unknown paths -> /all)
-    window.history.replaceState(window.history.state, '', toUrl(initial))
-  }, [initial])
-
-  useEffect(() => {
-    const cur = shown.current
-    const hs = window.history.state ?? {}
-    const action = historyAction(cur, place, {
-      mobile,
-      curPushed: !!hs.kistLayer,
-      curIsMenu: !!hs.kistMenu,
-    })
-    if (action === 'none') return
-    const layered = layerOf(place, mobile) !== 'view'
-    if (action === 'push') window.history.pushState({ kistLayer: layered }, '', url)
-    else if (action === 'replace')
-      window.history.replaceState({ kistLayer: !!hs.kistLayer && !hs.kistMenu && layered }, '', url)
-    else {
-      afterBack.current = place
-      window.history.back()
-    }
-    shown.current = place
-  }, [url, mobile]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    const onPop = () => {
-      const hs = window.history.state ?? {}
-      const target = afterBack.current
-      afterBack.current = null
-      setDrawerOpen(!!hs.kistMenu)
-      if (target) {
-        // we stepped back to close a layer; the app already shows `target`
-        window.history.replaceState(
-          { kistLayer: !!hs.kistLayer && layerOf(target, mobile) !== 'view' },
-          '',
-          toUrl(target),
-        )
-        shown.current = target
-        return
-      }
-      const p = fromUrl(window.location.pathname, window.location.search)
-      shown.current = p
+  useUrlSync({
+    initial,
+    place,
+    mobile,
+    onMenu: setDrawerOpen,
+    onNavigate: (p) => {
       setQueryRaw(p.query)
       setSmartId(p.smartId)
       setSelection(new Set(p.item ? [p.item] : []))
       setPreviewId(p.full ? p.item : null)
-    }
-    window.addEventListener('popstate', onPop)
-    return () => window.removeEventListener('popstate', onPop)
-  }, [mobile])
+    },
+  })
 
   const openDrawer = useCallback(() => {
     setDrawerOpen(true)
-    window.history.pushState({ kistMenu: true, kistLayer: true }, '', window.location.href)
+    pushMenuLayer()
   }, [])
 
   const closeDrawer = useCallback(() => {
-    if (window.history.state?.kistMenu) window.history.back()
+    if (inMenuLayer()) window.history.back()
     else setDrawerOpen(false)
   }, [])
 
@@ -291,11 +150,12 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
   const clearSelection = useCallback(() => setSelection(new Set()), [])
   const selectAll = useCallback((ids: string[]) => setSelection(new Set(ids)), [])
 
+  const { panelOpen, setPanelOpen, gridLayout, setGridLayout, tileSize, setTileSize, mobileCols, setMobileCols } =
+    prefs
   const value = useMemo(
     () => ({
       query,
       setQuery,
-      resetQuery,
       smartId,
       applySmartFolder,
       selection,
@@ -322,7 +182,7 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
       mobileCols,
       setMobileCols,
     }),
-    [query, smartId, applySmartFolder, selection, previewId, panelOpen, setPanelOpen, gridLayout, setGridLayout, tileSize, setTileSize, drawerOpen, openDrawer, closeDrawer, jobsOpen, mobile, mobileCols, setMobileCols, setQuery, resetQuery, selectOnly, toggleSelect, rangeSelect, clearSelection, selectAll],
+    [query, setQuery, smartId, applySmartFolder, selection, selectOnly, toggleSelect, rangeSelect, clearSelection, selectAll, previewId, panelOpen, setPanelOpen, gridLayout, setGridLayout, tileSize, setTileSize, drawerOpen, openDrawer, closeDrawer, jobsOpen, mobile, mobileCols, setMobileCols],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
@@ -332,184 +192,4 @@ export function useAppState(): AppState {
   const state = useContext(Ctx)
   if (!state) throw new Error('useAppState outside provider')
   return state
-}
-
-const PENDING_POLL_MS = 3000
-
-export function useItems(query: Query) {
-  return useInfiniteQuery({
-    queryKey: ['items', query],
-    queryFn: ({ pageParam }) => api.listItems(query, pageParam || undefined),
-    initialPageParam: '',
-    getNextPageParam: (last) => last.next_cursor ?? undefined,
-    // a refetch reloads every loaded page in sequence (measured: 37 pages,
-    // 4.5 MB): edits patch the list in place instead (useApplyItems), and
-    // coming back to the tab doesn't reload it
-    refetchOnWindowFocus: false,
-  })
-}
-
-type ItemsPages = { pages: { items: Item[]; next_cursor: string | null; total: number | null }[]; pageParams: unknown[] }
-
-/**
- * Apply edits the API already answered with (it returns the updated item) to
- * every loaded list, without refetching: items that left a view are dropped
- * from it, and the lists are marked stale so the next visit reloads them.
- */
-export function useApplyItems() {
-  const qc = useQueryClient()
-  return useCallback(
-    (updated: Item[], removedIds: string[] = []) => {
-      const byId = new Map(updated.map((i) => [i.id, i]))
-      const removed = new Set(removedIds)
-      const folders = qc.getQueryData<{ id: string; parent_id: string | null }[]>(['folders']) ?? []
-      for (const [key, data] of qc.getQueriesData<ItemsPages>({ queryKey: ['items'] })) {
-        if (!data) continue
-        const q = key[1] as Query
-        const sub = q.folder && q.folder !== 'none' ? folderSubtree(q.folder, folders) : undefined
-        let dropped = 0
-        const pages = data.pages.map((p) => {
-          const items = p.items.flatMap((i) => {
-            if (removed.has(i.id)) {
-              dropped++
-              return []
-            }
-            const next = byId.get(i.id)
-            if (!next) return [i]
-            if (!stillMatches(next, q, sub)) {
-              dropped++
-              return []
-            }
-            return [next]
-          })
-          return { ...p, items }
-        })
-        if (dropped && pages[0].total != null) pages[0] = { ...pages[0], total: pages[0].total - dropped }
-        qc.setQueryData(key, { ...data, pages })
-      }
-      for (const i of updated) qc.setQueryData(['item', i.id], i)
-      // stale, not refetched now: the next visit to a list reloads it
-      qc.invalidateQueries({ queryKey: ['items'], refetchType: 'none' })
-      // small lists whose counts may have changed
-      qc.invalidateQueries({ queryKey: ['tags'] })
-      qc.invalidateQueries({ queryKey: ['folders'] })
-      qc.invalidateQueries({ queryKey: ['stats'] })
-    },
-    [qc],
-  )
-}
-
-/** An item by id: from the loaded grid if it's there, else fetched (a link
- * can point at an item far down the list, or in another view). */
-export function useItem(id: string | null, loaded: Item[]): Item | undefined {
-  const found = id ? loaded.find((i) => i.id === id) : undefined
-  const fetched = useQuery({
-    queryKey: ['item', id],
-    queryFn: () => api.getItem(id as string),
-    enabled: !!id && !found,
-    retry: false,
-    refetchInterval: (q) => (q.state.data?.preview_status === 'pending' ? PENDING_POLL_MS : false),
-  })
-  if (!id) return undefined
-  return found ?? fetched.data
-}
-
-export function useJobs(enabled: boolean) {
-  return useQuery({
-    queryKey: ['jobs', 'failed'],
-    queryFn: () => api.listJobs('failed'),
-    enabled,
-  })
-}
-
-export function useFolders() {
-  return useQuery({ queryKey: ['folders'], queryFn: api.listFolders })
-}
-
-export function useTags() {
-  return useQuery({ queryKey: ['tags'], queryFn: api.listTags })
-}
-
-export function useSmartFolders() {
-  return useQuery({ queryKey: ['smartFolders'], queryFn: api.listSmartFolders })
-}
-
-export function useStats() {
-  return useQuery({ queryKey: ['stats'], queryFn: api.stats, refetchInterval: 30_000 })
-}
-
-/** Invalidate everything that shows item data. */
-export function useInvalidateItems() {
-  const qc = useQueryClient()
-  return useCallback(() => {
-    qc.invalidateQueries({ queryKey: ['items'] })
-    qc.invalidateQueries({ queryKey: ['item'] })
-    qc.invalidateQueries({ queryKey: ['jobs'] })
-    qc.invalidateQueries({ queryKey: ['tags'] })
-    qc.invalidateQueries({ queryKey: ['folders'] })
-    qc.invalidateQueries({ queryKey: ['smartFolders'] })
-    qc.invalidateQueries({ queryKey: ['stats'] })
-  }, [qc])
-}
-
-export interface BulkInput {
-  ids: string[]
-  action:
-    | { kind: 'move'; folderId: string | null } // replace memberships
-    | { kind: 'addFolder'; folderId: string }
-    | { kind: 'trash' }
-    | { kind: 'restore' }
-    | { kind: 'hardDelete' }
-    | { kind: 'addTags'; tags: string[] }
-    | { kind: 'removeTag'; tag: string }
-    | { kind: 'rating'; rating: number }
-}
-
-export interface BulkResult {
-  input: BulkInput
-  ok: number
-  failed: { id: string; error: string }[]
-}
-
-/** Bulk actions run item by item and carry on past failures; the result
- * says which failed and why, so the bar can offer Retry for just those. */
-export function useBulkAction() {
-  const apply = useApplyItems()
-  return useMutation({
-    mutationFn: async (input: BulkInput): Promise<BulkResult> => {
-      const { ids, action } = input
-      const removed: string[] = []
-      const res = await runEach<Item | null>(ids, (id) =>
-        serialize(id, async () => {
-          switch (action.kind) {
-            case 'move':
-              return api.putFolders(id, action.folderId ? [action.folderId] : [])
-            case 'addFolder':
-              return api.patchFolders(id, { add: [action.folderId] })
-            case 'trash':
-              return (await api.trashItem(id)).item
-            case 'restore':
-              return api.restoreItem(id)
-            case 'hardDelete':
-              await api.hardDeleteItem(id)
-              removed.push(id)
-              return null
-            case 'addTags':
-              return api.patchTags(id, { add: action.tags })
-            case 'removeTag':
-              return api.patchTags(id, { remove: [action.tag] })
-            case 'rating':
-              return api.patchItem(id, { rating: action.rating })
-          }
-        }),
-      )
-      apply(res.done.filter((i): i is Item => i !== null), removed)
-      return { input, ok: res.done.length, failed: res.failed }
-    },
-  })
-}
-
-export function flattenItems(pages: { items: Item[] }[] | undefined): Item[] {
-  if (!pages) return []
-  return pages.flatMap((p) => p.items)
 }

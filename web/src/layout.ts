@@ -4,14 +4,14 @@
 export type GridLayout = 'justified' | 'square'
 
 /** Space each tile takes besides its own box: 4 px margin on both sides. */
-export const TILE_GAP = 8
+const TILE_GAP = 8
 
 /** Shapes beyond these are cropped, so very tall or wide images stay readable. */
-export const MIN_ASPECT = 0.5 // 1:2
-export const MAX_ASPECT = 3 // 3:1
+const MIN_ASPECT = 0.5 // 1:2
+const MAX_ASPECT = 3 // 3:1
 
 /** How far a justified row may stretch or shrink from the target height. */
-export const FLEX = 0.15
+const FLEX = 0.15
 
 export const TILE_SIZE_MIN = 120
 export const TILE_SIZE_MAX = 400
@@ -23,7 +23,7 @@ export interface Sized {
   has_thumb: boolean
 }
 
-export interface RowTile {
+interface RowTile {
   index: number // position in the flat item list
   width: number // tile box width (px), margin excluded
 }
@@ -156,4 +156,61 @@ export function typicalAspect(items: Sized[]): number {
   if (items.length === 0) return 1
   const a = items.map(tileAspect).sort((x, y) => x - y)
   return a[Math.floor(a.length / 2)]
+}
+
+// ---- arrow-key navigation over the packed rows (Grid owns only the listener)
+
+export interface TilePos {
+  row: number
+  center: number // horizontal centre of the tile box (px, from the row's left)
+}
+
+/** Item index -> its row and horizontal centre, from layoutRows' output. */
+export function tilePositions(rows: Row[]): TilePos[] {
+  const pos: TilePos[] = []
+  rows.forEach((row, r) => {
+    let x = 0
+    for (const t of row.tiles) {
+      pos[t.index] = { row: r, center: x + TILE_GAP / 2 + t.width / 2 }
+      x += t.width + TILE_GAP
+    }
+  })
+  return pos
+}
+
+export type NavKey = 'ArrowLeft' | 'ArrowRight' | 'ArrowUp' | 'ArrowDown'
+
+export function isNavKey(key: string): key is NavKey {
+  return key === 'ArrowLeft' || key === 'ArrowRight' || key === 'ArrowUp' || key === 'ArrowDown'
+}
+
+/**
+ * The item an arrow key moves to from `idx` (-1 when nothing is focused):
+ * left/right step through the list, up/down pick the tile in the row
+ * above/below whose centre is nearest, and stay put at the first/last row.
+ * Returns -1 only when there are no items.
+ */
+export function nextIndex(
+  key: NavKey,
+  idx: number,
+  count: number,
+  rows: Row[],
+  positions: TilePos[] = tilePositions(rows),
+): number {
+  if (count <= 0) return -1
+  let next: number
+  if (key === 'ArrowRight') next = Math.min(idx + 1, count - 1)
+  else if (key === 'ArrowLeft') next = Math.max(idx - 1, 0)
+  else {
+    const here = positions[idx]
+    if (!here) return 0
+    const target = rows[here.row + (key === 'ArrowDown' ? 1 : -1)]
+    if (!target || target.tiles.length === 0) return idx
+    next = target.tiles[0].index
+    for (const t of target.tiles) {
+      if (Math.abs(positions[t.index].center - here.center) < Math.abs(positions[next].center - here.center))
+        next = t.index
+    }
+  }
+  return next < 0 ? 0 : next
 }

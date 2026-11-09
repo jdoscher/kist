@@ -69,3 +69,50 @@ export async function runEach<T>(ids: string[], fn: (id: string) => Promise<T>):
   }
   return out
 }
+
+// ---- the write state behind useWrite (useWrite.ts) ----
+
+/** What a component's writes are doing: which keys are in flight, and the
+ * latest failure (the notice with Retry shows it too). */
+export interface WriteState {
+  saving: string[]
+  failure: { key: string; message: string } | null
+}
+
+export type WriteEvent =
+  | { type: 'start'; key: string }
+  | { type: 'ok'; key: string }
+  | { type: 'fail'; key: string; message: string }
+  | { type: 'dismiss' }
+
+export const idleWrites: WriteState = { saving: [], failure: null }
+
+export function writeReducer(s: WriteState, e: WriteEvent): WriteState {
+  switch (e.type) {
+    case 'start':
+      return { ...s, saving: [...s.saving, e.key] }
+    case 'ok': {
+      // a success clears only its own key's failure
+      const i = s.saving.indexOf(e.key)
+      const saving = i < 0 ? s.saving : [...s.saving.slice(0, i), ...s.saving.slice(i + 1)]
+      return { saving, failure: s.failure?.key === e.key ? null : s.failure }
+    }
+    case 'fail': {
+      const i = s.saving.indexOf(e.key)
+      const saving = i < 0 ? s.saving : [...s.saving.slice(0, i), ...s.saving.slice(i + 1)]
+      return { saving, failure: { key: e.key, message: e.message } }
+    }
+    case 'dismiss':
+      return s.failure ? { ...s, failure: null } : s
+  }
+}
+
+/** "Couldn't save the notes: No connection to the server" */
+export function failureText(what: string, message: string): string {
+  return `Couldn't ${what}: ${message}`
+}
+
+/** 401s bring back the token screen, which says what's wrong: no notice. */
+export function isSignedOut(e: unknown): boolean {
+  return e instanceof ApiError && e.status === 401
+}

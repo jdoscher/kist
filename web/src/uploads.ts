@@ -8,7 +8,7 @@
 // The destination folder is captured when a file is added, so switching
 // folders while a batch uploads doesn't move the rest of it.
 
-export type UploadStatus = 'queued' | 'uploading' | 'done' | 'duplicate' | 'inTrash' | 'error'
+type UploadStatus = 'queued' | 'uploading' | 'done' | 'duplicate' | 'inTrash' | 'error'
 
 export interface UploadEntry<J = unknown> {
   key: number

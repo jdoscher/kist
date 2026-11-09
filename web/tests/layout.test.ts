@@ -1,7 +1,7 @@
 // Grid layout tests. Run with `npm test` (node --test; Node strips the types).
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { layoutRows, pickThumbSize, tileAspect } from '../src/layout.ts'
+import { layoutRows, nextIndex, pickThumbSize, tileAspect, tilePositions } from '../src/layout.ts'
 
 const it = (w: number | null, h: number | null, hasThumb = true) => ({
   width: w,
@@ -81,4 +81,48 @@ test('thumbnail choice covers the tile and prefers the smaller file', () => {
   assert.equal(pickThumbSize(it(2000, 1000), 920, 460, 2), 512)
   // square image at a big tile: 512 px is too small, 1024 covers better
   assert.equal(pickThumbSize(it(1000, 1000), 460, 460, 2), 1024)
+})
+
+test('tilePositions: row and centre of every tile', () => {
+  const rows = [
+    { tiles: [{ index: 0, width: 100 }, { index: 1, width: 200 }], height: 100 },
+    { tiles: [{ index: 2, width: 300 }], height: 100 },
+  ]
+  assert.deepEqual(tilePositions(rows), [
+    { row: 0, center: 54 },
+    { row: 0, center: 212 },
+    { row: 1, center: 154 },
+  ])
+})
+
+test('nextIndex: arrows move through the grid like the eye expects', () => {
+  // row 0: three 100 px tiles; row 1: one wide tile then a narrow one
+  const rows = [
+    { tiles: [0, 1, 2].map((index) => ({ index, width: 100 })), height: 100 },
+    { tiles: [{ index: 3, width: 250 }, { index: 4, width: 50 }], height: 100 },
+  ]
+  const n = 5
+  assert.equal(nextIndex('ArrowRight', 1, n, rows), 2)
+  assert.equal(nextIndex('ArrowRight', 4, n, rows), 4) // stays on the last
+  assert.equal(nextIndex('ArrowLeft', 0, n, rows), 0)
+  assert.equal(nextIndex('ArrowLeft', -1, n, rows), 0) // nothing focused yet
+  assert.equal(nextIndex('ArrowRight', -1, n, rows), 0)
+  assert.equal(nextIndex('ArrowDown', -1, n, rows), 0)
+  assert.equal(nextIndex('ArrowDown', 0, n, rows), 3) // nearest centre below
+  assert.equal(nextIndex('ArrowDown', 2, n, rows), 4)
+  assert.equal(nextIndex('ArrowUp', 4, n, rows), 2)
+  assert.equal(nextIndex('ArrowUp', 3, n, rows), 1)
+  assert.equal(nextIndex('ArrowUp', 1, n, rows), 1) // top row: stay
+  assert.equal(nextIndex('ArrowDown', 3, n, rows), 3) // bottom row: stay
+  assert.equal(nextIndex('ArrowDown', 0, 0, []), -1) // empty grid
+})
+
+test('nextIndex agrees with a real justified layout', () => {
+  const rows = layoutRows(library, 1000, 200, 'justified')
+  const pos = tilePositions(rows)
+  for (let i = 0; i < library.length; i++) {
+    const down = nextIndex('ArrowDown', i, library.length, rows, pos)
+    if (pos[i].row < rows.length - 1) assert.equal(pos[down].row, pos[i].row + 1)
+    else assert.equal(down, i)
+  }
 })

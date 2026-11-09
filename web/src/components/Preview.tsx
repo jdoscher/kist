@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fileUrl, thumbUrl, type Item } from '../api'
 import { swipeDirection } from '../mobile'
 import { fullPreviewUrl, previewBoxPx } from '../preview'
-import { flattenItems, useAppState, useItem, useItems } from '../state'
+import { useCurrentItems, useItem } from '../data'
+import { useAppState } from '../state'
+import { useLayer, useShortcut } from '../useShortcuts'
 
 /** Show the 1024 thumb at once, then swap in the sharper copy the screen
  * actually needs (preview.ts: usually the 2048 WebP, not the original). */
@@ -24,9 +26,8 @@ function ProgressiveImage({ item, mobile }: { item: Item; mobile: boolean }) {
 }
 
 export function Preview() {
-  const { query, previewId, setPreviewId, selectOnly, mobile } = useAppState()
-  const result = useItems(query)
-  const items = useMemo(() => flattenItems(result.data?.pages), [result.data])
+  const { previewId, setPreviewId, selectOnly, mobile } = useAppState()
+  const { result, items } = useCurrentItems()
   const idx = useMemo(() => items.findIndex((i) => i.id === previewId), [items, previewId])
   // an item opened from a link may not be in the loaded grid: show it alone
   const linked = useItem(previewId, items)
@@ -47,9 +48,12 @@ export function Preview() {
     [idx, items, setPreviewId, selectOnly, result],
   )
 
-  useEffect(() => {
-    if (!item) return
-    const onKey = (e: KeyboardEvent) => {
+  // while open, the preview is the keyboard's top layer: grid keys
+  // (including Delete) stand down until it closes
+  useLayer('preview', previewId !== null)
+  useShortcut(
+    'preview',
+    (e) => {
       if (e.key === 'Escape') setPreviewId(null)
       else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
         e.preventDefault()
@@ -57,11 +61,11 @@ export function Preview() {
       } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
         e.preventDefault()
         go(-1)
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [item, go, setPreviewId])
+      } else return false
+      return true
+    },
+    !!item,
+  )
 
   // touch: swipe left/right for the next/previous item, down to close
   const touch = useRef<{ x: number; y: number; n: number } | null>(null)

@@ -1,48 +1,41 @@
-import { useEffect, useMemo, useState } from 'react'
-import type { Item } from '../api'
-import { useAppState, useBulkAction, useFolders, type BulkInput, type BulkResult } from '../state'
-
-const VERB: Record<BulkInput['action']['kind'], string> = {
-  move: 'Moved',
-  addFolder: 'Added',
-  trash: 'Trashed',
-  restore: 'Restored',
-  hardDelete: 'Deleted',
-  addTags: 'Tagged',
-  removeTag: 'Untagged',
-  rating: 'Rated',
-}
+import { useMemo, useState } from 'react'
+import { bulkReport, hardDeleteQuestion, useBulkAction, type BulkAction } from '../bulk'
+import { useFolders } from '../data'
+import { useAppState } from '../state'
+import { useShortcut } from '../useShortcuts'
+import { useDialog } from './Dialog'
+import { useNotices } from './Notices'
 
 // actions that take the items out of this view: clear the selection after
 const LEAVES_VIEW = new Set(['trash', 'restore', 'hardDelete'])
 
-export function BulkBar(_props: { items: Map<string, Item> }) {
+export function BulkBar() {
   const { query, selection, clearSelection, selectAll } = useAppState()
   const { data: folders } = useFolders()
   const bulk = useBulkAction()
+  const dialog = useDialog()
+  const { notify, dismiss } = useNotices()
   const [tagText, setTagText] = useState('')
-  const [report, setReport] = useState<BulkResult | null>(null)
 
   const ids = useMemo(() => [...selection], [selection])
 
-  // the report belongs to the failed items it selected; any other selection
-  // means the user moved on
-  const showReport =
-    report !== null &&
-    report.failed.length === ids.length &&
-    report.failed.every((f) => selection.has(f.id))
-
-  const run = (action: BulkInput['action']) => {
-    if (bulk.isPending || ids.length === 0) return
-    setReport(null)
+  const run = (action: BulkAction, targets: string[] = ids) => {
+    if (bulk.isPending || targets.length === 0) return
+    dismiss('bulk')
     bulk.mutate(
-      { ids, action },
+      { ids: targets, action },
       {
         onSuccess: (r) => {
           if (r.failed.length) {
-            // keep only what failed selected, with the reason and a Retry
-            selectAll(r.failed.map((f) => f.id))
-            setReport(r)
+            // keep only what failed selected; the notice says why, with Retry
+            const failedIds = r.failed.map((f) => f.id)
+            selectAll(failedIds)
+            notify({
+              key: 'bulk',
+              tone: 'error',
+              message: bulkReport(r),
+              action: { label: 'Retry', run: () => run(action, failedIds) },
+            })
           } else if (LEAVES_VIEW.has(action.kind)) {
             clearSelection()
           }
@@ -51,26 +44,29 @@ export function BulkBar(_props: { items: Map<string, Item> }) {
     )
   }
 
-  // Delete key → trash (or delete forever in trash view)
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement
-      if (target.closest('input, textarea, select, [contenteditable]')) return
-      if (ids.length === 0) return
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        e.preventDefault()
-        if (query.deleted) {
-          if (confirm(`Permanently delete ${ids.length} item(s)? This cannot be undone.`)) {
-            run({ kind: 'hardDelete' })
-          }
-        } else {
-          run({ kind: 'trash' })
-        }
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }) // re-bound every render: it needs the current selection and run()
+  const hardDelete = async () => {
+    const n = ids.length
+    const ok = await dialog.confirm({
+      title: hardDeleteQuestion(n),
+      confirmLabel: 'Delete forever',
+      danger: true,
+    })
+    if (ok) run({ kind: 'hardDelete' })
+  }
+
+  // Delete key → trash (or delete forever in trash view). Grid layer only:
+  // with the preview or a dialog open the key does nothing.
+  useShortcut(
+    'grid',
+    (e) => {
+      if (e.key !== 'Delete' && e.key !== 'Backspace') return false
+      e.preventDefault()
+      if (query.deleted) void hardDelete()
+      else run({ kind: 'trash' })
+      return true
+    },
+    ids.length > 0,
+  )
 
   if (ids.length === 0) return null
 
@@ -86,17 +82,7 @@ export function BulkBar(_props: { items: Map<string, Item> }) {
 
   return (
     <div className="bulkbar">
-      {showReport ? (
-        <span className="bulk-report">
-          {VERB[report.input.action.kind]} {report.ok} of {report.ok + report.failed.length}.{' '}
-          {report.failed.length} failed: {report.failed[0].error}.{' '}
-          <button disabled={busy} onClick={() => run(report.input.action)}>
-            Retry
-          </button>
-        </span>
-      ) : (
-        <span className="sel-count">{ids.length} selected</span>
-      )}
+      <span className="sel-count">{ids.length} selected</span>
 
       {!query.deleted && (
         <>
@@ -139,21 +125,15 @@ export function BulkBar(_props: { items: Map<string, Item> }) {
           <button disabled={busy} onClick={() => run({ kind: 'restore' })}>
             Restore
           </button>
-          <button
-            className="danger"
-            disabled={busy}
-            onClick={() => {
-              if (confirm(`Permanently delete ${ids.length} item(s)? This cannot be undone.`)) {
-                run({ kind: 'hardDelete' })
-              }
-            }}
-          >
+          <button className="danger" disabled={busy} onClick={() => void hardDelete()}>
             Delete forever
           </button>
         </>
       )}
 
-      <button onClick={clearSelection}>✕</button>
+      <button onClick={clearSelection} aria-label="Clear selection">
+        ✕
+      </button>
       {busy && <span className="working">working…</span>}
     </div>
   )

@@ -30,7 +30,7 @@ const RANK: Record<Layer, number> = { view: 0, sheet: 1, full: 2 }
 const PREVIEWS: PreviewStatus[] = ['pending', 'ready', 'failed', 'none']
 
 /** The view part of the path (no item). */
-export function placePath(p: Place): string {
+function placePath(p: Place): string {
   const q = p.query
   if (q.deleted) return '/trash'
   if (p.smartId) return `/smart/${encodeURIComponent(p.smartId)}`
