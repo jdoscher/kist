@@ -83,6 +83,9 @@ def test_trash_restore_and_hard_delete(client, upload, clean):
     assert client.get("/api/items").json()["total"] == 0
     client.post(f"/api/items/{item['id']}/restore")
     assert client.get("/api/items").json()["total"] == 1
+    # permanent deletion only happens from the trash
+    assert client.delete(f"/api/items/{item['id']}?hard=true").status_code == 409
+    client.delete(f"/api/items/{item['id']}")
     client.delete(f"/api/items/{item['id']}?hard=true")
     assert client.get(f"/api/items/{item['id']}").status_code == 404
     assert not (clean / "items" / item["id"]).exists()

@@ -8,7 +8,13 @@ from typing import Any
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
+from ..lifecycle import ItemState
 from ..models import Folder, Item, ItemFolder, ItemTag, Tag
+
+# Named views. "unfiled" is the inbox: active items in no folder and with no
+# tags; filing or tagging an item takes it out. The web UI and MCP both use
+# this one definition.
+VIEWS = ("unfiled",)
 
 # order key -> (column, direction) ; id is always the tiebreaker
 ORDERS: dict[str, tuple[Any, bool]] = {
@@ -67,11 +73,22 @@ def build_filters(
     kind: str | None = None,
     rating_min: int | None = None,
     deleted: bool = False,
+    state: str | None = None,
+    view: str | None = None,
     created_after: datetime | None = None,
     created_before: datetime | None = None,
 ) -> list[Any]:
     filters: list[Any] = []
-    filters.append(Item.deleted_at.isnot(None) if deleted else Item.deleted_at.is_(None))
+    if view is not None and view not in VIEWS:
+        raise ValueError(f"unknown view {view!r}; expected one of {', '.join(VIEWS)}")
+    if state is not None and state not in tuple(ItemState):
+        raise ValueError(f"unknown state {state!r}; expected active or trashed")
+    trashed = (state == ItemState.TRASHED) if state is not None else deleted
+    if view == "unfiled":
+        trashed = False
+        untagged = True
+        folder = "none"
+    filters.append(Item.deleted_at.isnot(None) if trashed else Item.deleted_at.is_(None))
     if q:
         pattern = f"%{q}%"
         filters.append(
@@ -134,6 +151,8 @@ def search_items(
     kind: str | None = None,
     rating_min: int | None = None,
     deleted: bool = False,
+    state: str | None = None,
+    view: str | None = None,
     created_after: datetime | None = None,
     created_before: datetime | None = None,
     order: str = "-created",
@@ -143,7 +162,7 @@ def search_items(
     filters = build_filters(
         q=q, tags=tags, tags_any=tags_any, untagged=untagged,
         folder=folder, kind=kind,
-        rating_min=rating_min, deleted=deleted,
+        rating_min=rating_min, deleted=deleted, state=state, view=view,
         created_after=created_after, created_before=created_before,
     )
     col, desc = ORDERS.get(order, ORDERS["-created"])

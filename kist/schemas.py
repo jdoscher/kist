@@ -4,6 +4,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from .filetypes import kind_for
+from .lifecycle import PreviewStatus, item_state
 from .models import Item
 
 
@@ -27,6 +28,9 @@ class ItemOut(BaseModel):
     notes: str
     source_url: str | None
     tags: list[str]
+    state: str  # lifecycle.ItemState: active | trashed
+    preview_status: str  # lifecycle.PreviewStatus: pending | ready | failed | none
+    preview_error: str | None
     has_thumb: bool
     thumb_url: str | None
     created_at: datetime
@@ -35,7 +39,11 @@ class ItemOut(BaseModel):
 
     @classmethod
     def from_item(cls, item: Item) -> "ItemOut":
-        has_thumb = item.width is not None
+        status = item.preview_status or PreviewStatus.PENDING
+        # a pending retry keeps serving the old thumbnails until it finishes
+        has_thumb = status == PreviewStatus.READY or (
+            status == PreviewStatus.PENDING and item.width is not None
+        )
         return cls(
             id=item.id,
             filename=item.filename,
@@ -54,6 +62,9 @@ class ItemOut(BaseModel):
             notes=item.notes,
             source_url=item.source_url,
             tags=sorted(t.name for t in item.tags),
+            state=item_state(item).value,
+            preview_status=str(status),
+            preview_error=item.preview_error,
             has_thumb=has_thumb,
             thumb_url=f"/api/items/{item.id}/thumb" if has_thumb else None,
             created_at=item.created_at,
@@ -137,6 +148,7 @@ class SmartFolderQuery(BaseModel):
     tags: list[str] = []
     tags_any: list[str] = []  # OR semantics
     untagged: bool = False
+    view: str | None = None  # "unfiled": no folder, no tags (see search.VIEWS)
     folder: str | None = None
     type: str | None = None
     rating: int = Field(default=0, ge=0, le=5)
@@ -170,6 +182,21 @@ class StatsOut(BaseModel):
     by_kind: dict[str, int]
     tag_count: int
     folder_count: int
+    failed_jobs: int = 0
+    preview_failed: int = 0
+
+
+class JobOut(BaseModel):
+    id: int
+    kind: str
+    status: str  # lifecycle.JobStatus
+    attempts: int
+    filename: str | None  # the file an ingest job imports
+    item_id: str | None  # the item a regen_preview job works on
+    last_error: str | None
+    created_at: datetime
+    started_at: datetime | None
+    finished_at: datetime | None
 
 
 class DuplicatePair(BaseModel):

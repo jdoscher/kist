@@ -4,6 +4,8 @@
     kist rewrite-meta             rewrite every meta.json from Postgres
     kist regen-previews [--all]   (re)generate thumbnails; default only
                                    items that have none
+    kist verify                   compare Postgres with the library on disk
+                                   and report drift (changes nothing)
 
 The library on disk (items/*/meta.json + folders.json) is the durable copy;
 rebuild-index makes Postgres match it after a database loss or migration to
@@ -19,6 +21,8 @@ import sqlalchemy as sa
 
 from .config import get_settings
 from .db import SessionLocal
+from .filetypes import kind_for
+from .lifecycle import PreviewStatus, preview_status_for
 from .models import Folder, Item, ItemFolder, ItemTag, SmartFolder, Tag
 
 
@@ -144,6 +148,11 @@ def rebuild_index(wipe: bool) -> int:
                     created_at=parse_dt(meta.get("created_at")),
                     modified_at=parse_dt(meta.get("modified_at")),
                     deleted_at=parse_dt(meta.get("deleted_at")),
+                    preview_status=meta.get("preview_status")
+                    or preview_status_for(
+                        kind_for(meta.get("mime", ""), meta["ext"]), meta.get("width")
+                    ),
+                    preview_error=meta.get("preview_error"),
                 )
                 item.tags = tags_svc.get_or_create(session, meta.get("tags", []))
                 if item_folder_ids:
@@ -182,9 +191,7 @@ def rewrite_meta() -> int:
 
 
 def regen_previews(do_all: bool) -> int:
-    from .filetypes import kind_for
-    from .services import meta as meta_svc
-    from .services import thumbs
+    from .services import previews
 
     settings = get_settings()
     done = skipped = failed = 0
@@ -192,44 +199,82 @@ def regen_previews(do_all: bool) -> int:
         items = session.execute(sa.select(Item)).scalars().all()
         for item in items:
             if kind_for(item.mime, item.ext) == "other":
+                if item.preview_status != PreviewStatus.NONE:
+                    item.preview_status, item.preview_error = PreviewStatus.NONE, None
+                    session.commit()
                 skipped += 1  # no preview possible for these
                 continue
             item_dir = settings.items_dir / item.id
-            original = item_dir / f"original.{item.ext}"
             wanted = [f"thumb_{s}.webp" for s in (256, 512, 1024)]
             if item.ext.lower() in {"heic", "heif"}:
                 wanted.append("display.webp")
-            has_thumb = all((item_dir / name).exists() for name in wanted)
-            if not do_all and has_thumb and item.width is not None:
+            complete = all((item_dir / name).exists() for name in wanted)
+            if (
+                not do_all and complete and item.width is not None
+                and item.preview_status == PreviewStatus.READY
+            ):
                 skipped += 1
                 continue
-            if not original.is_file():
-                print(f"  ! {item.id}: original missing, skipped", file=sys.stderr)
-                failed += 1
-                continue
             try:
-                probe = thumbs.generate_previews_isolated(
-                    original, item_dir, item.mime, item.ext, cleanup=False
-                )
-                phash, colors = thumbs.enrich(item_dir)
-                if probe.width is not None:
-                    item.width, item.height = probe.width, probe.height
-                if probe.duration_s is not None:
-                    item.duration_s = probe.duration_s
-                if phash is not None:
-                    item.phash = phash
-                if colors is not None:
-                    item.dominant_colors = colors
-                session.commit()
-                meta_svc.write_meta(item)
-                done += 1
-                print(f"  ✓ {item.id} {item.filename}")
+                status = previews.regenerate(session, item)
             except Exception as exc:
                 session.rollback()
                 failed += 1
                 print(f"  ! {item.id} {item.filename}: {str(exc)[:200]}", file=sys.stderr)
+                continue
+            if status == PreviewStatus.FAILED or item.preview_error:
+                failed += 1
+                print(f"  ! {item.id} {item.filename}: {item.preview_error}", file=sys.stderr)
+            else:
+                done += 1
+                print(f"  ✓ {item.id} {item.filename}")
     print(f"previews: {done} regenerated, {skipped} already fine, {failed} failed")
     return 0 if failed == 0 else 2
+
+
+def verify() -> int:
+    """Report where Postgres and the library on disk disagree."""
+    from .services import meta as meta_svc
+
+    settings = get_settings()
+    problems: list[str] = []
+    compared = ("filename", "rating", "notes", "source_url", "tags", "folder_ids",
+                "deleted_at", "sha256")
+    with SessionLocal() as session:
+        items = session.execute(sa.select(Item)).scalars().all()
+        db_ids = {i.id for i in items}
+        for item in items:
+            item_dir = settings.items_dir / item.id
+            if not (item_dir / f"original.{item.ext}").is_file():
+                problems.append(f"{item.id}: original file missing ({item.filename})")
+            meta_file = item_dir / "meta.json"
+            if not meta_file.is_file():
+                problems.append(f"{item.id}: meta.json missing")
+                continue
+            try:
+                on_disk = json.loads(meta_file.read_text())
+            except ValueError:
+                problems.append(f"{item.id}: meta.json unreadable")
+                continue
+            expected = meta_svc.to_meta(item)
+            drift = [k for k in compared if on_disk.get(k) != expected.get(k)]
+            if drift:
+                problems.append(f"{item.id}: meta.json differs in {', '.join(drift)}")
+            if item.preview_status == PreviewStatus.READY and not (
+                item_dir / "thumb_256.webp"
+            ).is_file():
+                problems.append(f"{item.id}: marked ready but has no thumbnails")
+    if settings.items_dir.is_dir():
+        for d in sorted(settings.items_dir.iterdir()):
+            if d.is_dir() and d.name not in db_ids:
+                problems.append(f"{d.name}: folder on disk with no database row")
+    for p in problems:
+        print(f"  ! {p}")
+    print(f"verify: {len(db_ids)} items checked, {len(problems)} problems")
+    if problems:
+        print("  fixes: kist rewrite-meta (meta drift), kist rebuild-index (rows "
+              "missing), kist regen-previews (thumbnails)")
+    return 0 if not problems else 2
 
 
 def main() -> None:
@@ -250,6 +295,7 @@ def main() -> None:
         "--all", action="store_true",
         help="regenerate for every item, not just items without previews",
     )
+    sub.add_parser("verify", help="report drift between Postgres and the library on disk")
 
     args = parser.parse_args()
     if args.cmd == "rebuild-index":
@@ -258,6 +304,8 @@ def main() -> None:
         sys.exit(rewrite_meta())
     if args.cmd == "regen-previews":
         sys.exit(regen_previews(args.all))
+    if args.cmd == "verify":
+        sys.exit(verify())
 
 
 if __name__ == "__main__":

@@ -28,6 +28,12 @@ class Settings(BaseSettings):
     # sent when downloading URLs; some sites (Wikimedia) require contact info
     user_agent: str = ""
     thumb_sizes: tuple[int, int] = (256, 1024)
+    # a job a worker claimed longer ago than this is treated as abandoned (the
+    # worker died) and queued again; keep it above download + preview limits
+    job_lease_seconds: int = 900
+    # the address people open Kist at (e.g. https://kist.example.com); MCP
+    # results then carry absolute web_url links. Empty: links are site-relative
+    public_url: str = ""
 
     @property
     def items_dir(self) -> Path:

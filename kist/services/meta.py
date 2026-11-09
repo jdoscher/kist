@@ -41,6 +41,8 @@ def to_meta(item: Item) -> dict:
         "created_at": item.created_at.isoformat() if item.created_at else None,
         "modified_at": item.modified_at.isoformat() if item.modified_at else None,
         "deleted_at": item.deleted_at.isoformat() if item.deleted_at else None,
+        "preview_status": item.preview_status,
+        "preview_error": item.preview_error,
     }
 
 

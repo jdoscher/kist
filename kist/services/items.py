@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
+from .. import lifecycle
 from ..models import Folder, Item
 from . import meta as meta_svc
 from . import tags as tags_svc
@@ -119,20 +120,25 @@ def set_tags(
 
 
 def soft_delete(session: Session, item_id: str) -> Item:
+    """active -> trashed (a no-op for an item already in the trash)."""
     item = get_item(session, item_id)
-    if item.deleted_at is None:
-        item.deleted_at = datetime.now(UTC)
+    if not lifecycle.trash(item):
+        return item
     return touch_and_snapshot(session, item)
 
 
 def restore(session: Session, item_id: str) -> Item:
+    """trashed -> active (a no-op for an active item)."""
     item = get_item(session, item_id)
-    item.deleted_at = None
+    if not lifecycle.restore(item):
+        return item
     return touch_and_snapshot(session, item)
 
 
 def hard_delete(session: Session, item_id: str) -> None:
+    """trashed -> gone. Raises lifecycle.TransitionError for an active item."""
     item = get_item(session, item_id)
+    lifecycle.check_purge(item)
     d = meta_svc.item_dir(item.id)
     session.delete(item)
     session.commit()

@@ -7,7 +7,8 @@ from sqlalchemy.dialects.postgresql import BIT
 from sqlalchemy.orm import Session, aliased
 
 from ..db import get_session
-from ..models import Folder, Item, Tag
+from ..lifecycle import JobStatus, PreviewStatus
+from ..models import Folder, Item, Job, Tag
 from ..schemas import DuplicatePair, ItemOut, StatsOut
 from ..services.search import KIND_FILTERS
 
@@ -40,8 +41,16 @@ def stats(session: Annotated[Session, Depends(get_session)]):
     folder_count = session.execute(
         sa.select(sa.func.count()).select_from(Folder)
     ).scalar_one()
+    failed_jobs = session.execute(
+        sa.select(sa.func.count()).select_from(Job).where(Job.status == JobStatus.FAILED)
+    ).scalar_one()
+    preview_failed = session.execute(
+        sa.select(sa.func.count()).where(live, Item.preview_status == PreviewStatus.FAILED)
+    ).scalar_one()
     return StatsOut(
         total_items=total,
+        failed_jobs=failed_jobs,
+        preview_failed=preview_failed,
         trashed_items=trashed,
         total_size_bytes=size,
         by_kind=by_kind,

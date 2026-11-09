@@ -1,23 +1,22 @@
 """Worker entrypoint: processes the Postgres-backed job queue and watches
-the inbox directory for dropped files.
+the inbox directory for dropped files. Job transitions live in
+services/jobs.py (see lifecycle.JobStatus).
 """
 
 import logging
 import sys
 import time
-from datetime import UTC, datetime, timedelta
 from pathlib import Path
-
-import sqlalchemy as sa
 
 from .config import get_settings
 from .db import SessionLocal
-from .models import Job
+from .lifecycle import JobKind
+from .models import Item, Job
 
 log = logging.getLogger("kist.worker")
 
 HEARTBEAT = Path("/tmp/kist-worker-heartbeat")
-MAX_ATTEMPTS = 3
+REAP_EVERY_SECONDS = 60
 
 
 def beat() -> None:
@@ -33,49 +32,44 @@ def healthcheck() -> int:
 
 
 def process_job(session, job: Job) -> None:
-    from .services import ingest
+    from .services import ingest, previews
 
-    if job.kind == "ingest":
+    if job.kind == JobKind.INGEST:
         ingest.run_ingest_job(session, job.payload)
+    elif job.kind == JobKind.REGEN_PREVIEW:
+        item = session.get(Item, (job.payload or {}).get("item_id"))
+        if item is None:
+            raise LookupError("the item no longer exists")
+        previews.regenerate(session, item)
     else:
         raise ValueError(f"unknown job kind: {job.kind}")
 
 
 def run_one() -> bool:
     """Claim and run a single job. Returns True if a job was processed."""
-    with SessionLocal() as s:
-        locked = s.execute(
-            sa.select(Job)
-            .where(Job.status == "pending", Job.run_after <= sa.func.now())
-            .order_by(Job.id)
-            .limit(1)
-            .with_for_update(skip_locked=True)
-        ).scalar_one_or_none()
-        if locked is None:
-            return False
-        locked.status = "running"
-        locked.attempts += 1
-        s.commit()
-        job_id, kind, attempts = locked.id, locked.kind, locked.attempts
+    from .services import jobs
 
+    with SessionLocal() as s:
+        job = jobs.claim_next(s)
+        if job is None:
+            return False
+        job_id, kind = job.id, job.kind
         try:
-            process_job(s, locked)
-            locked.status = "done"
-            s.commit()
+            process_job(s, job)
+            error = None
         except Exception as exc:
             s.rollback()
             log.exception("job %s (%s) failed", job_id, kind)
-            failed = s.get(Job, job_id)
-            failed.last_error = str(exc)[:4000]
-            if attempts >= MAX_ATTEMPTS:
-                failed.status = "failed"
-            else:
-                failed.status = "pending"
-                failed.run_after = datetime.now(UTC) + timedelta(
-                    seconds=10 * attempts
-                )
-            s.commit()
+            error = str(exc) or type(exc).__name__
+        jobs.finish(s, job_id, error)
     return True
+
+
+def reap() -> None:
+    from .services import jobs
+
+    with SessionLocal() as s:
+        jobs.reap_stale(s, get_settings().job_lease_seconds)
 
 
 def scan_inbox() -> None:
@@ -95,10 +89,14 @@ def main() -> None:
     log.info("worker started (library=%s)", settings.library_dir)
 
     last_inbox_scan = 0.0
+    last_reap = 0.0
     while True:
         beat()
         worked = False
         try:
+            if time.monotonic() - last_reap > REAP_EVERY_SECONDS:
+                reap()
+                last_reap = time.monotonic()
             worked = run_one()
             if time.monotonic() - last_inbox_scan > settings.inbox_poll_seconds:
                 scan_inbox()

@@ -104,6 +104,11 @@ class Item(Base):
     deleted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # lifecycle.PreviewStatus: pending | ready | failed | none
+    preview_status: Mapped[str] = mapped_column(
+        Text, default="pending", server_default="pending"
+    )
+    preview_error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     tags: Mapped[list[Tag]] = relationship(secondary="item_tags", lazy="selectin")
     folders: Mapped[list[Folder]] = relationship(
@@ -117,6 +122,7 @@ class Job(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     kind: Mapped[str] = mapped_column(Text)
     payload: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    # lifecycle.JobStatus: pending | running | done | failed
     status: Mapped[str] = mapped_column(
         Text, default="pending", server_default="pending"
     )
@@ -127,4 +133,12 @@ class Job(Base):
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
+    )
+    # set when a worker claims the job; a running job older than the lease
+    # belonged to a worker that died and is put back to pending
+    started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )

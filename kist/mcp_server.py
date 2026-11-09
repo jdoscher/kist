@@ -14,11 +14,13 @@ from mcp.server.mcpserver import Image, MCPServer
 from . import __version__
 from .config import get_settings
 from .db import SessionLocal
+from .lifecycle import TransitionError
 from .models import Item
 from .schemas import ItemOut
 from .services import folders as folders_svc
 from .services import ingest
 from .services import items as items_svc
+from .services import jobs as jobs_svc
 from .services import search as search_svc
 from .services import tags as tags_svc
 
@@ -27,8 +29,13 @@ mcp = MCPServer(
     instructions=(
         "Kist is a self-hosted visual asset library (images, video, PDFs). "
         "Use search_items to find assets, view_item to actually see one, "
-        "set_tags/update_item to organize. Deleting only moves items to the "
-        "trash, which the user can restore from in the web UI."
+        "set_tags/update_item to organize. Every item has a state (active or "
+        "trashed) and a preview_status (ready, pending, failed or none). "
+        "search_items(view='unfiled') is the user's inbox, the same list the "
+        "web UI shows as Unfiled. Deleting only moves items to the trash; "
+        "restore_item brings them back. Each item carries a web_url you can "
+        "give the user to open it in Kist. list_jobs shows inbox imports and "
+        "preview retries that failed."
     ),
     version=__version__,
 )
@@ -40,7 +47,16 @@ def _item_out(item: Item) -> dict[str, Any]:
     out.pop("phash", None)
     out.pop("dominant_colors", None)
     out["file_url"] = f"/api/items/{item.id}/file"
+    out["web_url"] = web_url(item)
     return out
+
+
+def web_url(item: Item) -> str:
+    """Where the user opens this item in the web UI (KIST_PUBLIC_URL makes it
+    absolute)."""
+    base = get_settings().public_url.rstrip("/")
+    view = "trash" if item.deleted_at is not None else "all"
+    return f"{base}/{view}?item={item.id}"
 
 
 @mcp.tool(
@@ -48,10 +64,12 @@ def _item_out(item: Item) -> dict[str, Any]:
         "Search the asset library. Returns item metadata plus thumb/file URL "
         "paths (same bearer token as this endpoint). Filters combine with AND; "
         "tags must all match, tags_any matches items carrying at least one, "
-        "untagged=true matches items with no tags. folder is a folder id (its "
-        "subfolders are included) or 'none' for unfiled items. type is one of "
-        "image|video|pdf|other. Pass the returned next_cursor to fetch the "
-        "following page."
+        "untagged=true matches items with no tags. view='unfiled' is the inbox: "
+        "items in no folder and with no tags (what the web UI calls Unfiled). "
+        "folder is a folder id (its subfolders are included) or 'none' for items "
+        "in no folder, tagged or not. state is 'active' (default) or 'trashed' "
+        "to search the trash. type is one of image|video|pdf|other. Pass the "
+        "returned next_cursor to fetch the following page."
     )
 )
 def search_items(
@@ -59,6 +77,8 @@ def search_items(
     tags: list[str] | None = None,
     tags_any: list[str] | None = None,
     untagged: bool = False,
+    view: str | None = None,
+    state: str | None = None,
     folder: str | None = None,
     type: str | None = None,
     rating_min: int | None = None,
@@ -70,7 +90,7 @@ def search_items(
         rows, next_cursor, total = search_svc.search_items(
             session,
             q=query, tags=tags, tags_any=tags_any, untagged=untagged,
-            folder=folder, kind=type,
+            view=view, state=state, folder=folder, kind=type,
             rating_min=rating_min, limit=limit, cursor=cursor,
         )
         return {
@@ -84,7 +104,9 @@ def search_items(
 def get_item(id: str) -> dict[str, Any]:
     with SessionLocal() as session:
         item = items_svc.get_item(session, id)
-        return ItemOut.from_item(item).model_dump(mode="json")
+        out = ItemOut.from_item(item).model_dump(mode="json")
+        out["web_url"] = web_url(item)
+        return out
 
 
 @mcp.tool(
@@ -100,10 +122,13 @@ def view_item(id: str, size: int = 1024) -> Image:
         item = items_svc.get_item(session, id)
         path = get_settings().items_dir / item.id / f"thumb_{size}.webp"
         if not path.is_file():
-            raise ValueError(
-                f"item {id} has no preview (kind={item.mime}); "
-                "only items with thumbnails can be viewed"
-            )
+            reason = {
+                "none": "Kist can't make previews for this file type",
+                "pending": "its preview is still being made; try again shortly",
+                "failed": f"its preview failed ({item.preview_error or 'unknown error'}); "
+                "retry_preview queues another attempt",
+            }.get(item.preview_status, "no thumbnail on disk")
+            raise ValueError(f"item {id} ({item.mime}) has no preview: {reason}")
         return Image(path=path)
 
 
@@ -112,7 +137,8 @@ def view_item(id: str, size: int = 1024) -> Image:
         "Add an asset from a URL, or from a file path inside the configured "
         "import directories (the library inbox/import folders). Provide "
         "exactly one of url or file_path. Returns the item; created=false "
-        "means the exact same file already existed."
+        "means the exact same file already existed, and if that item's state is "
+        "'trashed' it is in the trash (restore_item brings it back)."
     )
 )
 def add_item(
@@ -240,11 +266,87 @@ def list_smart_folders() -> list[dict[str, Any]]:
         ]
 
 
-@mcp.tool(description="Move an item to the trash (soft delete; restorable in the UI).")
+@mcp.tool(
+    description=(
+        "Move an item to the trash (state -> trashed). Restorable with "
+        "restore_item. Trashing an item already in the trash changes nothing."
+    )
+)
 def trash_item(id: str) -> dict[str, Any]:
     with SessionLocal() as session:
         item = items_svc.soft_delete(session, id)
         return _item_out(item)
+
+
+@mcp.tool(
+    description=(
+        "Take an item out of the trash (state -> active). Restoring an active "
+        "item changes nothing. Find trashed items with search_items(state='trashed')."
+    )
+)
+def restore_item(id: str) -> dict[str, Any]:
+    with SessionLocal() as session:
+        item = items_svc.restore(session, id)
+        return _item_out(item)
+
+
+@mcp.tool(
+    description=(
+        "Queue a new attempt at an item's thumbnails (preview_status -> pending). "
+        "Use it for items whose preview_status is 'failed'. Returns the item."
+    )
+)
+def retry_preview(id: str) -> dict[str, Any]:
+    with SessionLocal() as session:
+        item = items_svc.get_item(session, id)
+        try:
+            jobs_svc.enqueue_preview(session, item)
+        except TransitionError as exc:
+            raise ValueError(str(exc)) from None
+        session.refresh(item)
+        return _item_out(item)
+
+
+def _job_out(job) -> dict[str, Any]:
+    return {
+        "id": job.id,
+        "kind": job.kind,
+        "status": job.status,
+        "attempts": job.attempts,
+        "filename": jobs_svc.job_filename(job),
+        "item_id": (job.payload or {}).get("item_id"),
+        "last_error": job.last_error,
+        "created_at": job.created_at.isoformat() if job.created_at else None,
+        "finished_at": job.finished_at.isoformat() if job.finished_at else None,
+    }
+
+
+@mcp.tool(
+    description=(
+        "List background jobs, newest first: inbox imports (kind 'ingest') and "
+        "preview retries ('regen_preview'). status filters to pending, running, "
+        "done or failed; failed jobs say why in last_error."
+    )
+)
+def list_jobs(status: str | None = None, limit: int = 25) -> list[dict[str, Any]]:
+    with SessionLocal() as session:
+        return [_job_out(j) for j in jobs_svc.list_jobs(session, status, max(1, min(limit, 100)))]
+
+
+@mcp.tool(
+    description=(
+        "Run a failed job again with fresh attempts (status failed -> pending). "
+        "A failed inbox file is moved back from the library's failed folder."
+    )
+)
+def retry_job(id: int) -> dict[str, Any]:
+    with SessionLocal() as session:
+        try:
+            return _job_out(jobs_svc.retry(session, id))
+        except jobs_svc.NotFound:
+            raise ValueError(f"job {id} not found") from None
+        except TransitionError as exc:
+            raise ValueError(str(exc)) from None
 
 
 @mcp.tool(
@@ -324,7 +426,7 @@ def find_duplicates(threshold: int = 6, limit: int = 50) -> list[dict[str, Any]]
 def library_stats() -> dict[str, Any]:
     import sqlalchemy as sa
 
-    from .models import Folder, Tag
+    from .models import Folder, Job, Tag
     from .services.search import KIND_FILTERS
 
     with SessionLocal() as session:
@@ -353,6 +455,12 @@ def library_stats() -> dict[str, Any]:
             ).scalar_one(),
             "folder_count": session.execute(
                 sa.select(sa.func.count()).select_from(Folder)
+            ).scalar_one(),
+            "preview_failed": session.execute(
+                sa.select(sa.func.count()).where(live, Item.preview_status == "failed")
+            ).scalar_one(),
+            "failed_jobs": session.execute(
+                sa.select(sa.func.count()).select_from(Job).where(Job.status == "failed")
             ).scalar_one(),
         }
 

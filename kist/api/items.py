@@ -13,6 +13,7 @@ from ..config import get_settings
 from ..db import get_session
 from ..filetypes import kind_for
 from ..ids import new_ulid
+from ..lifecycle import TransitionError
 from ..schemas import (
     FoldersPut,
     ItemCreateResponse,
@@ -24,6 +25,7 @@ from ..schemas import (
 )
 from ..services import ingest, search
 from ..services import items as items_svc
+from ..services import jobs as jobs_svc
 
 router = APIRouter(prefix="/items", tags=["items"])
 
@@ -46,7 +48,9 @@ def list_items(
     folder: str | None = None,
     type: str | None = None,
     rating: Annotated[int | None, Query(ge=0, le=5)] = None,
-    deleted: bool = False,
+    deleted: bool = False,  # same as state=trashed (kept for older clients)
+    state: str | None = None,  # active | trashed
+    view: str | None = None,  # unfiled: no folder and no tags
     order: str = "-created",
     created_after: datetime | None = None,
     created_before: datetime | None = None,
@@ -56,15 +60,18 @@ def list_items(
     tag_names = list(tags or [])
     if tags_csv:
         tag_names += [t.strip() for t in tags_csv.split(",") if t.strip()]
-    rows, next_cursor, total = search.search_items(
-        session,
-        q=q, tags=tag_names or None,
-        tags_any=[t.strip() for t in tags_any.split(",") if t.strip()] if tags_any else None,
-        untagged=untagged, folder=folder, kind=type,
-        rating_min=rating, deleted=deleted, order=order,
-        created_after=created_after, created_before=created_before,
-        limit=limit, cursor=cursor,
-    )
+    try:
+        rows, next_cursor, total = search.search_items(
+            session,
+            q=q, tags=tag_names or None,
+            tags_any=[t.strip() for t in tags_any.split(",") if t.strip()] if tags_any else None,
+            untagged=untagged, folder=folder, kind=type,
+            rating_min=rating, deleted=deleted, state=state, view=view, order=order,
+            created_after=created_after, created_before=created_before,
+            limit=limit, cursor=cursor,
+        )
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from None
     return ItemPage(
         items=[ItemOut.from_item(i) for i in rows],
         next_cursor=next_cursor,
@@ -192,7 +199,10 @@ def delete_item(
 ):
     _get_or_404(session, item_id)
     if hard:
-        items_svc.hard_delete(session, item_id)
+        try:
+            items_svc.hard_delete(session, item_id)
+        except TransitionError as exc:
+            raise HTTPException(409, str(exc)) from None
         return {"status": "deleted", "hard": True}
     item = items_svc.soft_delete(session, item_id)
     return {"status": "trashed", "item": ItemOut.from_item(item).model_dump(mode="json")}
@@ -202,6 +212,18 @@ def delete_item(
 def restore_item(item_id: str, session: Annotated[Session, Depends(get_session)]):
     _get_or_404(session, item_id)
     return ItemOut.from_item(items_svc.restore(session, item_id))
+
+
+@router.post("/{item_id}/preview", response_model=ItemOut, status_code=202)
+def retry_preview(item_id: str, session: Annotated[Session, Depends(get_session)]):
+    """Queue a fresh attempt at the item's previews (preview_status -> pending)."""
+    item = _get_or_404(session, item_id)
+    try:
+        jobs_svc.enqueue_preview(session, item)
+    except TransitionError as exc:
+        raise HTTPException(409, str(exc)) from None
+    session.refresh(item)
+    return ItemOut.from_item(item)
 
 
 @router.put("/{item_id}/tags", response_model=ItemOut)

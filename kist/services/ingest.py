@@ -24,9 +24,10 @@ from ..config import get_settings
 from ..db import SessionLocal
 from ..filetypes import MIME_TO_EXT
 from ..ids import new_ulid
+from ..lifecycle import JobKind, PreviewStatus
 from ..models import Item, Job
 from . import meta as meta_svc
-from . import netguard, thumbs
+from . import netguard, previews, thumbs
 from . import tags as tags_svc
 
 
@@ -86,7 +87,9 @@ def ingest_file(
     """Ingest the file at `path`, consuming it (moved into the item dir).
 
     Exact duplicates (sha256) are rejected: the existing item is returned
-    and the source file is removed.
+    (it may be in the trash: check its state) and the source file is removed.
+    If ingest fails, the source file is put back where it was, so a retry or
+    the user still has it.
     """
     settings = get_settings()
     digest = sha256_file(path)
@@ -112,10 +115,16 @@ def ingest_file(
             shutil.move(str(path), original)
 
         probe = thumbs.Probe()
+        preview_error = None
         try:
             probe = thumbs.generate_previews_isolated(original, item_dir, mime, ext)
-        except Exception:
+            preview_status = previews.outcome(item_dir, mime, ext)
+            if preview_status is PreviewStatus.FAILED:
+                preview_error = "no thumbnail was produced"
+        except Exception as exc:
             log.exception("preview generation failed for %s (%s)", filename, mime)
+            preview_status = PreviewStatus.FAILED
+            preview_error = previews.short_error(exc)
         phash, colors = thumbs.enrich(item_dir)
 
         item = Item(
@@ -134,6 +143,8 @@ def ingest_file(
             notes=notes or "",
             source_url=source_url,
             deleted_at=deleted_at,
+            preview_status=preview_status,
+            preview_error=preview_error,
         )
         # imports preserve original timestamps; otherwise the DB defaults apply
         if created_at is not None:
@@ -158,13 +169,33 @@ def ingest_file(
                 sa.select(Item).where(Item.sha256 == digest)
             ).scalar_one()
             return IngestResult(existing, created=False)
-
-        session.refresh(item)
-        meta_svc.write_meta(item)
-        return IngestResult(item, created=True)
     except Exception:
+        session.rollback()
+        _put_back(original, path)
         shutil.rmtree(item_dir, ignore_errors=True)
         raise
+
+    # committed: the item exists, so never remove its files from here on
+    session.refresh(item)
+    try:
+        meta_svc.write_meta(item)
+    except OSError:
+        log.exception("meta.json not written for %s (run kist rewrite-meta)", item.id)
+    return IngestResult(item, created=True)
+
+
+def _put_back(original: Path, source: Path) -> None:
+    """Return a half-ingested file to where it came from. Never delete it:
+    for an inbox drop it may be the only copy."""
+    if not original.is_file() or source.exists():
+        return
+    try:
+        original.replace(source)
+    except OSError:
+        try:
+            shutil.move(str(original), source)
+        except OSError:
+            log.exception("could not put %s back at %s", original, source)
 
 
 SAFE_NAME = re.compile(r"[^\w.\- ()\[\]]+")
@@ -336,8 +367,8 @@ def run_ingest_job(session: Session, payload: dict) -> None:
         return
     path = Path(payload["path"])
     if not path.exists():
-        log.warning("ingest job path vanished: %s", path)
-        return
+        # never report success for a file we didn't ingest
+        raise FileNotFoundError(f"the file to import is gone: {path.name}")
     ingest_file(
         session, path, payload.get("filename") or path.name,
         source_url=payload.get("source_url"), **meta_kwargs,
@@ -369,7 +400,10 @@ def scan_inbox() -> None:
             continue
         with SessionLocal() as session:
             session.add(
-                Job(kind="ingest", payload={"path": str(staged), "filename": entry.name})
+                Job(
+                    kind=JobKind.INGEST,
+                    payload={"path": str(staged), "filename": entry.name},
+                )
             )
             session.commit()
         log.info("queued inbox file %s", entry.name)
