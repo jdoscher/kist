@@ -41,10 +41,14 @@ def test_thumbhash_backfill_for_older_items(client, upload, clean):
     with SessionLocal() as s:
         s.execute(sa.update(Item).values(thumbhash=None))
         s.commit()
+    edited = client.get(f"/api/items/{item['id']}").json()["modified_at"]
+    with SessionLocal() as s:
         assert previews.backfill_thumbhashes(s) == 1
         assert previews.backfill_thumbhashes(s) == 0
     got = client.get(f"/api/items/{item['id']}").json()
     assert got["thumbhash"] == item["thumbhash"]
+    # a placeholder isn't an edit: "Recently edited" doesn't change
+    assert got["modified_at"] == edited
     meta = json.loads((clean / "items" / item["id"] / "meta.json").read_text())
     assert meta["thumbhash"] == item["thumbhash"]
 

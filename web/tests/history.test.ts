@@ -75,6 +75,10 @@ test('folder and link events use names when known', () => {
 
 test('who: actors and sources', () => {
   assert.equal(actorName('owner'), 'You')
+  // signed in as someone else: the owner is named, and "You" is that token
+  assert.equal(actorName('owner', 'Patty iPad'), 'The owner')
+  assert.equal(actorName('Patty iPad', 'Patty iPad'), 'You')
+  assert.equal(batchSummary({ actor: 'Claude', source: 'mcp', count: 2, kinds: ['tags'] }, 'Claude'), 'You via MCP tagged 2 items')
   assert.equal(actorName('importer'), 'The inbox importer')
   assert.equal(whoText('Claude', 'mcp'), 'Claude via MCP')
   assert.equal(whoText('owner', 'web'), 'You in the web app')

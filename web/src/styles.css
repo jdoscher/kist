@@ -2152,6 +2152,11 @@ button.small {
 .link-results .hint:empty {
   display: none;
 }
+.modal .hint,
+.health-card .hint,
+.settings-body .hint {
+  padding: 0;
+}
 .link-result {
   display: flex;
   align-items: center;

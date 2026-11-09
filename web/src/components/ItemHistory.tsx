@@ -2,7 +2,7 @@ import { ChevronRight, RotateCcw } from 'lucide-react'
 import { useId, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, type Item, type ItemLink } from '../api'
-import { useAfterUndo, useCaps, useFolderNames } from '../data'
+import { useAfterUndo, useCaps, useFolderNames, useMe } from '../data'
 import { canRevert, describeEvent, sourceText, timeAgo, undoReport, type Names } from '../history'
 import { useWrite } from '../useWrite'
 import { useDialog } from './Dialog'
@@ -52,12 +52,13 @@ export function Collapsible({
 /** Names for history sentences: folders by id, linked items by id. */
 export function useHistoryNames(itemId: string): Names {
   const folderName = useFolderNames()
+  const { data: me } = useMe()
   const qc = useQueryClient()
   const links = qc.getQueryData<ItemLink[]>(['links', itemId])
   return useMemo(() => {
     const items = new Map((links ?? []).map((l) => [l.item.id, l.item.filename]))
-    return { folder: (id) => folderName.get(id), item: (id) => items.get(id) }
-  }, [folderName, links])
+    return { folder: (id) => folderName.get(id), item: (id) => items.get(id), self: me?.name }
+  }, [folderName, links, me?.name])
 }
 
 function HistoryList({ item }: { item: Item }) {

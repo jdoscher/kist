@@ -223,11 +223,14 @@ function SingleItem({ item }: { item: Item }) {
 
 function LibrarySummary() {
   const { data: stats } = useStats()
+  const { canEdit } = useCaps()
   const { data: version } = useVersion()
   return (
     <div className="multi-summary">
       <h2 className="panel-title">No selection</h2>
-      <p className="hint-text">Click an item to see and edit its details. Double-click (or Enter) opens it full screen.</p>
+      <p className="hint-text">
+        Click an item to see {canEdit ? 'and edit ' : ''}its details. Double-click (or Enter) opens it full screen.
+      </p>
       {stats && (
         <div className="detail-section">
           <h3 className="section-label">Library</h3>

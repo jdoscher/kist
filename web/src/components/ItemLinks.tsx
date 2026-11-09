@@ -130,7 +130,9 @@ export function ItemLinks({ item, editable }: { item: Item; editable: boolean })
     })
   }
 
+  // the picker sits outside the section, whose label styles it mustn't get
   return (
+    <>
     <section className="detail-section" aria-label="Links">
       <div className="section-head-row">
         <h3 className="section-label">Links</h3>
@@ -175,7 +177,8 @@ export function ItemLinks({ item, editable }: { item: Item; editable: boolean })
           })}
         </ul>
       )}
-      {picking && <LinkPicker item={item} onClose={() => setPicking(false)} />}
     </section>
+    {picking && <LinkPicker item={item} onClose={() => setPicking(false)} />}
+    </>
   )
 }

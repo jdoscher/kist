@@ -66,8 +66,17 @@ def check_item(session: Session, item: Item, now: datetime | None = None) -> boo
         line["expected"] = item.sha256
         if error:
             line["error"] = error
-    item.fixity_checked_at = now
-    item.fixity_failed_at = None if ok else now
+    # a check isn't an edit: keep modified_at (Item.modified_at has
+    # onupdate=now, which would otherwise move it, so meta.json would differ
+    # from the database for verify, "Recently edited" would list every
+    # checked item, and an open editor's next save would see a false 409)
+    session.execute(
+        sa.update(Item).where(Item.id == item.id).values(
+            fixity_checked_at=now,
+            fixity_failed_at=None if ok else now,
+            modified_at=Item.modified_at,
+        )
+    )
     session.commit()
     path = log_path(item.id)
     if path.parent.is_dir():

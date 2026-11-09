@@ -10,6 +10,8 @@
 import type { Batch, ItemEvent, LinkKind, UndoResult } from './api.ts'
 
 export interface Names {
+  /** the signed-in token's name (its changes read "You"); default owner */
+  self?: string
   /** folder id -> name */
   folder?: (id: string) => string | undefined
   /** item id -> filename (for links) */
@@ -25,11 +27,13 @@ const SOURCE_TEXT: Record<string, string> = {
   import: 'from the inbox',
 }
 
-/** Who made a change: the owner is "You"; the system actors get names. */
-export function actorName(actor: string): string {
+/** Who made a change: the signed-in token (`self`, the owner unless
+ * said otherwise) is "You"; the system actors get names. */
+export function actorName(actor: string, self = 'owner'): string {
+  if (actor === self) return 'You'
   switch (actor) {
     case 'owner':
-      return 'You'
+      return 'The owner'
     case 'cli':
       return 'The command line'
     case 'worker':
@@ -50,9 +54,9 @@ export function sourceText(source: string, actor = ''): string {
 }
 
 /** "Claude via MCP", "You in the web app", "Kist". */
-export function whoText(actor: string, source: string): string {
+export function whoText(actor: string, source: string, self = 'owner'): string {
   const src = sourceText(source, actor)
-  return src ? `${actorName(actor)} ${src}` : actorName(actor)
+  return src ? `${actorName(actor, self)} ${src}` : actorName(actor, self)
 }
 
 const tagList = (tags: string[]) => tags.map((t) => `#${t}`).join(' ')
@@ -181,7 +185,7 @@ export function eventWhat(ev: Pick<ItemEvent, 'kind' | 'before' | 'after'>, name
 
 /** The whole sentence: "Claude added tags #a #b". */
 export function describeEvent(ev: ItemEvent, names: Names = {}): string {
-  return `${actorName(ev.actor)} ${eventWhat(ev, names)}`
+  return `${actorName(ev.actor, names.self)} ${eventWhat(ev, names)}`
 }
 
 /** Whether reverting the event can work at all (a purge can't be undone). */
@@ -235,8 +239,8 @@ const KIND_NOUN: Record<string, string> = {
 /** "Claude via MCP tagged 12 items", "You in the web app made 5 changes
  * (tags, folders)". `count` is the number of events; a batch of one kind
  * has one event per item. */
-export function batchSummary(b: Pick<Batch, 'actor' | 'source' | 'count' | 'kinds'>): string {
-  const who = whoText(b.actor, b.source)
+export function batchSummary(b: Pick<Batch, 'actor' | 'source' | 'count' | 'kinds'>, self = 'owner'): string {
+  const who = whoText(b.actor, b.source, self)
   const kinds = b.kinds ?? []
   if (kinds.length === 1 && BATCH_VERB[kinds[0]]) {
     return `${who} ${BATCH_VERB[kinds[0]]} ${b.count} item${b.count === 1 ? '' : 's'}`

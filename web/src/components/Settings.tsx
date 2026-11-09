@@ -281,7 +281,7 @@ function NewTokenDialog({
   )
 }
 
-function CopyField({ value, label }: { value: string; label: string }) {
+function CopyField({ value, label, autoFocus = false }: { value: string; label: string; autoFocus?: boolean }) {
   const [copied, setCopied] = useState(false)
   const id = useId()
   const copy = async () => {
@@ -300,7 +300,7 @@ function CopyField({ value, label }: { value: string; label: string }) {
         {label}
       </label>
       <input id={id} readOnly value={value} onFocus={(e) => e.currentTarget.select()} />
-      <button className="btn-icon" onClick={() => void copy()} aria-label={`Copy ${label}`}>
+      <button className="btn-icon" onClick={() => void copy()} aria-label={`Copy ${label}`} data-autofocus={autoFocus || undefined}>
         {copied ? <Check size={14} strokeWidth={2} aria-hidden="true" /> : <Copy size={14} strokeWidth={1.75} aria-hidden="true" />}
         {copied ? 'Copied' : 'Copy'}
       </button>
@@ -320,10 +320,10 @@ function ShowTokenDialog({ token, onClose }: { token: ApiToken & { token: string
     <Modal title={`Token for “${token.name}”`} onClose={onClose} className="token-dialog">
       <p className="warn-box" role="note">
         <TriangleAlert size={16} strokeWidth={1.75} aria-hidden="true" />
-        Copy it now. Kist keeps only a fingerprint of it, so it can’t show it again. Anyone with it gets{' '}
-        {scopeText(token.scopes, token.folder_ids).toLowerCase()} access.
+        Copy it now. Kist keeps only a fingerprint of it, so it can’t show it again. Anyone who has it can use Kist
+        as “{scopeText(token.scopes, token.folder_ids)}”, so keep it private.
       </p>
-      <CopyField value={token.token} label="the token" />
+      <CopyField value={token.token} label="the token" autoFocus />
       {helper && (
         <>
           <p>On the Mac, run:</p>

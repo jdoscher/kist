@@ -52,6 +52,22 @@ def test_fixity_rehashes_a_share_a_day_and_flags_damage(client, upload, clean):
     assert client.get("/api/stats").json()["fixity_failed"] == 0
 
 
+def test_fixity_checks_are_not_edits(client, upload, clean):
+    """A re-hash leaves modified_at alone: meta.json still matches (verify),
+    "Recently edited" doesn't list checked items, and an editor's
+    base_modified_at stays valid (no false 409)."""
+    item = upload()["item"]
+    before = client.get(f"/api/items/{item['id']}").json()["modified_at"]
+    corrupt(clean, item)
+    assert cli.fixity(limit=10) == 2  # a failed check (exit code 2)
+    after = client.get(f"/api/items/{item['id']}").json()
+    assert after["modified_at"] == before
+    meta = json.loads((clean / "items" / item["id"] / "meta.json").read_text())
+    assert datetime.fromisoformat(meta["modified_at"]) == datetime.fromisoformat(before)
+    r = client.patch(f"/api/items/{item['id']}", json={"notes": "x", "base_modified_at": before})
+    assert r.status_code == 200
+
+
 def test_fixity_quota_spreads_the_work(client, upload):
     from kist.db import SessionLocal
     from kist.services import fixity

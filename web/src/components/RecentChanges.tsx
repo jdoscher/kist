@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { api, type Batch } from '../api'
-import { useAfterUndo, useBatches, useFolderNames } from '../data'
+import { useAfterUndo, useBatches, useFolderNames, useMe } from '../data'
 import { batchSummary, batchUndoable, timeAgo, undoReport } from '../history'
 import { useAppState } from '../state'
 import { useWrite } from '../useWrite'
@@ -16,14 +16,27 @@ export function RecentChanges() {
   return <RecentChangesPanel onClose={() => setRecentOpen(false)} />
 }
 
+/** Batches undone in this tab (batch id -> the undo's batch id, for
+ * Redo). The server keeps an undone batch in the list, so the panel
+ * remembers which ones it undid, also after it's closed and reopened. */
+const undoneBatches = new Map<string, string>()
+
 function RecentChangesPanel({ onClose }: { onClose: () => void }) {
   const { data, isLoading, isError, error } = useBatches(true)
   const afterUndo = useAfterUndo()
   const folderName = useFolderNames()
+  const { data: me } = useMe()
   const { notify } = useNotices()
   const w = useWrite()
   // undone in this session: the server keeps the batch, so mark it here
-  const [undone, setUndone] = useState<Record<string, string>>({})
+  const [undone, setUndoneState] = useState<Record<string, string>>(() => Object.fromEntries(undoneBatches))
+  const setUndone = (fn: (u: Record<string, string>) => Record<string, string>) =>
+    setUndoneState((u) => {
+      const next = fn(u)
+      undoneBatches.clear()
+      for (const [k, v] of Object.entries(next)) undoneBatches.set(k, v)
+      return next
+    })
   const listRef = useRef<HTMLOListElement>(null)
   const focused = useRef(false)
   // the list arrives after the panel opens: put focus on the newest Undo
@@ -39,7 +52,8 @@ function RecentChangesPanel({ onClose }: { onClose: () => void }) {
       what: 'undo that',
       onDone: (r) => {
         afterUndo()
-        setUndone((u) => ({ ...u, [b.batch_id]: r.batch_id }))
+        // nothing undone (all skipped): the batch stays undoable
+        if (r.undone > 0) setUndone((u) => ({ ...u, [b.batch_id]: r.batch_id }))
         const rep = undoReport(r, 'Undid', { folder: (id) => folderName.get(id) })
         notify({
           key: `undo:${b.batch_id}`,
@@ -83,7 +97,7 @@ function RecentChangesPanel({ onClose }: { onClose: () => void }) {
       {data && data.length > 0 && (
         <ol className="batch-list" ref={listRef}>
           {data.map((b) => {
-            const summary = batchSummary(b)
+            const summary = batchSummary(b, me?.name)
             const can = batchUndoable(b)
             const done = undone[b.batch_id]
             return (
