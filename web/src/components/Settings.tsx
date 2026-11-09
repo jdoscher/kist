@@ -112,11 +112,15 @@ function TokensSection() {
       </div>
       <p className="settings-intro">
         Give each phone, person and agent its own token, with only the access it needs. You can revoke one without
-        touching the others, and every change a token makes shows under its name in an item’s history. You’re signed
-        in as <strong>{me?.name ?? 'owner'}</strong>; the owner’s token (<code>KIST_TOKEN</code> in <code>.env</code>)
+        touching the others, and every change a token makes shows under its name in an item’s history. You’re signed in
+        as <strong>{me?.name ?? 'owner'}</strong>; the owner’s token (<code>KIST_TOKEN</code> in <code>.env</code>)
         isn’t listed here.
       </p>
-      {isLoading && <p className="hint" role="status">Loading…</p>}
+      {isLoading && (
+        <p className="hint" role="status">
+          Loading…
+        </p>
+      )}
       {isError && <p role="alert">Couldn’t load the tokens: {String((error as Error).message)}</p>}
       {data && data.length === 0 && <p className="hint">No named tokens yet.</p>}
       <ul className="token-list">
@@ -300,8 +304,17 @@ function CopyField({ value, label, autoFocus = false }: { value: string; label: 
         {label}
       </label>
       <input id={id} readOnly value={value} onFocus={(e) => e.currentTarget.select()} />
-      <button className="btn-icon" onClick={() => void copy()} aria-label={`Copy ${label}`} data-autofocus={autoFocus || undefined}>
-        {copied ? <Check size={14} strokeWidth={2} aria-hidden="true" /> : <Copy size={14} strokeWidth={1.75} aria-hidden="true" />}
+      <button
+        className="btn-icon"
+        onClick={() => void copy()}
+        aria-label={`Copy ${label}`}
+        data-autofocus={autoFocus || undefined}
+      >
+        {copied ? (
+          <Check size={14} strokeWidth={2} aria-hidden="true" />
+        ) : (
+          <Copy size={14} strokeWidth={1.75} aria-hidden="true" />
+        )}
         {copied ? 'Copied' : 'Copy'}
       </button>
       <span className="sr-only" role="status">
@@ -320,8 +333,8 @@ function ShowTokenDialog({ token, onClose }: { token: ApiToken & { token: string
     <Modal title={`Token for “${token.name}”`} onClose={onClose} className="token-dialog">
       <p className="warn-box" role="note">
         <TriangleAlert size={16} strokeWidth={1.75} aria-hidden="true" />
-        Copy it now. Kist keeps only a fingerprint of it, so it can’t show it again. Anyone who has it can use Kist
-        as “{scopeText(token.scopes, token.folder_ids)}”, so keep it private.
+        Copy it now. Kist keeps only a fingerprint of it, so it can’t show it again. Anyone who has it can use Kist as “
+        {scopeText(token.scopes, token.folder_ids)}”, so keep it private.
       </p>
       <CopyField value={token.token} label="the token" autoFocus />
       {helper && (
@@ -338,7 +351,8 @@ function ShowTokenDialog({ token, onClose }: { token: ApiToken & { token: string
       )}
       {agent && (
         <p className="hint">
-          Add Kist to Claude with <code>claude mcp add --transport http kist {origin}/mcp --header "Authorization: Bearer …"</code>.
+          Add Kist to Claude with{' '}
+          <code>claude mcp add --transport http kist {origin}/mcp --header "Authorization: Bearer …"</code>.
         </p>
       )}
       <div className="dialog-actions">
@@ -364,7 +378,11 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
 function Status({ ok, children }: { ok: boolean; children: React.ReactNode }) {
   return (
     <span className={`status-text ${ok ? 'ok' : 'bad'}`}>
-      {ok ? <Check size={14} strokeWidth={2} aria-hidden="true" /> : <TriangleAlert size={14} strokeWidth={1.75} aria-hidden="true" />}
+      {ok ? (
+        <Check size={14} strokeWidth={2} aria-hidden="true" />
+      ) : (
+        <TriangleAlert size={14} strokeWidth={1.75} aria-hidden="true" />
+      )}
       {children}
     </span>
   )
@@ -381,7 +399,12 @@ function ArchiveSection() {
   const w = useWrite()
   const id = useId()
 
-  if (isLoading) return <p className="hint" role="status">Loading…</p>
+  if (isLoading)
+    return (
+      <p className="hint" role="status">
+        Loading…
+      </p>
+    )
   if (isError || !data) return <p role="alert">Couldn’t load archive health: {String((error as Error)?.message)}</p>
 
   const { fixity, verify, backup, disk, checklist } = data
@@ -406,7 +429,8 @@ function ArchiveSection() {
       <div className="health-card">
         <h3>Files intact (fixity)</h3>
         <p>
-          {fixity.checked_30d.toLocaleString()} of {fixity.total.toLocaleString()} originals checked in the last 30 days.
+          {fixity.checked_30d.toLocaleString()} of {fixity.total.toLocaleString()} originals checked in the last 30
+          days.
         </p>
         <progress id={`${id}-fix`} max={100} value={pct} aria-label={`Fixity checked in the last 30 days: ${pct}%`} />
         {fixity.failed.length === 0 ? (
@@ -426,7 +450,9 @@ function ArchiveSection() {
                 </li>
               ))}
             </ul>
-            <p className="hint">Find the copy with that fingerprint in a backup and put it back in the item’s folder.</p>
+            <p className="hint">
+              Find the copy with that fingerprint in a backup and put it back in the item’s folder.
+            </p>
             <button onClick={() => setQuery({ ...emptyQuery, fixity: 'failed' })}>Show them in the library</button>
           </>
         )}
@@ -435,12 +461,16 @@ function ArchiveSection() {
       <div className="health-card">
         <h3>Database and files agree (verify)</h3>
         <dl className="facts">
-          <Fact label="Last run">{verify.last_run ? timeAgo(verify.last_run) : 'not yet (the worker runs it daily)'}</Fact>
+          <Fact label="Last run">
+            {verify.last_run ? timeAgo(verify.last_run) : 'not yet (the worker runs it daily)'}
+          </Fact>
           {verify.items_checked != null && <Fact label="Items checked">{verify.items_checked.toLocaleString()}</Fact>}
           <Fact label="Result">
             {verify.last_run ? (
               <Status ok={verify.ok}>
-                {verify.ok ? 'No problems' : `${String(verify.drift)} problem${verify.drift === 1 ? '' : 's'}: run kist verify to see them`}
+                {verify.ok
+                  ? 'No problems'
+                  : `${String(verify.drift)} problem${verify.drift === 1 ? '' : 's'}: run kist verify to see them`}
               </Status>
             ) : (
               '—'
@@ -464,9 +494,7 @@ function ArchiveSection() {
               'never'
             )}
           </Fact>
-          <Fact label="Last good backup">
-            {backup.last_ok_at ? `${fmtAgeHours(backup.age_h)} ago` : 'never'}
-          </Fact>
+          <Fact label="Last good backup">{backup.last_ok_at ? `${fmtAgeHours(backup.age_h)} ago` : 'never'}</Fact>
           {backup.error && !backup.ok && <Fact label="Error">{backup.error}</Fact>}
           <Fact label="Schedule">
             {backup.interval_hours ? `every ${backup.interval_hours} hours` : 'manual (kist backup)'}
@@ -487,9 +515,9 @@ function ArchiveSection() {
                 bucket (<code>s3:…</code>, <code>b2:…</code>) or a mounted drive (<code>/mnt/backup/kist</code>).
               </li>
               <li>
-                In Kist’s <code>.env</code>, set <code>KIST_BACKUP_REPO</code> to it, and <code>RESTIC_PASSWORD_FILE</code>{' '}
-                (or <code>RESTIC_PASSWORD</code>) to the password that encrypts it. Keep that password somewhere else
-                too: without it the backup can’t be read.
+                In Kist’s <code>.env</code>, set <code>KIST_BACKUP_REPO</code> to it, and{' '}
+                <code>RESTIC_PASSWORD_FILE</code> (or <code>RESTIC_PASSWORD</code>) to the password that encrypts it.
+                Keep that password somewhere else too: without it the backup can’t be read.
               </li>
               <li>
                 Set <code>KIST_BACKUP_INTERVAL_HOURS=24</code> for a nightly backup, then{' '}
@@ -502,7 +530,10 @@ function ArchiveSection() {
 
       <div className="health-card">
         <h3>
-          3-2-1 checklist <span className="count">({done321} of {checklist.length})</span>
+          3-2-1 checklist{' '}
+          <span className="count">
+            ({done321} of {checklist.length})
+          </span>
         </h3>
         <p className="hint">Three copies, on two kinds of storage, one of them somewhere else.</p>
         <ul className="checklist">
@@ -557,7 +588,11 @@ function AiSection() {
         can find things by what’s in them. The results are kept as plain files next to each item. New items are done as
         they arrive; older ones when you run <code>kist ai-backfill</code>.
       </p>
-      {isLoading && <p className="hint" role="status">Loading…</p>}
+      {isLoading && (
+        <p className="hint" role="status">
+          Loading…
+        </p>
+      )}
       {isError && <p role="alert">Couldn’t load the AI status: {String((error as Error).message)}</p>}
       {data && (
         <>
@@ -572,7 +607,11 @@ function AiSection() {
               </Fact>
               <Fact label="ml service">
                 <Status ok={data.ml_ok}>
-                  {data.ml_ok ? 'Reachable' : data.ml_url_set === false ? 'Not configured (KIST_ML_URL)' : 'Not reachable'}
+                  {data.ml_ok
+                    ? 'Reachable'
+                    : data.ml_url_set === false
+                      ? 'Not configured (KIST_ML_URL)'
+                      : 'Not reachable'}
                 </Status>
               </Fact>
               <Fact label="Images understood">
@@ -583,7 +622,10 @@ function AiSection() {
               <Fact label="Waiting">
                 {data.jobs
                   ? Object.entries(data.jobs)
-                      .map(([kind, by]) => `${(by.pending ?? 0).toLocaleString()} ${kind === 'embed' ? 'to understand' : kind === 'ocr' ? 'to read' : kind}`)
+                      .map(
+                        ([kind, by]) =>
+                          `${(by.pending ?? 0).toLocaleString()} ${kind === 'embed' ? 'to understand' : kind === 'ocr' ? 'to read' : kind}`,
+                      )
                       .join(', ')
                   : data.pending.toLocaleString()}
               </Fact>

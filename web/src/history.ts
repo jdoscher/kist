@@ -104,10 +104,18 @@ function editText(before: Record<string, unknown>, after: Record<string, unknown
 }
 
 export const LINK_KINDS: { value: LinkKind; label: string; hint: string }[] = [
-  { value: 'derived_from', label: 'Derived from', hint: 'this was made from the other (a crop, an edit, a screenshot of it)' },
+  {
+    value: 'derived_from',
+    label: 'Derived from',
+    hint: 'this was made from the other (a crop, an edit, a screenshot of it)',
+  },
   { value: 'alternate', label: 'Alternate', hint: 'another take or format of the same thing' },
   { value: 'related', label: 'Related', hint: 'belongs together' },
-  { value: 'not_duplicate', label: 'Not a duplicate', hint: 'looks alike but isn’t the same; stops them being paired as near-duplicates' },
+  {
+    value: 'not_duplicate',
+    label: 'Not a duplicate',
+    hint: 'looks alike but isn’t the same; stops them being paired as near-duplicates',
+  },
   { value: 'version_of', label: 'Version of', hint: 'a newer or older version of the other' },
 ]
 
@@ -277,7 +285,11 @@ export function reasonText(reason: string, names: Names = {}): string {
 
 /** The notice after an undo or revert. `tone` is error when anything was
  * skipped, so the reason stays on screen until dismissed. */
-export function undoReport(r: UndoResult, verb = 'Undid', names: Names = {}): { message: string; tone: 'info' | 'error' } {
+export function undoReport(
+  r: UndoResult,
+  verb = 'Undid',
+  names: Names = {},
+): { message: string; tone: 'info' | 'error' } {
   const done = `${verb} ${r.undone} change${r.undone === 1 ? '' : 's'}`
   if (!r.skipped.length) return { message: `${done}.`, tone: 'info' }
   const first = reasonText(r.skipped[0].reason, names)

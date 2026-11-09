@@ -133,52 +133,58 @@ export function ItemLinks({ item, editable }: { item: Item; editable: boolean })
   // the picker sits outside the section, whose label styles it mustn't get
   return (
     <>
-    <section className="detail-section" aria-label="Links">
-      <div className="section-head-row">
-        <h3 className="section-label">Links</h3>
-        {editable && (
-          <button className="btn-icon small" onClick={() => setPicking(true)}>
-            <Link2 size={13} strokeWidth={1.75} aria-hidden="true" />
-            Add link
-          </button>
-        )}
-      </div>
-      {links.length === 0 ? (
-        <p className="hint">No links. Link a crop to its original, alternates, or look-alikes that aren’t duplicates.</p>
-      ) : (
-        <ul className="link-list">
-          {links.map((l) => {
-            const label = linkLabel(l.kind, l.direction)
-            return (
-              <li key={`${l.direction}:${l.kind}:${l.item.id}`} className="link-row">
-                <button className="link-open" onClick={() => selectOnly(l.item.id)} title={`Show “${l.item.filename}”`}>
-                  <LinkThumb url={l.item.thumb_url} />
-                  <span className="link-text">
-                    <span className="link-kind">{label}</span>
-                    <span className="link-name">
-                      {l.item.filename}
-                      {l.item.state === 'trashed' ? ' (in Trash)' : ''}
-                    </span>
-                  </span>
-                </button>
-                {editable && (
+      <section className="detail-section" aria-label="Links">
+        <div className="section-head-row">
+          <h3 className="section-label">Links</h3>
+          {editable && (
+            <button className="btn-icon small" onClick={() => setPicking(true)}>
+              <Link2 size={13} strokeWidth={1.75} aria-hidden="true" />
+              Add link
+            </button>
+          )}
+        </div>
+        {links.length === 0 ? (
+          <p className="hint">
+            No links. Link a crop to its original, alternates, or look-alikes that aren’t duplicates.
+          </p>
+        ) : (
+          <ul className="link-list">
+            {links.map((l) => {
+              const label = linkLabel(l.kind, l.direction)
+              return (
+                <li key={`${l.direction}:${l.kind}:${l.item.id}`} className="link-row">
                   <button
-                    className="icon-btn"
-                    aria-label={`Remove link: ${label} ${l.item.filename}`}
-                    title="Remove this link"
-                    disabled={w.busy(`unlink:${l.item.id}:${l.kind}`)}
-                    onClick={() => remove(l)}
+                    className="link-open"
+                    onClick={() => selectOnly(l.item.id)}
+                    title={`Show “${l.item.filename}”`}
                   >
-                    <X size={14} strokeWidth={1.75} aria-hidden="true" />
+                    <LinkThumb url={l.item.thumb_url} />
+                    <span className="link-text">
+                      <span className="link-kind">{label}</span>
+                      <span className="link-name">
+                        {l.item.filename}
+                        {l.item.state === 'trashed' ? ' (in Trash)' : ''}
+                      </span>
+                    </span>
                   </button>
-                )}
-              </li>
-            )
-          })}
-        </ul>
-      )}
-    </section>
-    {picking && <LinkPicker item={item} onClose={() => setPicking(false)} />}
+                  {editable && (
+                    <button
+                      className="icon-btn"
+                      aria-label={`Remove link: ${label} ${l.item.filename}`}
+                      title="Remove this link"
+                      disabled={w.busy(`unlink:${l.item.id}:${l.kind}`)}
+                      onClick={() => remove(l)}
+                    >
+                      <X size={14} strokeWidth={1.75} aria-hidden="true" />
+                    </button>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </section>
+      {picking && <LinkPicker item={item} onClose={() => setPicking(false)} />}
     </>
   )
 }

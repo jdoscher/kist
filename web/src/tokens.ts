@@ -134,8 +134,7 @@ export function cantBrowseText(me: Pick<Me, 'scopes'>): string | null {
   if (capsOf({ ...me, folder_ids: [] }).canBrowse) return null
   if (me.scopes.includes('add'))
     return 'This token can only add items (for the share sheet or a Shortcut), so it can’t open the library.'
-  if (me.scopes.includes('helper'))
-    return 'This is an AI helper token for “kist helper”; it can’t open the library.'
+  if (me.scopes.includes('helper')) return 'This is an AI helper token for “kist helper”; it can’t open the library.'
   return 'This token can’t open the library.'
 }
 

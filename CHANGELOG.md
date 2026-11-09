@@ -153,6 +153,53 @@ each item. Plus a new look for the web app.
   - Opening an item grows its tile into the full-screen view, and closing
     shrinks it back, in browsers that support it.
   - The brand guide is in `docs/brand.md`.
+  - **Settings** (the gear in the top bar, or the phone menu; owner and
+    full-access tokens only), with its own address (`/settings/tokens`,
+    `/settings/archive`, `/settings/ai`):
+    - **Tokens:** every named token with what it can do, its folders, when
+      it was made and last used, when it expires and whether it's revoked.
+      New token offers five presets, each explained: Family read-only (tick
+      the folders it may see), Share sheet (add only), Agent, Helper (the Mac
+      AI helper) and Full access. The new token is shown once with a Copy
+      button and a warning, plus the `kist helper` command or the MCP line
+      where they apply. Revoke asks first.
+    - **Archive health:** how many originals were re-checked in the last 30
+      days, any whose file changed (with the fingerprint to look for in a
+      backup, and a link to them in the library), the last verify, the last
+      backup and its age, free disk, how long the Trash keeps things, and the
+      3-2-1 checklist, where you tick "a copy is offsite" yourself. Without a
+      backup repository it says how to set `KIST_BACKUP_REPO` up.
+    - **AI:** whether it's on, the model, whether the ml service answers, how
+      many images are understood and how many have their text read, what's
+      waiting, the hours it runs in, and each Mac helper with when it was
+      last seen, plus how to start one.
+  - **History** in the info panel and on the phone's item sheet: every change
+    to the item in plain words ("Claude added tags #a #b", "You moved it to
+    the Trash"), who made it, from where and when, each with Revert. A change
+    something touched again later is left alone, and a notice says why.
+  - **Recent changes** (the clock button, the phone menu, or ⌘Z / Ctrl+Z
+    outside text fields): the latest batches of changes by you, agents and
+    Kist itself ("Claude via MCP tagged 12 items · 2 min ago"), each with
+    Undo, and Redo after an undo. A bulk action in the web app is one batch,
+    so Undo puts all of it back; the Undo after trashing items undoes that
+    batch.
+  - **Links** in the info panel: linked items with their picture and how
+    they're related (Derived from / Source of, Alternate, Related, Not a
+    duplicate of, Version of / Has version). Add one by searching for the
+    other item's name; remove one with its ✕. Pressing a link shows that item.
+  - **Protect:** a lock button in the info panel and Protect / Unprotect in
+    the selection bar. Protected items show a lock on their tile, and trying
+    to trash one says "Protected: unprotect it first". Agents can protect
+    but not unprotect, so the button says so for an agent token.
+  - **Folder descriptions:** the folder dialog (the pencil) edits the name
+    and a description of what belongs there; the description shows under the
+    folder's name above its items.
+  - **Needs attention** also lists originals that failed their fixity check,
+    with Show them (`/all?fixity=failed`, shown as a removable filter).
+  - Other tokens get the app they can use: a read-only token sees no edit
+    controls, and one limited to some folders sees only those (no Unfiled,
+    Trash, tags or smart folders). An add-only or helper token is told at
+    the token screen that it can't open the library, instead of failing.
 
 ### Changed
 - The database image is `pgvector/pgvector:pg16` (see the upgrade notes).
@@ -168,6 +215,16 @@ each item. Plus a new look for the web app.
   - Animations are switched off when your device asks for reduced motion.
   - Edits made in the web app show as "web" in an item's history (it sends
     `X-Kist-Client: web`).
+  - The token screen checks a token with `GET /api/me`, so a family token
+    limited to some folders can sign in (it used to be refused, because it
+    can't read `/api/stats`).
+
+### Fixed
+- A fixity check, or the ThumbHash backfill after upgrading, no longer
+  counts as an edit: it used to move the item's `modified_at`, so every
+  checked item looked "recently edited", `kist verify` reported its
+  meta.json as out of date, and saving notes in an open info panel could
+  report a false "changed elsewhere".
 
 ### Performance
 - Paging through a large list no longer recounts every match on each page:

@@ -122,7 +122,11 @@ function RecentChangesPanel({ onClose }: { onClose: () => void }) {
                   </button>
                 )}
                 {done && (
-                  <button disabled={w.busy(`redo:${done}`)} onClick={() => redo(done, b.batch_id)} aria-label={`Redo: ${summary}`}>
+                  <button
+                    disabled={w.busy(`redo:${done}`)}
+                    onClick={() => redo(done, b.batch_id)}
+                    aria-label={`Redo: ${summary}`}
+                  >
                     Redo
                   </button>
                 )}

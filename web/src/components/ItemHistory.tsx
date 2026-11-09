@@ -90,8 +90,18 @@ function HistoryList({ item }: { item: Item }) {
     })
   }
 
-  if (isLoading) return <p className="hint" role="status">Loading history…</p>
-  if (isError) return <p className="hint" role="alert">Couldn’t load the history: {String((error as Error).message)}</p>
+  if (isLoading)
+    return (
+      <p className="hint" role="status">
+        Loading history…
+      </p>
+    )
+  if (isError)
+    return (
+      <p className="hint" role="alert">
+        Couldn’t load the history: {String((error as Error).message)}
+      </p>
+    )
   if (!data?.length) return <p className="hint">No changes recorded yet.</p>
   const now = Date.now()
   return (

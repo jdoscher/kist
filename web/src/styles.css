@@ -2334,6 +2334,13 @@ button.small {
   align-items: center;
   gap: 8px;
   cursor: pointer;
+  min-height: 30px;
+}
+.check-row input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  margin: 3px;
+  flex-shrink: 0;
 }
 .howto summary {
   cursor: pointer;
@@ -2463,6 +2470,13 @@ button.small {
   min-width: 0;
   font-family: var(--font-mono);
   font-size: var(--fs-1);
+}
+
+/* phones: revert / remove buttons big enough for a finger */
+.mobile .history-row .icon-btn,
+.mobile .link-row .icon-btn {
+  min-width: 40px;
+  min-height: 40px;
 }
 
 /* settings on a phone (or a narrow window): sections become tabs on top */
