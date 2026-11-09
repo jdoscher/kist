@@ -129,10 +129,55 @@ def check_folders(session: Session, report: Report) -> None:
                 report.problems.append(f"folders.json: {label} {fid} ({db[fid]['name']}) differs")
 
 
+def check_ai(session: Session, report: Report) -> None:
+    """AI rows whose sidecar file is missing (a rebuild would lose them),
+    and sidecar files the database doesn't have (rebuild-index loads them)."""
+    from ..models import ItemEmbedding, ItemText
+    from . import ai
+
+    settings = get_settings()
+    rows: dict[str, set[str]] = {}
+    for item_id, model in session.execute(
+        sa.select(ItemEmbedding.item_id, ItemEmbedding.model)
+    ).all():
+        rows.setdefault(item_id, set()).add(model)
+    texts = set(session.execute(sa.select(ItemText.item_id)).scalars())
+    for item_id, models in sorted(rows.items()):
+        for model in sorted(models):
+            f16, js = ai.embed_paths(item_id, model)
+            if not f16.is_file() or not js.is_file():
+                report.problems.append(
+                    f"{item_id}: embedding ({model}) has no sidecar file "
+                    "(kist ai-sidecars writes it from the database)"
+                )
+    for item_id in sorted(texts):
+        if not (ai.ai_dir(item_id) / ai.OCR_FILE).is_file():
+            report.problems.append(
+                f"{item_id}: OCR/PDF text has no sidecar file ai/ocr.json "
+                "(kist ai-sidecars writes it from the database)"
+            )
+    if not settings.items_dir.is_dir():
+        return
+    for ai_dir in sorted(settings.items_dir.glob(f"*/{ai.AI_DIR}")):
+        item_id = ai_dir.parent.name
+        for model in ai.embedding_sidecar_models(item_id):
+            if model not in rows.get(item_id, ()):
+                report.problems.append(
+                    f"{item_id}: AI sidecar embed-{model} is not in the database "
+                    "(kist rebuild-index loads it)"
+                )
+        if (ai_dir / ai.OCR_FILE).is_file() and item_id not in texts:
+            report.problems.append(
+                f"{item_id}: AI sidecar ocr.json is not in the database "
+                "(kist rebuild-index loads it)"
+            )
+
+
 def run(session: Session) -> Report:
     report = Report()
     check_items(session, report)
     check_folders(session, report)
+    check_ai(session, report)
     for key in meta_svc.pending():
         report.problems.append(f"{key}: an earlier write to disk failed")
     return report

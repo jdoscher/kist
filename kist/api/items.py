@@ -25,7 +25,7 @@ from ..schemas import (
     TagsPut,
     UrlAdd,
 )
-from ..services import ingest, search, thumbs, validation
+from ..services import ai, ingest, search, thumbs, validation
 from ..services import items as items_svc
 from ..services import jobs as jobs_svc
 
@@ -55,8 +55,14 @@ def list_items(
     created_before: datetime | None = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
     cursor: str | None = None,
+    # order by meaning: nearest to this text first (needs the ml service)
+    semantic: Annotated[str | None, Query(max_length=1000)] = None,
 ):
     tag_names = list(tags or [])
+    semantic_vec, semantic_model = None, None
+    if semantic and semantic.strip() and ai.has_embeddings(session):
+        semantic_model = ai.active_model()
+        semantic_vec = ai.query_vector(semantic)  # AiUnavailable -> 503
     if tags_csv:
         tag_names += [t.strip() for t in tags_csv.split(",") if t.strip()]
     rows, next_cursor, total = search.search_items(
@@ -68,6 +74,7 @@ def list_items(
         preview_status=preview_status, order=order,
         created_after=created_after, created_before=created_before,
         limit=limit, cursor=cursor,
+        semantic=semantic_vec, semantic_model=semantic_model,
     )
     return ItemPage(
         items=[ItemOut.from_item(i) for i in rows],

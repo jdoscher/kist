@@ -43,6 +43,24 @@ class Settings(BaseSettings):
     # reports the last result
     verify_interval_hours: float = 24.0
 
+    # ---- AI (the `ml` service; see services/ai.py) ----
+    # queue embed/ocr jobs for new items (compose turns this on)
+    ai_enabled: bool = False
+    # the ml service the worker sends AI jobs to (compose: http://ml:8000).
+    # Empty: the worker runs no AI jobs itself; `kist helper` can still claim them
+    ml_url: str = ""
+    # the embedding model; vectors from different models never mix
+    ml_model: str = "ViT-B-32__openai"
+    # one ml request's time limit (seconds)
+    ml_timeout_seconds: float = 120.0
+    # when backfill jobs may run, local time "HH:MM-HH:MM" (may wrap past
+    # midnight); empty = any time. New items' jobs don't wait for it
+    ai_window: str = ""
+    # AI jobs one worker runs at once (threads; ingest never waits for them)
+    ai_concurrency: int = 1
+    # scanned PDFs: OCR at most this many pages (text layers are read in full)
+    ai_ocr_pdf_pages: int = 5
+
     @property
     def items_dir(self) -> Path:
         return self.library_dir / "items"

@@ -369,6 +369,20 @@ def library_stats() -> dict[str, Any]:
         return library.stats(session).model_dump(mode="json")
 
 
+@tool(
+    "AI status: the embedding model, whether the ml service answers, how many "
+    "items have an embedding and OCR/PDF text, AI jobs waiting, the backfill "
+    "window and the Mac helpers seen. (Searching by meaning comes later.)"
+)
+def ai_status() -> dict[str, Any]:
+    import json
+
+    from .services import ai
+
+    with SessionLocal() as session:
+        return json.loads(json.dumps(ai.status(session), default=str))
+
+
 # Mounted by kist.app at /mcp; streamable_http_path="/" so the endpoint is
 # exactly /mcp. host="0.0.0.0" disables the SDK's localhost-only DNS-rebinding
 # allowlist (the app is reached over the LAN; our bearer middleware guards it).

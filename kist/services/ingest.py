@@ -192,6 +192,9 @@ def ingest_file(
     # A failed meta.json write is logged and noted for `kist verify`.
     meta_svc.sync_item(session, item.id)
     session.refresh(item)
+    from . import ai
+
+    ai.on_new_item(session, item)  # embed / ocr jobs (KIST_AI_ENABLED)
     return IngestResult(item, created=True)
 
 

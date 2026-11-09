@@ -26,6 +26,13 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.6"]
+# the models, for `kist helper` (and the ml image: see ml/requirements.txt)
+ml = [
+    "onnxruntime>=1.20",
+    "numpy>=1.26",
+    "tokenizers>=0.20",
+    "rapidocr-onnxruntime>=1.4.4,<2",
+]
 
 [project.urls]
 Homepage = "https://github.com/jdoscher/kist"

@@ -86,6 +86,13 @@ class JobStatus(StrEnum):
 class JobKind(StrEnum):
     INGEST = "ingest"  # a file dropped in the inbox (or an import dir)
     REGEN_PREVIEW = "regen_preview"  # retry an item's previews
+    EMBED = "embed"  # image embedding (the ml service or a helper)
+    OCR = "ocr"  # text in screenshots and PDFs
+
+
+# the heavy kinds: they wait while any light job (ingest, previews) is
+# pending, and backfilled ones wait for KIST_AI_WINDOW
+AI_KINDS = (JobKind.EMBED, JobKind.OCR)
 
 
 MAX_ATTEMPTS = 3

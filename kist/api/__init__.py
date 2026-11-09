@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from . import folders, items, jobs, misc, smart_folders, tags
+from . import ai, folders, items, jobs, misc, smart_folders, tags
 
 api_router = APIRouter()
 api_router.include_router(misc.router)
@@ -9,3 +9,4 @@ api_router.include_router(folders.router)
 api_router.include_router(smart_folders.router)
 api_router.include_router(tags.router)
 api_router.include_router(jobs.router)
+api_router.include_router(ai.router)

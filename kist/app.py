@@ -15,6 +15,7 @@ from .lifecycle import TransitionError
 from .mcp_server import mcp, mcp_http_app
 from .observability import RequestContext, configure_logging
 from .schemas import ItemOut
+from .services import ai as ai_svc
 from .services import folders as folders_svc
 from .services import items as items_svc
 from .services import jobs as jobs_svc
@@ -103,6 +104,11 @@ async def bad_cursor(request: Request, exc: BadCursor):
 @app.exception_handler(folders_svc.FolderError)
 async def folder_error(request: Request, exc: Exception):
     return _error(400, str(exc))
+
+
+@app.exception_handler(ai_svc.AiUnavailable)
+async def ai_unavailable(request: Request, exc: ai_svc.AiUnavailable):
+    return _error(503, str(exc))
 
 
 @app.exception_handler(TransitionError)

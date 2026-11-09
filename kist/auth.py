@@ -24,6 +24,24 @@ def token_matches(given: str, expected: str) -> bool:
     return secrets.compare_digest(given.encode("utf-8"), expected.encode("utf-8"))
 
 
+def require_scope(scope: str):
+    """FastAPI dependency: the request's token must carry `scope`.
+
+    TODO(integrator): named, scoped tokens (contract section 1) live on the
+    backend platform branch. Until they're merged every caller here holds
+    KIST_TOKEN (checked by the middleware below), which acts as admin, so
+    this allows everything. Wire it to the token's scopes at merge: the AI
+    claim/report endpoints use require_scope("helper") and /api/ai/status
+    uses require_scope("admin").
+    """
+
+    def check() -> None:
+        return None
+
+    check.__name__ = f"require_scope_{scope}"
+    return check
+
+
 class BearerTokenMiddleware:
     """Require the shared bearer token on /api, /mcp and the API docs.
 

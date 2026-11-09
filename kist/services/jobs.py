@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session
 from ..config import get_settings
 from ..ids import new_ulid
 from ..lifecycle import (
+    AI_KINDS,
     MAX_ATTEMPTS,
     JobKind,
     JobStatus,
@@ -90,9 +91,15 @@ def reap_stale(session: Session, lease_seconds: int) -> int:
 
 
 def claim_next(session: Session) -> Job | None:
+    """The oldest pending light job (ingest, previews). AI jobs are claimed
+    separately, under their budget (services/ai.claim)."""
     job = session.execute(
         sa.select(Job)
-        .where(Job.status == JobStatus.PENDING, Job.run_after <= sa.func.now())
+        .where(
+            Job.status == JobStatus.PENDING,
+            Job.run_after <= sa.func.now(),
+            Job.kind.notin_(AI_KINDS),
+        )
         .order_by(Job.id)
         .limit(1)
         .with_for_update(skip_locked=True)
