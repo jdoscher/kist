@@ -1,94 +1,67 @@
+import logging
 from typing import Annotated
 
-import sqlalchemy as sa
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy import text
-from sqlalchemy.dialects.postgresql import BIT
-from sqlalchemy.orm import Session, aliased
+from sqlalchemy.orm import Session
 
 from ..db import get_session
-from ..lifecycle import JobStatus, PreviewStatus
-from ..models import Folder, Item, Job, Tag
-from ..schemas import DuplicatePair, ItemOut, StatsOut
-from ..services.search import KIND_FILTERS
+from ..observability import RateLimiter, request_id_var
+from ..schemas import ClientErrorIn, DuplicatePair, ItemOut, StatsOut, VersionOut
+from ..services import health as health_svc
+from ..services import library
 
 router = APIRouter()
+client_log = logging.getLogger("kist.client")
+# a page stuck in a crash loop mustn't flood the logs
+client_errors = RateLimiter(limit=30, window=60)
 
 
 @router.get("/health")
 def health(session: Annotated[Session, Depends(get_session)]) -> dict:
+    """Public and cheap (Docker's healthcheck): the database answers."""
     session.execute(text("SELECT 1"))
     return {"status": "ok"}
 
 
+@router.get("/health/deep")
+def health_deep(session: Annotated[Session, Depends(get_session)]) -> dict:
+    """Every part: database, migrations, worker heartbeat, library disk,
+    job queue, recent preview failures and the last verify run."""
+    return health_svc.deep(session)
+
+
+@router.get("/version", response_model=VersionOut)
+def version():
+    return health_svc.version_info()
+
+
+@router.post("/client-errors", status_code=204)
+def client_error(body: ClientErrorIn) -> Response:
+    """The web UI reports its crashes here; they land in the server log."""
+    if client_errors.allow():
+        client_log.warning(
+            "client %s: %s | url=%s ua=%s rid=%s\n%s",
+            body.kind or "error", body.message, (body.url or "-")[:2000],
+            (body.user_agent or "-")[:500],
+            request_id_var.get(), body.stack or "",
+        )
+    return Response(status_code=204)
+
+
 @router.get("/stats", response_model=StatsOut)
 def stats(session: Annotated[Session, Depends(get_session)]):
-    live = Item.deleted_at.is_(None)
-    total, size = session.execute(
-        sa.select(sa.func.count(), sa.func.coalesce(sa.func.sum(Item.size_bytes), 0))
-        .where(live)
-    ).one()
-    trashed = session.execute(
-        sa.select(sa.func.count()).where(Item.deleted_at.isnot(None))
-    ).scalar_one()
-    by_kind = {
-        kind: session.execute(
-            sa.select(sa.func.count()).where(live, cond)
-        ).scalar_one()
-        for kind, cond in KIND_FILTERS.items()
-    }
-    tag_count = session.execute(sa.select(sa.func.count()).select_from(Tag)).scalar_one()
-    folder_count = session.execute(
-        sa.select(sa.func.count()).select_from(Folder)
-    ).scalar_one()
-    failed_jobs = session.execute(
-        sa.select(sa.func.count()).select_from(Job).where(Job.status == JobStatus.FAILED)
-    ).scalar_one()
-    preview_failed = session.execute(
-        sa.select(sa.func.count()).where(live, Item.preview_status == PreviewStatus.FAILED)
-    ).scalar_one()
-    return StatsOut(
-        total_items=total,
-        failed_jobs=failed_jobs,
-        preview_failed=preview_failed,
-        trashed_items=trashed,
-        total_size_bytes=size,
-        by_kind=by_kind,
-        tag_count=tag_count,
-        folder_count=folder_count,
-    )
+    return library.stats(session)
 
 
 @router.get("/duplicates", response_model=list[DuplicatePair])
 def duplicates(
     session: Annotated[Session, Depends(get_session)],
-    threshold: Annotated[int, Query(ge=0, le=20)] = 6,
-    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+    threshold: Annotated[int, Query(ge=0, le=library.DUPLICATES_MAX_THRESHOLD)] = 6,
+    limit: Annotated[int, Query(ge=1, le=library.DUPLICATES_MAX_LIMIT)] = 100,
 ):
-    """Near-duplicate pairs by perceptual-hash Hamming distance.
-
-    Exact (sha256) duplicates can't exist: ingest rejects them. The
-    self-join is fine for libraries in the tens of thousands; larger ones
-    would want LSH bucketing.
-    """
-    a, b = aliased(Item, name="a"), aliased(Item, name="b")
-    distance = sa.func.bit_count(
-        sa.cast(a.phash.op("#")(b.phash), BIT(64))
-    ).label("distance")
-    rows = session.execute(
-        sa.select(a, b, distance)
-        .where(
-            a.id < b.id,
-            a.phash.isnot(None),
-            b.phash.isnot(None),
-            a.deleted_at.is_(None),
-            b.deleted_at.is_(None),
-            distance <= threshold,
-        )
-        .order_by(distance)
-        .limit(limit)
-    ).all()
+    """Near-duplicate pairs by perceptual-hash Hamming distance."""
     return [
-        DuplicatePair(a=ItemOut.from_item(ra), b=ItemOut.from_item(rb), distance=d)
-        for ra, rb, d in rows
+        DuplicatePair(a=ItemOut.from_item(a), b=ItemOut.from_item(b), distance=d)
+        for a, b, d in library.near_duplicates(session, threshold, limit)
     ]

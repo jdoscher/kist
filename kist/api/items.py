@@ -4,16 +4,17 @@ from typing import Annotated
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse
+from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import UploadFile
 
 from ..config import get_settings
 from ..db import get_session
-from ..filetypes import kind_for
+from ..filetypes import serve_inline
 from ..ids import new_ulid
-from ..lifecycle import TransitionError
 from ..schemas import (
     FoldersPut,
     ItemCreateResponse,
@@ -24,18 +25,14 @@ from ..schemas import (
     TagsPut,
     UrlAdd,
 )
-from ..services import ingest, search, thumbs
+from ..services import ingest, search, thumbs, validation
 from ..services import items as items_svc
 from ..services import jobs as jobs_svc
 
+# Errors: items_svc.NotFound -> 404, validation.ValidationError -> 422,
+# TransitionError -> 409, items_svc.Conflict -> 409 with the current item,
+# search.BadCursor -> 400 (handlers in kist/app.py)
 router = APIRouter(prefix="/items", tags=["items"])
-
-
-def _get_or_404(session: Session, item_id: str):
-    try:
-        return items_svc.get_item(session, item_id)
-    except items_svc.NotFound:
-        raise HTTPException(404, f"item {item_id} not found") from None
 
 
 @router.get("", response_model=ItemPage)
@@ -62,19 +59,16 @@ def list_items(
     tag_names = list(tags or [])
     if tags_csv:
         tag_names += [t.strip() for t in tags_csv.split(",") if t.strip()]
-    try:
-        rows, next_cursor, total = search.search_items(
-            session,
-            q=q, tags=tag_names or None,
-            tags_any=[t.strip() for t in tags_any.split(",") if t.strip()] if tags_any else None,
-            untagged=untagged, folder=folder, kind=type,
-            rating_min=rating, deleted=deleted, state=state, view=view,
-            preview_status=preview_status, order=order,
-            created_after=created_after, created_before=created_before,
-            limit=limit, cursor=cursor,
-        )
-    except ValueError as exc:
-        raise HTTPException(422, str(exc)) from None
+    rows, next_cursor, total = search.search_items(
+        session,
+        q=q, tags=tag_names or None,
+        tags_any=[t.strip() for t in tags_any.split(",") if t.strip()] if tags_any else None,
+        untagged=untagged, folder=folder, kind=type,
+        rating_min=rating, deleted=deleted, state=state, view=view,
+        preview_status=preview_status, order=order,
+        created_after=created_after, created_before=created_before,
+        limit=limit, cursor=cursor,
+    )
     return ItemPage(
         items=[ItemOut.from_item(i) for i in rows],
         next_cursor=next_cursor,
@@ -92,6 +86,10 @@ async def create_item(
     content_type = request.headers.get("content-type", "")
 
     if content_type.startswith("multipart/"):
+        limit = settings.max_upload_bytes
+        declared = request.headers.get("content-length", "")
+        if declared.isdigit() and int(declared) > limit + 64 * 1024:  # + form overhead
+            raise HTTPException(413, _too_large(limit))
         form = await request.form()
         file = form.get("file")
         if not isinstance(file, UploadFile):
@@ -99,8 +97,12 @@ async def create_item(
         settings.staging_dir.mkdir(parents=True, exist_ok=True)
         staging = settings.staging_dir / f"up-{new_ulid()}"
         try:
+            received = 0
             with staging.open("wb") as out:
                 while chunk := await file.read(1024 * 1024):
+                    received += len(chunk)
+                    if received > limit:
+                        raise HTTPException(413, _too_large(limit))
                     out.write(chunk)
             # hashing, ffmpeg/libvips/pdfium work: keep it off the event loop
             # so one slow item can't stall every other request
@@ -115,7 +117,7 @@ async def create_item(
                 tag_names=_parse_tags(str(form.get("tags") or "")),
                 notes=str(form.get("notes") or ""),
                 source_url=str(form.get("source_url") or "") or None,
-                rating=_parse_int(form.get("rating")),
+                rating=_parse_rating(form.get("rating")),
                 created_at=_parse_dt(form.get("created_at")),
                 modified_at=_parse_dt(form.get("modified_at")),
                 deleted_at=_parse_dt(form.get("deleted_at")),
@@ -124,11 +126,15 @@ async def create_item(
             staging.unlink(missing_ok=True)
     else:
         try:
-            body = UrlAdd(**await request.json())
+            data = await request.json()
         except Exception:
-            raise HTTPException(
-                422, "provide a multipart 'file' or a JSON body with 'url'"
-            ) from None
+            data = None
+        if not isinstance(data, dict) or "url" not in data:
+            raise HTTPException(422, "provide a multipart 'file' or a JSON body with 'url'")
+        try:
+            body = UrlAdd(**data)
+        except PydanticValidationError as exc:
+            raise RequestValidationError(exc.errors(include_url=False)) from None
         try:
             result = await run_in_threadpool(
                 lambda: ingest.ingest_url(
@@ -161,11 +167,14 @@ def _parse_tags(raw: str | None) -> list[str]:
     return [t.strip() for t in raw.split(",") if t.strip()]
 
 
-def _parse_int(raw) -> int:
-    try:
-        return int(str(raw))
-    except (TypeError, ValueError):
+def _too_large(limit: int) -> str:
+    return f"the file is larger than this server accepts ({limit / 1024**3:.1f} GiB)"
+
+
+def _parse_rating(raw) -> int:
+    if raw is None or not str(raw).strip():
         return 0
+    return validation.rating(str(raw).strip())
 
 
 def _parse_dt(raw) -> datetime | None:
@@ -179,7 +188,7 @@ def _parse_dt(raw) -> datetime | None:
 
 @router.get("/{item_id}", response_model=ItemOut)
 def get_item(item_id: str, session: Annotated[Session, Depends(get_session)]):
-    return ItemOut.from_item(_get_or_404(session, item_id))
+    return ItemOut.from_item(items_svc.get_item(session, item_id))
 
 
 @router.patch("/{item_id}", response_model=ItemOut)
@@ -188,9 +197,13 @@ def patch_item(
     patch: ItemPatch,
     session: Annotated[Session, Depends(get_session)],
 ):
-    _get_or_404(session, item_id)
+    """Change fields. Send base_modified_at (the item's modified_at as you
+    last saw it) to get a 409 instead of overwriting someone else's edit.
+    folder_id / folder_ids replace every membership; to add or remove one,
+    use PATCH /api/items/{id}/folders."""
     fields = patch.model_dump(exclude_unset=True)
-    item = items_svc.update_item(session, item_id, fields=fields)
+    base = fields.pop("base_modified_at", None)
+    item = items_svc.update_item(session, item_id, fields=fields, base_modified_at=base)
     return ItemOut.from_item(item)
 
 
@@ -200,12 +213,8 @@ def delete_item(
     session: Annotated[Session, Depends(get_session)],
     hard: bool = False,
 ):
-    _get_or_404(session, item_id)
     if hard:
-        try:
-            items_svc.hard_delete(session, item_id)
-        except TransitionError as exc:
-            raise HTTPException(409, str(exc)) from None
+        items_svc.hard_delete(session, item_id)
         return {"status": "deleted", "hard": True}
     item = items_svc.soft_delete(session, item_id)
     return {"status": "trashed", "item": ItemOut.from_item(item).model_dump(mode="json")}
@@ -213,20 +222,13 @@ def delete_item(
 
 @router.post("/{item_id}/restore", response_model=ItemOut)
 def restore_item(item_id: str, session: Annotated[Session, Depends(get_session)]):
-    _get_or_404(session, item_id)
     return ItemOut.from_item(items_svc.restore(session, item_id))
 
 
 @router.post("/{item_id}/preview", response_model=ItemOut, status_code=202)
 def retry_preview(item_id: str, session: Annotated[Session, Depends(get_session)]):
     """Queue a fresh attempt at the item's previews (preview_status -> pending)."""
-    item = _get_or_404(session, item_id)
-    try:
-        jobs_svc.enqueue_preview(session, item)
-    except TransitionError as exc:
-        raise HTTPException(409, str(exc)) from None
-    session.refresh(item)
-    return ItemOut.from_item(item)
+    return ItemOut.from_item(jobs_svc.retry_preview(session, item_id))
 
 
 @router.put("/{item_id}/tags", response_model=ItemOut)
@@ -235,7 +237,6 @@ def put_tags(
     body: TagsPut,
     session: Annotated[Session, Depends(get_session)],
 ):
-    _get_or_404(session, item_id)
     return ItemOut.from_item(items_svc.set_tags(session, item_id, replace=body.tags))
 
 
@@ -246,7 +247,6 @@ def patch_tags(
     session: Annotated[Session, Depends(get_session)],
 ):
     """Add/remove tags against what the server has (safe with other writers)."""
-    _get_or_404(session, item_id)
     return ItemOut.from_item(
         items_svc.set_tags(session, item_id, add=body.add, remove=body.remove)
     )
@@ -258,8 +258,8 @@ def patch_folders(
     body: MembershipPatch,
     session: Annotated[Session, Depends(get_session)],
 ):
-    """Add/remove folder memberships against what the server has."""
-    _get_or_404(session, item_id)
+    """Add/remove folder memberships against what the server has. Unknown
+    folder ids to add are refused (422); removing one is a no-op."""
     return ItemOut.from_item(
         items_svc.set_folders(session, item_id, add=body.add, remove=body.remove)
     )
@@ -271,7 +271,6 @@ def put_folders(
     body: FoldersPut,
     session: Annotated[Session, Depends(get_session)],
 ):
-    _get_or_404(session, item_id)
     return ItemOut.from_item(
         items_svc.set_folders(session, item_id, replace=body.folder_ids)
     )
@@ -279,20 +278,22 @@ def put_folders(
 
 @router.get("/{item_id}/file")
 def get_file(item_id: str, session: Annotated[Session, Depends(get_session)]):
-    item = _get_or_404(session, item_id)
+    item = items_svc.get_item(session, item_id)
     path = get_settings().items_dir / item.id / f"original.{item.ext}"
     if not path.is_file():
         raise HTTPException(404, "original file missing on disk")
-    # originals can come from anywhere (URL downloads); never let one run
-    # script on this origin, where it could read the API token
+    # originals can come from anywhere (URL downloads, mail attachments);
+    # never let one run script on this origin, where it could read the API
+    # token. What's shown inline is decided by the MIME type libmagic
+    # sniffed from the bytes, never by the file's name: an HTML page named
+    # "invoice.pdf" is a sandboxed download.
     headers = {"X-Content-Type-Options": "nosniff"}
-    kind = kind_for(item.mime, item.ext)
-    inline = kind in ("image", "video", "pdf")
-    if item.ext == "svg" or "svg" in item.mime:
+    inline = serve_inline(item.mime)
+    if "svg" in item.mime:
         headers["Content-Security-Policy"] = (
             "default-src 'none'; img-src data:; style-src 'unsafe-inline'; sandbox"
         )
-    elif kind == "pdf":
+    elif item.mime == "application/pdf":
         # Chromium-based browsers refuse to render a PDF in a sandboxed
         # document, which would break the preview and "open original". The
         # browsers' PDF viewers already run PDF script isolated from this
@@ -330,7 +331,7 @@ def get_thumb(
     """size 256 | 512 | 1024 thumbnails; 2048 is the full-screen copy and
     4096 the full-resolution HEIC copy. A missing copy falls back to the next
     smaller one, and that answer is never cached for good."""
-    item = _get_or_404(session, item_id)
+    item = items_svc.get_item(session, item_id)
     item_dir = get_settings().items_dir / item.id
     if size > 2048:
         wanted = ["display.webp", thumbs.SCREEN_FILE, "thumb_1024.webp"]
