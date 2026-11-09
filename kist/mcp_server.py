@@ -68,7 +68,8 @@ def web_url(item: Item) -> str:
         "items in no folder and with no tags (what the web UI calls Unfiled). "
         "folder is a folder id (its subfolders are included) or 'none' for items "
         "in no folder, tagged or not. state is 'active' (default) or 'trashed' "
-        "to search the trash. type is one of image|video|pdf|other. Pass the "
+        "to search the trash. preview_status ('failed', 'pending', 'ready', "
+        "'none') finds items by preview state. type is one of image|video|pdf|other. Pass the "
         "returned next_cursor to fetch the following page."
     )
 )
@@ -79,6 +80,7 @@ def search_items(
     untagged: bool = False,
     view: str | None = None,
     state: str | None = None,
+    preview_status: str | None = None,
     folder: str | None = None,
     type: str | None = None,
     rating_min: int | None = None,
@@ -90,7 +92,8 @@ def search_items(
         rows, next_cursor, total = search_svc.search_items(
             session,
             q=query, tags=tags, tags_any=tags_any, untagged=untagged,
-            view=view, state=state, folder=folder, kind=type,
+            view=view, state=state, preview_status=preview_status,
+            folder=folder, kind=type,
             rating_min=rating_min, limit=limit, cursor=cursor,
         )
         return {

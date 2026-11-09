@@ -1,21 +1,23 @@
 // Query helpers shared by the sidebar, top bar and app state (no React).
 import type { Query } from './api'
 
-// "Unfiled" is the inbox: items in no folder AND with no tags. Tagging or
-// filing an item takes it out. Every page load opens there.
-export const unfiledQuery: Partial<Query> = { folder: 'none', untagged: true, deleted: false }
+// "Unfiled" is the inbox: items in no folder AND with no tags. The server
+// defines it (GET /api/items?view=unfiled, MCP search_items(view="unfiled")),
+// so the UI and agents always mean the same list. Every fresh visit opens here.
+export const unfiledQuery: Partial<Query> = { view: 'unfiled', deleted: false }
 
 export function isUnfiledView(q: Query): boolean {
-  return q.folder === 'none' && q.untagged && !q.deleted
+  return q.view === 'unfiled' && !q.deleted
 }
 
-/** Leaving the Unfiled view drops its built-in "untagged" condition, so it
- * never lingers as a hidden filter (and a tag click there isn't "untagged
- * AND tagged", which always matches nothing). */
+/** Picking a folder, a tag or Trash leaves the Unfiled view; searching or
+ * changing the type, rating or sort inside it stays there. */
 export function mergeQuery(prev: Query, patch: Partial<Query>): Query {
   const next = { ...prev, ...patch }
-  const leaving =
-    next.folder !== 'none' || next.deleted || next.tags.length > 0 || next.tags_any.length > 0
-  if (isUnfiledView(prev) && !('untagged' in patch) && leaving) next.untagged = false
+  if (prev.view === 'unfiled' && !('view' in patch)) {
+    const leaving =
+      next.folder !== null || next.deleted || next.tags.length > 0 || next.tags_any.length > 0
+    if (leaving) next.view = null
+  }
   return next
 }

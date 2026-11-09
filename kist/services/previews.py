@@ -31,8 +31,14 @@ def outcome(item_dir: Path, mime: str, ext: str) -> PreviewStatus:
 
 
 def short_error(exc: BaseException) -> str:
+    """One readable line for people and agents. The preview child reports a
+    traceback tail; its last line is the actual error."""
     text = str(exc).strip() or type(exc).__name__
-    return text[-ERROR_MAX:]
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    line = lines[-1] if lines else text
+    if line.startswith("^"):  # a caret marker, not the message
+        line = lines[-2] if len(lines) > 1 else text
+    return line[-ERROR_MAX:]
 
 
 def regenerate(session: Session, item: Item) -> PreviewStatus:

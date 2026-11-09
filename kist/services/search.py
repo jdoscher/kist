@@ -8,7 +8,7 @@ from typing import Any
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
-from ..lifecycle import ItemState
+from ..lifecycle import ItemState, PreviewStatus
 from ..models import Folder, Item, ItemFolder, ItemTag, Tag
 
 # Named views. "unfiled" is the inbox: active items in no folder and with no
@@ -75,6 +75,7 @@ def build_filters(
     deleted: bool = False,
     state: str | None = None,
     view: str | None = None,
+    preview_status: str | None = None,
     created_after: datetime | None = None,
     created_before: datetime | None = None,
 ) -> list[Any]:
@@ -84,6 +85,13 @@ def build_filters(
     if state is not None and state not in tuple(ItemState):
         raise ValueError(f"unknown state {state!r}; expected active or trashed")
     trashed = (state == ItemState.TRASHED) if state is not None else deleted
+    if preview_status is not None:
+        if preview_status not in tuple(PreviewStatus):
+            raise ValueError(
+                f"unknown preview_status {preview_status!r}; "
+                "expected pending, ready, failed or none"
+            )
+        filters.append(Item.preview_status == preview_status)
     if view == "unfiled":
         trashed = False
         untagged = True
@@ -153,6 +161,7 @@ def search_items(
     deleted: bool = False,
     state: str | None = None,
     view: str | None = None,
+    preview_status: str | None = None,
     created_after: datetime | None = None,
     created_before: datetime | None = None,
     order: str = "-created",
@@ -163,6 +172,7 @@ def search_items(
         q=q, tags=tags, tags_any=tags_any, untagged=untagged,
         folder=folder, kind=kind,
         rating_min=rating_min, deleted=deleted, state=state, view=view,
+        preview_status=preview_status,
         created_after=created_after, created_before=created_before,
     )
     col, desc = ORDERS.get(order, ORDERS["-created"])

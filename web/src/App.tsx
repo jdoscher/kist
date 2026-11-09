@@ -1,8 +1,9 @@
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useState } from 'react'
 import { api, getToken, setToken, setUnauthorizedHandler } from './api'
 import { DetailPanel, DetailSheet } from './components/DetailPanel'
 import { Grid } from './components/Grid'
+import { JobsPanel } from './components/JobsPanel'
 import { Preview } from './components/Preview'
 import { Drawer, Sidebar } from './components/Sidebar'
 import { TopBar } from './components/TopBar'
@@ -46,6 +47,19 @@ function TokenGate({ onDone }: { onDone: () => void }) {
   )
 }
 
+/** The server stopped answering (restart, network): say so instead of
+ * leaving a frozen grid. Clears itself when the server is back. */
+function ServerBanner() {
+  const health = useQuery({
+    queryKey: ['health'],
+    queryFn: api.health,
+    refetchInterval: (q) => (q.state.status === 'error' ? 5_000 : 15_000),
+    retry: false,
+  })
+  if (!health.isError || (health.error as { status?: number })?.status === 401) return null
+  return <div className="server-banner">Can't reach the Kist server. Retrying…</div>
+}
+
 export default function App() {
   const [authed, setAuthed] = useState<boolean | null>(null)
   const qc = useQueryClient()
@@ -74,9 +88,10 @@ export default function App() {
   if (!authed) return <TokenGate onDone={recheck} />
 
   return (
-    <AppStateProvider>
+    <AppStateProvider mobile={mobile}>
       <UploadManager>
         <div className={`app-shell${mobile ? ' mobile' : ''}`}>
+          <ServerBanner />
           <TopBar mobile={mobile} />
           <div className="app-body">
             {mobile ? <Drawer /> : <Sidebar />}
@@ -84,6 +99,7 @@ export default function App() {
             {mobile ? <DetailSheet /> : <DetailPanel />}
           </div>
           <Preview />
+          <JobsPanel />
         </div>
       </UploadManager>
     </AppStateProvider>

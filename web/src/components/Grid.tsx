@@ -53,9 +53,18 @@ function Tile({
       {thumb ? (
         <img src={thumb} loading="lazy" draggable={false} alt={item.filename} />
       ) : (
-        <div className="tile-icon">
-          <span>{KIND_ICONS[item.kind] ?? '📦'}</span>
-          <span className="ext">.{item.ext}</span>
+        <div className={`tile-icon preview-${item.preview_status}`}>
+          <span>
+            {item.preview_status === 'failed'
+              ? '⚠'
+              : item.preview_status === 'pending'
+                ? '⏳'
+                : (KIND_ICONS[item.kind] ?? '📦')}
+          </span>
+          <span className="ext">
+            .{item.ext}
+            {item.preview_status === 'failed' && ' · preview failed'}
+          </span>
         </div>
       )}
       {item.kind === 'video' && item.duration_s != null && (

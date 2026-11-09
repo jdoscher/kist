@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fileUrl, thumbUrl, type Item } from '../api'
 import { swipeDirection } from '../mobile'
-import { flattenItems, useAppState, useItems } from '../state'
+import { flattenItems, useAppState, useItem, useItems } from '../state'
 
 // formats every browser renders natively — load the original itself
 const WEB_NATIVE = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif'])
@@ -36,10 +36,13 @@ export function Preview() {
   const result = useItems(query)
   const items = useMemo(() => flattenItems(result.data?.pages), [result.data])
   const idx = useMemo(() => items.findIndex((i) => i.id === previewId), [items, previewId])
-  const item = idx >= 0 ? items[idx] : null
+  // an item opened from a link may not be in the loaded grid: show it alone
+  const linked = useItem(previewId, items)
+  const item = idx >= 0 ? items[idx] : (linked ?? null)
 
   const go = useCallback(
     (delta: number) => {
+      if (idx < 0) return
       const next = idx + delta
       if (next >= 0 && next < items.length) {
         setPreviewId(items[next].id)
@@ -125,8 +128,8 @@ export function Preview() {
         <figcaption>
           <span className="fname">{item.filename}</span>
           <span className="meta">
-            {item.width && item.height ? `${item.width}×${item.height} · ` : ''}
-            {idx + 1} / {items.length}
+            {item.width && item.height ? `${item.width}×${item.height}` : ''}
+            {idx >= 0 ? `${item.width && item.height ? ' · ' : ''}${idx + 1} / ${items.length}` : ''}
           </span>
           <a href={fileUrl(item)} target="_blank" rel="noreferrer">
             Open original ↗
@@ -136,7 +139,7 @@ export function Preview() {
 
       <button
         className="preview-nav next"
-        disabled={idx >= items.length - 1}
+        disabled={idx < 0 || idx >= items.length - 1}
         onClick={(e) => {
           e.stopPropagation()
           go(1)

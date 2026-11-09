@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useReducer,
   useRef,
   useState,
   type ReactNode,
@@ -10,15 +11,7 @@ import {
 import { api, uploadFile } from '../api'
 import { jobLabel, jobsFromDataTransfer, type AddJob } from '../clipboard'
 import { useAppState, useInvalidateItems } from '../state'
-
-interface UploadEntry {
-  key: number
-  name: string
-  pct: number
-  isUrl: boolean
-  status: 'queued' | 'uploading' | 'done' | 'duplicate' | 'error'
-  error?: string
-}
+import { nextQueued, uploadsReducer } from '../uploads'
 
 interface UploadsApi {
   enqueue: (files: File[]) => void
@@ -36,74 +29,86 @@ export function useUploads(): UploadsApi {
 let nextKey = 1
 
 export function UploadManager({ children }: { children: ReactNode }) {
-  const [entries, setEntries] = useState<UploadEntry[]>([])
+  const [entries, dispatch] = useReducer(uploadsReducer<AddJob>, [])
   const [dragging, setDragging] = useState(false)
   const invalidate = useInvalidateItems()
   const { query } = useAppState()
   const queryRef = useRef(query)
   queryRef.current = query
-  const running = useRef(false)
-  const queue = useRef<{ key: number; job: AddJob }[]>([])
+  const busy = useRef(false)
 
-  const patch = (key: number, p: Partial<UploadEntry>) =>
-    setEntries((prev) => prev.map((e) => (e.key === key ? { ...e, ...p } : e)))
-
-  const pump = useCallback(async () => {
-    if (running.current) return
-    running.current = true
-    while (queue.current.length) {
-      const { key, job } = queue.current.shift()!
-      patch(key, { status: 'uploading' })
+  // send the next queued entry, one at a time (states: uploads.ts)
+  useEffect(() => {
+    const next = nextQueued(entries)
+    if (!next || busy.current) return
+    busy.current = true
+    const { key, job, folderId } = next
+    dispatch({ type: 'start', key })
+    const onProgress = (pct: number) => dispatch({ type: 'progress', key, pct })
+    void (async () => {
       try {
-        const raw = queryRef.current.folder
-        const folder = raw === 'none' ? null : raw
-        const onProgress = (pct: number) => patch(key, { pct })
         let res
         if (job.kind === 'file') {
-          res = await uploadFile(job.file, folder, onProgress)
+          res = await uploadFile(job.file, folderId, onProgress)
         } else {
           try {
-            res = await api.addUrl(job.url, folder)
+            res = await api.addUrl(job.url, folderId)
           } catch (err) {
             if (!job.fallback) throw err
-            patch(key, { isUrl: false })
-            res = await uploadFile(job.fallback, folder, onProgress, job.url)
+            dispatch({ type: 'fallback', key })
+            res = await uploadFile(job.fallback, folderId, onProgress, job.url)
           }
         }
-        patch(key, { status: res.created ? 'done' : 'duplicate', pct: 100 })
+        busy.current = false
+        dispatch({
+          type: 'finish',
+          key,
+          created: res.created,
+          itemId: res.item.id,
+          itemState: res.item.state,
+          at: Date.now(),
+        })
       } catch (err) {
-        patch(key, { status: 'error', error: String((err as Error).message ?? err) })
+        busy.current = false
+        dispatch({ type: 'fail', key, error: String((err as Error).message ?? err) })
       }
       invalidate()
-    }
-    running.current = false
-    setTimeout(
-      () =>
-        setEntries((prev) =>
-          prev.filter((e) => e.status === 'error' || e.status === 'uploading' || e.status === 'queued'),
-        ),
-      4000,
-    )
-  }, [invalidate])
+    })()
+  }, [entries, invalidate])
 
-  const addJobs = useCallback(
-    (jobs: AddJob[]) => {
-      const fresh = jobs.map((job) => ({ key: nextKey++, job }))
-      queue.current.push(...fresh)
-      setEntries((prev) => [
-        ...prev,
-        ...fresh.map(({ key, job }) => ({
-          key,
-          name: jobLabel(job),
-          pct: 0,
-          isUrl: job.kind === 'url',
-          status: 'queued' as const,
-        })),
-      ])
-      void pump()
-    },
-    [pump],
-  )
+  // finished uploads fade out after a few seconds
+  const fading = entries.some((e) => e.status === 'done' || e.status === 'duplicate')
+  useEffect(() => {
+    if (!fading) return
+    const t = setInterval(() => dispatch({ type: 'expire', now: Date.now(), afterMs: 4000 }), 1000)
+    return () => clearInterval(t)
+  }, [fading])
+
+  const addJobs = useCallback((jobs: AddJob[]) => {
+    // the destination is decided now, not when the file's turn comes
+    const q = queryRef.current
+    const folderId = !q.deleted && q.folder && q.folder !== 'none' ? q.folder : null
+    dispatch({
+      type: 'add',
+      entries: jobs.map((job) => ({
+        key: nextKey++,
+        job,
+        name: jobLabel(job),
+        isUrl: job.kind === 'url',
+        folderId,
+      })),
+    })
+  }, [])
+
+  const restore = async (key: number, itemId: string) => {
+    try {
+      await api.restoreItem(itemId)
+      dispatch({ type: 'restored', key, at: Date.now() })
+      invalidate()
+    } catch (err) {
+      window.alert(`Couldn't restore it: ${String((err as Error).message ?? err)}`)
+    }
+  }
 
   const enqueue = useCallback(
     (files: File[]) => addJobs(files.map((file) => ({ kind: 'file', file }))),
@@ -180,7 +185,30 @@ export function UploadManager({ children }: { children: ReactNode }) {
               {e.status === 'queued' && <span>queued</span>}
               {e.status === 'done' && <span>✓</span>}
               {e.status === 'duplicate' && <span>already in library</span>}
-              {e.status === 'error' && <span className="error">{e.error}</span>}
+              {e.status === 'inTrash' && (
+                <>
+                  <span>already in library, in Trash</span>
+                  <button onClick={() => e.itemId && restore(e.key, e.itemId)}>Restore</button>
+                  <button
+                    aria-label="Dismiss"
+                    onClick={() => dispatch({ type: 'dismiss', key: e.key })}
+                  >
+                    ✕
+                  </button>
+                </>
+              )}
+              {e.status === 'error' && (
+                <>
+                  <span className="error">{e.error}</span>
+                  <button onClick={() => dispatch({ type: 'retry', key: e.key })}>Retry</button>
+                  <button
+                    aria-label="Dismiss"
+                    onClick={() => dispatch({ type: 'dismiss', key: e.key })}
+                  >
+                    ✕
+                  </button>
+                </>
+              )}
             </div>
           ))}
         </div>

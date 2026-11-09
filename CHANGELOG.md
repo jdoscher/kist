@@ -4,6 +4,60 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- **A file dropped in the inbox can no longer be lost.** If importing it
+  failed partway (for example the database was briefly unavailable), Kist
+  deleted it and then marked the job done. Now the file is put back, a
+  missing file fails the job instead of passing it, and after the last
+  attempt the file is kept in `library/failed/` under its own name.
+- **Re-adding something that's in the Trash says so.** Instead of "already in
+  library" for an item you can't see, the upload shows "in Trash" with a
+  Restore button. API and MCP answers carry the item's `state`.
+- **Uploads stay in the folder you dropped them in.** Switching folders while
+  a batch was uploading sent the rest of the batch to the new folder.
+- **Jobs left running by a stopped worker are picked up again** after
+  `KIST_JOB_LEASE_SECONDS` (default 900) instead of staying "running" forever.
+- Smart folders now show as selected, and "All items" is only highlighted
+  when nothing narrows the view.
+
+### Added
+- **Every view has an address.** `/`, `/all`, `/trash`, `/folder/<id>`,
+  `/tag/<name>`, `/smart/<id>`, with filters as parameters and `?item=<id>`
+  (`&full=1` for full screen). Refresh keeps your place, links and bookmarks
+  work, and on a phone Back closes the full-screen view, then the item
+  sheet, then the menu, instead of leaving Kist.
+- **Item and preview states.** Items carry `state` (`active` / `trashed`),
+  `preview_status` (`ready` / `pending` / `failed` / `none`) and
+  `preview_error`. A failed preview shows ⚠ on its tile and a Retry button in
+  the info panel and item sheet; trashed items show Restore.
+- **Needs attention** in the sidebar lists inbox imports that failed (Retry
+  or Dismiss) and links to the items whose preview failed.
+- A banner when the server can't be reached; it clears itself.
+- Upload errors have Retry and Dismiss buttons.
+- REST: `view=unfiled`, `state`, `preview_status` filters;
+  `POST /api/items/{id}/preview`; `/api/jobs` with retry and dismiss; stats
+  count failed jobs and failed previews.
+- MCP: `restore_item`, `retry_preview`, `list_jobs`, `retry_job`;
+  `search_items` takes `view`, `state` and `preview_status`; items carry a
+  `web_url` (absolute when `KIST_PUBLIC_URL` is set). `view_item` says why an
+  item has no preview.
+- `kist verify` reports drift between the database and the files on disk.
+
+### Changed
+- Unfiled is defined by the server (`view=unfiled`), so the web UI and agents
+  see the same inbox. MCP's `folder="none"` still means "in no folder",
+  tagged or not; its description no longer calls that "unfiled".
+- Clicking a tag while in Unfiled shows every item with that tag (it used to
+  show only those in no folder).
+- Permanent delete (`DELETE /api/items/{id}?hard=true`) only works on items
+  in the Trash; anything else gets 409. Trashing a trashed item or restoring
+  an active one changes nothing.
+- Folder delete confirmations say when subfolders go too.
+- Migration `0003` adds the new columns and backfills preview status from
+  existing data; jobs left `running` are re-queued.
+
 ## [1.4.0] - 2026-11-09
 
 ### Added

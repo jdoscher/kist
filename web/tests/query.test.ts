@@ -1,46 +1,33 @@
 // Unfiled view rules. Run with `npm test`.
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import type { Query } from '../src/api.ts'
+import { emptyQuery, type Query } from '../src/api.ts'
 import { isUnfiledView, mergeQuery, unfiledQuery } from '../src/query.ts'
 
-const empty: Query = {
-  q: '',
-  tags: [],
-  tags_any: [],
-  untagged: false,
-  folder: null,
-  type: null,
-  rating: 0,
-  order: '-created',
-  deleted: false,
-  created_after: null,
-  created_before: null,
-}
+const empty: Query = emptyQuery
 const unfiled: Query = { ...empty, ...unfiledQuery }
 
-test('Unfiled means no folder and no tags', () => {
-  assert.equal(unfiled.folder, 'none')
-  assert.equal(unfiled.untagged, true)
+test('Unfiled is the server view, not a combination of filters', () => {
+  assert.equal(unfiled.view, 'unfiled')
+  assert.equal(unfiled.untagged, false)
+  assert.equal(unfiled.folder, null)
   assert.ok(isUnfiledView(unfiled))
-  assert.ok(!isUnfiledView({ ...unfiled, untagged: false }))
   assert.ok(!isUnfiledView({ ...unfiled, deleted: true }))
 })
 
-test('leaving Unfiled drops its untagged condition', () => {
-  assert.equal(mergeQuery(unfiled, { folder: 'f1' }).untagged, false)
-  assert.equal(mergeQuery(unfiled, { deleted: true, folder: null }).untagged, false)
+test('picking a folder, tag or Trash leaves Unfiled', () => {
+  assert.equal(mergeQuery(unfiled, { folder: 'f1' }).view, null)
+  assert.equal(mergeQuery(unfiled, { deleted: true, folder: null }).view, null)
   const tagged = mergeQuery(unfiled, { tags: ['Cars'] })
-  assert.equal(tagged.untagged, false) // not "untagged AND #Cars"
-  assert.equal(tagged.folder, 'none') // no-folder items tagged Cars
-  assert.equal(mergeQuery(unfiled, { tags_any: ['Cars', 'Trucks'] }).untagged, false)
+  assert.equal(tagged.view, null) // every item tagged Cars, not "untagged AND #Cars"
+  assert.equal(tagged.folder, null)
+  assert.equal(mergeQuery(unfiled, { tags_any: ['Cars', 'Trucks'] }).view, null)
 })
 
-test('staying in Unfiled keeps it, and explicit untagged is respected', () => {
+test('searching and sorting stay in Unfiled; untagged is an ordinary filter', () => {
   assert.ok(isUnfiledView(mergeQuery(unfiled, { q: 'watch' })))
   assert.ok(isUnfiledView(mergeQuery(unfiled, { type: 'image', order: 'filename' })))
-  assert.equal(mergeQuery(unfiled, { folder: 'f1', untagged: true }).untagged, true)
-  // outside Unfiled an untagged filter (smart folder) survives folder clicks
+  // a smart folder's untagged filter survives folder clicks
   const smart = { ...empty, untagged: true }
   assert.equal(mergeQuery(smart, { folder: 'f1' }).untagged, true)
 })

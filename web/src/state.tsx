@@ -8,13 +8,15 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
   type ReactNode,
 } from 'react'
 import { api, emptyQuery, type Item, type Query } from './api'
-import { mergeQuery, unfiledQuery } from './query'
+import { mergeQuery } from './query'
+import { fromUrl, historyAction, layerOf, toUrl, type Place } from './url'
 import {
   TILE_SIZE_DEFAULT,
   TILE_SIZE_MAX,
@@ -27,6 +29,9 @@ interface AppState {
   query: Query
   setQuery: (patch: Partial<Query>) => void
   resetQuery: () => void
+  /** the smart folder being shown (cleared by any other filter change) */
+  smartId: string | null
+  applySmartFolder: (id: string, query: Partial<Query>) => void
   selection: Set<string>
   selectOnly: (id: string) => void
   toggleSelect: (id: string) => void
@@ -44,6 +49,13 @@ interface AppState {
   /** phone layout: the folder drawer and the grid's column count */
   drawerOpen: boolean
   setDrawerOpen: (open: boolean) => void
+  /** open/close the phone menu as a history layer (Back closes it) */
+  openDrawer: () => void
+  closeDrawer: () => void
+  /** the failed-imports panel */
+  jobsOpen: boolean
+  setJobsOpen: (open: boolean) => void
+  mobile: boolean
   mobileCols: MobileCols
   setMobileCols: (cols: MobileCols) => void
 }
@@ -83,7 +95,14 @@ function loadTileSize(): number {
   return raw === null ? TILE_SIZE_DEFAULT : clampSize(Number(raw))
 }
 
-const initialQuery: Query = { ...emptyQuery, ...unfiledQuery }
+/** Older smart folders stored Unfiled as "no folder + untagged". */
+function normalizeSaved(q: Partial<Query>): Query {
+  const merged: Query = { ...emptyQuery, ...q, deleted: false }
+  if (merged.folder === 'none' && merged.untagged && !merged.view) {
+    return { ...merged, view: 'unfiled', folder: null, untagged: false }
+  }
+  return merged
+}
 
 function loadPanelOpen(): boolean {
   try {
@@ -95,10 +114,16 @@ function loadPanelOpen(): boolean {
 
 const Ctx = createContext<AppState | null>(null)
 
-export function AppStateProvider({ children }: { children: ReactNode }) {
-  const [query, setQueryRaw] = useState<Query>(initialQuery)
-  const [selection, setSelection] = useState<Set<string>>(new Set())
-  const [previewId, setPreviewId] = useState<string | null>(null)
+export function AppStateProvider({ children, mobile }: { children: ReactNode; mobile: boolean }) {
+  // the URL is where you are: read it once on load, then keep it in sync
+  const [initial] = useState<Place>(() => fromUrl(window.location.pathname, window.location.search))
+  const [query, setQueryRaw] = useState<Query>(initial.query)
+  const [smartId, setSmartId] = useState<string | null>(initial.smartId)
+  const [selection, setSelection] = useState<Set<string>>(
+    () => new Set(initial.item ? [initial.item] : []),
+  )
+  const [previewId, setPreviewId] = useState<string | null>(initial.full ? initial.item : null)
+  const [jobsOpen, setJobsOpen] = useState(false)
   const anchor = useRef<string | null>(null)
   const [panelOpen, setPanelOpenRaw] = useState(loadPanelOpen)
 
@@ -136,14 +161,99 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const setQuery = useCallback((patch: Partial<Query>) => {
     setQueryRaw((prev) => mergeQuery(prev, patch))
+    setSmartId(null)
     setSelection(new Set())
     setPreviewId(null)
   }, [])
 
   const resetQuery = useCallback(() => {
     setQueryRaw(emptyQuery)
+    setSmartId(null)
     setSelection(new Set())
     setPreviewId(null)
+  }, [])
+
+  const applySmartFolder = useCallback((id: string, q: Partial<Query>) => {
+    setQueryRaw(normalizeSaved(q))
+    setSmartId(id)
+    setSelection(new Set())
+    setPreviewId(null)
+  }, [])
+
+  // ---- URL sync (see url.ts for the routes and the Back rules) ----
+  const place: Place = useMemo(
+    () => ({
+      query,
+      smartId,
+      item: previewId ?? (selection.size === 1 ? [...selection][0] : null),
+      full: previewId !== null,
+    }),
+    [query, smartId, selection, previewId],
+  )
+  const url = toUrl(place)
+  const shown = useRef<Place>(initial) // what the address bar shows now
+  const afterBack = useRef<Place | null>(null)
+
+  useEffect(() => {
+    // normalize the address once (e.g. /unfiled -> /, unknown paths -> /all)
+    window.history.replaceState(window.history.state, '', toUrl(initial))
+  }, [initial])
+
+  useEffect(() => {
+    const cur = shown.current
+    const hs = window.history.state ?? {}
+    const action = historyAction(cur, place, {
+      mobile,
+      curPushed: !!hs.kistLayer,
+      curIsMenu: !!hs.kistMenu,
+    })
+    if (action === 'none') return
+    const layered = layerOf(place, mobile) !== 'view'
+    if (action === 'push') window.history.pushState({ kistLayer: layered }, '', url)
+    else if (action === 'replace')
+      window.history.replaceState({ kistLayer: !!hs.kistLayer && !hs.kistMenu && layered }, '', url)
+    else {
+      afterBack.current = place
+      window.history.back()
+    }
+    shown.current = place
+  }, [url, mobile]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const onPop = () => {
+      const hs = window.history.state ?? {}
+      const target = afterBack.current
+      afterBack.current = null
+      setDrawerOpen(!!hs.kistMenu)
+      if (target) {
+        // we stepped back to close a layer; the app already shows `target`
+        window.history.replaceState(
+          { kistLayer: !!hs.kistLayer && layerOf(target, mobile) !== 'view' },
+          '',
+          toUrl(target),
+        )
+        shown.current = target
+        return
+      }
+      const p = fromUrl(window.location.pathname, window.location.search)
+      shown.current = p
+      setQueryRaw(p.query)
+      setSmartId(p.smartId)
+      setSelection(new Set(p.item ? [p.item] : []))
+      setPreviewId(p.full ? p.item : null)
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [mobile])
+
+  const openDrawer = useCallback(() => {
+    setDrawerOpen(true)
+    window.history.pushState({ kistMenu: true, kistLayer: true }, '', window.location.href)
+  }, [])
+
+  const closeDrawer = useCallback(() => {
+    if (window.history.state?.kistMenu) window.history.back()
+    else setDrawerOpen(false)
   }, [])
 
   const selectOnly = useCallback((id: string) => {
@@ -185,6 +295,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       query,
       setQuery,
       resetQuery,
+      smartId,
+      applySmartFolder,
       selection,
       selectOnly,
       toggleSelect,
@@ -201,10 +313,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       setTileSize,
       drawerOpen,
       setDrawerOpen,
+      openDrawer,
+      closeDrawer,
+      jobsOpen,
+      setJobsOpen,
+      mobile,
       mobileCols,
       setMobileCols,
     }),
-    [query, selection, previewId, panelOpen, setPanelOpen, gridLayout, setGridLayout, tileSize, setTileSize, drawerOpen, mobileCols, setMobileCols, setQuery, resetQuery, selectOnly, toggleSelect, rangeSelect, clearSelection, selectAll],
+    [query, smartId, applySmartFolder, selection, previewId, panelOpen, setPanelOpen, gridLayout, setGridLayout, tileSize, setTileSize, drawerOpen, openDrawer, closeDrawer, jobsOpen, mobile, mobileCols, setMobileCols, setQuery, resetQuery, selectOnly, toggleSelect, rangeSelect, clearSelection, selectAll],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
@@ -216,12 +333,42 @@ export function useAppState(): AppState {
   return state
 }
 
+const PENDING_POLL_MS = 3000
+
 export function useItems(query: Query) {
   return useInfiniteQuery({
     queryKey: ['items', query],
     queryFn: ({ pageParam }) => api.listItems(query, pageParam || undefined),
     initialPageParam: '',
     getNextPageParam: (last) => last.next_cursor ?? undefined,
+    // while a preview is being made, check back until it settles
+    refetchInterval: (q) =>
+      q.state.data?.pages.some((p) => p.items.some((i) => i.preview_status === 'pending'))
+        ? PENDING_POLL_MS
+        : false,
+  })
+}
+
+/** An item by id: from the loaded grid if it's there, else fetched (a link
+ * can point at an item far down the list, or in another view). */
+export function useItem(id: string | null, loaded: Item[]): Item | undefined {
+  const found = id ? loaded.find((i) => i.id === id) : undefined
+  const fetched = useQuery({
+    queryKey: ['item', id],
+    queryFn: () => api.getItem(id as string),
+    enabled: !!id && !found,
+    retry: false,
+    refetchInterval: (q) => (q.state.data?.preview_status === 'pending' ? PENDING_POLL_MS : false),
+  })
+  if (!id) return undefined
+  return found ?? fetched.data
+}
+
+export function useJobs(enabled: boolean) {
+  return useQuery({
+    queryKey: ['jobs', 'failed'],
+    queryFn: () => api.listJobs('failed'),
+    enabled,
   })
 }
 
@@ -246,6 +393,8 @@ export function useInvalidateItems() {
   const qc = useQueryClient()
   return useCallback(() => {
     qc.invalidateQueries({ queryKey: ['items'] })
+    qc.invalidateQueries({ queryKey: ['item'] })
+    qc.invalidateQueries({ queryKey: ['jobs'] })
     qc.invalidateQueries({ queryKey: ['tags'] })
     qc.invalidateQueries({ queryKey: ['folders'] })
     qc.invalidateQueries({ queryKey: ['smartFolders'] })

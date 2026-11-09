@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { api, fileUrl, thumbUrl, type Item } from '../api'
+import { api, emptyQuery, fileUrl, thumbUrl, type Item } from '../api'
 import { swipeDirection } from '../mobile'
-import { flattenItems, useAppState, useFolders, useInvalidateItems, useItems, useStats } from '../state'
+import {
+  flattenItems,
+  useAppState,
+  useFolders,
+  useInvalidateItems,
+  useItem,
+  useItems,
+  useStats,
+} from '../state'
 
 function fmtBytes(n: number): string {
   if (n >= 1 << 30) return `${(n / (1 << 30)).toFixed(2)} GB`
@@ -22,6 +30,56 @@ function Stars({ value, onChange }: { value: number; onChange: (v: number) => vo
           ★
         </button>
       ))}
+    </div>
+  )
+}
+
+/** The item's server-side states, with the action that moves each one on:
+ * Trash -> Restore, failed preview -> Retry. Shown on desktop and phone. */
+export function ItemStatus({ item }: { item: Item }) {
+  const invalidate = useInvalidateItems()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const run = async (fn: () => Promise<unknown>) => {
+    setBusy(true)
+    setError('')
+    try {
+      await fn()
+      invalidate()
+    } catch (e) {
+      setError(String((e as Error).message ?? e))
+    } finally {
+      setBusy(false)
+    }
+  }
+  if (item.state === 'active' && (item.preview_status === 'ready' || item.preview_status === 'none'))
+    return null
+  return (
+    <div className="item-status">
+      {item.state === 'trashed' && (
+        <div className="status-row trashed">
+          <span>In Trash</span>
+          <button disabled={busy} onClick={() => run(() => api.restoreItem(item.id))}>
+            Restore
+          </button>
+        </div>
+      )}
+      {item.preview_status === 'failed' && (
+        <div className="status-row failed">
+          <span title={item.preview_error ?? ''}>
+            Preview failed{item.preview_error ? `: ${item.preview_error}` : ''}
+          </span>
+          <button disabled={busy} onClick={() => run(() => api.retryPreview(item.id))}>
+            Retry
+          </button>
+        </div>
+      )}
+      {item.preview_status === 'pending' && (
+        <div className="status-row pending">
+          <span>Making the preview…</span>
+        </div>
+      )}
+      {error && <div className="error">{error}</div>}
     </div>
   )
 }
@@ -62,6 +120,7 @@ function SingleItem({ item }: { item: Item }) {
 
   return (
     <>
+      <ItemStatus item={item} />
       <input
         className="detail-filename"
         value={filename}
@@ -229,15 +288,18 @@ export function DetailPanel() {
   const result = useItems(query)
   const items = useMemo(() => flattenItems(result.data?.pages), [result.data])
   const selected = useMemo(() => items.filter((i) => selection.has(i.id)), [items, selection])
+  // one item that isn't in the loaded grid (opened from a link): fetch it
+  const onlyId = selection.size === 1 ? [...selection][0] : null
+  const single = useItem(onlyId, items)
 
   if (!panelOpen) return null
 
   return (
     <aside className="detail-panel">
-      {selected.length === 0 ? (
+      {selection.size === 0 ? (
         <LibrarySummary />
-      ) : selected.length === 1 ? (
-        <SingleItem item={selected[0]} />
+      ) : selection.size === 1 ? (
+        single ? <SingleItem item={single} /> : <div className="hint">Loading…</div>
       ) : (
         <div className="multi-summary">
           <h3>{selected.length} items selected</h3>
@@ -263,7 +325,7 @@ export function DetailSheet() {
   const start = useRef<{ x: number; y: number } | null>(null)
   const [drag, setDrag] = useState(0)
 
-  const item = selection.size === 1 ? items.find((i) => selection.has(i.id)) : undefined
+  const item = useItem(selection.size === 1 ? [...selection][0] : null, items)
   if (!item) return null
   const thumb = thumbUrl(item, 512)
 
@@ -316,12 +378,13 @@ export function DetailSheet() {
       </div>
 
       <div className="sheet-body">
+        <ItemStatus item={item} />
         {item.tags.length > 0 && (
           <div className="detail-section">
             <label>Tags</label>
             <div className="tag-chips">
               {item.tags.map((t) => (
-                <button key={t} className="chip" onClick={() => setQuery({ tags: [t], deleted: false })}>
+                <button key={t} className="chip" onClick={() => setQuery({ ...emptyQuery, tags: [t], order: query.order })}>
                   #{t}
                 </button>
               ))}
@@ -336,7 +399,7 @@ export function DetailSheet() {
                 <button
                   key={fid}
                   className="chip folder-chip"
-                  onClick={() => setQuery({ folder: fid, deleted: false })}
+                  onClick={() => setQuery({ ...emptyQuery, folder: fid, order: query.order })}
                 >
                   {folderName.get(fid) ?? fid}
                 </button>

@@ -227,6 +227,8 @@ def test_preview_statuses(client, upload, clean, monkeypatch):
     assert "bad PNG data" in broken["preview_error"]
     assert not broken["has_thumb"]
     assert client.get("/api/stats").json()["preview_failed"] == 1
+    failed_ids = [i["id"] for i in client.get("/api/items?preview_status=failed").json()["items"]]
+    assert failed_ids == [broken["id"]]
 
     queued = client.post(f"/api/items/{broken['id']}/preview")
     assert queued.status_code == 202 and queued.json()["preview_status"] == "pending"
@@ -249,6 +251,19 @@ def test_preview_status_is_in_meta(client, upload, clean, monkeypatch):
     broken = upload("broken.png", BROKEN_PNG)["item"]
     meta = json.loads((clean / "items" / broken["id"] / "meta.json").read_text())
     assert meta["preview_status"] == "failed"
+
+
+def test_preview_errors_are_one_readable_line():
+    from kist.services.previews import short_error
+
+    tb = RuntimeError(
+        "preview generation failed (exit 1): Traceback (most recent call last):\n"
+        '  File "x.py", line 1, in <module>\n    ^^^^^^^^\n'
+        "FileNotFoundError: [Errno 2] No such file or directory: 'ffprobe'"
+    )
+    assert short_error(tb) == "FileNotFoundError: [Errno 2] No such file or directory: 'ffprobe'"
+    timeout = RuntimeError("preview generation timed out")
+    assert short_error(timeout) == "preview generation timed out"
 
 
 def test_preview_status_for_backfill():

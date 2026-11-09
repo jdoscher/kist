@@ -12,6 +12,7 @@ import {
   flattenItems,
 } from '../state'
 import { isUnfiledView, unfiledQuery } from '../query'
+import type { Query } from '../api'
 
 interface TreeNode extends Folder {
   children: TreeNode[]
@@ -60,7 +61,13 @@ function FolderRow({
   }
 
   const remove = async () => {
-    if (!confirm(`Delete folder “${node.name}”? Items inside are kept (unfiled).`)) return
+    const sub = node.children.length
+      ? ` and its ${node.children.length === 1 ? 'subfolder' : `${node.children.length} subfolders`}`
+      : ''
+    const msg =
+      `Delete folder “${node.name}”${sub}? The items inside are kept; ` +
+      'any that end up in no folder and with no tags go back to Unfiled.'
+    if (!confirm(msg)) return
     await api.deleteFolder(node.id)
     if (query.folder === node.id) setQuery({ folder: null })
     invalidate()
@@ -121,7 +128,7 @@ function FolderRow({
 }
 
 export function Sidebar({ mobile = false }: { mobile?: boolean }) {
-  const { query, setQuery } = useAppState()
+  const { query, setQuery, smartId, applySmartFolder, setJobsOpen } = useAppState()
   const { data: folders } = useFolders()
   const { data: tags } = useTags()
   const { data: stats } = useStats()
@@ -158,6 +165,7 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
       tags: query.tags,
       tags_any: query.tags_any,
       untagged: query.untagged,
+      view: query.view,
       folder: query.folder,
       type: query.type,
       rating: query.rating,
@@ -168,9 +176,15 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
     invalidate()
   }
 
-  const applySmartFolder = (q: Partial<typeof emptyQuery>) => {
-    setQuery({ ...emptyQuery, ...q, deleted: false })
-  }
+  const isAll =
+    !query.folder &&
+    !query.deleted &&
+    !query.view &&
+    !query.preview &&
+    !smartId &&
+    query.tags.length === 0 &&
+    query.tags_any.length === 0
+  const attention = (stats?.failed_jobs ?? 0) + (stats?.preview_failed ?? 0)
 
   const visibleTags = (tags ?? []).filter(
     (t) => !tagFilter || t.name.toLowerCase().includes(tagFilter.toLowerCase()),
@@ -180,7 +194,7 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
     <aside className="sidebar">
       <div className="section">
         <div
-          className={`row ${!query.folder && !query.deleted ? 'active' : ''}`}
+          className={`row ${isAll ? 'active' : ''}`}
           onClick={() => setQuery({ ...emptyQuery, order: query.order })}
           title="Show everything and clear all filters"
         >
@@ -190,7 +204,7 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
         </div>
         <div
           className={`row ${isUnfiledView(query) ? 'active' : ''}`}
-          onClick={() => setQuery({ ...emptyQuery, ...unfiledQuery, order: query.order })}
+          onClick={() => setQuery({ ...emptyQuery, ...unfiledQuery, order: query.order } as Query)}
           title="Items in no folder and with no tags: your inbox"
         >
           <span className="icon">◇</span>
@@ -204,6 +218,17 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
           <span className="name">Trash</span>
           <span className="count">{stats?.trashed_items || ''}</span>
         </div>
+        {attention > 0 && (
+          <div
+            className="row attention-row"
+            onClick={() => setJobsOpen(true)}
+            title="Imports and previews that failed"
+          >
+            <span className="icon">⚠</span>
+            <span className="name">Needs attention</span>
+            <span className="count">{attention}</span>
+          </div>
+        )}
       </div>
 
       <div className="section grow">
@@ -223,7 +248,11 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
           </button>
         </div>
         {(smartFolders ?? []).map((s) => (
-          <div key={s.id} className="row" onClick={() => applySmartFolder(s.query)}>
+          <div
+            key={s.id}
+            className={`row ${smartId === s.id ? 'active' : ''}`}
+            onClick={() => applySmartFolder(s.id, s.query)}
+          >
             <span className="icon">◎</span>
             <span className="name">{s.name}</span>
             <span className="row-actions">
@@ -304,20 +333,20 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
 
 /** Phone layout: the sidebar slides in over the grid from the ☰ button. */
 export function Drawer() {
-  const { query, drawerOpen, setDrawerOpen } = useAppState()
+  const { query, smartId, drawerOpen, setDrawerOpen, closeDrawer } = useAppState()
 
   // picking a folder, smart folder or tag changes the query: close the drawer
   const mounted = useRef(false)
   useEffect(() => {
     if (mounted.current) setDrawerOpen(false)
     mounted.current = true
-  }, [query, setDrawerOpen])
+  }, [query, smartId, setDrawerOpen])
 
   return (
     <>
       <div
         className={`drawer-backdrop${drawerOpen ? ' open' : ''}`}
-        onClick={() => setDrawerOpen(false)}
+        onClick={closeDrawer}
       />
       <div className={`drawer${drawerOpen ? ' open' : ''}`} aria-hidden={!drawerOpen}>
         <Sidebar mobile />

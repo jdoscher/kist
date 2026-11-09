@@ -1,3 +1,21 @@
+// Server-defined states (kist/lifecycle.py); the UI never derives these itself.
+export type ItemState = 'active' | 'trashed'
+export type PreviewStatus = 'pending' | 'ready' | 'failed' | 'none'
+export type JobStatus = 'pending' | 'running' | 'done' | 'failed'
+
+export interface Job {
+  id: number
+  kind: string
+  status: JobStatus
+  attempts: number
+  filename: string | null
+  item_id: string | null
+  last_error: string | null
+  created_at: string
+  started_at: string | null
+  finished_at: string | null
+}
+
 export interface Item {
   id: string
   filename: string
@@ -16,6 +34,9 @@ export interface Item {
   notes: string
   source_url: string | null
   tags: string[]
+  state: ItemState
+  preview_status: PreviewStatus
+  preview_error: string | null
   has_thumb: boolean
   thumb_url: string | null
   created_at: string
@@ -50,6 +71,8 @@ export interface Stats {
   by_kind: Record<string, number>
   tag_count: number
   folder_count: number
+  failed_jobs: number
+  preview_failed: number
 }
 
 export interface Query {
@@ -57,7 +80,9 @@ export interface Query {
   tags: string[]
   tags_any: string[]
   untagged: boolean
-  folder: string | null // folder id, or 'none' for unfiled
+  view: 'unfiled' | null // the inbox: no folder and no tags (server-defined)
+  folder: string | null // folder id, or 'none' for items in no folder
+  preview: PreviewStatus | null
   type: string | null
   rating: number
   order: string
@@ -71,7 +96,9 @@ export const emptyQuery: Query = {
   tags: [],
   tags_any: [],
   untagged: false,
+  view: null,
   folder: null,
+  preview: null,
   type: null,
   rating: 0,
   order: '-created',
@@ -159,10 +186,12 @@ export function itemsUrl(query: Query, cursor?: string, limit = 120): string {
   if (query.tags.length) p.set('tags', query.tags.join(','))
   if (query.tags_any?.length) p.set('tags_any', query.tags_any.join(','))
   if (query.untagged) p.set('untagged', 'true')
+  if (query.view) p.set('view', query.view)
   if (query.folder) p.set('folder', query.folder)
+  if (query.preview) p.set('preview_status', query.preview)
   if (query.type) p.set('type', query.type)
   if (query.rating) p.set('rating', String(query.rating))
-  if (query.deleted) p.set('deleted', 'true')
+  if (query.deleted) p.set('state', 'trashed')
   if (query.created_after) p.set('created_after', query.created_after)
   if (query.created_before) p.set('created_before', query.created_before)
   p.set('order', query.order)
@@ -206,6 +235,14 @@ export const api = {
   deleteFolder: (id: string) => request<unknown>(`/api/folders/${id}`, { method: 'DELETE' }),
   listTags: () => request<Tag[]>('/api/tags'),
   stats: () => request<Stats>('/api/stats'),
+  retryPreview: (id: string) => request<Item>(`/api/items/${id}/preview`, { method: 'POST' }),
+  listJobs: (status?: JobStatus) =>
+    request<Job[]>(`/api/jobs${status ? `?status=${status}` : ''}`),
+  retryJob: (id: number) => request<Job>(`/api/jobs/${id}/retry`, { method: 'POST' }),
+  dismissJob: (id: number) =>
+    request<{ status: string; file_left_at: string | null }>(`/api/jobs/${id}`, {
+      method: 'DELETE',
+    }),
 }
 
 export function uploadFile(

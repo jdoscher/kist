@@ -51,6 +51,7 @@ def list_items(
     deleted: bool = False,  # same as state=trashed (kept for older clients)
     state: str | None = None,  # active | trashed
     view: str | None = None,  # unfiled: no folder and no tags
+    preview_status: str | None = None,  # pending | ready | failed | none
     order: str = "-created",
     created_after: datetime | None = None,
     created_before: datetime | None = None,
@@ -66,7 +67,8 @@ def list_items(
             q=q, tags=tag_names or None,
             tags_any=[t.strip() for t in tags_any.split(",") if t.strip()] if tags_any else None,
             untagged=untagged, folder=folder, kind=type,
-            rating_min=rating, deleted=deleted, state=state, view=view, order=order,
+            rating_min=rating, deleted=deleted, state=state, view=view,
+            preview_status=preview_status, order=order,
             created_after=created_after, created_before=created_before,
             limit=limit, cursor=cursor,
         )

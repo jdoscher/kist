@@ -28,19 +28,22 @@ kist/
 ├── app.py           FastAPI app, lifespan, SPA serving, /mcp mount
 ├── auth.py          bearer-token middleware (/api and /mcp)
 ├── config.py        KIST_* settings
+├── lifecycle.py     every state machine: names and allowed transitions
 ├── models.py        SQLAlchemy models
 ├── schemas.py       API request/response models
-├── api/             REST routers: items, folders, smart folders, tags, misc
+├── api/             REST routers: items, folders, smart folders, tags, jobs, misc
 ├── services/        all business logic, shared by REST, MCP, CLI, and worker
 │   ├── ingest.py    hash → dedupe → sniff → store → previews → meta.json
 │   ├── thumbs.py    probing, thumbnails, perceptual hash, dominant colors
 │   ├── search.py    filters + cursor pagination
 │   ├── items.py     edits, tags, folder membership, trash
+│   ├── jobs.py      job queue transitions (claim, finish, lease, retry)
+│   ├── previews.py  preview status and retries
 │   ├── folders.py   folder tree + folders.json snapshot
 │   └── meta.py      meta.json read/write
 ├── mcp_server.py    MCP tools (thin wrappers over services/)
 ├── worker.py        job loop + inbox scanner + heartbeat
-├── cli.py           rebuild-index, rewrite-meta, regen-previews
+├── cli.py           rebuild-index, rewrite-meta, regen-previews, verify
 └── migrate.py       Alembic upgrade under an advisory lock
 web/src/             the single-page UI
 migrations/          Alembic revisions
@@ -52,18 +55,40 @@ tests/               pytest suite (unit + integration against Postgres)
 ```
 items         id (ULID), filename, ext, mime, size_bytes, width, height,
               duration_s, sha256 (unique), phash, dominant_colors (jsonb),
-              rating, notes, source_url, created_at, modified_at, deleted_at
+              rating, notes, source_url, created_at, modified_at, deleted_at,
+              preview_status, preview_error
 folders       id, name, parent_id, position
 item_folders  item_id, folder_id               (an item can be in many folders)
 tags          id, name (citext unique)
 item_tags     item_id, tag_id
 smart_folders id, name, query (jsonb), position (a saved GET /api/items query)
-jobs          id, kind, payload, status, attempts, run_after, last_error
+jobs          id, kind, payload, status, attempts, run_after, last_error,
+              started_at, finished_at
 ```
 
 `deleted_at` is the trash. `sha256` uniqueness makes exact-duplicate uploads
 return the existing item. `phash` and `dominant_colors` are captured at ingest
 for near-duplicate detection and future color search.
+
+## State machines
+
+Every state has one name, defined in `kist/lifecycle.py`, and every surface
+(REST, MCP, web UI, CLI) uses it rather than working it out from columns.
+
+| machine | states | moves |
+|---|---|---|
+| item | `active`, `trashed` | trash and restore (both safe to repeat); permanent delete only from `trashed` |
+| preview | `pending`, `ready`, `failed`, `none` | set by ingest; `POST /api/items/{id}/preview` (or MCP `retry_preview`) queues a `regen_preview` job |
+| job | `pending`, `running`, `done`, `failed` | claim → finish; a failure retries with backoff up to 3 attempts; a `running` job older than the lease is re-queued; `failed` → `pending` by retry |
+| upload (web) | `queued`, `uploading`, `done`, `duplicate`, `inTrash`, `error` | `web/src/uploads.ts`; the destination folder is fixed when a file is added |
+| view (web) | the URL | `web/src/url.ts`: routes, and which changes push, replace or go Back |
+
+Unfiled (the inbox) is a server view, `view=unfiled`: active items in no
+folder and with no tags. The UI and MCP use the same definition.
+
+An inbox file whose import fails is never deleted: ingest puts it back, and
+after the last attempt the worker moves it to `library/failed/` under its own
+name, where `retry` picks it up again.
 
 ## The library on disk is the source of truth
 
@@ -94,8 +119,9 @@ queued jobs (up to 3 attempts with backoff).
 4. Perceptual hash and a 5-color palette, from the thumbnails.
 5. Write `meta.json`.
 
-Preview failures never fail an ingest: the item is stored with a generic
-icon, and `kist regen-previews` can retry later.
+Preview failures never fail an ingest: the item is stored with
+`preview_status=failed` and a one-line `preview_error`, and can be retried
+from the UI, MCP, or `kist regen-previews`.
 
 URL ingest follows redirects, caps size (`max_download_mb`), and, when the
 URL is an HTML page, downloads the page's `og:image` / `twitter:image`
