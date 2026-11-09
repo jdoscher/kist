@@ -17,8 +17,8 @@ export interface PreviewItem {
 const WEB_NATIVE = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif'])
 // formats browsers can't render: the server keeps a full-res display.webp
 const NEEDS_DISPLAY_COPY = new Set(['heic', 'heif'])
-export const MAX_ORIGINAL_BYTES = 40 * 1024 * 1024
-export const SCREEN_COPY = 2048
+const MAX_ORIGINAL_BYTES = 40 * 1024 * 1024
+const SCREEN_COPY = 2048
 
 const thumb = (it: PreviewItem, size: number) =>
   `/api/items/${it.id}/thumb?size=${size}&v=${it.preview_rev}`

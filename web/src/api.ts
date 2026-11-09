@@ -1,5 +1,5 @@
 // Server-defined states (kist/lifecycle.py); the UI never derives these itself.
-export type ItemState = 'active' | 'trashed'
+type ItemState = 'active' | 'trashed'
 export type PreviewStatus = 'pending' | 'ready' | 'failed' | 'none'
 export type JobStatus = 'pending' | 'running' | 'done' | 'failed'
 
@@ -150,10 +150,10 @@ export function setUnauthorizedHandler(fn: () => void) {
 
 /** JSON requests give up after this long (URL adds get longer: the server
  * may spend up to 120 s downloading). */
-export const REQUEST_TIMEOUT_MS = 30_000
+const REQUEST_TIMEOUT_MS = 30_000
 
 /** Tell the app the token stopped working (any request, including uploads). */
-export function notifyUnauthorized() {
+function notifyUnauthorized() {
   onUnauthorized?.()
 }
 
@@ -202,7 +202,7 @@ function json(body: unknown): RequestInit {
   }
 }
 
-export function itemsUrl(query: Query, cursor?: string, limit = 120): string {
+function itemsUrl(query: Query, cursor?: string, limit = 120): string {
   const p = new URLSearchParams()
   if (query.q) p.set('q', query.q)
   if (query.tags.length) p.set('tags', query.tags.join(','))
@@ -230,8 +230,6 @@ export const api = {
     id: string,
     patch: Partial<Pick<Item, 'filename' | 'rating' | 'notes' | 'folder_ids' | 'source_url'>>,
   ) => request<Item>(`/api/items/${id}`, { ...json(patch), method: 'PATCH' }),
-  putTags: (id: string, tags: string[]) =>
-    request<Item>(`/api/items/${id}/tags`, { ...json({ tags }), method: 'PUT' }),
   putFolders: (id: string, folder_ids: string[]) =>
     request<Item>(`/api/items/${id}/folders`, { ...json({ folder_ids }), method: 'PUT' }),
   // add/remove against what the server has: never overwrites another writer

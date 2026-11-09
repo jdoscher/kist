@@ -4,14 +4,14 @@
 export type GridLayout = 'justified' | 'square'
 
 /** Space each tile takes besides its own box: 4 px margin on both sides. */
-export const TILE_GAP = 8
+const TILE_GAP = 8
 
 /** Shapes beyond these are cropped, so very tall or wide images stay readable. */
-export const MIN_ASPECT = 0.5 // 1:2
-export const MAX_ASPECT = 3 // 3:1
+const MIN_ASPECT = 0.5 // 1:2
+const MAX_ASPECT = 3 // 3:1
 
 /** How far a justified row may stretch or shrink from the target height. */
-export const FLEX = 0.15
+const FLEX = 0.15
 
 export const TILE_SIZE_MIN = 120
 export const TILE_SIZE_MAX = 400
@@ -23,7 +23,7 @@ export interface Sized {
   has_thumb: boolean
 }
 
-export interface RowTile {
+interface RowTile {
   index: number // position in the flat item list
   width: number // tile box width (px), margin excluded
 }

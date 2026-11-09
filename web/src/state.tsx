@@ -29,7 +29,6 @@ import type { MobileCols } from './mobile'
 interface AppState {
   query: Query
   setQuery: (patch: Partial<Query>) => void
-  resetQuery: () => void
   /** the smart folder being shown (cleared by any other filter change) */
   smartId: string | null
   applySmartFolder: (id: string, query: Partial<Query>) => void
@@ -167,13 +166,6 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
     setPreviewId(null)
   }, [])
 
-  const resetQuery = useCallback(() => {
-    setQueryRaw(emptyQuery)
-    setSmartId(null)
-    setSelection(new Set())
-    setPreviewId(null)
-  }, [])
-
   const applySmartFolder = useCallback((id: string, q: Partial<Query>) => {
     setQueryRaw(normalizeSaved(q))
     setSmartId(id)
@@ -295,7 +287,6 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
     () => ({
       query,
       setQuery,
-      resetQuery,
       smartId,
       applySmartFolder,
       selection,
@@ -322,7 +313,7 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
       mobileCols,
       setMobileCols,
     }),
-    [query, smartId, applySmartFolder, selection, previewId, panelOpen, setPanelOpen, gridLayout, setGridLayout, tileSize, setTileSize, drawerOpen, openDrawer, closeDrawer, jobsOpen, mobile, mobileCols, setMobileCols, setQuery, resetQuery, selectOnly, toggleSelect, rangeSelect, clearSelection, selectAll],
+    [query, smartId, applySmartFolder, selection, previewId, panelOpen, setPanelOpen, gridLayout, setGridLayout, tileSize, setTileSize, drawerOpen, openDrawer, closeDrawer, jobsOpen, mobile, mobileCols, setMobileCols, setQuery, selectOnly, toggleSelect, rangeSelect, clearSelection, selectAll],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
