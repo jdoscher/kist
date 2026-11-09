@@ -16,6 +16,37 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import ARRAY, CITEXT, JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.types import UserDefinedType
+
+
+class HalfVec(UserDefinedType):
+    """pgvector's halfvec (float16 vector), sent as its text form '[1,2,3]'.
+    HalfVec() is the column (any size); HalfVec(512) is a cast to one size,
+    which is what the per-model HNSW indexes are built on."""
+
+    cache_ok = True
+
+    def __init__(self, dim: int | None = None):
+        self.dim = dim
+
+    def get_col_spec(self, **kw) -> str:
+        return f"halfvec({self.dim})" if self.dim else "halfvec"
+
+    def bind_processor(self, dialect):
+        def process(value):
+            if value is None or isinstance(value, str):
+                return value
+            return "[" + ",".join(repr(float(x)) for x in value) + "]"
+
+        return process
+
+    def result_processor(self, dialect, coltype):
+        def process(value):
+            if value is None or not isinstance(value, str):
+                return value
+            return [float(x) for x in value.strip("[]").split(",") if x]
+
+        return process
 
 
 class Base(DeclarativeBase):
@@ -152,6 +183,24 @@ class ItemLink(Base):
     )
 
 
+class ItemEmbedding(Base):
+    """One image embedding per item and model (pgvector halfvec). The
+    vector itself is read and written with SQL in services/ai.py; the copy
+    on disk is items/<id>/ai/embed-<model>.f16."""
+
+    __tablename__ = "item_embeddings"
+
+    item_id: Mapped[str] = mapped_column(
+        String(26), ForeignKey("items.id", ondelete="CASCADE"), primary_key=True
+    )
+    model: Mapped[str] = mapped_column(Text, primary_key=True)
+    dim: Mapped[int] = mapped_column(Integer)
+    vector: Mapped[list[float]] = mapped_column(HalfVec(), deferred=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
 class ItemEvent(Base):
     """One change to one item (services/events.py). No foreign key: the
     history of a purged item is kept."""
@@ -186,6 +235,36 @@ class ApiToken(Base):
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ItemText(Base):
+    """Text found in an item: OCR of a screenshot, or a PDF's text layer."""
+
+    __tablename__ = "item_text"
+
+    item_id: Mapped[str] = mapped_column(
+        String(26), ForeignKey("items.id", ondelete="CASCADE"), primary_key=True
+    )
+    source: Mapped[str] = mapped_column(Text, primary_key=True)  # ocr | pdf
+    text: Mapped[str] = mapped_column(Text)
+    lang: Mapped[str | None] = mapped_column(Text, nullable=True)
+    model: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class AiHelper(Base):
+    """A `kist helper` that has claimed jobs (name, when it was last seen)."""
+
+    __tablename__ = "ai_helpers"
+
+    name: Mapped[str] = mapped_column(Text, primary_key=True)
+    last_seen: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    jobs_done: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
+    info: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
 
 
 class Job(Base):

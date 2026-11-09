@@ -170,8 +170,7 @@ def test_helper_token_reaches_only_the_ai_job_endpoints(client):
     helper = as_token(client, make_token(client, "Mac", ["helper"])["token"])
     assert helper.get("/api/items").status_code == 403
     assert helper.post("/mcp", json={}, headers=MCP_HEADERS).status_code == 403
-    # allowed through (no such route on this branch, so 404 from the router)
-    assert helper.post("/api/ai/jobs/claim", json={}).status_code == 404
+    assert helper.post("/api/ai/jobs/claim", json={}).status_code == 200
     for scopes in (["read"], ["write"], ["agent"], ["add"]):
         other = as_token(client, make_token(client, f"n{scopes[0]}", scopes)["token"])
         assert other.post("/api/ai/jobs/claim", json={}).status_code == 403
@@ -227,7 +226,7 @@ def test_folder_limited_reader_sees_only_its_folders(client, library):
     # every other path is a 404, writes a 403
     for path in ("/api/tags", "/api/stats", "/api/duplicates", "/api/smart-folders",
                  "/api/jobs", "/api/health/deep", "/api/batches", "/api/archive-health",
-                 "/docs", "/openapi.json"):
+                 "/api/ai/status", "/docs", "/openapi.json"):
         assert fam.get(path).status_code == 404, path
     assert fam.post("/api/folders", json={"name": "x"}).status_code == 403
 

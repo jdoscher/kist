@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session
 from ..config import get_settings
 from ..ids import new_ulid
 from ..lifecycle import (
+    AI_KINDS,
     MAX_ATTEMPTS,
     JobKind,
     JobStatus,
@@ -90,9 +91,15 @@ def reap_stale(session: Session, lease_seconds: int) -> int:
 
 
 def claim_next(session: Session) -> Job | None:
+    """The oldest pending light job (ingest, previews). AI jobs are claimed
+    separately, under their budget (services/ai.claim)."""
     job = session.execute(
         sa.select(Job)
-        .where(Job.status == JobStatus.PENDING, Job.run_after <= sa.func.now())
+        .where(
+            Job.status == JobStatus.PENDING,
+            Job.run_after <= sa.func.now(),
+            Job.kind.notin_(AI_KINDS),
+        )
         .order_by(Job.id)
         .limit(1)
         .with_for_update(skip_locked=True)
@@ -127,6 +134,21 @@ def finish(session: Session, job_id: int, error: str | None) -> Job:
             )
     session.commit()
     _after_commit(session, [move] if move else [], [item_id] if item_id else [])
+    return job
+
+
+def release(session: Session, job_id: int, error: str, delay_seconds: float) -> Job:
+    """running -> pending without using up an attempt: the job couldn't run
+    for a reason that isn't its own (the ml service is down or still
+    downloading its models)."""
+    job = session.get(Job, job_id)
+    if job is None:
+        raise NotFound(job_id)
+    job.status = JobStatus.PENDING
+    job.attempts = max(0, job.attempts - 1)
+    job.last_error = error[:4000]
+    job.run_after = datetime.now(UTC) + timedelta(seconds=delay_seconds)
+    session.commit()
     return job
 
 

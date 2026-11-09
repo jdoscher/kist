@@ -43,6 +43,27 @@ def resolve(token: str) -> access.Principal | None:
         return tokens_svc.authenticate(session, token)
 
 
+def require_scope(scope: str):
+    """FastAPI dependency: the request's token must carry `scope` (admin
+    covers every scope). BearerTokenMiddleware has already mapped the path to
+    scopes (access.request_allowed: /api/ai/jobs is helper-or-admin only);
+    this is the per-route check on top, e.g. /api/ai/status is admin only
+    even though a read token may GET most of /api. No principal (the worker,
+    the CLI, an in-process call) is the system itself and passes."""
+    wanted = access.Scope(scope)
+
+    def check(request: Request) -> None:
+        principal = request.scope.get("state", {}).get("principal") or access.current()
+        if principal is None:
+            return
+        if access.Scope.ADMIN in principal.scopes or wanted in principal.scopes:
+            return
+        raise access.Forbidden()
+
+    check.__name__ = f"require_scope_{scope}"
+    return check
+
+
 def _json(status: int, detail: str) -> JSONResponse:
     return JSONResponse({"detail": detail}, status_code=status)
 

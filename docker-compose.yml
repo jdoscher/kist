@@ -17,7 +17,11 @@ x-kist-build: &kist-build
 
 services:
   db:
-    image: postgres:16
+    # Postgres 16 with the pgvector extension (Kist 2.0's AI search). It is
+    # the official postgres:16 image plus pgvector, so it opens a data
+    # directory made by postgres:16 as is: switching images needs no dump
+    # and restore. Keep the major version (pg16) in step with your data.
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: kist
       # internal to the compose network (Postgres publishes no port), but
@@ -66,6 +70,13 @@ services:
       KIST_TRASH_RETENTION_DAYS: ${KIST_TRASH_RETENTION_DAYS:-30}
       KIST_BACKUP_REPO: ${KIST_BACKUP_REPO:-}
       KIST_BACKUP_INTERVAL_HOURS: ${KIST_BACKUP_INTERVAL_HOURS:-0}
+      KIST_AI_ENABLED: ${KIST_AI_ENABLED:-true}
+      KIST_ML_URL: ${KIST_ML_URL:-http://ml:8000}
+      KIST_ML_MODEL: ${KIST_ML_MODEL:-ViT-B-32__openai}
+      KIST_ML_TIMEOUT_SECONDS: ${KIST_ML_TIMEOUT_SECONDS:-120}
+      KIST_AI_WINDOW: ${KIST_AI_WINDOW:-}
+      # KIST_AI_WINDOW is in this time zone (/api/ai/status reports window_open)
+      TZ: ${TZ:-UTC}
     # KIST_BIND is the host address to listen on. 0.0.0.0 (the default) is
     # every interface: anyone on the LAN can reach Kist over plain HTTP.
     # With the reverse proxy on the same host, set KIST_BIND=127.0.0.1.
@@ -120,6 +131,15 @@ services:
       KIST_BACKUP_INTERVAL_HOURS: ${KIST_BACKUP_INTERVAL_HOURS:-0}
       RESTIC_PASSWORD: ${RESTIC_PASSWORD:-}
       RESTIC_PASSWORD_FILE: ${RESTIC_PASSWORD_FILE:-}
+      KIST_AI_ENABLED: ${KIST_AI_ENABLED:-true}
+      KIST_ML_URL: ${KIST_ML_URL:-http://ml:8000}
+      KIST_ML_MODEL: ${KIST_ML_MODEL:-ViT-B-32__openai}
+      KIST_ML_TIMEOUT_SECONDS: ${KIST_ML_TIMEOUT_SECONDS:-120}
+      KIST_AI_WINDOW: ${KIST_AI_WINDOW:-}
+      KIST_AI_CONCURRENCY: ${KIST_AI_CONCURRENCY:-1}
+      KIST_AI_OCR_PDF_PAGES: ${KIST_AI_OCR_PDF_PAGES:-5}
+      # KIST_AI_WINDOW is in this time zone
+      TZ: ${TZ:-UTC}
     volumes:
       - ${KIST_LIBRARY:-./library}:/library
       # a backup repository on a local disk: mount it and set
@@ -128,6 +148,10 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      # not service_healthy: the first start downloads the models, and the
+      # worker retries AI jobs until the ml service answers
+      ml:
+        condition: service_started
     # the worker writes library/.kist/worker-heartbeat every 15 s after a
     # database round trip, from its own thread, so a long preview or
     # download doesn't make it look dead
@@ -140,5 +164,51 @@ services:
     restart: unless-stopped
     logging: *logging
 
+  # CLIP embeddings + OCR (kist/ml). Internal only: no ports, reached by the
+  # worker and app as http://ml:8000. Model files (~600 MB for ViT-B-32)
+  # download into the ml-models volume on first start.
+  ml:
+    build:
+      context: .
+      dockerfile: ml/Dockerfile
+      args:
+        # 1 = ONNX Runtime with OpenVINO, for an Intel GPU (+~200 MB)
+        OPENVINO: ${KIST_ML_OPENVINO:-0}
+    image: kist-ml
+    user: "1000:1000"
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    # ViT-B-32 + RapidOCR loaded and used: about 1.2 GB resident (see README)
+    mem_limit: ${KIST_ML_MEM_LIMIT:-2g}
+    cpus: ${KIST_ML_CPUS:-4}
+    pids_limit: 256
+    environment:
+      KIST_ML_MODEL: ${KIST_ML_MODEL:-ViT-B-32__openai}
+      # inference threads per request; 4 keeps a 10-core NAS responsive
+      KIST_ML_THREADS: ${KIST_ML_THREADS:-4}
+      # requests that run inference at once (the rest queue)
+      KIST_ML_CONCURRENCY: ${KIST_ML_CONCURRENCY:-1}
+      # cpu (default) | openvino-gpu (needs KIST_ML_OPENVINO=1 and /dev/dri below)
+      KIST_ML_DEVICE: ${KIST_ML_DEVICE:-cpu}
+      # unload a model after this long unused (seconds; 0 = never)
+      KIST_ML_IDLE_SECONDS: ${KIST_ML_IDLE_SECONDS:-300}
+      KIST_ML_BASE_URL: ${KIST_ML_BASE_URL:-https://huggingface.co}
+      KIST_LOG_LEVEL: ${KIST_LOG_LEVEL:-INFO}
+    volumes:
+      - ml-models:/models
+    # Intel GPU (KIST_ML_DEVICE=openvino-gpu): pass the render node through
+    # and add the group that owns it on the host
+    # (`stat -c %g /dev/dri/renderD128`):
+    # devices:
+    #   - /dev/dri:/dev/dri
+    # group_add:
+    #   - "${KIST_RENDER_GID:-105}"
+    restart: unless-stopped
+    logging: *logging
+
 volumes:
   pgdata:
+  ml-models:

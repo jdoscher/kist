@@ -183,6 +183,40 @@ def build_filters(
     return filters
 
 
+SEMANTIC_CURSOR = "~semantic"
+
+
+def _semantic_page(session, filters, vec, model, limit, cursor):
+    from ..models import HalfVec, ItemEmbedding
+
+    offset = 0
+    if cursor:
+        value, marker = decode_cursor(cursor)
+        if marker != SEMANTIC_CURSOR or not isinstance(value, int) or value < 0:
+            raise BadCursor("invalid cursor for a semantic search; start again without one")
+        offset = value
+    dim = len(vec)
+    # the same expression and predicate as the model's partial HNSW index
+    distance = sa.cast(ItemEmbedding.vector, HalfVec(dim)).op("<=>", return_type=sa.Float)(
+        sa.cast(sa.bindparam("semantic_q", vec, type_=HalfVec()), HalfVec(dim))
+    )
+    stmt = (
+        sa.select(Item)
+        .outerjoin(ItemEmbedding, sa.and_(ItemEmbedding.item_id == Item.id,
+                                          ItemEmbedding.model == model))
+        .where(*filters)
+        .order_by(distance.asc().nulls_last(), Item.id.asc())
+        .offset(offset)
+        .limit(limit + 1)
+    )
+    rows = list(session.execute(stmt).scalars())
+    next_cursor = None
+    if len(rows) > limit:
+        rows = rows[:limit]
+        next_cursor = encode_cursor(offset + limit, SEMANTIC_CURSOR)
+    return rows, next_cursor
+
+
 def search_items(
     session: Session,
     *,
@@ -203,7 +237,17 @@ def search_items(
     order: str = "-created",
     limit: int = 100,
     cursor: str | None = None,
+    semantic: list[float] | None = None,
+    semantic_model: str | None = None,
 ) -> tuple[list[Item], str | None, int | None]:
+    """total is counted on the first page only (no cursor); later pages
+    return None.
+
+    semantic: a query vector (services/ai.query_vector). Items are then
+    ordered by cosine distance to it, nearest first, items without an
+    embedding for `semantic_model` last; `order` is ignored and the cursor
+    is an offset (still opaque to the client, and only valid for a semantic
+    search). M2 builds the real hybrid search on top of this."""
     filters = build_filters(
         q=q, tags=tags, tags_any=tags_any, untagged=untagged,
         folder=folder, kind=kind,
@@ -223,6 +267,11 @@ def search_items(
             sa.select(sa.func.count()).select_from(Item).where(*filters)
         ).scalar_one()
 
+    if semantic is not None and semantic_model:
+        return _semantic_page(session, filters, semantic, semantic_model, limit, cursor) + (
+            total,
+        )
+
     stmt = sa.select(Item).where(*filters)
     if desc:
         stmt = stmt.order_by(col.desc(), Item.id.desc())
@@ -231,6 +280,8 @@ def search_items(
 
     if cursor:
         value, last_id = decode_cursor(cursor)
+        if last_id == SEMANTIC_CURSOR:
+            raise BadCursor("that cursor belongs to a semantic search; start again without one")
         if desc:
             stmt = stmt.where(
                 sa.or_(col < value, sa.and_(col == value, Item.id < last_id))

@@ -6,8 +6,10 @@ plus Postgres:
 ```
 docker compose
 ├── app      FastAPI: REST API, MCP endpoint (/mcp), and the built web UI
-├── worker   same image: inbox watcher + Postgres-backed job queue
-└── db       Postgres 16 (search index only)
+├── worker   same image: inbox watcher + Postgres-backed job queue,
+│            AI jobs on their own threads
+├── ml       kist-ml image (internal only): CLIP embeddings + OCR on ONNX Runtime
+└── db       Postgres 16 + pgvector (search index only)
 
 library/     bind mount: the durable copy of everything
 ```
@@ -20,6 +22,7 @@ library/     bind mount: the durable copy of everything
 | queue | a `jobs` table claimed with `SELECT … FOR UPDATE SKIP LOCKED` (no Redis) |
 | web | React 19, Vite, TypeScript, TanStack Query + Virtual |
 | agents | MCP Python SDK, streamable HTTP, stateless JSON responses |
+| AI | ONNX Runtime (CPU; CoreML/OpenVINO optional), OpenCLIP ViT-B-32 (Immich's ONNX export), RapidOCR; pgvector `halfvec` + HNSW |
 
 ## Code map
 
@@ -72,13 +75,22 @@ kist/
 │   ├── previews.py  preview status, retries, reclassify
 │   ├── meta.py      the durable copy: atomic meta.json / folders.json writes
 │   ├── verify.py    compare Postgres with the disk (CLI + daily worker run)
+│   ├── ai.py        ml client, embed/ocr jobs and their budget, sidecars,
+│   │                helper claim/report, status
+│   ├── pdftext.py   a PDF's text layer / page renders (child process)
 │   └── health.py    /api/health/deep checks, worker heartbeat file
 ├── mcp_server.py    MCP tools (thin wrappers over services/; no queries)
 ├── worker.py        job loop, inbox scanner, staging sweep, daily verify,
 │                    trash retention, fixity, scheduled backups (thread),
 │                    ThumbHash backfill, heartbeat thread
 ├── cli.py           rebuild-index, rewrite-meta, regen-previews, verify,
-│                    reclassify, selftest, backup, fixity
+│                    reclassify, selftest, backup, fixity,
+│                    ai-backfill, ai-sidecars, helper
+├── helper.py        `kist helper`: claims AI jobs over HTTP, runs kist/ml locally
+├── ml/              self-contained (imports nothing else from kist): the ml image
+│   ├── models.py    model files pinned by revision + sha256, download + verify
+│   ├── engine.py    ONNX sessions, preprocessing, tokenizer, RapidOCR, devices
+│   └── server.py    the ml service's FastAPI app
 └── migrate.py       Alembic upgrade under an advisory lock
 web/src/             the single-page UI
 migrations/          Alembic revisions
@@ -107,6 +119,11 @@ item_events   id, item_id, at, actor, source, batch_id, kind, before, after
               (no foreign key: a purged item's history is kept)
 api_tokens    id, name, token_sha256, scopes, folder_ids, created_at,
               expires_at, last_used_at, revoked_at
+item_embeddings item_id, model, dim, vector (halfvec), created_at
+              (one partial HNSW cosine index per model, on vector::halfvec(dim))
+item_text     item_id, source (ocr | pdf), text, lang, model, created_at
+              (GIN index on to_tsvector('simple', text))
+ai_helpers    name, last_seen, jobs_done, info
 ```
 
 Every list order has a partial `(column, id)` index over live items, so
@@ -193,7 +210,12 @@ in a context variable for the request, so services apply the few
 caller-dependent rules themselves: a folder-limited reader's searches, item
 fetches (`items.get_item`, hence file, thumb, history, links) and folder tree
 only see live items in its folders; unprotecting needs `write`. MCP tools
-declare the action they need and fail closed without a principal.
+declare the action they need and fail closed without a principal. Routes
+that need more than the path mapping gives use the `auth.require_scope()`
+dependency: `/api/ai/status` is admin only (a read token may GET most of
+`/api`), and the `/api/ai/jobs` endpoints take `helper` or `admin`. MCP's
+`ai_status` follows the MCP rules (any MCP scope, not a folder-limited
+reader).
 
 ## History and undo
 
@@ -209,6 +231,48 @@ and applies the inverse through the services, as a new batch; an event is
 skipped when a later event outside both batches touched the same field
 (edit fields, tag names, folder ids, state, the link), so undo never
 overwrites newer work.
+
+## AI jobs
+
+`embed` and `ocr` are job kinds like `ingest`, in the same table, with the
+same lease, retry and failure rules, but claimed separately
+(`services/ai.claim`) under a budget:
+
+- `jobs.claim_next` (the worker's main loop) never takes AI kinds. The
+  worker's `AiLane` claims them for its `KIST_AI_CONCURRENCY` threads, so a
+  slow OCR never holds up an import.
+- Nothing AI is claimed while a light job (ingest, preview) is pending.
+- Jobs queued by `kist ai-backfill` carry `backfill: true` and are only
+  claimed inside `KIST_AI_WINDOW`; jobs for new items run at once.
+- An unreachable ml service (`AiUnavailable`) puts the job back with
+  `jobs.release` (no attempt used) and pauses the lane for a minute.
+- `kist helper` claims through `POST /api/ai/jobs/claim` with a `helper`
+  token (runner `helper:<name>` in the payload; only that helper may fetch
+  the job's image from `/api/ai/jobs/{id}/image` and report), never gets
+  PDFs (the server reads their text layer), and reports a vector or text that
+  the server validates (model, dimension, finite) and stores exactly as the
+  worker would.
+
+AI results are not edits: they write only `item_embeddings`/`item_text`
+and the `ai/` sidecars, never the `items` row, so they add no `item_events`
+and can't be undone or conflict with an undo. A purge removes them with the
+item (foreign keys cascade; the item folder, `ai/` included, is deleted).
+`?semantic=` runs through the same `build_filters` as every search, so a
+folder-limited reader only ever ranks its own items; its cursor is an
+offset tagged as semantic, which a keyword search refuses (and vice versa),
+and `total` comes with the first page only, as for any search.
+
+Results are written to `items/<id>/ai/` first, then upserted: the f16
+sidecar is the vector itself (little-endian float16, 1 KB at 512-d), and
+`rebuild-index` turns sidecars back into rows without asking the ml
+service. Vectors are L2-normalised, so cosine distance (`<=>`) orders
+`?semantic=` results; vectors of different models never mix (rows are per
+model and every query names the model).
+
+The `ml` service (`kist/ml/server.py`) loads each tower on first use and
+drops it after `KIST_ML_IDLE_SECONDS`; at most `KIST_ML_CONCURRENCY`
+inferences run at once. Model files come from a pinned Hugging Face revision
+and are refused unless their sha256 matches (`kist/ml/models.py`).
 
 ## Ingest
 

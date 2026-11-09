@@ -26,8 +26,8 @@ if TEST_DB:
     os.environ["KIST_DATABASE_URL"] = TEST_DB
 
 TABLES = (
-    "item_tags, item_folders, item_links, items, tags, smart_folders, folders, jobs, "
-    "api_tokens, item_events"
+    "item_tags, item_folders, item_links, item_embeddings, item_text, items, tags, "
+    "smart_folders, folders, jobs, api_tokens, item_events, ai_helpers"
 )
 
 

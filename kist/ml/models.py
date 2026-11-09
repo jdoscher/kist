@@ -1,0 +1,176 @@
+"""The model files Kist uses, pinned by revision and sha256.
+
+The CLIP models are Immich's ONNX exports of OpenCLIP models on Hugging Face
+(MIT-licensed exports; the OpenAI CLIP weights are MIT, SigLIP2 Apache-2.0).
+They come down on first use into the cache directory (the `ml` container's
+model volume, or ~/.cache/kist-ml for `kist helper`) and every file is
+checked against its sha256 before it's used, so a changed or truncated
+download is refused instead of silently giving different vectors.
+
+RapidOCR's PP-OCRv4 models ship inside the rapidocr-onnxruntime wheel.
+
+Only the tower a request needs is downloaded: the worker's embedding jobs
+need the visual tower; the text tower (and its tokenizer) is fetched the
+first time someone searches by meaning.
+"""
+
+import hashlib
+import logging
+import os
+import tempfile
+import urllib.request
+from dataclasses import dataclass, field
+from pathlib import Path
+
+log = logging.getLogger("kist.ml.models")
+
+DEFAULT_MODEL = "ViT-B-32__openai"
+DEFAULT_BASE_URL = "https://huggingface.co"
+
+
+@dataclass(frozen=True)
+class ModelSpec:
+    name: str
+    repo: str
+    revision: str
+    dim: int
+    # path in the repo -> (sha256, size in bytes), per tower
+    visual: dict[str, tuple[str, int]] = field(default_factory=dict)
+    textual: dict[str, tuple[str, int]] = field(default_factory=dict)
+    common: dict[str, tuple[str, int]] = field(default_factory=dict)
+
+    def files(self, tower: str) -> dict[str, tuple[str, int]]:
+        return {**self.common, **(self.visual if tower == "visual" else self.textual)}
+
+    def url(self, path: str, base: str = DEFAULT_BASE_URL) -> str:
+        return f"{base.rstrip('/')}/{self.repo}/resolve/{self.revision}/{path}"
+
+
+MODELS: dict[str, ModelSpec] = {
+    # default: 512-d, ~350 MB visual + ~250 MB text tower (fp32)
+    "ViT-B-32__openai": ModelSpec(
+        name="ViT-B-32__openai",
+        repo="immich-app/ViT-B-32__openai",
+        revision="a857c8de2c07bbcfa6646adfcf31b798845afa1e",
+        dim=512,
+        common={
+            "config.json": (
+                "59a182a6dce0adeb303f3d72d73758d68ba29516d928dd92740465f498290409", 196),
+        },
+        visual={
+            "visual/model.onnx": (
+                "33a3df41ceef21acdf371af00f6dd0456ec1f9eba24d03a7720f9c3734e40859", 351613724),
+            "visual/preprocess_cfg.json": (
+                "c4fd008cd177c58a8fe107b099bac98913eaa6be6114dd59a4b45145c3c7673f", 197),
+        },
+        textual={
+            "textual/model.onnx": (
+                "b80cf0af751533a6712d92247f0ddc0c95208748bc59a1a27f33e67be6864e3b", 254193396),
+            "textual/tokenizer.json": (
+                "6d9109cc838977f3ca94a379eec36aecc7c807e1785cd729660ca2fc0171fb35", 3642073),
+            "textual/tokenizer_config.json": (
+                "39bae5313c2da6467866dee758e754d69f0e302a875027b142531cb9c51c7c28", 736),
+        },
+    ),
+    # opt-in: 768-d, ~2.5x slower per image; its text tower is 1.1 GB
+    "ViT-B-16-SigLIP2__webli": ModelSpec(
+        name="ViT-B-16-SigLIP2__webli",
+        repo="immich-app/ViT-B-16-SigLIP2__webli",
+        revision="5f3fc29104ebcf51e9d893af57604badd51a3ea6",
+        dim=768,
+        common={
+            "config.json": (
+                "a33af509278a65855fd6b4fd8a17ed1b1e3482ff5d438c3fc43b07d4999e01b5", 547),
+        },
+        visual={
+            "visual/model.onnx": (
+                "fee10c729875dd203d94f396ac3d664e301d39c977ef6d92e7f467a2a716f0b0", 371674292),
+            "visual/preprocess_cfg.json": (
+                "d78a80d49dca4e62d17f802a685d67d821f7102844cb89f65a0bb1a5d0601f43", 154),
+        },
+        textual={
+            "textual/model.onnx": (
+                "fc9991b415d7d0fac7ed540e875fd08a647c8a1abba99f12542531b004c4b68f", 1129435819),
+            "textual/tokenizer.json": (
+                "220c63d496e0c14e63eb656c91e0215e926202e4c74b1f089e09f1920d779b04", 34362885),
+            "textual/tokenizer_config.json": (
+                "958146aa289a0a39e4fcb20087a78facb157d29c7ef017374ac3ccab0549aae4", 46386),
+        },
+    ),
+}
+
+
+class ModelError(RuntimeError):
+    pass
+
+
+def spec_for(name: str) -> ModelSpec:
+    try:
+        return MODELS[name]
+    except KeyError:
+        raise ModelError(
+            f"unknown model {name!r}; Kist knows {', '.join(sorted(MODELS))}"
+        ) from None
+
+
+def sha256_of(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        while chunk := f.read(4 * 1024 * 1024):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _verified_marker(path: Path) -> Path:
+    return path.with_name(f".{path.name}.sha256")
+
+
+def _is_verified(path: Path, sha: str, size: int) -> bool:
+    """A file checked once is trusted while its size and marker agree (re-
+    hashing 600 MB at every start would cost seconds)."""
+    try:
+        if path.stat().st_size != size:
+            return False
+        return _verified_marker(path).read_text().strip() == sha
+    except OSError:
+        return False
+
+
+def ensure_files(spec: ModelSpec, tower: str, cache_dir: Path,
+                 base_url: str = DEFAULT_BASE_URL) -> Path:
+    """Download (if needed) and verify a tower's files; returns the model dir."""
+    root = cache_dir / spec.name / spec.revision
+    for rel, (sha, size) in spec.files(tower).items():
+        dest = root / rel
+        if _is_verified(dest, sha, size):
+            continue
+        if dest.is_file() and dest.stat().st_size == size and sha256_of(dest) == sha:
+            _verified_marker(dest).write_text(sha)
+            continue
+        _download(spec.url(rel, base_url), dest, sha, size)
+    return root
+
+
+def _download(url: str, dest: Path, sha: str, size: int) -> None:
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    log.info("downloading %s (%.0f MB)", url, size / 1e6)
+    fd, tmp = tempfile.mkstemp(dir=dest.parent, prefix=f".{dest.name}.", suffix=".part")
+    h = hashlib.sha256()
+    got = 0
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "kist-ml"})
+        with os.fdopen(fd, "wb") as out, urllib.request.urlopen(req, timeout=60) as resp:
+            while chunk := resp.read(4 * 1024 * 1024):
+                h.update(chunk)
+                out.write(chunk)
+                got += len(chunk)
+        if got != size or h.hexdigest() != sha:
+            raise ModelError(
+                f"{url}: got {got} bytes with sha256 {h.hexdigest()}, expected {size} "
+                f"bytes with sha256 {sha}; refusing to use it"
+            )
+        os.replace(tmp, dest)
+        _verified_marker(dest).write_text(sha)
+    except BaseException:
+        Path(tmp).unlink(missing_ok=True)
+        raise

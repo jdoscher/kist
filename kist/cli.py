@@ -17,6 +17,13 @@
                                    (KIST_BACKUP_REPO); exit 2 if skipped
     kist fixity [--limit N]       re-hash N originals now (the worker does
                                    about 1/30 of them every day)
+    kist ai-backfill [--kind embed|ocr] [--limit N]
+                                  queue AI jobs for items without results
+                                   (they run inside KIST_AI_WINDOW)
+    kist ai-sidecars              write AI sidecar files missing on disk
+                                   from the database (verify reports them)
+    kist helper --url URL         run AI jobs on this machine for a Kist
+                                   server (token: $KIST_HELPER_TOKEN)
 
 The library on disk (items/*/meta.json + folders.json) is the durable copy;
 rebuild-index makes Postgres match it after a database loss or migration to
@@ -221,6 +228,7 @@ def recover_without_meta(session, item_dir: Path) -> str | None:
 
 
 def rebuild_index(wipe: bool) -> int:
+    from .services import ai
     from .services import events as events_svc
     from .services import folders as folders_svc
     from .services import links as links_svc
@@ -369,6 +377,19 @@ def rebuild_index(wipe: bool) -> int:
             warnings += 1
         if recovered:
             print(f"items without meta.json restored from their files: {recovered}")
+
+        # AI results come back from their sidecar files (never recomputed),
+        # for restored items and for present items whose rows are missing
+        emb = txt = 0
+        for item_id in session.execute(sa.select(Item.id).order_by(Item.id)).scalars().all():
+            try:
+                e, t = ai.load_sidecars(session, item_id)
+                emb, txt = emb + e, txt + t
+            except Exception as exc:
+                session.rollback()
+                warn(f"{item_id}: AI files unreadable: {exc}")
+                warnings += 1
+        print(f"AI results loaded from sidecars: {emb} embeddings, {txt} texts")
 
         # keep snapshots in sync with what we just restored
         folders_svc.snapshot(session)
@@ -581,6 +602,30 @@ def fixity(limit: int) -> int:
     return 0 if not failed else 2
 
 
+def ai_sidecars() -> int:
+    from .services import ai
+
+    with SessionLocal() as session:
+        emb, txt = ai.rewrite_missing_sidecars(session)
+    print(f"AI sidecars written: {emb} embeddings, {txt} texts")
+    return 0
+
+
+def ai_backfill(kind: str | None, limit: int | None) -> int:
+    from .lifecycle import AI_KINDS
+    from .services import ai
+
+    kinds = (kind,) if kind else AI_KINDS
+    with SessionLocal() as session:
+        counts = ai.backfill(session, kinds, limit)
+    settings = get_settings()
+    print("queued: " + ", ".join(f"{n} {k}" for k, n in counts.items()))
+    print(f"they run {'inside ' + settings.ai_window if settings.ai_window else 'now'}"
+          + ("" if settings.ml_url else
+             " once the ml service is configured (KIST_ML_URL) or a helper claims them"))
+    return 0
+
+
 # ---------- selftest ----------
 
 
@@ -692,7 +737,18 @@ def main() -> None:
     p_fix = sub.add_parser("fixity", help="re-hash originals now, oldest-checked first")
     p_fix.add_argument("--limit", type=int, default=100,
                        help="how many originals to check (default 100)")
+    p_backfill = sub.add_parser("ai-backfill", help="queue AI jobs for items without results")
+    p_backfill.add_argument("--kind", choices=["embed", "ocr"], default=None)
+    p_backfill.add_argument("--limit", type=int, default=None,
+                            help="at most this many jobs per kind")
+    sub.add_parser("ai-sidecars", help="write missing AI sidecar files from the database")
+    sub.add_parser("helper", help="run AI jobs here for a Kist server (see kist helper -h)",
+                   add_help=False)
 
+    if len(sys.argv) > 1 and sys.argv[1] == "helper":
+        from . import helper
+
+        sys.exit(helper.main(sys.argv[2:]))
     args = parser.parse_args()
     if args.cmd == "rebuild-index":
         sys.exit(rebuild_index(args.wipe))
@@ -710,6 +766,10 @@ def main() -> None:
         sys.exit(backup())
     if args.cmd == "fixity":
         sys.exit(fixity(args.limit))
+    if args.cmd == "ai-backfill":
+        sys.exit(ai_backfill(args.kind, args.limit))
+    if args.cmd == "ai-sidecars":
+        sys.exit(ai_sidecars())
 
 
 if __name__ == "__main__":

@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from .. import __version__
 from ..config import get_settings
-from ..lifecycle import JobStatus, PreviewStatus
+from ..lifecycle import AI_KINDS, JobStatus, PreviewStatus
 from ..models import Item, Job
 from . import verify as verify_svc
 
@@ -112,7 +112,10 @@ def deep(session: Session) -> dict:
                 sa.func.count().filter(
                     Job.status == JobStatus.RUNNING, Job.started_at < lease_cutoff
                 ),
-                sa.func.min(Job.created_at).filter(Job.status == JobStatus.PENDING),
+                # AI jobs wait for their window on purpose: not a backlog
+                sa.func.min(Job.created_at).filter(
+                    Job.status == JobStatus.PENDING, Job.kind.notin_(AI_KINDS)
+                ),
             )
         ).one()
         return {

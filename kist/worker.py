@@ -31,6 +31,9 @@ log = logging.getLogger("kist.worker")
 REAP_EVERY_SECONDS = 60
 RECOVER_EVERY_SECONDS = 300
 BEAT_EVERY_SECONDS = 15
+# the ml service didn't answer (down, or downloading its models on first
+# start): its jobs go back to the queue and the AI lane waits this long
+ML_DOWN_PAUSE_SECONDS = 60
 # the container healthcheck's limit (a few missed beats)
 HEALTHY_WITHIN_SECONDS = 60
 
@@ -98,6 +101,9 @@ def process_job(session, job: Job) -> None:
             log.info("job %s: item %s no longer exists", job.id, (job.payload or {}).get("item_id"))
             return
         previews.regenerate(session, item)
+        from .services import ai
+
+        ai.on_new_item(session, item)  # now it has a thumbnail to embed
     else:
         raise ValueError(f"unknown job kind: {job.kind}")
 
@@ -120,6 +126,87 @@ def run_one() -> bool:
             error = str(exc) or type(exc).__name__
         jobs.finish(s, job_id, error)
     return True
+
+
+class AiLane:
+    """AI jobs on threads of their own (KIST_AI_CONCURRENCY at once), so an
+    import or a preview never waits behind an embedding or an OCR run.
+    Claims only when no light job is waiting (services/ai.claim)."""
+
+    def __init__(self, concurrency: int):
+        from concurrent.futures import ThreadPoolExecutor
+
+        self.size = max(1, concurrency)
+        self.pool = ThreadPoolExecutor(max_workers=self.size, thread_name_prefix="ai")
+        self.running: set = set()
+        # set by a job that found the ml service down: claim nothing until then
+        self.paused_until = 0.0
+
+    def enabled(self) -> bool:
+        settings = get_settings()
+        return bool(settings.ml_url)
+
+    def fill(self) -> int:
+        """Claim jobs for every free slot. Returns how many started."""
+        from .services import ai
+
+        for f in [f for f in self.running if f.done()]:
+            if f.exception() is None and f.result() == "unavailable":
+                self.paused_until = time.monotonic() + ML_DOWN_PAUSE_SECONDS
+        self.running = {f for f in self.running if not f.done()}
+        free = self.size - len(self.running)
+        if free <= 0 or not self.enabled() or time.monotonic() < self.paused_until:
+            return 0
+        with SessionLocal() as s:
+            jobs = ai.claim(s, runner="worker", limit=free)
+            ids = [(j.id, j.kind) for j in jobs]
+        for job_id, kind in ids:
+            self.running.add(self.pool.submit(run_ai_job, job_id, kind))
+        return len(ids)
+
+    def wait(self, timeout: float) -> bool:
+        """Instead of the idle sleep while AI jobs run: wake as soon as one
+        ends, so a backfill isn't paced by the poll interval. False when
+        nothing is running (the caller sleeps as usual)."""
+        from concurrent.futures import FIRST_COMPLETED
+        from concurrent.futures import wait as wait_futures
+
+        self.running = {f for f in self.running if not f.done()}
+        if not self.running:
+            return False
+        wait_futures(self.running, timeout=timeout, return_when=FIRST_COMPLETED)
+        return True
+
+
+def run_ai_job(job_id: int, kind: str) -> str:
+    """Run one AI job; returns "done", "failed" or "unavailable" (the ml
+    service didn't answer: the job goes back without losing an attempt)."""
+    from .services import ai, jobs
+
+    with SessionLocal() as s:
+        try:
+            job = s.get(Job, job_id)
+            if job is None:
+                return "done"
+            ai.run_job(s, job)
+            error = None
+        except ai.AiUnavailable as exc:
+            s.rollback()
+            log.warning("job %s (%s) put back: %s", job_id, kind, exc)
+            try:
+                jobs.release(s, job_id, str(exc), ML_DOWN_PAUSE_SECONDS)
+            except Exception:
+                log.exception("could not put job %s back", job_id)
+            return "unavailable"
+        except Exception as exc:
+            s.rollback()
+            log.exception("job %s (%s) failed", job_id, kind)
+            error = str(exc) or type(exc).__name__
+        try:
+            jobs.finish(s, job_id, error)
+        except Exception:
+            log.exception("could not record the end of job %s", job_id)
+        return "done" if error is None else "failed"
 
 
 def reap() -> None:
@@ -226,6 +313,17 @@ def main() -> None:
     log.info("worker started (library=%s)", settings.library_dir)
     heartbeat = Heartbeat(stuck_after=settings.job_lease_seconds)
     heartbeat.start()
+    ai_lane = AiLane(settings.ai_concurrency)
+    if settings.ml_url:
+        from .services import ai
+
+        try:
+            with SessionLocal() as s:
+                ai.ensure_vector_index(s, ai.active_model())
+        except Exception:
+            log.exception("could not make the vector index for %s", settings.ml_model)
+        log.info("AI jobs: ml service %s, model %s, %d at once, window %s",
+                 settings.ml_url, settings.ml_model, ai_lane.size, settings.ai_window or "any time")
 
     last_inbox_scan = last_reap = last_recover = last_verify_check = 0.0
     last_backfill = last_retention = last_backup_check = 0.0
@@ -244,6 +342,8 @@ def main() -> None:
                 last_reap = now
             worked = run_one()
             heartbeat.progressed()
+            if not worked:
+                worked = ai_lane.fill() > 0
             if time.monotonic() - last_inbox_scan > settings.inbox_poll_seconds:
                 scan_inbox()
                 last_inbox_scan = time.monotonic()
@@ -280,7 +380,7 @@ def main() -> None:
                 log.warning("worker loop error again: %s", summary)
             last_error = summary
             time.sleep(5)
-        if not worked:
+        if not worked and not ai_lane.wait(settings.worker_poll_seconds):
             time.sleep(settings.worker_poll_seconds)
 
 
