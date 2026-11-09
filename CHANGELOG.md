@@ -148,6 +148,20 @@ Measured on a 4,417-item library; details in the performance review.
 - `tests/test_rebuild.py` no longer fails when the Postgres server isn't on
   UTC.
 
+- Text typed into notes or a name while an earlier save was still on its
+  way is kept; it used to be replaced by the saved copy when the save
+  returned.
+- Rating or renaming items while the list is sorted by rating, name or last
+  edit no longer leaves them at the old position, shows a tile twice or
+  drops one: that list reloads.
+- Restore from an upload's "already in Trash" notice refreshes the counts
+  once instead of twice.
+- Backspace on a focused button no longer trashes the selection; Delete and
+  Backspace work only with focus in the grid.
+- The PDF preview stays an unsandboxed frame: Chrome's PDF viewer refuses to
+  run in any sandboxed frame. Non-PDF files can't reach it, because the
+  server serves them as sandboxed downloads.
+
 ### Added
 - **Every view has an address.** `/`, `/all`, `/trash`, `/folder/<id>`,
   `/tag/<name>`, `/smart/<id>`, with filters as parameters and `?item=<id>`
@@ -192,6 +206,19 @@ Measured on a 4,417-item library; details in the performance review.
   `KIST_VERIFY_INTERVAL_HOURS`, `KIST_GIT_COMMIT`. `.env.example` now lists
   every optional setting.
 
+- **Undo after Trash.** Trashing items (the Trash button or the Delete
+  key, one item or many) shows "Moved 3 items to Trash" with Undo.
+- **"Changed elsewhere" instead of silent overwrites.** If notes or a name
+  you're editing were changed in another tab or by an agent meanwhile, the
+  web UI says so and offers Keep mine or Use theirs (it sends
+  `base_modified_at`; the server answers 409).
+- **Upload from a phone.** The phone menu (☰) has Upload, which opens Photos
+  on an iPhone. Editing stays on the desktop.
+- An Open ⤢ button on the info panel's picture, and tile tooltips that say
+  double-click opens an item.
+- The version and commit show in the sidebar footer and the library summary
+  (from `GET /api/version`).
+
 ### Changed
 - Unfiled is defined by the server (`view=unfiled`), so the web UI and agents
   see the same inbox. MCP's `folder="none"` still means "in no folder",
@@ -225,6 +252,59 @@ Measured on a 4,417-item library; details in the performance review.
 - **After updating:** run `kist rewrite-meta` once (it adds the thumbnail
   version to every meta.json; until then `kist verify` reports it as drift)
   and `kist reclassify` once.
+
+- **The Unfiled view explains itself.** It says it lists items with no folder
+  and no tag, and the first time tagging or filing an item takes it out of
+  Unfiled, a notice says where it went (See it in All items). A first visit
+  with an empty Unfiled opens All items instead.
+- **Empty results say why.** A search with no hits names the view ("Nothing
+  in Unfiled matches “dog”") and offers Search everything; only an empty
+  library talks about uploading (and on a phone, never about dropping files).
+- The token screen asks for the "access token" and tells you to ask whoever
+  set up Kist; where to find `KIST_TOKEN` is behind "Where do I find it?".
+- The tile-shape toggle and the size slider have visible labels; the
+  sidebar's empty hints are plainer ("Save a search: filter the grid, then
+  press + above").
+- The preview's ✕ is a round button of its own instead of floating over the
+  toolbar behind.
+- The server banner tells "Kist is up but its database isn't answering"
+  from "Can't reach the Kist server", and server errors show their reference
+  ("Server error (500, ref 3f9a…)") to match against the logs.
+- Smart folders save and restore the preview filter and the Trash; a smart
+  folder over the Trash keeps its own address (`/smart/<id>?trash=1`).
+- A write to a folder deleted elsewhere says "That folder no longer exists"
+  and reloads the folder list.
+
+### Accessibility
+All 59 findings of the WCAG 2.2 AA audit are fixed (axe-core: 0 violations
+on the desktop, zoomed and phone views).
+- **Everything works from the keyboard.** Sidebar rows are buttons (the
+  current view is announced; tags say pressed or not), folder actions show on
+  keyboard focus, and the grid is a multi-select list: arrows move and
+  select, Shift extends, Ctrl/⌘ moves without selecting, Space adds or
+  removes one item, Enter opens it, Home/End jump. A tile left behind by
+  Trash hands focus to the next one.
+- **Overlays behave like dialogs.** The preview, Needs attention, the phone
+  menu, the token screen and every confirm/prompt take focus, keep Tab
+  inside, close with Escape, make the page behind inert and put focus back
+  where it was (the preview returns to the tile you ended on). The closed
+  phone menu is out of the Tab order, and it has a ✕.
+- **Every control and field has a name**: chip removers ("Remove tag
+  holiday"), arrows, ✕ buttons, the five rating buttons (pressed state, ★/☆),
+  the twisty (expanded state), search (a combobox with announced
+  suggestions), the bulk bar, filename, tags, folders, notes, the token field.
+- **Changes are announced**: result counts, saving, upload progress and
+  results, bulk results, Undo, item status, the server banner, errors.
+- **Visible focus** everywhere (accent ring; white ring on tiles, distinct
+  from selection), stronger field borders, a clearer active row and
+  highlighted suggestion, readable dim text on the active row, visible
+  unrated stars, and 24 px minimum targets for small buttons.
+- **Zooming no longer switches to the view-only phone layout.** The phone
+  layout needs a touch screen; a zoomed desktop browser keeps every control
+  and reflows instead.
+- The phone preview keeps small ‹ › buttons, so changing items doesn't need a
+  swipe. Headings, landmark names and text alternatives for stars, colours
+  and file icons are in place.
 
 ### Removed
 - The unused `KIST_THUMB_SIZES` setting (it never did anything) and some dead
