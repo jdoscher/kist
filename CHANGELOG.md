@@ -6,6 +6,65 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+After upgrading, run `kist rewrite-meta` once (it adds `protected`, `links`
+and `thumbhash` to every meta.json and writes `tokens.json`). Older items get
+their ThumbHash in the background, or at once with
+`kist regen-previews --thumbhash-only`.
+
+### Added
+- **Named tokens with scopes.** Make a token for each phone, person and
+  agent with `POST /api/tokens`: `add` can only add items (the iPhone
+  Shortcut), `read` only looks (optionally only at some folders and their
+  subfolders, so family can browse one collection), `agent` can organize but
+  never delete for good, `write` can do every edit, `admin` everything, and
+  `helper` only the AI job endpoints. Tokens can expire and be revoked, and
+  only their hash is stored, also in `library/.kist/tokens.json`, so a
+  rebuild keeps them. `KIST_TOKEN` keeps working as the owner's admin token.
+  `GET /api/me` says who a token is.
+- **History and undo for every item.** Every change (adding, edits, tags,
+  folders, trash, restore, permanent delete, links, protection) is recorded
+  with who made it (the token's name, or the CLI, the worker or the inbox
+  importer), from where (web, MCP, API, CLI) and in which batch.
+  `GET /api/items/{id}/history` lists it; `POST /api/batches/{id}/undo` and
+  `POST /api/events/{id}/revert` undo a batch or one change. Undo never
+  overwrites newer work: a change something later touched again is skipped
+  and listed with the reason. Each MCP tool call is one batch, so "undo what
+  the agent just did" is one call (`recent_batches`, `undo_batch`). The
+  history is also kept in each item's `events.jsonl`.
+- **Links between items:** `derived_from` (a crop and its screenshot),
+  `alternate`, `related`, `not_duplicate` (the pair stops showing up as
+  near-duplicates) and `version_of`. REST `/api/items/{id}/links` and MCP
+  `link_items`; both items' `meta.json` carry them.
+- **Protected items** can't be trashed or deleted until unprotected (409
+  "Protected: unprotect it first"). Agents can protect but not unprotect.
+- **The trash empties itself:** items trashed more than
+  `KIST_TRASH_RETENTION_DAYS` (default 30; 0 = never) ago are deleted for
+  good by the worker, never protected ones. The clock starts when you
+  upgrade, so an old trash isn't emptied the same day.
+- **Folder descriptions** (up to 5,000 characters), also shown to agents in
+  `list_folders` so they know what belongs where.
+- **Fixity checks:** the worker re-hashes about 1/30 of the originals every
+  day, so each file is proved intact monthly, and records every check in
+  the item's `fixity.jsonl`. A file that changed or vanished shows in Needs
+  attention (`fixity_failed` in `/api/stats`, `GET /api/items?fixity=failed`)
+  and deep health, with the hash to look for in a backup. `kist fixity`
+  checks on demand.
+- **Backups:** `kist backup` dumps the database into the library and backs
+  the library up with restic (now in the image) to `KIST_BACKUP_REPO`, with
+  `RESTIC_PASSWORD` or `RESTIC_PASSWORD_FILE`. The worker can run it every
+  `KIST_BACKUP_INTERVAL_HOURS`.
+- **Archive health:** `GET /api/archive-health` shows fixity coverage and
+  failures, the last verify and backup, free disk, and a 3-2-1 checklist
+  (backup repository set, backed up within 7 days, a copy offsite, clean
+  verify). Deep health also reports fixity and backups.
+- **Placeholders:** every item has a `thumbhash`, a ~25-byte blurred preview
+  the grid can paint before the thumbnail arrives.
+
+### Performance
+- Paging through a large list no longer recounts every match on each page:
+  `total` comes with the first page only, and later pages say `null`.
+- Every sort order has its own index, so deep pages stay fast.
+
 ## [1.5.0] - 2026-11-09
 
 A hardening release. Kist was reviewed for security, data integrity,

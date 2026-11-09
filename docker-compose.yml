@@ -62,6 +62,10 @@ services:
       KIST_MAX_UPLOAD_BYTES: ${KIST_MAX_UPLOAD_BYTES:-4294967296}
       KIST_MAX_DOWNLOAD_MB: ${KIST_MAX_DOWNLOAD_MB:-512}
       KIST_LOG_LEVEL: ${KIST_LOG_LEVEL:-INFO}
+      # archive health reports these (the worker runs the backups)
+      KIST_TRASH_RETENTION_DAYS: ${KIST_TRASH_RETENTION_DAYS:-30}
+      KIST_BACKUP_REPO: ${KIST_BACKUP_REPO:-}
+      KIST_BACKUP_INTERVAL_HOURS: ${KIST_BACKUP_INTERVAL_HOURS:-0}
     # KIST_BIND is the host address to listen on. 0.0.0.0 (the default) is
     # every interface: anyone on the LAN can reach Kist over plain HTTP.
     # With the reverse proxy on the same host, set KIST_BIND=127.0.0.1.
@@ -109,8 +113,18 @@ services:
       KIST_INBOX_POLL_SECONDS: ${KIST_INBOX_POLL_SECONDS:-5}
       KIST_WORKER_POLL_SECONDS: ${KIST_WORKER_POLL_SECONDS:-2}
       KIST_LOG_LEVEL: ${KIST_LOG_LEVEL:-INFO}
+      KIST_TRASH_RETENTION_DAYS: ${KIST_TRASH_RETENTION_DAYS:-30}
+      # backups (kist backup / every KIST_BACKUP_INTERVAL_HOURS): a restic
+      # repository and its password (restic's own variables)
+      KIST_BACKUP_REPO: ${KIST_BACKUP_REPO:-}
+      KIST_BACKUP_INTERVAL_HOURS: ${KIST_BACKUP_INTERVAL_HOURS:-0}
+      RESTIC_PASSWORD: ${RESTIC_PASSWORD:-}
+      RESTIC_PASSWORD_FILE: ${RESTIC_PASSWORD_FILE:-}
     volumes:
       - ${KIST_LIBRARY:-./library}:/library
+      # a backup repository on a local disk: mount it and set
+      # KIST_BACKUP_REPO=/backup (remote repos such as sftp: or rest: need no mount)
+      # - /mnt/usb/kist-backup:/backup
     depends_on:
       db:
         condition: service_healthy

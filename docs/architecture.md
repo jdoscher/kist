@@ -27,7 +27,10 @@ library/     bind mount: the durable copy of everything
 kist/
 ├── app.py           FastAPI app, lifespan, SPA serving, /mcp mount, service
 │                    error -> HTTP status mapping
-├── auth.py          bearer-token middleware (/api, /mcp, /docs)
+├── auth.py          bearer-token middleware (/api, /mcp, /docs): resolves the
+│                    caller, checks its scope, sets the history context
+├── access.py        scopes, actions, the caller (access.current()) and which
+│                    HTTP requests each scope may make
 ├── headers.py       security headers (CSP, HSTS, framing) on every response
 ├── compress.py      gzip for JSON/JS/CSS, never media
 ├── observability.py logging format, request ids, 500 handler, rate limiter
@@ -39,17 +42,27 @@ kist/
 ├── lifecycle.py     every state machine: names and allowed transitions
 ├── models.py        SQLAlchemy models
 ├── schemas.py       API request/response models; ItemOut.for_agent (MCP shape)
-├── api/             REST routers: items, folders, smart folders, tags, jobs, misc
+├── api/             REST routers: items, folders, smart folders, tags, jobs,
+│                    tokens, history (batches, undo), misc (health, archive health)
 ├── services/        all business logic, shared by REST, MCP, CLI, and worker
 │   ├── validation.py input rules every path shares (422 / MCP ToolError)
 │   ├── ingest.py    hash → dedupe → sniff → store → previews → meta.json;
 │   │                inbox scan; the MCP import-dir rule
 │   ├── netguard.py  URL downloads: public addresses only, pinned IPs, deadlines
 │   ├── thumbs.py    probing, thumbnails, perceptual hash, dominant colors
+│   ├── thumbhash.py ThumbHash encoder (port of the reference, byte-exact)
 │   ├── preview_child.py  the child process previews run in (time limit)
 │   ├── search.py    filters + cursor pagination; KIND_FILTERS = kind in SQL
 │   ├── items.py     edits (with the 409 version check), tags, folder
-│   │                membership, trash, purge
+│   │                membership, protection, trash, purge; every change
+│   │                records events
+│   ├── events.py    item history (item_events + events.jsonl), batches, undo
+│   ├── links.py     typed links between items
+│   ├── tokens.py    named tokens (hashed) + library/.kist/tokens.json
+│   ├── retention.py the worker's trash retention
+│   ├── fixity.py    rolling re-hash of originals (fixity.jsonl)
+│   ├── backup.py    `kist backup`: pg_dump + restic, backup.json
+│   ├── archive.py   /api/archive-health and the 3-2-1 checklist
 │   ├── tags.py      tag upsert, counts, pruning
 │   ├── folders.py   folder tree (moves under a lock) + folders.json
 │   ├── smart_folders.py  saved searches
@@ -62,9 +75,10 @@ kist/
 │   └── health.py    /api/health/deep checks, worker heartbeat file
 ├── mcp_server.py    MCP tools (thin wrappers over services/; no queries)
 ├── worker.py        job loop, inbox scanner, staging sweep, daily verify,
-│                    heartbeat thread
+│                    trash retention, fixity, scheduled backups (thread),
+│                    ThumbHash backfill, heartbeat thread
 ├── cli.py           rebuild-index, rewrite-meta, regen-previews, verify,
-│                    reclassify, selftest
+│                    reclassify, selftest, backup, fixity
 └── migrate.py       Alembic upgrade under an advisory lock
 web/src/             the single-page UI
 migrations/          Alembic revisions
@@ -78,15 +92,25 @@ items         id (ULID), filename, ext, mime, size_bytes, width, height,
               duration_s, sha256 (unique), phash, dominant_colors (jsonb),
               rating (0-5, checked), notes, source_url, created_at,
               modified_at, deleted_at, preview_status, preview_error,
-              preview_rev
-folders       id, name, parent_id, position
+              preview_rev, thumbhash, protected, fixity_checked_at,
+              fixity_failed_at
+folders       id, name, parent_id, position, description
 item_folders  item_id, folder_id               (an item can be in many folders)
 tags          id, name (citext unique)
 item_tags     item_id, tag_id
 smart_folders id, name, query (jsonb), position (a saved GET /api/items query)
 jobs          id, kind, payload, status, attempts, run_after, last_error,
               started_at, finished_at
+item_links    src_id, dst_id, kind      (derived_from, alternate, related,
+                                         not_duplicate, version_of)
+item_events   id, item_id, at, actor, source, batch_id, kind, before, after
+              (no foreign key: a purged item's history is kept)
+api_tokens    id, name, token_sha256, scopes, folder_ids, created_at,
+              expires_at, last_used_at, revoked_at
 ```
+
+Every list order has a partial `(column, id)` index over live items, so
+keyset pages stay index scans; `total` is counted only for the first page.
 
 `deleted_at` is the trash. `sha256` uniqueness makes exact-duplicate uploads
 return the existing item. `phash` and `dominant_colors` are captured at ingest
@@ -99,7 +123,7 @@ Every state has one name, defined in `kist/lifecycle.py`, and every surface
 
 | machine | states | moves |
 |---|---|---|
-| item | `active`, `trashed` | trash and restore (both safe to repeat); permanent delete only from `trashed` |
+| item | `active`, `trashed` | trash and restore (both safe to repeat); permanent delete only from `trashed`; a `protected` item can't be trashed or purged (409); the worker purges items trashed longer than `KIST_TRASH_RETENTION_DAYS` |
 | preview | `pending`, `ready`, `failed`, `none` | set by ingest; `POST /api/items/{id}/preview` (or MCP `retry_preview`) queues a `regen_preview` job |
 | job | `pending`, `running`, `done`, `failed` | claim → finish; a failure retries with backoff up to 3 attempts; a `running` job older than the lease is re-queued; `failed` → `pending` by retry |
 | upload (web) | `queued`, `uploading`, `done`, `duplicate`, `inTrash`, `error` | `web/src/uploads.ts`; the destination folder is fixed when a file is added |
@@ -119,7 +143,21 @@ never got a job (the database was down at the wrong moment).
 
 Every write to an item rewrites `items/{id}/meta.json`, and every folder
 change rewrites `folders.json` (a folder rename, move or delete also
-rewrites its members' `meta.json`). `kist rebuild-index` reconstructs the
+rewrites its members' `meta.json`). What else lives on disk, and is restored
+by `rebuild-index`:
+
+| state | file |
+|---|---|
+| links, protected, ThumbHash | each item's `meta.json` (a link in both items') |
+| folder descriptions | `folders.json` |
+| item history | `items/{id}/events.jsonl`, appended after each commit; a purged item's lines move to `library/.kist/events-purged.jsonl` |
+| fixity dates | the last line of `items/{id}/fixity.jsonl` |
+| named tokens (hashed) | `library/.kist/tokens.json` |
+| backups, checklist, retention start | `library/.kist/backup.json`, `checklist.json`, `retention.json` |
+
+`kist verify` also checks that `tokens.json` matches the database and that
+every item's `events.jsonl` has all of its events; `kist rewrite-meta`
+rewrites both. `kist rebuild-index` reconstructs the
 whole database from those files, so Postgres can always be discarded.
 `meta.json` carries a `version` field so older libraries stay readable.
 
@@ -143,6 +181,34 @@ Edits that can race in Postgres are guarded there: `PATCH` with
 `base_modified_at` locks the row and answers 409 if the item changed since the
 client loaded it; folder moves take a tree-wide lock and re-check for loops;
 new tags are an upsert.
+
+## Tokens and scopes
+
+`auth.BearerTokenMiddleware` turns the bearer token (or, for GET/HEAD, the
+`kist_token` cookie) into an `access.Principal`: the owner for `KIST_TOKEN`,
+or a named token looked up by SHA-256. `access.request_allowed` maps the
+request to the token's scopes before any route runs (403 for a missing scope;
+404 for any path outside a folder-limited reader's view). The principal stays
+in a context variable for the request, so services apply the few
+caller-dependent rules themselves: a folder-limited reader's searches, item
+fetches (`items.get_item`, hence file, thumb, history, links) and folder tree
+only see live items in its folders; unprotecting needs `write`. MCP tools
+declare the action they need and fail closed without a principal.
+
+## History and undo
+
+Each item mutation adds an `item_events` row in the same transaction
+(`events.record_changes` compares before/after snapshots: `edit`, `tags`,
+`folders`, `trash`, `restore`, `protect`; plus `create`, `purge`, `link`,
+`unlink`). A session hook appends the committed events to `events.jsonl`.
+The actor, source and batch come from a context variable set by the auth
+middleware (one batch per request, or `X-Kist-Batch`), by the MCP tool
+wrapper (one per call), by the worker (`importer`/`worker`) or default to
+`cli` with one batch per process. Undo walks a batch's events newest first
+and applies the inverse through the services, as a new batch; an event is
+skipped when a later event outside both batches touched the same field
+(edit fields, tag names, folder ids, state, the link), so undo never
+overwrites newer work.
 
 ## Ingest
 
@@ -168,7 +234,8 @@ queued jobs (up to 3 attempts with backoff).
    - every image over 1024 px also gets `display_2048.webp`, the copy the
      full-screen preview shows unless the screen needs more (originals run
      5-30 MB; this is about 0.5 MB).
-4. Perceptual hash and a 5-color palette, from the thumbnails.
+4. Perceptual hash, a 5-color palette and a ThumbHash placeholder, from the
+   thumbnails.
 5. Write `meta.json`.
 
 Preview failures never fail an ingest: the item is stored with
@@ -214,6 +281,11 @@ instead.
   library disk, job queue, previews failed in 24 h and the last daily verify
   (`library/.kist/verify.json`). `/api/version` names the build's commit.
 - `kist selftest` checks every decoder after an image rebuild.
+- Preservation: the worker re-hashes about 1/30 of the originals a day
+  (oldest-checked first, in small chunks while idle) and runs `kist backup`
+  every `KIST_BACKUP_INTERVAL_HOURS` in a background thread.
+  `/api/archive-health` reports fixity coverage and failures, verify, the
+  last backup, free disk and the 3-2-1 checklist.
 
 ## MCP design rules
 
@@ -223,12 +295,17 @@ instead.
   reaches the agent.
 - Results stay small (metadata), except `view_item`, which returns image content.
 - Every write tool returns the updated item so agents can verify.
-- Destructive operations stop at the trash.
+- Destructive operations stop at the trash, and every tool call is one
+  batch in the item history (`recent_batches`, `undo_batch`).
+- Tools check the token's scope (`agent`, `write`, `admin`, or `read` for
+  the reading tools; a folder-limited reader only gets search, get, view
+  and folder listing).
 - `add_item(file_path=…)` only reads from `library/import/` and `library/inbox/`.
 
 ## Ideas beyond 1.0
 
 - Color search (palettes are already stored).
 - Semantic search: CLIP embeddings with pgvector, `search_semantic` / `find_similar` tools.
+- Restore-test for backups (`restic check --read-data` on a schedule).
 - A near-duplicate review UI; LSH bucketing for very large libraries.
-- Multi-user accounts and share links.
+- Share links (named, scoped tokens exist; no per-user accounts).
