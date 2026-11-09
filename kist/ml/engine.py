@@ -8,7 +8,10 @@ for the text tower or OCR.
 Devices (KIST_ML_DEVICE):
     cpu           ONNX Runtime CPU (the default; the NAS)
     auto          CoreML on macOS when ONNX Runtime has it, else CPU
-    coreml        CoreML (Apple silicon), CPU for anything it can't run
+    coreml        CoreML on the Neural Engine (Apple silicon), CPU for
+                  anything it can't run. Barely faster than the CPU for
+                  ViT-B-32 on an M6 and slow to start (it compiles the model
+                  for 40-75 s), so the helper defaults to cpu
     openvino-gpu  Intel GPU through OpenVINO (an Iris Xe on the NAS); needs
                   the onnxruntime-openvino build of ONNX Runtime and /dev/dri
 A device that isn't available falls back to CPU with a warning, so a bad
@@ -69,7 +72,9 @@ def providers_for(device: str, cache_dir: Path) -> list:
         return [
             ("CoreMLExecutionProvider", {
                 "ModelFormat": "MLProgram",
-                "MLComputeUnits": "ALL",
+                # measured on an M6 (ViT-B-32): Neural Engine 7.8 ms, CPU 8.8 ms,
+                # ALL/GPU 19 ms; every first load compiles for 40-75 s
+                "MLComputeUnits": "CPUAndNeuralEngine",
                 "ModelCacheDirectory": str(coreml_cache),
             }),
             "CPUExecutionProvider",

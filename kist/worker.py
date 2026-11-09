@@ -28,6 +28,9 @@ log = logging.getLogger("kist.worker")
 REAP_EVERY_SECONDS = 60
 RECOVER_EVERY_SECONDS = 300
 BEAT_EVERY_SECONDS = 15
+# the ml service didn't answer (down, or downloading its models on first
+# start): its jobs go back to the queue and the AI lane waits this long
+ML_DOWN_PAUSE_SECONDS = 60
 # the container healthcheck's limit (a few missed beats)
 HEALTHY_WITHIN_SECONDS = 60
 
@@ -131,6 +134,8 @@ class AiLane:
         self.size = max(1, concurrency)
         self.pool = ThreadPoolExecutor(max_workers=self.size, thread_name_prefix="ai")
         self.running: set = set()
+        # set by a job that found the ml service down: claim nothing until then
+        self.paused_until = 0.0
 
     def enabled(self) -> bool:
         settings = get_settings()
@@ -140,9 +145,12 @@ class AiLane:
         """Claim jobs for every free slot. Returns how many started."""
         from .services import ai
 
+        for f in [f for f in self.running if f.done()]:
+            if f.exception() is None and f.result() == "unavailable":
+                self.paused_until = time.monotonic() + ML_DOWN_PAUSE_SECONDS
         self.running = {f for f in self.running if not f.done()}
         free = self.size - len(self.running)
-        if free <= 0 or not self.enabled():
+        if free <= 0 or not self.enabled() or time.monotonic() < self.paused_until:
             return 0
         with SessionLocal() as s:
             jobs = ai.claim(s, runner="worker", limit=free)
@@ -165,27 +173,35 @@ class AiLane:
         return True
 
 
-def run_ai_job(job_id: int, kind: str) -> None:
+def run_ai_job(job_id: int, kind: str) -> str:
+    """Run one AI job; returns "done", "failed" or "unavailable" (the ml
+    service didn't answer: the job goes back without losing an attempt)."""
     from .services import ai, jobs
 
     with SessionLocal() as s:
         try:
             job = s.get(Job, job_id)
             if job is None:
-                return
+                return "done"
             ai.run_job(s, job)
             error = None
+        except ai.AiUnavailable as exc:
+            s.rollback()
+            log.warning("job %s (%s) put back: %s", job_id, kind, exc)
+            try:
+                jobs.release(s, job_id, str(exc), ML_DOWN_PAUSE_SECONDS)
+            except Exception:
+                log.exception("could not put job %s back", job_id)
+            return "unavailable"
         except Exception as exc:
             s.rollback()
-            if isinstance(exc, ai.AiUnavailable):
-                log.warning("job %s (%s): %s", job_id, kind, exc)
-            else:
-                log.exception("job %s (%s) failed", job_id, kind)
+            log.exception("job %s (%s) failed", job_id, kind)
             error = str(exc) or type(exc).__name__
         try:
             jobs.finish(s, job_id, error)
         except Exception:
             log.exception("could not record the end of job %s", job_id)
+        return "done" if error is None else "failed"
 
 
 def reap() -> None:

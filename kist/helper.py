@@ -5,7 +5,7 @@
 The token comes from KIST_HELPER_TOKEN (or --token, which other users of
 the machine can see in the process list). The helper claims jobs over
 HTTP, downloads each item's thumbnail, runs the same ONNX models the ml
-service runs (CoreML on Apple silicon, CPU otherwise) and posts the vector
+service runs (on the CPU by default; --device coreml uses the Neural Engine) and posts the vector
 or text back; the server checks it and writes the sidecar files. A helper
 that stops mid-batch loses nothing: its jobs go back to the queue when
 their lease runs out.
@@ -139,8 +139,9 @@ def main(argv: list[str] | None = None) -> int:
                    help="how the server lists this helper (default: the host name)")
     p.add_argument("--kinds", default="embed,ocr", help="job kinds to take (embed,ocr)")
     p.add_argument("--batch", type=int, default=16, help="jobs claimed at a time")
-    p.add_argument("--device", default=os.environ.get("KIST_ML_DEVICE", "auto"),
-                   help="auto (CoreML on a Mac) | cpu | coreml | openvino-gpu")
+    p.add_argument("--device", default=os.environ.get("KIST_ML_DEVICE", "cpu"),
+                   help="cpu (default; fastest overall on Apple silicon for ViT-B-32) | "
+                        "coreml (Neural Engine) | auto | openvino-gpu")
     p.add_argument("--threads", type=int, default=int(os.environ.get("KIST_ML_THREADS", "4")))
     p.add_argument("--cache", type=Path,
                    default=Path(os.environ.get("KIST_ML_CACHE") or default_cache()),
@@ -151,6 +152,7 @@ def main(argv: list[str] | None = None) -> int:
 
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
                         format="%(asctime)s %(levelname)s %(message)s")
+    logging.getLogger("httpx").setLevel(logging.WARNING)  # a line per request otherwise
     token = args.token or os.environ.get("KIST_HELPER_TOKEN") or ""
     if not token:
         print("set KIST_HELPER_TOKEN (or pass --token)", file=sys.stderr)

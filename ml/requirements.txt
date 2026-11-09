@@ -1,0 +1,17 @@
+# The ml image's Python packages, pinned. Kept small on purpose: no torch,
+# no CUDA. ONNX Runtime itself is installed by the Dockerfile: the CPU build
+# by default, the OpenVINO build with --build-arg OPENVINO=1.
+fastapi==0.162.2
+uvicorn==0.54.0
+numpy==2.5.4
+pillow==13.0.0
+tokenizers==0.23.3
+# RapidOCR's real dependencies. The Dockerfile installs rapidocr-onnxruntime
+# itself with --no-deps: its declared ones pull the GUI build of OpenCV
+# (X11/GL libraries) and the CPU ONNX Runtime over the OpenVINO one
+opencv-python-headless==5.0.0.93
+shapely==2.2.0
+pyclipper==1.4.0
+pyyaml==6.0.3
+six==1.17.0
+tqdm==4.70.1

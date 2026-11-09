@@ -185,6 +185,29 @@ def test_f16_roundtrip_and_vector_checks():
     assert v == [0.6, 0.8]
 
 
+def test_migration_0101_explains_a_missing_pgvector(monkeypatch):
+    import importlib.util
+    from pathlib import Path
+
+    from alembic import op
+
+    path = Path(__file__).parent.parent / "migrations" / "versions" / "0101_ai.py"
+    spec = importlib.util.spec_from_file_location("m0101", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    class NoVector:
+        def execute(self, *a, **k):
+            class R:
+                def first(self):
+                    return None
+            return R()
+
+    monkeypatch.setattr(op, "get_bind", lambda: NoVector(), raising=False)
+    with pytest.raises(RuntimeError, match="pgvector/pgvector:pg16"):
+        mod.upgrade()
+
+
 def test_migration_made_the_tables_and_the_extension(database):
     from kist.db import engine
 
@@ -310,13 +333,17 @@ def test_backfill_limit_and_cli(client, upload, ml, monkeypatch, capsys):
     assert len(jobs_of(JobKind.OCR)) == 3
 
 
-def test_ml_down_retries_the_job(client, upload, ml):
+def test_ml_down_puts_jobs_back_without_using_attempts(client, upload, ml):
     upload("a.png")
     ml.down = True
-    drain()
-    failed_once = jobs_of(JobKind.EMBED)[0]
-    assert failed_once.status == JobStatus.PENDING and failed_once.attempts == 1
-    assert "can't be reached" in failed_once.last_error
+    lane = worker.AiLane(1)
+    assert lane.fill() == 1
+    lane.wait(5)
+    assert lane.fill() == 0  # paused: the ml service is down
+    job = jobs_of(JobKind.EMBED)[0]
+    assert job.status == JobStatus.PENDING and job.attempts == 0
+    assert "can't be reached" in job.last_error
+    assert job.run_after > datetime.now(job.run_after.tzinfo)
 
 
 def test_wrong_model_on_the_ml_service_is_an_error(client, upload, ml):

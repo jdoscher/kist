@@ -67,7 +67,7 @@ async def lifespan(app: FastAPI):
     state.cfg = EngineConfig.from_env()
     state.clip = ClipEngine(state.cfg)
     state.ocr = OcrEngine(state.cfg)
-    state.gate = threading.BoundedSemaphore(int(os.environ.get("KIST_ML_CONCURRENCY", "2")))
+    state.gate = threading.BoundedSemaphore(int(os.environ.get("KIST_ML_CONCURRENCY", "1")))
     state.stop.clear()
     threading.Thread(target=_janitor, name="ml-janitor", daemon=True).start()
     # fetch (first start) and load the visual tower in the background, so the

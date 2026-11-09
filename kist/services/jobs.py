@@ -137,6 +137,21 @@ def finish(session: Session, job_id: int, error: str | None) -> Job:
     return job
 
 
+def release(session: Session, job_id: int, error: str, delay_seconds: float) -> Job:
+    """running -> pending without using up an attempt: the job couldn't run
+    for a reason that isn't its own (the ml service is down or still
+    downloading its models)."""
+    job = session.get(Job, job_id)
+    if job is None:
+        raise NotFound(job_id)
+    job.status = JobStatus.PENDING
+    job.attempts = max(0, job.attempts - 1)
+    job.last_error = error[:4000]
+    job.run_after = datetime.now(UTC) + timedelta(seconds=delay_seconds)
+    session.commit()
+    return job
+
+
 def _fail(session: Session, job: Job) -> tuple[tuple[int, Path, Path] | None, str | None]:
     """Mark a job failed. Returns the file move to make once that's committed
     (an inbox file parked in library/failed/) and the item whose meta.json

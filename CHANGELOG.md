@@ -6,6 +6,71 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+Kist 2.0, milestone 1: AI infrastructure. Kist now embeds every image
+(OpenCLIP ViT-B-32) and reads the text in screenshots and PDFs, entirely on
+your own hardware, with the results kept as plain files next to each item.
+
+### Upgrade notes
+- **Switch the database image to `pgvector/pgvector:pg16`.** Kist's
+  `docker-compose.yml` now uses it. It is built on the official `postgres:16`
+  image with the pgvector extension added, so it opens your existing
+  `pgdata` volume as is: no dump and restore. If you
+  keep your own compose file, change `image: postgres:16` to
+  `image: pgvector/pgvector:pg16` for the `db` service. Without it the
+  app and worker refuse to start, and migration 0101 says why. Stay on the
+  `pg16` tag: a different Postgres major version can't open a pg16 data
+  directory. (Take the usual backup first: `docker compose exec db pg_dump
+  -U kist kist | gzip > kist-before-2.0.sql.gz`.)
+- Then: `docker compose pull db && docker compose build && docker compose
+  up -d`. The new `ml` service downloads its model files (~600 MB, checked by
+  sha256) into the `ml-models` volume on first start; AI jobs wait for it.
+- Existing items: `docker compose exec worker kist ai-backfill` queues their
+  embeddings and OCR. Set `KIST_AI_WINDOW=01:00-06:00` first to keep the work
+  at night (estimated 1.5–2.5 h per 100,000 items on an i5-1235U).
+- The `ml-models` volume needn't be backed up (it re-downloads); the
+  library's new `items/*/ai/` folders should be, like the rest of the library.
+
+### Added
+- **`ml` service** (image `kist-ml`, `ml/Dockerfile`, internal only):
+  `POST /embed/image`, `POST /embed/text`, `POST /ocr`, `GET /health` on
+  ONNX Runtime (CPU; no torch). Models: Immich's ONNX exports of OpenCLIP
+  ViT-B-32 (default) or ViT-B-16-SigLIP2 (`KIST_ML_MODEL`), pinned to a
+  Hugging Face revision and checked by sha256; RapidOCR (PP-OCRv4). Models
+  load on first use and unload after `KIST_ML_IDLE_SECONDS`. Optional Intel
+  GPU through OpenVINO (`KIST_ML_OPENVINO=1` build, `KIST_ML_DEVICE=openvino-gpu`).
+- **`embed` and `ocr` jobs**, queued for new items (embeddings for anything
+  with a thumbnail; OCR for images without a camera's EXIF data, and PDFs,
+  whose text layer is read first and whose scanned pages are OCR'd) and by
+  `kist ai-backfill [--kind embed|ocr] [--limit N]`. They run on their own
+  threads in the worker (`KIST_AI_CONCURRENCY`), only while no import or
+  preview job is waiting, and backfilled ones only inside `KIST_AI_WINDOW`.
+  A down ml service puts jobs back without using up their attempts.
+- **AI sidecar files**: `items/<id>/ai/embed-<model>.f16` (raw float16) and
+  `.json`, and `ai/ocr.json`, written before the database rows.
+  `kist rebuild-index` loads them and never recomputes; `kist verify` reports
+  rows without files and files not in the database; `kist ai-sidecars`
+  writes missing files from the database.
+- **`kist helper`**: run AI jobs on another machine (a Mac) for the server,
+  over HTTP: `POST /api/ai/jobs/claim` and `POST /api/ai/jobs/{id}/result`.
+  Install with `pip install 'kist[ml]'`.
+- `GET /api/ai/status` and the MCP tool `ai_status`.
+- `GET /api/items?semantic=<text>` orders results by meaning (minimal; the
+  real search comes in milestone 2).
+- New settings: `KIST_AI_ENABLED`, `KIST_ML_URL`, `KIST_ML_MODEL`,
+  `KIST_ML_TIMEOUT_SECONDS`, `KIST_AI_WINDOW`, `KIST_AI_CONCURRENCY`,
+  `KIST_AI_OCR_PDF_PAGES`, and for the ml service `KIST_ML_THREADS` (4),
+  `KIST_ML_CONCURRENCY`, `KIST_ML_DEVICE`, `KIST_ML_IDLE_SECONDS`,
+  `KIST_ML_BASE_URL`, `KIST_ML_MEM_LIMIT` (2g), `KIST_ML_CPUS`,
+  `KIST_ML_OPENVINO`.
+- Migration 0101: the `vector` extension, `item_embeddings` (halfvec, one
+  partial HNSW cosine index per model), `item_text` (GIN tsvector index),
+  `ai_helpers`.
+
+### Changed
+- The database image is `pgvector/pgvector:pg16` (see the upgrade notes).
+- `/api/health/deep`'s oldest pending job age ignores AI jobs, which wait
+  for their window on purpose.
+
 ## [1.5.0] - 2026-11-09
 
 A hardening release. Kist was reviewed for security, data integrity,

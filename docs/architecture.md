@@ -6,8 +6,10 @@ plus Postgres:
 ```
 docker compose
 ├── app      FastAPI: REST API, MCP endpoint (/mcp), and the built web UI
-├── worker   same image: inbox watcher + Postgres-backed job queue
-└── db       Postgres 16 (search index only)
+├── worker   same image: inbox watcher + Postgres-backed job queue,
+│            AI jobs on their own threads
+├── ml       kist-ml image (internal only): CLIP embeddings + OCR on ONNX Runtime
+└── db       Postgres 16 + pgvector (search index only)
 
 library/     bind mount: the durable copy of everything
 ```
@@ -20,6 +22,7 @@ library/     bind mount: the durable copy of everything
 | queue | a `jobs` table claimed with `SELECT … FOR UPDATE SKIP LOCKED` (no Redis) |
 | web | React 19, Vite, TypeScript, TanStack Query + Virtual |
 | agents | MCP Python SDK, streamable HTTP, stateless JSON responses |
+| AI | ONNX Runtime (CPU; CoreML/OpenVINO optional), OpenCLIP ViT-B-32 (Immich's ONNX export), RapidOCR; pgvector `halfvec` + HNSW |
 
 ## Code map
 
@@ -59,12 +62,20 @@ kist/
 │   ├── previews.py  preview status, retries, reclassify
 │   ├── meta.py      the durable copy: atomic meta.json / folders.json writes
 │   ├── verify.py    compare Postgres with the disk (CLI + daily worker run)
+│   ├── ai.py        ml client, embed/ocr jobs and their budget, sidecars,
+│   │                helper claim/report, status
+│   ├── pdftext.py   a PDF's text layer / page renders (child process)
 │   └── health.py    /api/health/deep checks, worker heartbeat file
 ├── mcp_server.py    MCP tools (thin wrappers over services/; no queries)
 ├── worker.py        job loop, inbox scanner, staging sweep, daily verify,
 │                    heartbeat thread
 ├── cli.py           rebuild-index, rewrite-meta, regen-previews, verify,
-│                    reclassify, selftest
+│                    reclassify, selftest, ai-backfill, ai-sidecars, helper
+├── helper.py        `kist helper`: claims AI jobs over HTTP, runs kist/ml locally
+├── ml/              self-contained (imports nothing else from kist): the ml image
+│   ├── models.py    model files pinned by revision + sha256, download + verify
+│   ├── engine.py    ONNX sessions, preprocessing, tokenizer, RapidOCR, devices
+│   └── server.py    the ml service's FastAPI app
 └── migrate.py       Alembic upgrade under an advisory lock
 web/src/             the single-page UI
 migrations/          Alembic revisions
@@ -86,6 +97,11 @@ item_tags     item_id, tag_id
 smart_folders id, name, query (jsonb), position (a saved GET /api/items query)
 jobs          id, kind, payload, status, attempts, run_after, last_error,
               started_at, finished_at
+item_embeddings item_id, model, dim, vector (halfvec), created_at
+              (one partial HNSW cosine index per model, on vector::halfvec(dim))
+item_text     item_id, source (ocr | pdf), text, lang, model, created_at
+              (GIN index on to_tsvector('simple', text))
+ai_helpers    name, last_seen, jobs_done, info
 ```
 
 `deleted_at` is the trash. `sha256` uniqueness makes exact-duplicate uploads
@@ -143,6 +159,38 @@ Edits that can race in Postgres are guarded there: `PATCH` with
 `base_modified_at` locks the row and answers 409 if the item changed since the
 client loaded it; folder moves take a tree-wide lock and re-check for loops;
 new tags are an upsert.
+
+## AI jobs
+
+`embed` and `ocr` are job kinds like `ingest`, in the same table, with the
+same lease, retry and failure rules, but claimed separately
+(`services/ai.claim`) under a budget:
+
+- `jobs.claim_next` (the worker's main loop) never takes AI kinds. The
+  worker's `AiLane` claims them for its `KIST_AI_CONCURRENCY` threads, so a
+  slow OCR never holds up an import.
+- Nothing AI is claimed while a light job (ingest, preview) is pending.
+- Jobs queued by `kist ai-backfill` carry `backfill: true` and are only
+  claimed inside `KIST_AI_WINDOW`; jobs for new items run at once.
+- An unreachable ml service (`AiUnavailable`) puts the job back with
+  `jobs.release` (no attempt used) and pauses the lane for a minute.
+- `kist helper` claims through `POST /api/ai/jobs/claim` (runner
+  `helper:<name>` in the payload; only that helper may report), never gets
+  PDFs (the server reads their text layer), and reports a vector or text that
+  the server validates (model, dimension, finite) and stores exactly as the
+  worker would.
+
+Results are written to `items/<id>/ai/` first, then upserted: the f16
+sidecar is the vector itself (little-endian float16, 1 KB at 512-d), and
+`rebuild-index` turns sidecars back into rows without asking the ml
+service. Vectors are L2-normalised, so cosine distance (`<=>`) orders
+`?semantic=` results; vectors of different models never mix (rows are per
+model and every query names the model).
+
+The `ml` service (`kist/ml/server.py`) loads each tower on first use and
+drops it after `KIST_ML_IDLE_SECONDS`; at most `KIST_ML_CONCURRENCY`
+inferences run at once. Model files come from a pinned Hugging Face revision
+and are refused unless their sha256 matches (`kist/ml/models.py`).
 
 ## Ingest
 
