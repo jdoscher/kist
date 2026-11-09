@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { TILE_SIZE_MAX, TILE_SIZE_MIN } from '../layout'
 import { useTags } from '../data'
 import { useAppState } from '../state'
@@ -27,6 +27,7 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
     tileSize,
     setTileSize,
     openDrawer,
+    drawerOpen,
     mobileCols,
     setMobileCols,
   } = useAppState()
@@ -37,6 +38,8 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
   const [hilite, setHilite] = useState(0)
   const boxRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const listId = useId()
+  const optId = (i: number) => `${listId}-opt-${i}`
 
   useEffect(() => setText(query.q), [query.q])
 
@@ -104,9 +107,16 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
 
   return (
     <header className="topbar">
+      <h1 className="sr-only">Kist library</h1>
       {mobile && (
-        <button className="menu-btn" onClick={openDrawer} aria-label="Folders and tags">
-          ☰
+        <button
+          className="menu-btn"
+          onClick={openDrawer}
+          aria-label="Folders and tags"
+          aria-expanded={drawerOpen}
+          aria-controls="folder-drawer"
+        >
+          <span aria-hidden="true">☰</span>
         </button>
       )}
       <div className="brand" title="Kist">
@@ -114,46 +124,51 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
         Kist
       </div>
 
-      <div className="searchbox" ref={boxRef}>
-        {query.tags.map((t) => (
-          <span key={t} className="chip">
-            #{t}
-            <button onClick={() => setQuery({ tags: query.tags.filter((x) => x !== t) })}>×</button>
-          </span>
-        ))}
-        {query.tags_any.length > 0 && (
-          <span className="chip" title="Items with at least one of these tags">
-            any of {query.tags_any.map((t) => `#${t}`).join(' ')}
-            <button title="Clear" onClick={() => setQuery({ tags_any: [] })}>×</button>
-          </span>
-        )}
-        {query.preview && (
-          <span className="chip">
-            preview {query.preview}
-            <button title="Clear" onClick={() => setQuery({ preview: null })}>×</button>
-          </span>
-        )}
-        {query.untagged && (
-          <span className="chip">
-            untagged
-            <button title="Clear" onClick={() => setQuery({ untagged: false })}>×</button>
-          </span>
-        )}
-        {query.created_after && (
-          <span className="chip">
-            added after {query.created_after.slice(0, 10)}
-            <button title="Clear" onClick={() => setQuery({ created_after: null })}>×</button>
-          </span>
-        )}
-        {query.created_before && (
-          <span className="chip">
-            added before {query.created_before.slice(0, 10)}
-            <button title="Clear" onClick={() => setQuery({ created_before: null })}>×</button>
-          </span>
+      <div className="searchbox" ref={boxRef} role="search">
+        {hasChips && (
+          <div className="chips" role="group" aria-label="Active filters">
+            {query.tags.map((t) => (
+              <Chip key={t} label={`#${t}`} clear={`Remove tag ${t}`} onClear={() => setQuery({ tags: query.tags.filter((x) => x !== t) })} />
+            ))}
+            {query.tags_any.length > 0 && (
+              <Chip
+                label={`any of ${query.tags_any.map((t) => `#${t}`).join(' ')}`}
+                title="Items with at least one of these tags"
+                clear="Clear any-of tags"
+                onClear={() => setQuery({ tags_any: [] })}
+              />
+            )}
+            {query.preview && (
+              <Chip label={`preview ${query.preview}`} clear="Clear preview filter" onClear={() => setQuery({ preview: null })} />
+            )}
+            {query.untagged && (
+              <Chip label="untagged" clear="Clear untagged filter" onClear={() => setQuery({ untagged: false })} />
+            )}
+            {query.created_after && (
+              <Chip
+                label={`added after ${query.created_after.slice(0, 10)}`}
+                clear="Clear added-after date"
+                onClear={() => setQuery({ created_after: null })}
+              />
+            )}
+            {query.created_before && (
+              <Chip
+                label={`added before ${query.created_before.slice(0, 10)}`}
+                clear="Clear added-before date"
+                onClear={() => setQuery({ created_before: null })}
+              />
+            )}
+          </div>
         )}
         <input
           value={text}
+          aria-label="Search library"
           placeholder={hasChips ? 'Add search…' : 'Search filenames, #tags…'}
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={open && suggestions.length > 0}
+          aria-controls={listId}
+          aria-activedescendant={open && suggestions.length > 0 ? optId(hilite) : undefined}
           onChange={(e) => {
             setText(e.target.value)
             setOpen(true)
@@ -161,36 +176,43 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
         />
-        {open && suggestions.length > 0 && (
-          <div className="autocomplete">
-            {suggestions.map((s, i) => (
-              <button
+        <div id={listId} className="autocomplete" role="listbox" aria-label="Tag suggestions" hidden={!open || suggestions.length === 0}>
+          {open &&
+            suggestions.map((s, i) => (
+              <div
                 key={s.id}
-                className={i === hilite ? 'active' : ''}
+                id={optId(i)}
+                role="option"
+                aria-selected={i === hilite}
+                className={`ac-option${i === hilite ? ' active' : ''}`}
                 onMouseEnter={() => setHilite(i)}
+                onMouseDown={(e) => e.preventDefault() /* keep focus in the field */}
                 onClick={() => addTag(s.name)}
               >
                 #{s.name} <span className="count">{s.count}</span>
-              </button>
+              </div>
             ))}
-          </div>
-        )}
+        </div>
+        <span className="sr-only" role="status">
+          {open && suggestions.length > 0 ? `${suggestions.length} tag suggestions, use up and down to pick` : ''}
+        </span>
       </div>
 
       {mobile && <div className="topbar-break" />}
 
       <div className="view-controls">
         <button
-          className="layout-toggle"
+          className={`layout-toggle${gridLayout === 'square' ? ' on' : ''}`}
           onClick={() => setGridLayout(gridLayout === 'justified' ? 'square' : 'justified')}
           title={
             gridLayout === 'justified'
-              ? 'True shape: tiles follow each image\'s proportions. Click for square tiles.'
-              : 'Square tiles. Click to show each image in its true shape.'
+              ? 'Tiles follow each image\'s shape. Press for square tiles.'
+              : 'Square tiles. Press to show each image in its true shape.'
           }
-          aria-label="Toggle tile shape"
+          aria-pressed={gridLayout === 'square'}
         >
-          {gridLayout === 'justified' ? '▭' : '▢'}
+          <span aria-hidden="true">{gridLayout === 'justified' ? '▭' : '▢'}</span>
+          <span className={mobile ? 'sr-only' : 'btn-text'}>Square tiles</span>
         </button>
         {mobile ? (
           <div className="cols-toggle" role="group" aria-label="Columns" title="Columns">
@@ -207,18 +229,22 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
             ))}
           </div>
         ) : (
-        <input
-          type="range"
-          className="size-slider"
-          min={TILE_SIZE_MIN}
-          max={TILE_SIZE_MAX}
-          step={10}
-          value={tileSize}
-          onChange={(e) => setTileSize(Number(e.target.value))}
-          onDoubleClick={() => setTileSize(200)}
-          title={`Tile size: ${tileSize} px (double-click to reset)`}
-          aria-label="Tile size"
-        />
+        <label className="size-label">
+          <span>Size</span>
+          <input
+            type="range"
+            className="size-slider"
+            min={TILE_SIZE_MIN}
+            max={TILE_SIZE_MAX}
+            step={10}
+            value={tileSize}
+            onChange={(e) => setTileSize(Number(e.target.value))}
+            onDoubleClick={() => setTileSize(200)}
+            title={`Tile size: ${tileSize} px (double-click to reset)`}
+            aria-label="Tile size"
+            aria-valuetext={`${tileSize} pixels`}
+          />
+        </label>
         )}
       </div>
 
@@ -226,6 +252,7 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
         value={query.type ?? ''}
         onChange={(e) => setQuery({ type: e.target.value || null })}
         title="Type"
+        aria-label="Type"
       >
         <option value="">{mobile ? 'Type' : 'All types'}</option>
         {TYPES.map((t) => (
@@ -239,16 +266,17 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
         value={query.rating}
         onChange={(e) => setQuery({ rating: Number(e.target.value) })}
         title="Minimum rating"
+        aria-label="Minimum rating"
       >
         <option value={0}>{mobile ? 'Rating' : 'Any rating'}</option>
         {[1, 2, 3, 4, 5].map((r) => (
-          <option key={r} value={r}>
+          <option key={r} value={r} aria-label={`${r} star${r > 1 ? 's' : ''} or more`}>
             {'★'.repeat(r)}+
           </option>
         ))}
       </select>
 
-      <select value={query.order} onChange={(e) => setQuery({ order: e.target.value })} title="Sort">
+      <select value={query.order} onChange={(e) => setQuery({ order: e.target.value })} title="Sort" aria-label="Sort">
         {ORDERS.map(([v, label]) => (
           <option key={v} value={v}>
             {mobile && v === '-modified' ? 'Edited' : label}
@@ -267,6 +295,8 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
         type="file"
         multiple
         hidden
+        aria-hidden="true"
+        tabIndex={-1}
         onChange={(e) => {
           if (e.target.files?.length) uploads.enqueue(Array.from(e.target.files))
           e.target.value = ''
@@ -283,5 +313,17 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
         </>
       )}
     </header>
+  )
+}
+
+/** A filter chip with its remove button (named for what it removes). */
+function Chip({ label, clear, onClear, title }: { label: string; clear: string; onClear: () => void; title?: string }) {
+  return (
+    <span className="chip" title={title}>
+      {label}
+      <button aria-label={clear} title={clear} onClick={onClear}>
+        <span aria-hidden="true">×</span>
+      </button>
+    </span>
   )
 }

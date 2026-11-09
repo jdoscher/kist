@@ -48,7 +48,9 @@ export function JobsPanel() {
 
       <div className="attention-block">
         <p>Inbox imports that failed</p>
-        {isLoading && <p className="hint">Loading…</p>}
+        <p className="hint" role="status">
+          {isLoading ? 'Loading…' : ''}
+        </p>
         {jobs && jobs.length === 0 && <p className="hint">None.</p>}
         {jobs?.map((job) => (
           <div key={job.id} className="job-row">

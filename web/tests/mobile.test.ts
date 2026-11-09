@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { layoutRows, mobileTileSize, typicalAspect } from '../src/layout.ts'
-import { swipeDirection } from '../src/mobile.ts'
+import { isPhoneLayout, MOBILE_QUERY, swipeDirection } from '../src/mobile.ts'
 
 test('square tiles give exactly the chosen column count on phone widths', () => {
   const items = Array.from({ length: 12 }, () => ({ width: 800, height: 600, has_thumb: true }))
@@ -44,4 +44,15 @@ test('swipes need distance and a clear direction', () => {
   assert.equal(swipeDirection(0, -70), 'up')
   assert.equal(swipeDirection(30, 10), null) // too short: a tap
   assert.equal(swipeDirection(70, 60), null) // diagonal
+})
+
+test('the phone layout needs a touch screen: desktop zoom keeps the editing layout', () => {
+  assert.equal(isPhoneLayout(390, 844, true), true) // iPhone upright
+  assert.equal(isPhoneLayout(844, 390, true), true) // iPhone sideways
+  assert.equal(isPhoneLayout(720, 450, false), false) // 1440x900 at 200% zoom
+  assert.equal(isPhoneLayout(320, 225, false), false) // 1280x900 at 400% zoom
+  assert.equal(isPhoneLayout(1440, 900, false), false)
+  assert.equal(isPhoneLayout(1024, 1366, true), false) // a big tablet keeps the desktop layout
+  // every clause of the media query asks for a coarse pointer
+  for (const clause of MOBILE_QUERY.split(',')) assert.match(clause, /\(pointer: coarse\)/)
 })

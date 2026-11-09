@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import {
   canReadClipboard,
   jobsFromClipboardApi,
@@ -16,6 +16,13 @@ export function PasteButton() {
   const [hint, setHint] = useState('')
   const boxRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const id = useId()
+  // closing from inside the popover puts focus back on the Paste button
+  const close = (refocus: boolean) => {
+    setOpen(false)
+    if (refocus) btnRef.current?.focus()
+  }
 
   useEffect(() => {
     if (!open) return
@@ -33,7 +40,7 @@ export function PasteButton() {
       return
     }
     addJobs(jobs)
-    setOpen(false)
+    close(true)
   }
 
   const onButton = async () => {
@@ -61,14 +68,26 @@ export function PasteButton() {
 
   return (
     <div className="paste-wrap" ref={boxRef}>
-      <button onClick={onButton} title="Add a screenshot, copied image, or image URL from the clipboard">
+      <button
+        ref={btnRef}
+        onClick={onButton}
+        title="Add a screenshot, copied image, or image URL from the clipboard"
+        aria-expanded={open}
+        aria-controls={`${id}-pop`}
+        aria-haspopup="dialog"
+      >
         Paste
       </button>
       {open && (
-        <div className="paste-pop">
-          <div className="paste-title">Add from clipboard</div>
+        <div id={`${id}-pop`} className="paste-pop" role="dialog" aria-labelledby={`${id}-title`}>
+          <div id={`${id}-title`} className="paste-title">
+            Add from clipboard
+          </div>
           <input
             ref={inputRef}
+            aria-labelledby={`${id}-title`}
+            aria-describedby={`${id}-hint`}
+            aria-invalid={!!hint}
             value={text}
             placeholder="Press ⌘V — or type an image / page URL"
             onChange={(e) => {
@@ -84,14 +103,14 @@ export function PasteButton() {
               // otherwise let plain text land in the field
             }}
             onKeyDown={(e) => {
-              if (e.key === 'Escape') setOpen(false)
+              if (e.key === 'Escape') close(true)
               else if (e.key === 'Enter') {
                 e.preventDefault()
                 submit(jobsFromText(text), 'Enter a URL starting with http:// or https://')
               }
             }}
           />
-          <div className="paste-hint">
+          <div id={`${id}-hint`} className="paste-hint" aria-live="polite">
             {hint ||
               'Screenshots and copied images upload directly. Image URLs are downloaded; page URLs use the page’s preview image.'}
           </div>

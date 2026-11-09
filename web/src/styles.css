@@ -9,6 +9,9 @@
   --accent: #6ea8fe;
   --accent-dim: #2b4a7a;
   --danger: #e5534b;
+  /* form-field outlines: 3.55:1 on --bg, 3.26:1 on --bg-raised (WCAG 1.4.11);
+     --border stays for decorative dividers */
+  --field-border: #6b6b76;
 }
 
 * {
@@ -55,15 +58,54 @@ select {
   font: inherit;
   color: inherit;
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 1px solid var(--field-border);
   border-radius: 6px;
   padding: 5px 8px;
-  outline: none;
 }
 input:focus,
 textarea:focus,
 select:focus {
   border-color: var(--accent);
+}
+::placeholder {
+  color: var(--text-dim);
+  opacity: 1;
+}
+
+/* one visible focus ring for everything reached by keyboard (2.4.7, 2.4.11):
+   the accent is 7.75:1 on --bg */
+:focus {
+  outline: none;
+}
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline-offset: 0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* icon-only buttons: at least 24×24 px (2.5.8) */
+.icon-btn {
+  min-width: 24px;
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .center {
@@ -101,6 +143,22 @@ select:focus {
 }
 .token-gate .error {
   color: var(--danger);
+}
+.token-gate .error:empty {
+  display: none;
+}
+.token-gate label {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: -6px;
+}
+.token-help summary {
+  cursor: pointer;
+  color: var(--accent);
+}
+.token-help p {
+  margin-top: 6px;
+  font-size: 12px;
 }
 
 /* ---------- layout ---------- */
@@ -146,10 +204,13 @@ select:focus {
   flex-wrap: wrap;
   gap: 4px;
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 1px solid var(--field-border);
   border-radius: 8px;
   padding: 3px 8px;
   min-height: 30px;
+}
+.searchbox .chips {
+  display: contents;
 }
 .searchbox:focus-within {
   border-color: var(--accent);
@@ -160,6 +221,10 @@ select:focus {
   border: none;
   background: transparent;
   padding: 3px 2px;
+}
+/* the box around it shows focus (:focus-within) */
+.searchbox input:focus-visible {
+  outline: none;
 }
 .chip {
   display: inline-flex;
@@ -176,6 +241,14 @@ select:focus {
   padding: 0 4px;
   color: inherit;
   font-size: 13px;
+  min-width: 24px;
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.autocomplete[hidden] {
+  display: none;
 }
 .autocomplete {
   position: absolute;
@@ -189,18 +262,18 @@ select:focus {
   z-index: 50;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
-.autocomplete button {
+.autocomplete .ac-option {
   display: flex;
   justify-content: space-between;
   width: 100%;
-  border: none;
-  border-radius: 0;
-  background: none;
   padding: 7px 12px;
   text-align: left;
+  cursor: pointer;
 }
-.autocomplete button.active {
-  background: var(--bg-hover);
+/* the highlighted suggestion: fill plus an accent bar (7.11:1) */
+.autocomplete .ac-option.active {
+  background: var(--accent-dim);
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 .paste-wrap {
   position: relative;
@@ -226,7 +299,7 @@ select:focus {
 .paste-pop input {
   width: 100%;
   background: var(--bg);
-  border: 1px solid var(--accent);
+  border: 1px solid var(--field-border);
   border-radius: 8px;
   padding: 8px 10px;
 }
@@ -266,24 +339,56 @@ select:focus {
   letter-spacing: 0.06em;
   padding: 6px 8px 4px;
 }
+.section-head h2 {
+  font: inherit;
+  margin: 0;
+}
 .section-head button {
   padding: 0 7px;
   line-height: 18px;
 }
 .sidebar .row {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 8px;
+  align-items: stretch;
+  gap: 2px;
+  padding: 0 4px 0 4px;
   border-radius: 6px;
-  cursor: pointer;
   user-select: none;
 }
 .sidebar .row:hover {
   background: var(--bg-hover);
 }
+/* the selected view: fill plus an accent bar, since the fill alone is
+   1.93:1 against the sidebar (1.4.11); the bar is 7.11:1 */
 .sidebar .row.active {
   background: var(--accent-dim);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.sidebar .row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 4px;
+  min-height: 26px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  text-align: left;
+  cursor: pointer;
+}
+.sidebar .row-main:hover {
+  background: none;
+}
+.sidebar .row-main:focus-visible {
+  outline-offset: -2px;
+}
+/* dim text on the selected row: #c3cde0 is 5.56:1 on --accent-dim (1.4.3) */
+.sidebar .row.active .count,
+.sidebar .row.active .twisty,
+.sidebar .row.active .row-actions button {
+  color: #c3cde0;
 }
 .sidebar .row .name {
   flex: 1;
@@ -303,11 +408,16 @@ select:focus {
   background: none;
   border: none;
   padding: 0;
-  width: 14px;
+  min-width: 24px;
+  min-height: 24px;
+  align-self: center;
   color: var(--text-dim);
+}
+.folder-row .twisty span {
+  display: inline-block;
   transition: transform 0.1s;
 }
-.folder-row .twisty.open {
+.folder-row .twisty.open span {
   transform: rotate(90deg);
 }
 .folder-row .twisty.hidden {
@@ -316,17 +426,38 @@ select:focus {
 .folder-row.drag-over {
   outline: 1.5px dashed var(--accent);
 }
-.row-actions {
-  display: none;
-  gap: 2px;
+/* hidden until hover, or until keyboard focus reaches the row (2.1.1):
+   opacity, not display:none, so the buttons stay in the Tab order */
+/* laid over the row's right end, so hidden actions don't squeeze the name */
+.sidebar .row {
+  position: relative;
 }
-.sidebar .row:hover .row-actions {
+.row-actions {
+  position: absolute;
+  right: 2px;
+  top: 0;
+  bottom: 0;
   display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding-left: 4px;
+  border-radius: 6px;
+  background: var(--bg-hover);
+  opacity: 0;
+}
+.sidebar .row.active .row-actions {
+  background: var(--accent-dim);
+}
+.sidebar .row:hover .row-actions,
+.sidebar .row:focus-within .row-actions {
+  opacity: 1;
 }
 .row-actions button {
   background: none;
   border: none;
   padding: 0 3px;
+  min-width: 24px;
+  min-height: 24px;
   font-size: 11px;
   color: var(--text-dim);
 }
@@ -349,6 +480,10 @@ select:focus {
   padding: 8px 16px 2px;
   border-top: 1px solid var(--border);
 }
+.sidebar .stats .version {
+  margin-top: 2px;
+  font-size: 10.5px;
+}
 
 /* ---------- view controls (tile shape + size) ---------- */
 .view-controls {
@@ -357,11 +492,28 @@ select:focus {
   gap: 6px;
 }
 .layout-toggle {
-  width: 30px;
-  padding-left: 0;
-  padding-right: 0;
-  font-size: 15px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 2px 8px;
   line-height: 1;
+}
+.layout-toggle > span:first-child {
+  font-size: 15px;
+}
+.layout-toggle .btn-text {
+  font-size: 12px;
+}
+.layout-toggle.on {
+  border-color: var(--accent);
+}
+.size-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-dim);
+  font-size: 12px;
 }
 .size-slider {
   width: 96px;
@@ -381,11 +533,43 @@ select:focus {
   padding: 6px 14px;
   color: var(--text-dim);
   font-size: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 8px;
+}
+.grid-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.view-subtitle {
+  flex-basis: 100%;
+  margin: 2px 0 0;
 }
 .grid-scroll {
   flex: 1;
   overflow-y: auto;
   padding: 0 8px 80px;
+  scroll-padding-bottom: 80px;
+}
+.grid-empty {
+  position: absolute;
+  top: 25%;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 0 24px;
+  text-align: center;
+  color: var(--text-dim);
+}
+.grid-empty p {
+  margin: 0;
+  max-width: 420px;
 }
 .grid-row {
   position: absolute;
@@ -415,6 +599,11 @@ select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(110, 168, 254, 0.35);
 }
+/* the keyboard cursor, distinct from the blue selection (18.7:1 on --bg) */
+.tile:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
 .tile img {
   width: 100%;
   height: 100%;
@@ -433,6 +622,11 @@ select:focus {
 .tile-icon .ext {
   font-size: 12px;
   color: var(--text-dim);
+  max-width: 100%;
+  padding: 0 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .tile .badge {
   position: absolute;
@@ -462,7 +656,8 @@ select:focus {
   opacity: 0;
   transition: opacity 0.12s;
 }
-.tile:hover .tile-caption {
+.tile:hover .tile-caption,
+.tile:focus-visible .tile-caption {
   opacity: 1;
 }
 
@@ -506,12 +701,18 @@ select:focus {
   width: 100%;
   font-weight: 600;
 }
+.stars {
+  display: flex;
+  gap: 2px;
+}
 .stars button {
   background: none;
   border: none;
   font-size: 18px;
   padding: 0 2px;
-  color: #3f3f46;
+  min-width: 28px;
+  min-height: 28px;
+  color: var(--text-dim);
 }
 .stars button.on {
   color: #ffd166;
@@ -521,7 +722,10 @@ select:focus {
   flex-direction: column;
   gap: 6px;
 }
-.detail-section label {
+.detail-section label,
+.detail-section .section-label {
+  margin: 0;
+  font-weight: normal;
   color: var(--text-dim);
   font-size: 11px;
   text-transform: uppercase;
@@ -565,8 +769,39 @@ select:focus {
   color: var(--accent);
   text-decoration: none;
 }
-.multi-summary h3 {
+.multi-summary h3,
+.multi-summary .panel-title {
   margin: 0 0 6px;
+  font-size: 17px;
+}
+.detail-thumb {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg);
+  height: 150px;
+  flex-shrink: 0;
+}
+.detail-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.detail-thumb-icon {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+}
+.detail-thumb .open-full {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  background: rgba(0, 0, 0, 0.72);
+  border-color: var(--field-border);
+  min-height: 28px;
 }
 .multi-summary p {
   margin: 4px 0;
@@ -587,7 +822,7 @@ select:focus {
 .preview-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.88);
+  background: rgba(0, 0, 0, 0.94);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -655,14 +890,20 @@ select:focus {
 .preview-nav.next {
   right: 6px;
 }
+/* its own round button, so it reads as the preview's control rather than
+   something sitting on top of the toolbar behind */
 .preview-close {
   position: fixed;
   top: 12px;
   right: 14px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 50%;
   font-size: 18px;
-  background: none;
-  border: none;
-  color: var(--text-dim);
+  background: var(--bg-raised);
+  border: 1px solid var(--field-border);
+  color: var(--text);
   z-index: 101;
 }
 
@@ -719,6 +960,9 @@ select:focus {
 }
 .toast progress {
   width: 70px;
+}
+.upload-toasts:empty {
+  display: none;
 }
 
 /* ---------- phone layout ----------
@@ -881,6 +1125,29 @@ select:focus {
   height: 36px;
   font-size: 14px;
 }
+/* the drawer's close button */
+.drawer-head {
+  display: none;
+}
+.mobile .drawer-head {
+  display: flex;
+  justify-content: flex-end;
+  padding: max(6px, env(safe-area-inset-top)) 8px 0;
+  background: var(--bg-raised);
+}
+.mobile .drawer {
+  flex-direction: column;
+}
+.mobile .drawer .sidebar {
+  flex: 1;
+  min-height: 0;
+}
+.drawer-close {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  font-size: 18px;
+}
 /* view-only on the phone; hover-revealed buttons also eat the first tap on iOS */
 .mobile .row-actions,
 .mobile .section-head button {
@@ -996,9 +1263,14 @@ select:focus {
   padding: 6px 0;
 }
 
-/* full-screen preview: swipe instead of the side arrows */
+/* full-screen preview: swipe, plus small arrow buttons at the bottom for
+   anyone who can't swipe (2.5.1) */
 .mobile .preview-nav {
-  display: none;
+  top: auto;
+  bottom: calc(8px + env(safe-area-inset-bottom));
+  transform: none;
+  font-size: 28px;
+  padding: 8px 16px;
 }
 .mobile .preview-overlay figure,
 .mobile .preview-overlay img,
@@ -1130,6 +1402,8 @@ select:focus {
 .toast button {
   padding: 1px 8px;
   font-size: 12px;
+  min-height: 24px;
+  min-width: 24px;
 }
 .mobile .modal button,
 .mobile .status-row button {
@@ -1159,6 +1433,12 @@ select:focus {
 }
 .detail-filename.unsaved {
   border-color: #8a6d1a;
+}
+.detail-filename.unsaved:focus {
+  border-color: var(--accent);
+}
+.item-status.empty {
+  display: none;
 }
 
 /* ---------- notices (components/Notices.tsx) and dialogs (Dialog.tsx) ---------- */
@@ -1197,10 +1477,12 @@ select:focus {
 }
 .notice button {
   padding: 1px 8px;
+  min-height: 24px;
+  min-width: 24px;
 }
 /* phone (same query as MOBILE_QUERY in mobile.ts; notices render outside
  * .app-shell): show them at the top, clear of the item sheet and keyboard */
-@media (max-width: 760px), (max-height: 500px) and (pointer: coarse) {
+@media (max-width: 760px) and (pointer: coarse), (max-height: 500px) and (pointer: coarse) {
   .notices {
     top: calc(env(safe-area-inset-top, 0px) + 8px);
     bottom: auto;
@@ -1260,4 +1542,50 @@ select:focus {
 .crash-actions {
   display: flex;
   gap: 8px;
+}
+
+/* ---------- narrow desktop windows (and desktop browser zoom) ----------
+ * Browser zoom narrows the CSS viewport just like a small window, but a
+ * mouse-driven browser keeps the full desktop layout (MOBILE_QUERY needs a
+ * coarse pointer); here it reflows instead of losing controls (1.4.10). */
+@media (max-width: 900px) {
+  .app-shell:not(.mobile) .topbar {
+    flex-wrap: wrap;
+  }
+  .app-shell:not(.mobile) .searchbox {
+    flex-basis: 220px;
+  }
+  .app-shell:not(.mobile) .sidebar {
+    width: 180px;
+  }
+  .app-shell:not(.mobile) .detail-panel {
+    width: 220px;
+  }
+  .app-shell:not(.mobile) .bulkbar {
+    flex-wrap: wrap;
+    white-space: normal;
+    width: calc(100% - 24px);
+  }
+}
+@media (max-width: 600px) {
+  .app-shell:not(.mobile) .app-body {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .app-shell:not(.mobile) .sidebar {
+    width: auto;
+    max-height: 32vh;
+    flex-shrink: 0;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .app-shell:not(.mobile) .grid-area {
+    min-height: 60vh;
+  }
+  .app-shell:not(.mobile) .detail-panel {
+    width: auto;
+    border-left: none;
+    border-top: 1px solid var(--border);
+    overflow: visible;
+  }
 }

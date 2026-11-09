@@ -15,6 +15,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { useInertBackground } from '../useInert'
 import { useLayer } from '../useShortcuts'
 
 const FOCUSABLE =
@@ -35,10 +36,13 @@ export function Modal({
   headerClose?: boolean
 }) {
   const ref = useRef<HTMLDivElement>(null)
+  const overlayRef = useRef<HTMLDivElement>(null)
   const titleId = useId()
   const closeRef = useRef(onClose)
   closeRef.current = onClose
   useLayer('modal', true)
+  // the page behind is inert: Tab, clicks and screen readers stay in here
+  useInertBackground(overlayRef)
 
   useEffect(() => {
     const before = document.activeElement as HTMLElement | null
@@ -79,7 +83,7 @@ export function Modal({
   }
 
   return (
-    <div className="modal-overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div ref={overlayRef} className="modal-overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div
         ref={ref}
         className={`modal ${className}`}
@@ -92,8 +96,8 @@ export function Modal({
         <div className="modal-head">
           <h3 id={titleId}>{title}</h3>
           {headerClose && (
-            <button onClick={onClose} aria-label="Close">
-              ✕
+            <button className="icon-btn" onClick={onClose} aria-label={`Close ${title}`}>
+              <span aria-hidden="true">✕</span>
             </button>
           )}
         </div>

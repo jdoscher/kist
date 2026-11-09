@@ -3,10 +3,19 @@
 import { useEffect, useState } from 'react'
 
 /**
- * When the phone layout applies: narrow screens, plus phones held sideways
- * (short and touch-only). Keep in sync with the @media block in styles.css.
+ * When the phone layout applies: touch screens that are narrow, or short
+ * (a phone held sideways). Both need a coarse pointer, so a desktop
+ * browser zoomed to 200-400% (which narrows the CSS viewport just the
+ * same) keeps the full desktop layout with every editing control (WCAG
+ * 1.4.4 / 1.4.10); styles.css reflows that layout for narrow windows
+ * instead. Keep in sync with the @media block in styles.css.
  */
-const MOBILE_QUERY = '(max-width: 760px), (max-height: 500px) and (pointer: coarse)'
+export const MOBILE_QUERY = '(max-width: 760px) and (pointer: coarse), (max-height: 500px) and (pointer: coarse)'
+
+/** MOBILE_QUERY as a function, for tests and reasoning. */
+export function isPhoneLayout(width: number, height: number, coarsePointer: boolean): boolean {
+  return coarsePointer && (width <= 760 || height <= 500)
+}
 
 export type MobileCols = 2 | 3
 

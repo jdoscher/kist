@@ -21,7 +21,7 @@ export function ItemMeta({ item }: { item: Item }) {
             <span>Source</span>
             {source ? (
               <a href={source.href} target="_blank" rel="noreferrer">
-                {source.host} ↗
+                {source.host} <span aria-hidden="true">↗</span>
               </a>
             ) : (
               // not an http(s) URL: show it, don't link it (and never crash)
@@ -32,7 +32,11 @@ export function ItemMeta({ item }: { item: Item }) {
       </div>
 
       {item.dominant_colors && item.dominant_colors.length > 0 && (
-        <div className="color-strip">
+        <div
+          className="color-strip"
+          role="img"
+          aria-label={`Main colours: ${item.dominant_colors.map((c) => `${c.hex} ${Math.round(c.pct)}%`).join(', ')}`}
+        >
           {item.dominant_colors.map((c) => (
             <span key={c.hex} style={{ background: c.hex, flexGrow: c.pct }} title={c.hex} />
           ))}

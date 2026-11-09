@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fileUrl, thumbUrl, type Item } from '../api'
 import { swipeDirection } from '../mobile'
-import { fullPreviewUrl, previewBoxPx } from '../preview'
+import { fullPreviewUrl, pdfFrameProps, previewBoxPx } from '../preview'
 import { useCurrentItems, useItem } from '../data'
 import { useAppState } from '../state'
+import { useFocusInOut, useFocusTrap, useInertBackground } from '../useInert'
 import { useLayer, useShortcut } from '../useShortcuts'
+import { tileDomId } from './Grid'
 
 /** Show the 1024 thumb at once, then swap in the sharper copy the screen
  * actually needs (preview.ts: usually the 2048 WebP, not the original). */
@@ -23,6 +25,11 @@ function ProgressiveImage({ item, mobile }: { item: Item; mobile: boolean }) {
   }, [item, mobile])
 
   return <img src={src} alt={item.filename} />
+}
+
+/** PDFs: see pdfFrameProps in preview.ts for why the frame has no sandbox. */
+function PdfFrame({ item }: { item: Item }) {
+  return <iframe src={fileUrl(item)} title={`PDF: ${item.filename}`} {...pdfFrameProps()} />
 }
 
 export function Preview() {
@@ -70,6 +77,20 @@ export function Preview() {
   // touch: swipe left/right for the next/previous item, down to close
   const touch = useRef<{ x: number; y: number; n: number } | null>(null)
 
+  // a modal dialog: the page behind is inert, focus starts on Close and
+  // goes back to the tile of the item you were looking at last
+  const open = !!item
+  const overlayRef = useRef<HTMLDivElement>(null)
+  const closeRef = useRef<HTMLButtonElement>(null)
+  const lastId = useRef(previewId)
+  if (previewId) lastId.current = previewId
+  useInertBackground(overlayRef, open)
+  useFocusTrap(overlayRef, open)
+  useFocusInOut(overlayRef, open, {
+    initial: () => closeRef.current,
+    restore: () => (lastId.current ? document.getElementById(tileDomId(lastId.current)) : null),
+  })
+
   if (!item) return null
 
   const onTouchStart = (e: React.TouchEvent) => {
@@ -91,27 +112,36 @@ export function Preview() {
 
   return (
     <div
+      ref={overlayRef}
       className="preview-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Preview: ${item.filename}`}
       onClick={() => setPreviewId(null)}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >
+      <button ref={closeRef} className="preview-close" aria-label="Close preview" onClick={() => setPreviewId(null)}>
+        <span aria-hidden="true">✕</span>
+      </button>
+
       <button
         className="preview-nav prev"
+        aria-label="Previous item"
         disabled={idx <= 0}
         onClick={(e) => {
           e.stopPropagation()
           go(-1)
         }}
       >
-        ‹
+        <span aria-hidden="true">‹</span>
       </button>
 
       <figure onClick={(e) => e.stopPropagation()}>
         {item.kind === 'video' ? (
           <video src={fileUrl(item)} controls autoPlay />
         ) : item.kind === 'pdf' ? (
-          <iframe src={fileUrl(item)} title={item.filename} />
+          <PdfFrame item={item} />
         ) : item.has_thumb && item.kind === 'image' && item.ext !== 'svg' ? (
           <ProgressiveImage key={item.id} item={item} mobile={mobile} />
         ) : item.kind === 'image' ? (
@@ -121,31 +151,29 @@ export function Preview() {
             <p>No preview for .{item.ext}</p>
           </div>
         )}
-        <figcaption>
+        <figcaption aria-live="polite" aria-atomic="true">
           <span className="fname">{item.filename}</span>
           <span className="meta">
             {item.width && item.height ? `${item.width}×${item.height}` : ''}
             {idx >= 0 ? `${item.width && item.height ? ' · ' : ''}${idx + 1} / ${items.length}` : ''}
           </span>
           <a href={fileUrl(item)} target="_blank" rel="noreferrer">
-            Open original ↗
+            Open original <span aria-hidden="true">↗</span>
+            <span className="sr-only"> (new tab)</span>
           </a>
         </figcaption>
       </figure>
 
       <button
         className="preview-nav next"
+        aria-label="Next item"
         disabled={idx < 0 || idx >= items.length - 1}
         onClick={(e) => {
           e.stopPropagation()
           go(1)
         }}
       >
-        ›
-      </button>
-
-      <button className="preview-close" onClick={() => setPreviewId(null)}>
-        ✕
+        <span aria-hidden="true">›</span>
       </button>
     </div>
   )

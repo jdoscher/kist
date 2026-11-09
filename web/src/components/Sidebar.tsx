@@ -1,12 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState, useEffect, type ReactNode } from 'react'
 import { api, emptyQuery, type Folder, type SmartFolder } from '../api'
 import { bulkReport, useBulkAction } from '../bulk'
-import { useFolders, useRefresh, useSmartFolders, useStats, useTags } from '../data'
+import { useFolders, useRefresh, useSmartFolders, useStats, useTags, useVersion } from '../data'
 import { useAppState } from '../state'
+import { useFocusInOut, useFocusTrap, useInertBackground } from '../useInert'
 import { useLayer } from '../useShortcuts'
 import { useWrite } from '../useWrite'
 import { useDialog } from './Dialog'
 import { useNotices } from './Notices'
+import { useUploads } from './UploadManager'
 import { isUnfiledView, smartFolderQuery, unfiledQuery } from '../query'
 import { fmtBytes } from '../format'
 import type { Query } from '../api'
@@ -25,6 +27,69 @@ function buildTree(folders: Folder[]): TreeNode[] {
     else roots.push(node)
   }
   return roots
+}
+
+/**
+ * One sidebar row: the row div is the layout (and a drop target for
+ * folders); the label part is a real button, so every row works from the
+ * keyboard. Views and folders say aria-current when shown; tags, which
+ * toggle, say aria-pressed.
+ */
+function Row({
+  icon,
+  name,
+  count,
+  active,
+  toggle = false,
+  onActivate,
+  title,
+  className = '',
+  style,
+  before,
+  actions,
+  rowProps,
+}: {
+  icon?: string
+  name: string
+  count?: number | string
+  active: boolean
+  toggle?: boolean
+  onActivate: () => void
+  title?: string
+  className?: string
+  style?: React.CSSProperties
+  before?: ReactNode
+  actions?: ReactNode
+  rowProps?: React.HTMLAttributes<HTMLDivElement>
+}) {
+  const shown = count !== undefined && count !== '' && count !== 0
+  return (
+    <div className={`row ${active ? 'active' : ''} ${className}`} style={style} {...rowProps}>
+      {before}
+      <button
+        className="row-main"
+        onClick={onActivate}
+        title={title}
+        aria-current={!toggle && active ? 'page' : undefined}
+        aria-pressed={toggle ? active : undefined}
+      >
+        {icon && (
+          <span className="icon" aria-hidden="true">
+            {icon}
+          </span>
+        )}
+        <span className="name">{name}</span>
+        {shown && (
+          <span className="count">
+            <span className="sr-only">, </span>
+            {count}
+            <span className="sr-only">{count === 1 ? ' item' : ' items'}</span>
+          </span>
+        )}
+      </button>
+      {actions && <span className="row-actions">{actions}</span>}
+    </div>
+  )
 }
 
 function FolderRow({
@@ -46,7 +111,7 @@ function FolderRow({
 
   // folder writes touch no item: only the folder list refreshes
   const rename = async () => {
-    const name = await dialog.prompt({ title: 'Rename folder', initial: node.name, confirmLabel: 'Rename' })
+    const name = await dialog.prompt({ title: 'Rename folder', label: 'Name', initial: node.name, confirmLabel: 'Rename' })
     if (!name || name === node.name) return
     void w.run('rename', () => api.patchFolder(node.id, { name }), {
       what: 'rename the folder',
@@ -87,48 +152,89 @@ function FolderRow({
     })
   }
 
+  const hasChildren = node.children.length > 0
   return (
     <div>
-      <div
-        className={`row folder-row ${active ? 'active' : ''} ${dragOver ? 'drag-over' : ''}`}
-        style={{ paddingLeft: 8 + depth * 14 }}
-        onClick={() => setQuery({ folder: active ? null : node.id, deleted: false })}
-        onDragOver={(e) => {
-          if (e.dataTransfer.types.includes('application/x-kist-items')) {
+      <Row
+        className={`folder-row ${dragOver ? 'drag-over' : ''}`}
+        style={{ paddingLeft: 4 + depth * 14 }}
+        name={node.name}
+        count={node.item_count || ''}
+        active={active}
+        onActivate={() => setQuery({ folder: active ? null : node.id, deleted: false })}
+        before={
+          <button
+            className={`twisty ${hasChildren ? '' : 'hidden'} ${expanded ? 'open' : ''}`}
+            aria-label={`${expanded ? 'Collapse' : 'Expand'} ${node.name}`}
+            aria-expanded={hasChildren ? expanded : undefined}
+            tabIndex={hasChildren ? undefined : -1}
+            onClick={() => setExpanded(!expanded)}
+          >
+            <span aria-hidden="true">▸</span>
+          </button>
+        }
+        actions={
+          <>
+            <button title="New subfolder" aria-label={`New subfolder in ${node.name}`} onClick={() => void addChild()}>
+              <span aria-hidden="true">+</span>
+            </button>
+            <button title="Rename" aria-label={`Rename ${node.name}`} onClick={() => void rename()}>
+              <span aria-hidden="true">✎</span>
+            </button>
+            <button title="Delete" aria-label={`Delete ${node.name}`} onClick={() => void remove()}>
+              <span aria-hidden="true">🗑</span>
+            </button>
+          </>
+        }
+        rowProps={{
+          onDragOver: (e) => {
+            if (e.dataTransfer.types.includes('application/x-kist-items')) {
+              e.preventDefault()
+              setDragOver(true)
+            }
+          },
+          onDragLeave: () => setDragOver(false),
+          onDrop: (e) => {
             e.preventDefault()
-            setDragOver(true)
-          }
+            setDragOver(false)
+            const raw = e.dataTransfer.getData('application/x-kist-items')
+            if (raw) onDropItems(node.id, JSON.parse(raw))
+          },
         }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={(e) => {
-          e.preventDefault()
-          setDragOver(false)
-          const raw = e.dataTransfer.getData('application/x-kist-items')
-          if (raw) onDropItems(node.id, JSON.parse(raw))
-        }}
-      >
-        <button
-          className={`twisty ${node.children.length ? '' : 'hidden'} ${expanded ? 'open' : ''}`}
-          onClick={(e) => {
-            e.stopPropagation()
-            setExpanded(!expanded)
-          }}
-        >
-          ▸
-        </button>
-        <span className="name">{node.name}</span>
-        <span className="count">{node.item_count || ''}</span>
-        <span className="row-actions">
-          <button title="New subfolder" onClick={(e) => { e.stopPropagation(); addChild() }}>+</button>
-          <button title="Rename" onClick={(e) => { e.stopPropagation(); rename() }}>✎</button>
-          <button title="Delete" onClick={(e) => { e.stopPropagation(); remove() }}>🗑</button>
-        </span>
-      </div>
+      />
       {expanded &&
         node.children.map((c) => (
           <FolderRow key={c.id} node={c} depth={depth + 1} onDropItems={onDropItems} />
         ))}
     </div>
+  )
+}
+
+/** Phone: the one way to add from the phone (decision 3b keeps editing on
+ * the desktop; Jay approved upload on phones). iOS offers Photos here. */
+function PhoneUpload() {
+  const uploads = useUploads()
+  const { closeDrawer } = useAppState()
+  const fileRef = useRef<HTMLInputElement>(null)
+  return (
+    <>
+      <Row icon="⇪" name="Upload photos or files" active={false} onActivate={() => fileRef.current?.click()} />
+      <input
+        ref={fileRef}
+        type="file"
+        multiple
+        hidden
+        aria-hidden="true"
+        tabIndex={-1}
+        onChange={(e) => {
+          if (e.target.files?.length) {
+            uploads.enqueue(Array.from(e.target.files))
+            closeDrawer()
+          }
+          e.target.value = ''
+        }}
+      />
+    </>
   )
 }
 
@@ -138,6 +244,7 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
   const { data: tags } = useTags()
   const { data: stats } = useStats()
   const { data: smartFolders } = useSmartFolders()
+  const { data: version } = useVersion()
   const refresh = useRefresh()
   const dialog = useDialog()
   const { notify } = useNotices()
@@ -188,7 +295,7 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
   }
 
   const renameSmart = async (s: SmartFolder) => {
-    const name = await dialog.prompt({ title: 'Rename smart folder', initial: s.name, confirmLabel: 'Rename' })
+    const name = await dialog.prompt({ title: 'Rename smart folder', label: 'Name', initial: s.name, confirmLabel: 'Rename' })
     if (!name || name === s.name) return
     void w.run(`smart:${s.id}`, () => api.patchSmartFolder(s.id, { name }), {
       what: 'rename the smart folder',
@@ -224,104 +331,105 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
     (t) => !tagFilter || t.name.toLowerCase().includes(tagFilter.toLowerCase()),
   )
 
+  const versionText = version ? `Kist ${version.version}${version.commit !== 'unknown' ? ` (${version.commit.slice(0, 12)})` : ''}` : ''
+
   return (
-    <aside className="sidebar">
-      <div className="section">
-        <div
-          className={`row ${isAll ? 'active' : ''}`}
-          onClick={() => setQuery({ ...emptyQuery, order: query.order })}
+    <aside className="sidebar" aria-label="Library navigation">
+      <nav className="section" aria-label="Views">
+        {mobile && <PhoneUpload />}
+        <Row
+          icon="◆"
+          name="All items"
+          count={stats?.total_items ?? ''}
+          active={isAll}
+          onActivate={() => setQuery({ ...emptyQuery, order: query.order })}
           title="Show everything and clear all filters"
-        >
-          <span className="icon">◆</span>
-          <span className="name">All items</span>
-          <span className="count">{stats?.total_items ?? ''}</span>
-        </div>
-        <div
-          className={`row ${isUnfiledView(query) ? 'active' : ''}`}
-          onClick={() => setQuery({ ...emptyQuery, ...unfiledQuery, order: query.order } as Query)}
-          title="Items in no folder and with no tags: your inbox"
-        >
-          <span className="icon">◇</span>
-          <span className="name">Unfiled</span>
-        </div>
-        <div
-          className={`row ${query.deleted ? 'active' : ''}`}
-          onClick={() => setQuery({ deleted: !query.deleted, folder: null })}
-        >
-          <span className="icon">🗑</span>
-          <span className="name">Trash</span>
-          <span className="count">{stats?.trashed_items || ''}</span>
-        </div>
+        />
+        <Row
+          icon="◇"
+          name="Unfiled"
+          active={isUnfiledView(query) && !smartId}
+          onActivate={() => setQuery({ ...emptyQuery, ...unfiledQuery, order: query.order } as Query)}
+          title="Items with no folder and no tag: your inbox"
+        />
+        <Row
+          icon="🗑"
+          name="Trash"
+          count={stats?.trashed_items || ''}
+          active={query.deleted && !smartId}
+          onActivate={() => setQuery({ deleted: !query.deleted, folder: null })}
+        />
         {attention > 0 && (
-          <div
-            className="row attention-row"
-            onClick={() => setJobsOpen(true)}
+          <Row
+            className="attention-row"
+            icon="⚠"
+            name="Needs attention"
+            count={attention}
+            active={false}
+            onActivate={() => setJobsOpen(true)}
             title="Imports and previews that failed"
-          >
-            <span className="icon">⚠</span>
-            <span className="name">Needs attention</span>
-            <span className="count">{attention}</span>
-          </div>
+          />
         )}
-      </div>
+      </nav>
 
       <div className="section grow">
         <div className="section-head">
-          <span>Folders</span>
-          <button onClick={newFolder} title="New folder">+</button>
+          <h2>Folders</h2>
+          <button className="icon-btn" onClick={() => void newFolder()} title="New folder" aria-label="New folder">
+            <span aria-hidden="true">+</span>
+          </button>
         </div>
         {tree.map((n) => (
           <FolderRow key={n.id} node={n} depth={0} onDropItems={onDropItems} />
         ))}
-        {tree.length === 0 && <div className="hint">No folders yet</div>}
-
-        <div className="section-head" style={{ marginTop: 16 }}>
-          <span>Smart folders</span>
-          <button onClick={saveSmartFolder} title="Save current search as a smart folder">
-            +
-          </button>
-        </div>
-        {(smartFolders ?? []).map((s) => (
-          <div
-            key={s.id}
-            className={`row ${smartId === s.id ? 'active' : ''}`}
-            onClick={() => applySmartFolder(s.id, s.query)}
-          >
-            <span className="icon">◎</span>
-            <span className="name">{s.name}</span>
-            <span className="row-actions">
-              <button
-                title="Rename"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  void renameSmart(s)
-                }}
-              >
-                ✎
-              </button>
-              <button
-                title="Delete"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  void deleteSmart(s)
-                }}
-              >
-                🗑
-              </button>
-            </span>
-          </div>
-        ))}
-        {(smartFolders?.length ?? 0) === 0 && (
-          <div className="hint">Filter something, then + to save it</div>
+        {tree.length === 0 && (
+          <div className="hint">{mobile ? 'No folders yet.' : 'No folders yet. Press + to make one.'}</div>
         )}
 
         <div className="section-head" style={{ marginTop: 16 }}>
-          <span>Tags</span>
+          <h2>Smart folders</h2>
+          <button
+            className="icon-btn"
+            onClick={() => void saveSmartFolder()}
+            title="Save this search as a smart folder"
+            aria-label="Save this search as a smart folder"
+          >
+            <span aria-hidden="true">+</span>
+          </button>
+        </div>
+        {(smartFolders ?? []).map((s) => (
+          <Row
+            key={s.id}
+            icon="◎"
+            name={s.name}
+            active={smartId === s.id}
+            onActivate={() => applySmartFolder(s.id, s.query)}
+            actions={
+              <>
+                <button title="Rename" aria-label={`Rename smart folder ${s.name}`} onClick={() => void renameSmart(s)}>
+                  <span aria-hidden="true">✎</span>
+                </button>
+                <button title="Delete" aria-label={`Delete smart folder ${s.name}`} onClick={() => void deleteSmart(s)}>
+                  <span aria-hidden="true">🗑</span>
+                </button>
+              </>
+            }
+          />
+        ))}
+        {(smartFolders?.length ?? 0) === 0 && (
+          <div className="hint">
+            {mobile ? 'No saved searches yet.' : 'Save a search: filter the grid, then press + above.'}
+          </div>
+        )}
+
+        <div className="section-head" style={{ marginTop: 16 }}>
+          <h2>Tags</h2>
         </div>
         {(tags?.length ?? 0) > 12 && (
           <input
             className="tag-filter"
             placeholder="Filter tags…"
+            aria-label="Filter tags"
             value={tagFilter}
             onChange={(e) => setTagFilter(e.target.value)}
           />
@@ -329,39 +437,53 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
         {visibleTags.map((t) => {
           const active = query.tags.includes(t.name)
           return (
-            <div
+            <Row
               key={t.id}
-              className={`row ${active ? 'active' : ''}`}
-              onClick={() =>
+              icon="#"
+              name={t.name}
+              count={t.count}
+              active={active}
+              toggle
+              onActivate={() =>
                 setQuery({
                   tags: active ? query.tags.filter((x) => x !== t.name) : [...query.tags, t.name],
                   deleted: false,
                 })
               }
-            >
-              <span className="icon">#</span>
-              <span className="name">{t.name}</span>
-              <span className="count">{t.count}</span>
-            </div>
+            />
           )
         })}
-        {(tags?.length ?? 0) === 0 && <div className="hint">No tags yet</div>}
+        {(tags?.length ?? 0) === 0 && (
+          <div className="hint">No tags yet. Add them in an item’s info panel.</div>
+        )}
       </div>
 
       {stats && (
-        <div className="section stats">
+        <div className="section stats" title={versionText || undefined}>
           {stats.total_items} items · {fmtBytes(stats.total_size_bytes)}
           {mobile && ` · ${stats.tag_count} tags`}
+          {versionText && <div className="version">{versionText}</div>}
         </div>
       )}
     </aside>
   )
 }
 
-/** Phone layout: the sidebar slides in over the grid from the ☰ button. */
+/** Phone layout: the sidebar slides in over the grid from the ☰ button. A
+ * modal dialog while open (the page behind is inert, Escape or ✕ closes
+ * it, focus goes back to ☰); inert when closed, so Tab never walks the
+ * hidden rows. */
 export function Drawer() {
   const { query, smartId, drawerOpen, setDrawerOpen, closeDrawer } = useAppState()
   useLayer('modal', drawerOpen)
+  const layerRef = useRef<HTMLDivElement>(null)
+  const drawerRef = useRef<HTMLDivElement>(null)
+  useInertBackground(layerRef, drawerOpen)
+  useFocusTrap(drawerRef, drawerOpen)
+  useFocusInOut(drawerRef, drawerOpen, {
+    initial: () => drawerRef.current?.querySelector<HTMLElement>('.row-main'),
+    restore: () => document.querySelector<HTMLElement>('.menu-btn'),
+  })
 
   // picking a folder, smart folder or tag changes the query: close the drawer
   const mounted = useRef(false)
@@ -371,14 +493,30 @@ export function Drawer() {
   }, [query, smartId, setDrawerOpen])
 
   return (
-    <>
+    <div ref={layerRef} className="drawer-layer">
+      <div className={`drawer-backdrop${drawerOpen ? ' open' : ''}`} onClick={closeDrawer} />
       <div
-        className={`drawer-backdrop${drawerOpen ? ' open' : ''}`}
-        onClick={closeDrawer}
-      />
-      <div className={`drawer${drawerOpen ? ' open' : ''}`} aria-hidden={!drawerOpen}>
+        ref={drawerRef}
+        id="folder-drawer"
+        className={`drawer${drawerOpen ? ' open' : ''}`}
+        role={drawerOpen ? 'dialog' : undefined}
+        aria-modal={drawerOpen ? 'true' : undefined}
+        aria-label="Folders and tags"
+        inert={!drawerOpen}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            e.stopPropagation()
+            closeDrawer()
+          }
+        }}
+      >
+        <div className="drawer-head">
+          <button className="drawer-close" aria-label="Close menu" onClick={closeDrawer}>
+            <span aria-hidden="true">✕</span>
+          </button>
+        </div>
         <Sidebar mobile />
       </div>
-    </>
+    </div>
   )
 }

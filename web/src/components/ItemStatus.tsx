@@ -7,10 +7,11 @@ import { useItemWrite } from '../useWrite'
 export function ItemStatus({ item }: { item: Item }) {
   const { write, busy } = useItemWrite(item.id)
 
-  if (item.state === 'active' && (item.preview_status === 'ready' || item.preview_status === 'none'))
-    return null
+  // always mounted, so changes (Retry -> making the preview -> done) are read out
+  const quiet = item.state === 'active' && (item.preview_status === 'ready' || item.preview_status === 'none')
+  if (quiet) return <div className="item-status empty" aria-live="polite" />
   return (
-    <div className="item-status">
+    <div className="item-status" aria-live="polite">
       {item.state === 'trashed' && (
         <div className="status-row trashed">
           <span>In Trash</span>

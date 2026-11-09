@@ -40,6 +40,7 @@ export function DetailSheet() {
   return (
     <aside
       className="detail-sheet"
+      aria-label="Item details"
       style={drag ? { transform: `translateY(${drag}px)`, transition: 'none' } : undefined}
     >
       <div
@@ -52,21 +53,25 @@ export function DetailSheet() {
       </div>
       <div className="sheet-head">
         {thumb ? (
-          <img src={thumb} alt={item.filename} onClick={() => setPreviewId(item.id)} />
+          <img src={thumb} alt="" onClick={() => setPreviewId(item.id)} />
         ) : (
-          <div className="sheet-icon" onClick={() => setPreviewId(item.id)}>
+          <div className="sheet-icon" aria-hidden="true" onClick={() => setPreviewId(item.id)}>
             .{item.ext}
           </div>
         )}
         <div className="sheet-title">
-          <div className="fname">{item.filename}</div>
-          {item.rating > 0 && <div className="sheet-stars">{'★'.repeat(item.rating)}</div>}
+          <h2 className="fname">{item.filename}</h2>
+          {item.rating > 0 && (
+            <div className="sheet-stars" role="img" aria-label={`${item.rating} of 5 stars`}>
+              {'★'.repeat(item.rating)}
+            </div>
+          )}
           <button className="primary" onClick={() => setPreviewId(item.id)}>
             View
           </button>
         </div>
-        <button className="sheet-close" onClick={clearSelection} aria-label="Close">
-          ✕
+        <button className="sheet-close" onClick={clearSelection} aria-label="Close item details">
+          <span aria-hidden="true">✕</span>
         </button>
       </div>
 
@@ -108,7 +113,8 @@ export function DetailSheet() {
         )}
         <ItemMeta item={item} />
         <a className="open-original" href={fileUrl(item)} target="_blank" rel="noreferrer">
-          Open original ↗
+          Open original <span aria-hidden="true">↗</span>
+          <span className="sr-only"> (new tab)</span>
         </a>
       </div>
     </aside>
