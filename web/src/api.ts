@@ -208,6 +208,8 @@ export interface ArchiveHealth {
     age_h: number | null
     error: string | null
     snapshot_id: string | null
+    db_dump_ok?: boolean | null
+    db_dump_error?: string | null
     interval_hours: number
   }
   disk: { free_bytes: number | null }

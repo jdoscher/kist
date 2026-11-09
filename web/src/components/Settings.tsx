@@ -496,6 +496,11 @@ function ArchiveSection() {
           </Fact>
           <Fact label="Last good backup">{backup.last_ok_at ? `${fmtAgeHours(backup.age_h)} ago` : 'never'}</Fact>
           {backup.error && !backup.ok && <Fact label="Error">{backup.error}</Fact>}
+          {backup.last_at && backup.db_dump_ok === false && (
+            <Fact label="Database dump">
+              <Status ok={false}>Skipped: {backup.db_dump_error ?? 'unknown error'}</Status>
+            </Fact>
+          )}
           <Fact label="Schedule">
             {backup.interval_hours ? `every ${backup.interval_hours} hours` : 'manual (kist backup)'}
           </Fact>

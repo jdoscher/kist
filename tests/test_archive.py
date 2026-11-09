@@ -193,6 +193,7 @@ def test_backup_with_restic(client, clean, fakebin, monkeypatch, tmp_path):
 
     health = client.get("/api/archive-health").json()
     assert health["backup"]["ok"] and health["backup"]["repo_set"]
+    assert health["backup"]["db_dump_ok"] is True and health["backup"]["db_dump_error"] is None
     assert health["backup"]["age_h"] is not None and health["backup"]["age_h"] < 1
     done = {c["id"]: c["done"] for c in health["checklist"]}
     assert done["repo"] and done["recent"] and not done["offsite"]

@@ -87,6 +87,10 @@ def health(session: Session) -> dict:
         "age_h": age_h,
         "error": last_backup.get("error"),
         "snapshot_id": last_backup.get("snapshot_id"),
+        # the library snapshot is the backup; a failed database dump only
+        # makes restores slower, so it's a warning, not a failure
+        "db_dump_ok": (last_backup.get("db_dump") or {}).get("ok"),
+        "db_dump_error": (last_backup.get("db_dump") or {}).get("error"),
         "interval_hours": settings.backup_interval_hours,
     }
     try:
