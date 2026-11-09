@@ -11,6 +11,10 @@ from . import thumbs
 
 def main(argv: list[str]) -> int:
     logging.basicConfig(level=logging.WARNING)
+    if argv and argv[0] == "--screen":
+        original, item_dir, ext = argv[1:]
+        thumbs.screen_copy_from(Path(original), Path(item_dir), ext)
+        return 0
     original, item_dir, mime, ext = argv
     probe = thumbs.generate_previews(Path(original), Path(item_dir), mime, ext)
     print(json.dumps({

@@ -5,7 +5,7 @@ import {
   flattenItems,
   useAppState,
   useFolders,
-  useInvalidateItems,
+  useApplyItems,
   useItem,
   useItems,
   useStats,
@@ -37,21 +37,35 @@ function Stars({ value, onChange }: { value: number; onChange: (v: number) => vo
 /** The item's server-side states, with the action that moves each one on:
  * Trash -> Restore, failed preview -> Retry. Shown on desktop and phone. */
 export function ItemStatus({ item }: { item: Item }) {
-  const invalidate = useInvalidateItems()
+  const apply = useApplyItems()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const run = async (fn: () => Promise<unknown>) => {
+  const run = async (fn: () => Promise<Item>) => {
     setBusy(true)
     setError('')
     try {
-      await fn()
-      invalidate()
+      apply([await fn()])
     } catch (e) {
       setError(String((e as Error).message ?? e))
     } finally {
       setBusy(false)
     }
   }
+  // while a preview is being made, check this one item (not the whole list)
+  const pending = item.preview_status === 'pending'
+  useEffect(() => {
+    if (!pending) return
+    const t = setInterval(async () => {
+      try {
+        const fresh = await api.getItem(item.id)
+        if (fresh.preview_status !== 'pending') apply([fresh])
+      } catch {
+        /* try again next tick */
+      }
+    }, 3000)
+    return () => clearInterval(t)
+  }, [pending, item.id, apply])
+
   if (item.state === 'active' && (item.preview_status === 'ready' || item.preview_status === 'none'))
     return null
   return (
@@ -85,7 +99,7 @@ export function ItemStatus({ item }: { item: Item }) {
 }
 
 function SingleItem({ item }: { item: Item }) {
-  const invalidate = useInvalidateItems()
+  const apply = useApplyItems()
   const { data: folders } = useFolders()
   const folderName = useMemo(
     () => new Map((folders ?? []).map((f) => [f.id, f.name])),
@@ -101,21 +115,19 @@ function SingleItem({ item }: { item: Item }) {
   }, [item.id, item.filename, item.notes])
 
   const save = async (patch: Parameters<typeof api.patchItem>[1]) => {
-    await api.patchItem(item.id, patch)
-    invalidate()
+    apply([await api.patchItem(item.id, patch)])
   }
 
   const addTags = async () => {
     const extra = tagText.split(',').map((t) => t.trim()).filter(Boolean)
     if (!extra.length) return
-    await api.putTags(item.id, [...new Set([...item.tags, ...extra])])
+    const updated = await api.putTags(item.id, [...new Set([...item.tags, ...extra])])
     setTagText('')
-    invalidate()
+    apply([updated])
   }
 
   const removeTag = async (tag: string) => {
-    await api.putTags(item.id, item.tags.filter((t) => t !== tag))
-    invalidate()
+    apply([await api.putTags(item.id, item.tags.filter((t) => t !== tag))])
   }
 
   return (
@@ -157,8 +169,7 @@ function SingleItem({ item }: { item: Item }) {
               {folderName.get(fid) ?? fid}
               <button
                 onClick={async () => {
-                  await api.putFolders(item.id, item.folder_ids.filter((f) => f !== fid))
-                  invalidate()
+                  apply([await api.putFolders(item.id, item.folder_ids.filter((f) => f !== fid))])
                 }}
               >
                 ×
@@ -170,8 +181,7 @@ function SingleItem({ item }: { item: Item }) {
           value=""
           onChange={async (e) => {
             if (e.target.value && !item.folder_ids.includes(e.target.value)) {
-              await api.putFolders(item.id, [...item.folder_ids, e.target.value])
-              invalidate()
+              apply([await api.putFolders(item.id, [...item.folder_ids, e.target.value])])
             }
           }}
         >

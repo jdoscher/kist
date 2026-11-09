@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from . import __version__
 from .api import api_router
 from .auth import BearerTokenMiddleware
+from .compress import CompressText
 from .config import get_settings
 from .headers import SecurityHeadersMiddleware
 from .mcp_server import mcp, mcp_http_app
@@ -57,10 +58,19 @@ app.include_router(api_router, prefix="/api")
 app.mount("/mcp", mcp_http_app)
 app.add_middleware(BearerTokenMiddleware)
 app.add_middleware(McpPathRewrite)
+app.add_middleware(CompressText)  # gzip JSON/JS/CSS, never media
 app.add_middleware(SecurityHeadersMiddleware)  # outermost: 401s get headers too
 
 if WEB_DIST.is_dir():
-    app.mount("/assets", StaticFiles(directory=WEB_DIST / "assets"), name="assets")
+    class HashedAssets(StaticFiles):
+        """Vite puts a content hash in every asset name: cache them for good."""
+
+        def file_response(self, *args, **kwargs):
+            response = super().file_response(*args, **kwargs)
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+            return response
+
+    app.mount("/assets", HashedAssets(directory=WEB_DIST / "assets"), name="assets")
 
     @app.get("/{path:path}", include_in_schema=False)
     async def spa(path: str):

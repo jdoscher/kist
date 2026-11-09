@@ -37,6 +37,7 @@ export interface Item {
   state: ItemState
   preview_status: PreviewStatus
   preview_error: string | null
+  preview_rev: number // changes when the preview files do: part of every thumbnail URL
   has_thumb: boolean
   thumb_url: string | null
   created_at: string
@@ -219,7 +220,8 @@ export const api = {
     request<SmartFolder>(`/api/smart-folders/${id}`, { ...json(patch), method: 'PATCH' }),
   deleteSmartFolder: (id: string) =>
     request<unknown>(`/api/smart-folders/${id}`, { method: 'DELETE' }),
-  trashItem: (id: string) => request<unknown>(`/api/items/${id}`, { method: 'DELETE' }),
+  trashItem: (id: string) =>
+    request<{ status: string; item: Item }>(`/api/items/${id}`, { method: 'DELETE' }),
   hardDeleteItem: (id: string) => request<unknown>(`/api/items/${id}?hard=true`, { method: 'DELETE' }),
   restoreItem: (id: string) => request<Item>(`/api/items/${id}/restore`, { method: 'POST' }),
   addUrl: (url: string, folder_id: string | null) =>
@@ -282,7 +284,8 @@ export function uploadFile(
 
 export function thumbUrl(item: Item, size: 256 | 512 | 1024 = 256): string | null {
   if (!item.has_thumb) return null
-  return `/api/items/${item.id}/thumb?size=${size}`
+  // versioned, so the server lets the browser keep it for good
+  return `/api/items/${item.id}/thumb?size=${size}&v=${item.preview_rev}`
 }
 
 export function fileUrl(item: Item): string {

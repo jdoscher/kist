@@ -23,7 +23,7 @@ from ..schemas import (
     TagsPut,
     UrlAdd,
 )
-from ..services import ingest, search
+from ..services import ingest, search, thumbs
 from ..services import items as items_svc
 from ..services import jobs as jobs_svc
 
@@ -276,6 +276,7 @@ def get_file(item_id: str, session: Annotated[Session, Depends(get_session)]):
         # opened on its own, an original is a sandboxed document: it can never
         # run script with this origin's storage (where the token lives)
         headers["Content-Security-Policy"] = "sandbox"
+    headers["Cache-Control"] = CACHE_FOREVER  # an item's original never changes
     return FileResponse(
         path,
         media_type=item.mime,
@@ -285,24 +286,39 @@ def get_file(item_id: str, session: Annotated[Session, Depends(get_session)]):
     )
 
 
+# Previews change only when preview_rev does, and every URL the UI builds
+# carries ?v=<preview_rev>, so a versioned request can be cached for good.
+# Originals never change at all. Both are private: they sit behind the token.
+CACHE_FOREVER = "private, max-age=31536000, immutable"
+CACHE_REVALIDATE = "private, no-cache"
+
+
 @router.get("/{item_id}/thumb")
 def get_thumb(
     item_id: str,
     session: Annotated[Session, Depends(get_session)],
     size: int = 256,
+    v: int | None = None,
 ):
+    """size 256 | 512 | 1024 thumbnails; 2048 is the full-screen copy and
+    4096 the full-resolution HEIC copy. A missing copy falls back to the next
+    smaller one, and that answer is never cached for good."""
     item = _get_or_404(session, item_id)
     item_dir = get_settings().items_dir / item.id
-    if size > 1024:  # full-res display copy (HEIC); falls back to 1024
-        path = item_dir / "display.webp"
-        if not path.is_file():
-            path = item_dir / "thumb_1024.webp"
+    if size > 2048:
+        wanted = ["display.webp", thumbs.SCREEN_FILE, "thumb_1024.webp"]
+    elif size > 1024:
+        wanted = [thumbs.SCREEN_FILE, "display.webp", "thumb_1024.webp"]
+    else:
+        size = 256 if size <= 256 else 512 if size <= 512 else 1024
+        wanted = [f"thumb_{size}.webp"] + (["thumb_1024.webp"] if size == 512 else [])
+    for n, name in enumerate(wanted):
+        path = item_dir / name
         if path.is_file():
-            return FileResponse(path, media_type="image/webp")
-    size = 256 if size <= 256 else 512 if size <= 512 else 1024
-    path = item_dir / f"thumb_{size}.webp"
-    if not path.is_file() and size == 512:
-        path = item_dir / "thumb_1024.webp"  # not yet backfilled
-    if not path.is_file():
-        raise HTTPException(404, "no thumbnail for this item")
-    return FileResponse(path, media_type="image/webp")
+            exact = n == 0 and v is not None and v == (item.preview_rev or 0)
+            return FileResponse(
+                path,
+                media_type="image/webp",
+                headers={"Cache-Control": CACHE_FOREVER if exact else CACHE_REVALIDATE},
+            )
+    raise HTTPException(404, "no thumbnail for this item")

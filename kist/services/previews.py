@@ -75,7 +75,25 @@ def regenerate(session: Session, item: Item) -> PreviewStatus:
             kept = item.width is not None and (item_dir / "thumb_256.webp").is_file()
             item.preview_status = PreviewStatus.READY if kept else PreviewStatus.FAILED
             item.preview_error = short_error(exc)
+    item.preview_rev = (item.preview_rev or 0) + 1
     session.commit()
     session.refresh(item)
     meta_svc.write_meta(item)
     return PreviewStatus(item.preview_status)
+
+
+def add_screen_copy(session: Session, item: Item) -> bool:
+    """Make only the 2048 full-screen copy (items ingested before it existed).
+    Returns False when the item doesn't need one or it already exists."""
+    item_dir = get_settings().items_dir / item.id
+    if (
+        kind_for(item.mime, item.ext) != "image"
+        or item.preview_status != PreviewStatus.READY
+        or not thumbs.needs_screen_copy(item.width, item.height)
+        or (item_dir / thumbs.SCREEN_FILE).is_file()
+    ):
+        return False
+    thumbs.screen_copy_isolated(item_dir / f"original.{item.ext}", item_dir, item.ext)
+    item.preview_rev = (item.preview_rev or 0) + 1
+    session.commit()
+    return True

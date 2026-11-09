@@ -194,7 +194,7 @@ def regen_previews(do_all: bool) -> int:
     from .services import previews
 
     settings = get_settings()
-    done = skipped = failed = 0
+    done = skipped = failed = screen = 0
     with SessionLocal() as session:
         items = session.execute(sa.select(Item)).scalars().all()
         for item in items:
@@ -213,7 +213,17 @@ def regen_previews(do_all: bool) -> int:
                 not do_all and complete and item.width is not None
                 and item.preview_status == PreviewStatus.READY
             ):
-                skipped += 1
+                # older items only lack the 2048 full-screen copy: make just that
+                try:
+                    if previews.add_screen_copy(session, item):
+                        screen += 1
+                        print(f"  + {item.id} {item.filename} (full-screen copy)")
+                    else:
+                        skipped += 1
+                except Exception as exc:
+                    session.rollback()
+                    failed += 1
+                    print(f"  ! {item.id} {item.filename}: {str(exc)[-200:]}", file=sys.stderr)
                 continue
             try:
                 status = previews.regenerate(session, item)
@@ -228,7 +238,10 @@ def regen_previews(do_all: bool) -> int:
             else:
                 done += 1
                 print(f"  ✓ {item.id} {item.filename}")
-    print(f"previews: {done} regenerated, {skipped} already fine, {failed} failed")
+    print(
+        f"previews: {done} regenerated, {screen} full-screen copies added, "
+        f"{skipped} already fine, {failed} failed"
+    )
     return 0 if failed == 0 else 2
 
 

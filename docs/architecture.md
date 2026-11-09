@@ -116,6 +116,9 @@ queued jobs (up to 3 attempts with backoff).
      it in a subprocess, since the two libheif copies conflict in one process.
      HEIC also gets a full-resolution `display.webp`, because browsers can't
      render HEIC.
+   - every image over 1024 px also gets `display_2048.webp`, the copy the
+     full-screen preview shows unless the screen needs more (originals run
+     5-30 MB; this is about 0.5 MB).
 4. Perceptual hash and a 5-color palette, from the thumbnails.
 5. Write `meta.json`.
 
@@ -134,8 +137,14 @@ instead.
   pixel size.
 - The info panel stays mounted while open, so selecting an item never
   reflows the grid.
-- The preview shows `thumb_1024` immediately, then swaps in the original (or
-  the HEIC `display.webp`).
+- The preview shows `thumb_1024` immediately, then swaps in what the screen
+  needs (`web/src/preview.ts`): the 2048 copy, or on a big high-density screen
+  the original (HEIC: `display.webp`).
+- Edits patch the loaded list in place with the item the API returns
+  (`useApplyItems`, `stillMatches`) instead of refetching every page.
+- Caching: hashed `/assets/*` and originals are immutable; thumbnails are
+  immutable when requested with `v=<preview_rev>`, which regeneration bumps.
+  JSON/JS/CSS are gzipped (`kist/compress.py`); media never is.
 - The token is kept in `localStorage` and mirrored to a `kist_token` cookie
   so `<img>`/`<video>` tags authenticate. The server accepts that cookie for
   GET/HEAD only.

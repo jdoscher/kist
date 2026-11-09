@@ -31,6 +31,7 @@ class ItemOut(BaseModel):
     state: str  # lifecycle.ItemState: active | trashed
     preview_status: str  # lifecycle.PreviewStatus: pending | ready | failed | none
     preview_error: str | None
+    preview_rev: int  # changes when the preview files do (thumbnail URL ?v=)
     has_thumb: bool
     thumb_url: str | None
     created_at: datetime
@@ -65,8 +66,11 @@ class ItemOut(BaseModel):
             state=item_state(item).value,
             preview_status=str(status),
             preview_error=item.preview_error,
+            preview_rev=item.preview_rev or 0,
             has_thumb=has_thumb,
-            thumb_url=f"/api/items/{item.id}/thumb" if has_thumb else None,
+            thumb_url=(
+                f"/api/items/{item.id}/thumb?v={item.preview_rev or 0}" if has_thumb else None
+            ),
             created_at=item.created_at,
             modified_at=item.modified_at,
             deleted_at=item.deleted_at,

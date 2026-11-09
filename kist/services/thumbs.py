@@ -140,6 +140,25 @@ def _save_webp(thumb, path: Path) -> None:
 
 
 DISPLAY_MAX = 4096
+# the full-screen preview's copy: sharp on phones and most laptop screens at
+# ~0.5 MB, where originals run 5-30 MB (measured 2026-11-09)
+SCREEN_MAX = 2048
+SCREEN_FILE = "display_2048.webp"
+
+
+def needs_screen_copy(width: int | None, height: int | None) -> bool:
+    """Images whose long side is over 1024 get a 2048 copy; smaller ones are
+    already fully shown by thumb_1024."""
+    return max(width or 0, height or 0) > 1024
+
+
+def make_screen_copy(source: Path, item_dir: Path) -> None:
+    import pyvips
+
+    img = pyvips.Image.thumbnail(str(source), SCREEN_MAX, height=SCREEN_MAX, size="down")
+    if img.hasalpha():
+        img = img.flatten(background=[24, 24, 27])
+    img.webpsave(str(item_dir / SCREEN_FILE), Q=82, smart_subsample=True)
 
 
 def make_display_copy(source: Path, item_dir: Path) -> None:
@@ -233,6 +252,8 @@ def generate_previews(original: Path, item_dir: Path, mime: str, ext: str) -> Pr
             probe.width, probe.height = make_thumbs_from(original, item_dir)
             if is_heif:
                 make_display_copy(original, item_dir)
+            if needs_screen_copy(probe.width, probe.height):
+                make_screen_copy(original, item_dir)
         except Exception:
             if ext.lower() not in HEIF_EXTS:
                 raise
@@ -242,13 +263,17 @@ def generate_previews(original: Path, item_dir: Path, mime: str, ext: str) -> Pr
                 probe.width, probe.height = make_thumbs_from(poster, item_dir)
                 if is_heif:
                     make_display_copy(poster, item_dir)
+                if needs_screen_copy(probe.width, probe.height):
+                    make_screen_copy(poster, item_dir)
     else:
         return probe  # no preview for 'other'
 
     return probe
 
 
-PREVIEW_FILES = ("thumb_256.webp", "thumb_512.webp", "thumb_1024.webp", "display.webp")
+PREVIEW_FILES = (
+    "thumb_256.webp", "thumb_512.webp", "thumb_1024.webp", "display.webp", SCREEN_FILE,
+)
 
 
 def generate_previews_isolated(
@@ -287,6 +312,43 @@ def generate_previews_isolated(
         data.get("width"), data.get("height"), data.get("duration_s"),
     )
     return probe
+
+
+def screen_copy_from(original: Path, item_dir: Path, ext: str) -> None:
+    """Only the 2048 copy, for items ingested before it existed. HEIC reuses
+    its decoded display.webp."""
+    display = item_dir / "display.webp"
+    if ext.lower() in HEIF_EXTS and display.is_file():
+        make_screen_copy(display, item_dir)
+        return
+    try:
+        make_screen_copy(original, item_dir)
+    except Exception:
+        if ext.lower() not in HEIF_EXTS:
+            raise
+        with tempfile.TemporaryDirectory() as td:
+            poster = Path(td) / "decoded.png"
+            heif_poster(original, poster)
+            make_screen_copy(poster, item_dir)
+
+
+def screen_copy_isolated(original: Path, item_dir: Path, ext: str) -> None:
+    """screen_copy_from() in a child process with the preview time limit."""
+    from ..config import get_settings
+
+    try:
+        out = subprocess.run(
+            [sys.executable, "-m", "kist.services.preview_child", "--screen",
+             str(original), str(item_dir), ext],
+            capture_output=True, text=True,
+            timeout=get_settings().preview_timeout_seconds,
+        )
+    except subprocess.TimeoutExpired:
+        (item_dir / SCREEN_FILE).unlink(missing_ok=True)
+        raise RuntimeError("screen copy timed out") from None
+    if out.returncode != 0:
+        (item_dir / SCREEN_FILE).unlink(missing_ok=True)
+        raise RuntimeError(f"screen copy failed (exit {out.returncode}): {out.stderr[-800:]}")
 
 
 def _remove_previews(item_dir: Path) -> None:

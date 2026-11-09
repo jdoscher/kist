@@ -19,7 +19,7 @@ function TokenGate({ onDone }: { onDone: () => void }) {
     e.preventDefault()
     setToken(value.trim())
     try {
-      await api.health()
+      await api.stats() // needs the token (/api/health doesn't, so it can't check one)
       onDone()
     } catch {
       setError('That token was rejected. Check KIST_TOKEN in your .env.')
@@ -61,7 +61,14 @@ function ServerBanner() {
 }
 
 export default function App() {
-  const [authed, setAuthed] = useState<boolean | null>(null)
+  // /api/health needs no token, so waiting on it before loading data only
+  // cost a round trip: start straight away, and a 401 from any request
+  // brings back the token screen
+  const [authed, setAuthed] = useState<boolean>(() => {
+    const token = getToken()
+    if (token) setToken(token) // refresh the media cookie
+    return !!token
+  })
   const qc = useQueryClient()
   const mobile = useIsMobile()
 
@@ -72,19 +79,8 @@ export default function App() {
 
   useEffect(() => {
     setUnauthorizedHandler(() => setAuthed(false))
-    const token = getToken()
-    if (!token) {
-      setAuthed(false)
-      return
-    }
-    setToken(token) // refresh the media cookie
-    api
-      .health()
-      .then(() => setAuthed(true))
-      .catch((err) => setAuthed(err?.status === 401 ? false : true))
   }, [])
 
-  if (authed === null) return <div className="boot">Loading…</div>
   if (!authed) return <TokenGate onDone={recheck} />
 
   return (

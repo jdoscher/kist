@@ -15,7 +15,7 @@ import {
   type ReactNode,
 } from 'react'
 import { api, emptyQuery, type Item, type Query } from './api'
-import { mergeQuery } from './query'
+import { folderSubtree, mergeQuery, stillMatches } from './query'
 import { fromUrl, historyAction, layerOf, toUrl, type Place } from './url'
 import {
   TILE_SIZE_DEFAULT,
@@ -341,12 +341,61 @@ export function useItems(query: Query) {
     queryFn: ({ pageParam }) => api.listItems(query, pageParam || undefined),
     initialPageParam: '',
     getNextPageParam: (last) => last.next_cursor ?? undefined,
-    // while a preview is being made, check back until it settles
-    refetchInterval: (q) =>
-      q.state.data?.pages.some((p) => p.items.some((i) => i.preview_status === 'pending'))
-        ? PENDING_POLL_MS
-        : false,
+    // a refetch reloads every loaded page in sequence (measured: 37 pages,
+    // 4.5 MB): edits patch the list in place instead (useApplyItems), and
+    // coming back to the tab doesn't reload it
+    refetchOnWindowFocus: false,
   })
+}
+
+type ItemsPages = { pages: { items: Item[]; next_cursor: string | null; total: number | null }[]; pageParams: unknown[] }
+
+/**
+ * Apply edits the API already answered with (it returns the updated item) to
+ * every loaded list, without refetching: items that left a view are dropped
+ * from it, and the lists are marked stale so the next visit reloads them.
+ */
+export function useApplyItems() {
+  const qc = useQueryClient()
+  return useCallback(
+    (updated: Item[], removedIds: string[] = []) => {
+      const byId = new Map(updated.map((i) => [i.id, i]))
+      const removed = new Set(removedIds)
+      const folders = qc.getQueryData<{ id: string; parent_id: string | null }[]>(['folders']) ?? []
+      for (const [key, data] of qc.getQueriesData<ItemsPages>({ queryKey: ['items'] })) {
+        if (!data) continue
+        const q = key[1] as Query
+        const sub = q.folder && q.folder !== 'none' ? folderSubtree(q.folder, folders) : undefined
+        let dropped = 0
+        const pages = data.pages.map((p) => {
+          const items = p.items.flatMap((i) => {
+            if (removed.has(i.id)) {
+              dropped++
+              return []
+            }
+            const next = byId.get(i.id)
+            if (!next) return [i]
+            if (!stillMatches(next, q, sub)) {
+              dropped++
+              return []
+            }
+            return [next]
+          })
+          return { ...p, items }
+        })
+        if (dropped && pages[0].total != null) pages[0] = { ...pages[0], total: pages[0].total - dropped }
+        qc.setQueryData(key, { ...data, pages })
+      }
+      for (const i of updated) qc.setQueryData(['item', i.id], i)
+      // stale, not refetched now: the next visit to a list reloads it
+      qc.invalidateQueries({ queryKey: ['items'], refetchType: 'none' })
+      // small lists whose counts may have changed
+      qc.invalidateQueries({ queryKey: ['tags'] })
+      qc.invalidateQueries({ queryKey: ['folders'] })
+      qc.invalidateQueries({ queryKey: ['stats'] })
+    },
+    [qc],
+  )
 }
 
 /** An item by id: from the loaded grid if it's there, else fetched (a link
@@ -416,48 +465,55 @@ export interface BulkInput {
 }
 
 export function useBulkAction() {
-  const invalidate = useInvalidateItems()
+  const apply = useApplyItems()
   return useMutation({
     mutationFn: async ({ ids, action }: BulkInput) => {
-      for (const id of ids) {
-        switch (action.kind) {
-          case 'move':
-            await api.putFolders(id, action.folderId ? [action.folderId] : [])
-            break
-          case 'addFolder': {
-            const current = action.itemFolders.get(id) ?? []
-            if (!current.includes(action.folderId)) {
-              await api.putFolders(id, [...current, action.folderId])
+      const updated: Item[] = []
+      const removed: string[] = []
+      try {
+        for (const id of ids) {
+          switch (action.kind) {
+            case 'move':
+              updated.push(await api.putFolders(id, action.folderId ? [action.folderId] : []))
+              break
+            case 'addFolder': {
+              const current = action.itemFolders.get(id) ?? []
+              if (!current.includes(action.folderId)) {
+                updated.push(await api.putFolders(id, [...current, action.folderId]))
+              }
+              break
             }
-            break
+            case 'trash':
+              updated.push((await api.trashItem(id)).item)
+              break
+            case 'restore':
+              updated.push(await api.restoreItem(id))
+              break
+            case 'hardDelete':
+              await api.hardDeleteItem(id)
+              removed.push(id)
+              break
+            case 'addTags': {
+              const current = action.itemTags.get(id) ?? []
+              const merged = [...new Set([...current, ...action.tags])]
+              updated.push(await api.putTags(id, merged))
+              break
+            }
+            case 'removeTag': {
+              const current = action.itemTags.get(id) ?? []
+              updated.push(await api.putTags(id, current.filter((t) => t !== action.tag)))
+              break
+            }
+            case 'rating':
+              updated.push(await api.patchItem(id, { rating: action.rating }))
+              break
           }
-          case 'trash':
-            await api.trashItem(id)
-            break
-          case 'restore':
-            await api.restoreItem(id)
-            break
-          case 'hardDelete':
-            await api.hardDeleteItem(id)
-            break
-          case 'addTags': {
-            const current = action.itemTags.get(id) ?? []
-            const merged = [...new Set([...current, ...action.tags])]
-            await api.putTags(id, merged)
-            break
-          }
-          case 'removeTag': {
-            const current = action.itemTags.get(id) ?? []
-            await api.putTags(id, current.filter((t) => t !== action.tag))
-            break
-          }
-          case 'rating':
-            await api.patchItem(id, { rating: action.rating })
-            break
         }
+      } finally {
+        // whatever went through is shown, even if a later item failed
+        apply(updated, removed)
       }
     },
-    onSettled: () => invalidate(),
   })
 }
 

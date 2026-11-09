@@ -6,7 +6,32 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Performance
+Measured on a 4,417-item library; details in the performance review.
+- **The full-screen view no longer downloads originals on a phone.** Every
+  image over 1024 px gets a 2048 px WebP copy (about 0.5 MB, where
+  originals run 5-30 MB), and the preview picks the copy unless the screen
+  shows the image wider than that. Five swipes through large photos went
+  from 93 MB to about 3 MB. Run `kist regen-previews` once to make copies
+  for existing images; it makes only the missing copy, leaving the other
+  previews alone.
+- **Edits no longer reload the whole list.** Changing a rating, tags or
+  folders, trashing or restoring updates the loaded list in place (an
+  item that no longer belongs in the view drops out of it), instead of
+  refetching every loaded page (37 pages and 4.5 MB on a fully scrolled
+  library). Coming back to the tab no longer reloads the list either, and a
+  batch upload refreshes it once at the end, not after every file.
+- **Compressed responses:** JSON, JS and CSS are gzipped (3-6× smaller);
+  images and videos aren't.
+- **Caching:** the app's hashed files, originals and versioned thumbnails
+  are cached by the browser for good. Thumbnail URLs carry `?v=<preview_rev>`
+  (new on items), which changes whenever a preview is regenerated.
+- **Faster start:** the app no longer waits on a server check before
+  loading the library.
+
 ### Fixed
+- The token screen accepted any token: it checked `/api/health`, which needs
+  none. It now checks with a request that does.
 - **A file dropped in the inbox can no longer be lost.** If importing it
   failed partway (for example the database was briefly unavailable), Kist
   deleted it and then marked the job done. Now the file is put back, a

@@ -109,6 +109,9 @@ class Item(Base):
         Text, default="pending", server_default="pending"
     )
     preview_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # bumped whenever the preview files change; part of every thumbnail URL so
+    # browsers can cache them forever and still see a regenerated preview
+    preview_rev: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
     tags: Mapped[list[Tag]] = relationship(secondary="item_tags", lazy="selectin")
     folders: Mapped[list[Folder]] = relationship(

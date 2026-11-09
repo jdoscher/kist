@@ -1,24 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fileUrl, thumbUrl, type Item } from '../api'
 import { swipeDirection } from '../mobile'
+import { fullPreviewUrl, previewBoxPx } from '../preview'
 import { flattenItems, useAppState, useItem, useItems } from '../state'
 
-// formats every browser renders natively — load the original itself
-const WEB_NATIVE = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif'])
-// formats Chrome can't render — the server keeps a full-res display.webp
-const NEEDS_DISPLAY_COPY = new Set(['heic', 'heif'])
-const MAX_ORIGINAL_BYTES = 40 * 1024 * 1024
-
-/** Show the 1024 thumb at once, then swap in a full-res version once loaded. */
-function ProgressiveImage({ item }: { item: Item }) {
+/** Show the 1024 thumb at once, then swap in the sharper copy the screen
+ * actually needs (preview.ts: usually the 2048 WebP, not the original). */
+function ProgressiveImage({ item, mobile }: { item: Item; mobile: boolean }) {
   const [src, setSrc] = useState(thumbUrl(item, 1024) ?? '')
 
   useEffect(() => {
-    const ext = item.ext.toLowerCase()
-    if (Math.max(item.width ?? 0, item.height ?? 0) <= 1024) return
-    let fullUrl: string | null = null
-    if (WEB_NATIVE.has(ext) && item.size_bytes <= MAX_ORIGINAL_BYTES) fullUrl = fileUrl(item)
-    else if (NEEDS_DISPLAY_COPY.has(ext)) fullUrl = `/api/items/${item.id}/thumb?size=4096`
+    const fullUrl = fullPreviewUrl(item, ...previewBoxPx(mobile))
     if (!fullUrl) return
     const full = new Image()
     full.onload = () => setSrc(full.src)
@@ -26,13 +18,13 @@ function ProgressiveImage({ item }: { item: Item }) {
     return () => {
       full.onload = null
     }
-  }, [item])
+  }, [item, mobile])
 
   return <img src={src} alt={item.filename} />
 }
 
 export function Preview() {
-  const { query, previewId, setPreviewId, selectOnly } = useAppState()
+  const { query, previewId, setPreviewId, selectOnly, mobile } = useAppState()
   const result = useItems(query)
   const items = useMemo(() => flattenItems(result.data?.pages), [result.data])
   const idx = useMemo(() => items.findIndex((i) => i.id === previewId), [items, previewId])
@@ -117,7 +109,7 @@ export function Preview() {
         ) : item.kind === 'pdf' ? (
           <iframe src={fileUrl(item)} title={item.filename} />
         ) : item.has_thumb && item.kind === 'image' && item.ext !== 'svg' ? (
-          <ProgressiveImage key={item.id} item={item} />
+          <ProgressiveImage key={item.id} item={item} mobile={mobile} />
         ) : item.kind === 'image' ? (
           <img src={fileUrl(item)} alt={item.filename} />
         ) : (

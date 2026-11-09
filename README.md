@@ -122,6 +122,8 @@ and trashed state. `--wipe` clears the tables first. Other maintenance commands:
 
 - `kist rewrite-meta`: rewrites every `meta.json` from the database.
 - `kist regen-previews [--all]`: generates missing or failed previews, or all of them.
+  It also adds the 2048 px full-screen copy to older images that lack one,
+  without touching their other previews.
 - `kist verify`: reports where the database and the files on disk disagree
   (missing originals, stale `meta.json`, folders with no database row).
   It changes nothing and names the command that fixes each problem.
@@ -188,7 +190,8 @@ POST   /api/items/{id}/preview   queue another attempt at the item's previews
 PUT    /api/items/{id}/tags      {"tags": [...]}
 PUT    /api/items/{id}/folders   {"folder_ids": [...]}
 GET    /api/items/{id}/file      the original
-GET    /api/items/{id}/thumb     ?size=256|512|1024
+GET    /api/items/{id}/thumb     ?size=256|512|1024, 2048 (full-screen copy), 4096 (HEIC);
+                                 &v=<preview_rev> makes the answer cacheable for good
 GET    /api/tags                 with counts
 DELETE /api/tags/unused          delete tags no item uses (trashed items count)
 GET/POST/PATCH/DELETE /api/folders

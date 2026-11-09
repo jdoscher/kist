@@ -36,6 +36,16 @@ export function UploadManager({ children }: { children: ReactNode }) {
   const queryRef = useRef(query)
   queryRef.current = query
   const busy = useRef(false)
+  // one list refresh after a batch, not one per file (each refresh reloads
+  // every loaded page)
+  const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const refreshSoon = useCallback(() => {
+    if (refreshTimer.current) clearTimeout(refreshTimer.current)
+    refreshTimer.current = setTimeout(() => {
+      if (!busy.current) invalidate()
+      else refreshSoon()
+    }, 1500)
+  }, [invalidate]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // send the next queued entry, one at a time (states: uploads.ts)
   useEffect(() => {
@@ -72,9 +82,9 @@ export function UploadManager({ children }: { children: ReactNode }) {
         busy.current = false
         dispatch({ type: 'fail', key, error: String((err as Error).message ?? err) })
       }
-      invalidate()
+      refreshSoon()
     })()
-  }, [entries, invalidate])
+  }, [entries, refreshSoon])
 
   // finished uploads fade out after a few seconds
   const fading = entries.some((e) => e.status === 'done' || e.status === 'duplicate')
