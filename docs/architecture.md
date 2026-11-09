@@ -25,25 +25,46 @@ library/     bind mount: the durable copy of everything
 
 ```
 kist/
-├── app.py           FastAPI app, lifespan, SPA serving, /mcp mount
-├── auth.py          bearer-token middleware (/api and /mcp)
+├── app.py           FastAPI app, lifespan, SPA serving, /mcp mount, service
+│                    error -> HTTP status mapping
+├── auth.py          bearer-token middleware (/api, /mcp, /docs)
+├── headers.py       security headers (CSP, HSTS, framing) on every response
+├── compress.py      gzip for JSON/JS/CSS, never media
+├── observability.py logging format, request ids, 500 handler, rate limiter
 ├── config.py        KIST_* settings
+├── db.py            engine and session factory
+├── ids.py           ULIDs
+├── filetypes.py     kind (image/video/pdf/other) from the sniffed MIME type,
+│                    and which originals may be shown inline
 ├── lifecycle.py     every state machine: names and allowed transitions
 ├── models.py        SQLAlchemy models
-├── schemas.py       API request/response models
+├── schemas.py       API request/response models; ItemOut.for_agent (MCP shape)
 ├── api/             REST routers: items, folders, smart folders, tags, jobs, misc
 ├── services/        all business logic, shared by REST, MCP, CLI, and worker
-│   ├── ingest.py    hash → dedupe → sniff → store → previews → meta.json
+│   ├── validation.py input rules every path shares (422 / MCP ToolError)
+│   ├── ingest.py    hash → dedupe → sniff → store → previews → meta.json;
+│   │                inbox scan; the MCP import-dir rule
+│   ├── netguard.py  URL downloads: public addresses only, pinned IPs, deadlines
 │   ├── thumbs.py    probing, thumbnails, perceptual hash, dominant colors
-│   ├── search.py    filters + cursor pagination
-│   ├── items.py     edits, tags, folder membership, trash
-│   ├── jobs.py      job queue transitions (claim, finish, lease, retry)
-│   ├── previews.py  preview status and retries
-│   ├── folders.py   folder tree + folders.json snapshot
-│   └── meta.py      meta.json read/write
-├── mcp_server.py    MCP tools (thin wrappers over services/)
-├── worker.py        job loop + inbox scanner + heartbeat
-├── cli.py           rebuild-index, rewrite-meta, regen-previews, verify
+│   ├── preview_child.py  the child process previews run in (time limit)
+│   ├── search.py    filters + cursor pagination; KIND_FILTERS = kind in SQL
+│   ├── items.py     edits (with the 409 version check), tags, folder
+│   │                membership, trash, purge
+│   ├── tags.py      tag upsert, counts, pruning
+│   ├── folders.py   folder tree (moves under a lock) + folders.json
+│   ├── smart_folders.py  saved searches
+│   ├── library.py   stats (one query) and near-duplicates
+│   ├── jobs.py      job queue transitions (claim, finish, lease, retry),
+│   │                staging recovery
+│   ├── previews.py  preview status, retries, reclassify
+│   ├── meta.py      the durable copy: atomic meta.json / folders.json writes
+│   ├── verify.py    compare Postgres with the disk (CLI + daily worker run)
+│   └── health.py    /api/health/deep checks, worker heartbeat file
+├── mcp_server.py    MCP tools (thin wrappers over services/; no queries)
+├── worker.py        job loop, inbox scanner, staging sweep, daily verify,
+│                    heartbeat thread
+├── cli.py           rebuild-index, rewrite-meta, regen-previews, verify,
+│                    reclassify, selftest
 └── migrate.py       Alembic upgrade under an advisory lock
 web/src/             the single-page UI
 migrations/          Alembic revisions
@@ -55,8 +76,9 @@ tests/               pytest suite (unit + integration against Postgres)
 ```
 items         id (ULID), filename, ext, mime, size_bytes, width, height,
               duration_s, sha256 (unique), phash, dominant_colors (jsonb),
-              rating, notes, source_url, created_at, modified_at, deleted_at,
-              preview_status, preview_error
+              rating (0-5, checked), notes, source_url, created_at,
+              modified_at, deleted_at, preview_status, preview_error,
+              preview_rev
 folders       id, name, parent_id, position
 item_folders  item_id, folder_id               (an item can be in many folders)
 tags          id, name (citext unique)
@@ -88,15 +110,39 @@ folder and with no tags. The UI and MCP use the same definition.
 
 An inbox file whose import fails is never deleted: ingest puts it back, and
 after the last attempt the worker moves it to `library/failed/` under its own
-name, where `retry` picks it up again.
+name, where `retry` picks it up again. Files move only after the commit that
+records where they're going (a failed move is written back), and the worker
+sweeps `library/.staging/` at start and every 5 minutes for inbox files that
+never got a job (the database was down at the wrong moment).
 
 ## The library on disk is the source of truth
 
-Every write to an item rewrites `items/{id}/meta.json` (atomically: written
-to a temp file, then renamed), and every folder change rewrites
-`folders.json`. `kist rebuild-index` reconstructs the whole database from
-those files, so Postgres can always be discarded. `meta.json` carries a
-`version` field so older libraries stay readable.
+Every write to an item rewrites `items/{id}/meta.json`, and every folder
+change rewrites `folders.json` (a folder rename, move or delete also
+rewrites its members' `meta.json`). `kist rebuild-index` reconstructs the
+whole database from those files, so Postgres can always be discarded.
+`meta.json` carries a `version` field so older libraries stay readable.
+
+How the files stay right with several writers (API threads, MCP, worker,
+CLI), in `services/meta.py`:
+
+- Each file is written to a unique temp file, fsynced, and renamed into
+  place, so nobody ever reads a torn file.
+- The database commits first. Then, holding a Postgres advisory lock for
+  that one file, the writer reads the row again and writes it. The last
+  writer read last, so the file ends on the newest state even when two
+  writers reach the disk out of order.
+- A file write that fails after the commit doesn't fail the request: the
+  change is safe in Postgres. It's logged and noted in
+  `library/.kist/meta-pending`; `kist verify` (daily, from the worker)
+  reports it and `kist rewrite-meta` repairs it.
+- A purge holds the item's lock, so a late write can't re-create a purged
+  item's folder.
+
+Edits that can race in Postgres are guarded there: `PATCH` with
+`base_modified_at` locks the row and answers 409 if the item changed since the
+client loaded it; folder moves take a tree-wide lock and re-check for loops;
+new tags are an upsert.
 
 ## Ingest
 
@@ -106,6 +152,9 @@ queued jobs (up to 3 attempts with backoff).
 
 1. Stream to `library/.staging/`, hash (SHA-256), dedupe.
 2. Sniff the real type with libmagic, then move the file into `items/{ulid}/original.{ext}`.
+   The sniffed type decides the item's kind and whether its original is
+   ever shown inline: only real images, video, audio and PDFs are, and
+   everything else is a sandboxed download whatever its name says.
 3. Previews:
    - images through libvips: `thumb_256` and `thumb_1024` (longest side) and
      `thumb_512` (short side 512, long side ≤ 2048), because grid tiles are
@@ -149,9 +198,29 @@ instead.
   so `<img>`/`<video>` tags authenticate. The server accepts that cookie for
   GET/HEAD only.
 
+## Observability
+
+- Logs: one format for app, worker and uvicorn (time, level, logger, request
+  id), level from `KIST_LOG_LEVEL`. `observability.RequestContext` gives each
+  request an id (or keeps the proxy's `X-Request-ID`), returns it on every
+  response, and turns an unhandled exception into a logged 500 that carries it.
+- The web UI posts its crashes to `POST /api/client-errors` (logged, 30/min).
+- The worker's heartbeat thread writes `library/.kist/worker-heartbeat`
+  every 15 s after a database round trip, unless the main loop has been
+  stuck longer than the job lease. The container healthcheck and
+  `/api/health/deep` read it, so a long preview doesn't look like a dead
+  worker.
+- `/api/health/deep` reports the database, schema revision vs head, worker,
+  library disk, job queue, previews failed in 24 h and the last daily verify
+  (`library/.kist/verify.json`). `/api/version` names the build's commit.
+- `kist selftest` checks every decoder after an image rebuild.
+
 ## MCP design rules
 
-- Tools are thin wrappers over `services/`: no logic lives only in MCP.
+- Tools are thin wrappers over `services/`: no logic and no database queries
+  live in `mcp_server.py`. Every item comes back in one shape
+  (`ItemOut.for_agent`), and service errors become `ToolError`s whose message
+  reaches the agent.
 - Results stay small (metadata), except `view_item`, which returns image content.
 - Every write tool returns the updated item so agents can verify.
 - Destructive operations stop at the trash.

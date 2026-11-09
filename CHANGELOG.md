@@ -6,6 +6,27 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Security
+- **A web page saved with a `.pdf` name can no longer run as Kist.** Kist
+  decided a file was a PDF from its name, then served it inline, so an HTML
+  "invoice.pdf" could run script with your token as soon as you opened it.
+  The type now comes from the file's contents everywhere: only real images,
+  video, audio and PDFs are shown in the browser, and anything else is a
+  sandboxed download, whatever it's called. Run `kist reclassify` once to
+  tidy up items added before this (see Changed).
+- The API docs (`/docs`, `/redoc`, `/openapi.json`) need the token. In a
+  browser, being signed in to the web UI is enough.
+- A token with non-ASCII characters is refused with 401; it used to cause a
+  server error.
+- Direct uploads are capped at `KIST_MAX_UPLOAD_BYTES` (4 GiB by default);
+  bigger ones get 413.
+- `source_url` must be an http(s) address. Anything else (say, `see notes`)
+  could blank the web UI when you opened the item.
+- New `KIST_BIND` setting for the address the port is published on. The
+  default is unchanged (every interface); set `KIST_BIND=127.0.0.1` when the
+  reverse proxy runs on the same host so the LAN can't reach Kist over plain
+  HTTP. The Postgres password default stays `kist`, now with a note to change it.
+
 ### Performance
 Measured on a 4,417-item library; details in the performance review.
 - **The full-screen view no longer downloads originals on a phone.** Every
@@ -67,6 +88,66 @@ Measured on a 4,417-item library; details in the performance review.
 - Smart folders now show as selected, and "All items" is only highlighted
   when nothing narrows the view.
 
+- **meta.json and folders.json can no longer be corrupted by two saves at
+  once.** Every writer used the same temporary file; two quick edits (a tab
+  and an agent, or an edit while a preview was being remade) could leave a
+  half-written file, or answer "Couldn't save" for a change that had saved.
+  Each write now uses its own temporary file, is flushed to disk, and
+  re-reads the database under a lock, so the file always ends on the newest
+  state. If writing the file fails, the edit still succeeds and
+  `kist verify` points at it until `kist rewrite-meta` writes it again.
+- **Edits made in another tab or by an agent are no longer silently
+  overwritten.** A notes or filename save from a page that was opened
+  before someone else changed the item is refused (409) with the current
+  item, so the web UI can ask which to keep.
+- **Inbox files can't get stuck in `.staging` any more.** If the database was
+  down when the worker picked up an inbox file, the file sat in
+  `library/.staging/` forever with no import. It now goes back to the inbox,
+  and the worker sweeps staging at start and every 5 minutes for anything
+  left there.
+- **Dropping a file that's already in the library onto a folder files it
+  there.** A duplicate upload or URL add used to ignore the folder, tags and
+  notes sent with it.
+- **Requests that name a folder that doesn't exist fail instead of quietly
+  doing nothing.** Uploading to, or filing into, a folder deleted in another
+  tab answered "done" and left the items unfiled; it's now a 422 "Unknown
+  folder". Removing an item from such a folder still just works.
+- `kist rebuild-index` no longer drops things without a word:
+  - An item folder with its file but no meta.json is restored from the file
+    (as `recovered-<id>.<ext>`, since its name, tags and notes only lived in
+    meta.json) and reported.
+  - `--wipe` checks folders.json can be read before emptying anything.
+  - A folder whose parent is missing, or that's in a parent loop, is
+    restored at the top level with a warning.
+  - Thumbnail versions (`preview_rev`) are saved in meta.json and restored,
+    so browsers don't keep showing an old cached preview after a rebuild.
+  - Anything it had to skip or work around makes the exit code 2.
+- Deleting, renaming or moving a folder rewrites its items' meta.json, so
+  `kist verify` no longer reports drift after an ordinary folder delete.
+- `kist rewrite-meta` no longer overwrites edits made while it runs: it
+  re-reads each item as it writes it, so it's safe to run with Kist up.
+- Two folder moves at the same moment can't put folders in a loop (which
+  hid them from the sidebar). Two writers adding the same new tag at once no
+  longer fail with a server error.
+- Moving a failed inbox file to `library/failed/` (and back on Retry) happens
+  only after the job is saved, so a database hiccup can't leave a job
+  pointing at the wrong place.
+- Permanently deleting an item cancels its queued preview retries (no more
+  noisy failed jobs) and can't be undone by a preview finishing at the same
+  moment.
+- `kist regen-previews` re-reads each item before working on it, and preview
+  versions go up in the database, so running it alongside the worker no
+  longer reuses a version number browsers have cached.
+- Smart folders keep the preview-status and Trash filters they were saved
+  with.
+- The type filter and the stats now agree with each item's type (an `.mp4`
+  that libmagic can't name counts as video everywhere).
+- A malformed `cursor` is a 400, not a server error.
+- MCP tools say why they failed (for example "Unknown folder: …" or "rating
+  must be from 0 to 5") instead of only "Error executing tool".
+- `tests/test_rebuild.py` no longer fails when the Postgres server isn't on
+  UTC.
+
 ### Added
 - **Every view has an address.** `/`, `/all`, `/trash`, `/folder/<id>`,
   `/tag/<name>`, `/smart/<id>`, with filters as parameters and `?item=<id>`
@@ -90,6 +171,27 @@ Measured on a 4,417-item library; details in the performance review.
   item has no preview.
 - `kist verify` reports drift between the database and the files on disk.
 
+- `GET /api/health/deep` (with the token): database, schema revision, worker
+  heartbeat, library disk space and writability, failed and stuck jobs,
+  previews that failed in the last 24 hours, and the last daily verify.
+  `/api/health` stays public and cheap.
+- `GET /api/version` names the version and the commit the image was built
+  from (build with `KIST_GIT_COMMIT=$(git rev-parse --short HEAD)`).
+- `POST /api/client-errors` for the web UI's crash reports (logged, at most
+  30 a minute).
+- Every response carries an `X-Request-ID`, every log line names it, and a
+  server error answers `{"detail": "Internal error", "request_id": …}`.
+- The worker runs `kist verify` once a day (`KIST_VERIFY_INTERVAL_HOURS`)
+  and writes a heartbeat to `library/.kist/` after each database check; the
+  worker's healthcheck reads it and no longer trips during a long preview.
+- `kist selftest` runs tiny sample files through every preview decoder and
+  exits 1 if one fails. Run it after rebuilding the image.
+- `kist reclassify [--dry-run]` gives items Kist can't preview the preview
+  status "none" and lists items named `.pdf` that aren't PDFs.
+- Settings: `KIST_BIND`, `KIST_MAX_UPLOAD_BYTES`, `KIST_LOG_LEVEL`,
+  `KIST_VERIFY_INTERVAL_HOURS`, `KIST_GIT_COMMIT`. `.env.example` now lists
+  every optional setting.
+
 ### Changed
 - Unfiled is defined by the server (`view=unfiled`), so the web UI and agents
   see the same inbox. MCP's `folder="none"` still means "in no folder",
@@ -102,6 +204,32 @@ Measured on a 4,417-item library; details in the performance review.
 - Folder delete confirmations say when subfolders go too.
 - Migration `0003` adds the new columns and backfills preview status from
   existing data; jobs left `running` are re-queued.
+- **Logs are readable and kept.** The app and worker log with timestamps,
+  levels and logger names (`KIST_LOG_LEVEL`), and each service keeps 5 × 10 MB
+  of logs instead of growing without limit.
+- Input is checked the same way everywhere (web, REST, MCP, uploads), with a
+  422 that says what's wrong: tag names can't be empty, contain a comma or
+  run over 100 characters (they used to be cut short silently); folder and
+  smart-folder names can't be blank or over 200; notes are capped at 100,000
+  characters; filenames at 255, without `/`; ratings must be 0–5 (an upload
+  with rating 7 used to become 5); dates more than a day in the future are
+  refused; unknown `type` or `order` values are refused instead of ignored.
+  The database enforces ratings too (migration `0005`).
+- MCP `update_item(folder_id=…)` now adds the folder and keeps the item's
+  other folders (it used to replace them all). `set_folders` removes.
+  REST `PATCH /api/items/{id}` with `folder_ids` still replaces, as
+  documented.
+- MCP tools all return items in the same shape, `get_item` included (with
+  `web_url` and `file_url`), and `search_items` takes `order`. Stats come
+  from one database query.
+- **After updating:** run `kist rewrite-meta` once (it adds the thumbnail
+  version to every meta.json; until then `kist verify` reports it as drift)
+  and `kist reclassify` once.
+
+### Removed
+- The unused `KIST_THUMB_SIZES` setting (it never did anything) and some dead
+  code.
+
 
 ## [1.4.0] - 2026-11-09
 
