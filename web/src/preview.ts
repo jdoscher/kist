@@ -58,3 +58,18 @@ export function previewBoxPx(mobile: boolean): [number, number] {
   const h = window.innerHeight - (mobile ? 120 : 90)
   return [Math.round(w * dpr), Math.round(h * dpr)]
 }
+
+/**
+ * The PDF frame gets no sandbox attribute (Kist 1.5 contract item 8 asked
+ * for the minimum flags the browsers' PDF viewers need). Tested in
+ * Chromium 145: ANY sandbox on the frame, even with every allow-* flag,
+ * replaces Chrome's PDF viewer with the "blocked" sad-page icon, because
+ * Chrome never runs its viewer in a sandboxed frame. <embed> showed
+ * nothing either. The fence is the server: originals are inline only when
+ * the sniffed type is a real PDF (or image/video/audio); anything else,
+ * whatever its name, is an attachment with `Content-Security-Policy:
+ * sandbox`, so a disguised HTML file never renders as Kist inside this frame.
+ */
+export function pdfFrameProps(): { sandbox?: string } {
+  return {}
+}

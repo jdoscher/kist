@@ -4,7 +4,8 @@
 //
 // - info notices go away on their own; errors stay until dismissed or
 //   until the same action succeeds (they share a `key`)
-// - a notice may carry one action button (Retry, Undo, Show)
+// - a notice may carry action buttons (Retry, Undo, Show; or two, as in
+//   "Keep mine / Use theirs")
 // - a new notice with the same key replaces the old one, so a failing
 //   retry doesn't stack copies
 
@@ -19,6 +20,8 @@ export interface NoticeInput {
   message: string
   tone?: Tone
   action?: NoticeAction
+  /** more than one button; `action` comes first when both are given */
+  actions?: NoticeAction[]
   /** notices with the same key replace each other */
   key?: string
   /** auto-dismiss after this long; null keeps it until dismissed */
@@ -29,7 +32,7 @@ export interface Notice {
   id: number
   message: string
   tone: Tone
-  action?: NoticeAction
+  actions: NoticeAction[]
   key?: string
   timeoutMs: number | null
 }
@@ -41,9 +44,10 @@ export const MAX_NOTICES = 4
 
 export function toNotice(input: NoticeInput, id: number): Notice {
   const tone = input.tone ?? 'info'
+  const actions = [...(input.action ? [input.action] : []), ...(input.actions ?? [])]
   const timeoutMs =
-    input.timeoutMs !== undefined ? input.timeoutMs : tone === 'error' ? null : input.action ? ACTION_MS : INFO_MS
-  return { id, message: input.message, tone, action: input.action, key: input.key, timeoutMs }
+    input.timeoutMs !== undefined ? input.timeoutMs : tone === 'error' ? null : actions.length ? ACTION_MS : INFO_MS
+  return { id, message: input.message, tone, actions, key: input.key, timeoutMs }
 }
 
 /** Add a notice: replaces one with the same key, keeps the newest few. */

@@ -137,10 +137,41 @@ export function setToken(token: string) {
 
 export class ApiError extends Error {
   status: number
-  constructor(status: number, message: string) {
+  /** the server's X-Request-ID (500s also carry it in the body): shown as
+   * "ref …" so a report can be matched to the server log */
+  requestId?: string
+  /** the parsed error body, e.g. a 409's {detail: {message, item}} */
+  data?: unknown
+  constructor(status: number, message: string, opts: { requestId?: string; data?: unknown } = {}) {
     super(message)
     this.status = status
+    this.requestId = opts.requestId
+    this.data = opts.data
   }
+}
+
+/** A readable message from a FastAPI error body's `detail`: a string, a
+ * 422's list of {msg}, or a {message} object (409). */
+export function detailText(detail: unknown): string | null {
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail)) {
+    const msgs = detail.map((d) => (d && typeof d === 'object' && 'msg' in d ? String(d.msg) : null)).filter(Boolean)
+    if (msgs.length) return msgs.join('; ')
+  }
+  if (detail && typeof detail === 'object' && 'message' in detail) return String(detail.message)
+  if (detail == null) return null
+  try {
+    return JSON.stringify(detail)
+  } catch {
+    return String(detail)
+  }
+}
+
+/** The current copy of the item a 409 answer carries, if any. */
+export function conflictItem(e: unknown): Item | null {
+  if (!(e instanceof ApiError) || e.status !== 409) return null
+  const d = (e.data as { detail?: { item?: Item } } | undefined)?.detail
+  return d?.item ?? null
 }
 
 let onUnauthorized: (() => void) | null = null
@@ -183,13 +214,17 @@ async function request<T>(
   }
   if (!res.ok) {
     let detail = res.statusText || `error ${res.status}`
+    let requestId = res.headers.get('X-Request-ID') ?? undefined
+    let data: unknown
     try {
-      const data = await res.json()
-      if (data.detail) detail = typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)
+      data = await res.json()
+      const body = data as { detail?: unknown; request_id?: string }
+      detail = detailText(body.detail) ?? detail
+      if (body.request_id) requestId = body.request_id
     } catch {
       /* not json */
     }
-    throw new ApiError(res.status, detail)
+    throw new ApiError(res.status, detail, { requestId, data })
   }
   return (await res.json()) as T
 }
@@ -224,11 +259,16 @@ function itemsUrl(query: Query, cursor?: string, limit = 120): string {
 
 export const api = {
   health: () => request<{ status: string }>('/api/health'),
+  version: () => request<{ version: string; commit: string }>('/api/version'),
   listItems: (query: Query, cursor?: string) => request<ItemPage>(itemsUrl(query, cursor)),
   getItem: (id: string) => request<Item>(`/api/items/${id}`),
+  /** base_modified_at: the item's modified_at as last seen; the server
+   * answers 409 (conflictItem) if someone else changed it since */
   patchItem: (
     id: string,
-    patch: Partial<Pick<Item, 'filename' | 'rating' | 'notes' | 'folder_ids' | 'source_url'>>,
+    patch: Partial<Pick<Item, 'filename' | 'rating' | 'notes' | 'folder_ids' | 'source_url'>> & {
+      base_modified_at?: string
+    },
   ) => request<Item>(`/api/items/${id}`, { ...json(patch), method: 'PATCH' }),
   putFolders: (id: string, folder_ids: string[]) =>
     request<Item>(`/api/items/${id}/folders`, { ...json({ folder_ids }), method: 'PUT' }),
@@ -290,13 +330,18 @@ export function uploadFile(
         resolve(JSON.parse(xhr.responseText))
       } else {
         let detail = `upload failed (${xhr.status})`
+        let requestId = xhr.getResponseHeader('X-Request-ID') ?? undefined
+        let data: unknown
         try {
-          detail = JSON.parse(xhr.responseText).detail ?? detail
+          data = JSON.parse(xhr.responseText)
+          const body = data as { detail?: unknown; request_id?: string }
+          detail = detailText(body.detail) ?? detail
+          if (body.request_id) requestId = body.request_id
         } catch {
           /* ignore */
         }
         if (xhr.status === 401) notifyUnauthorized()
-        reject(new ApiError(xhr.status, xhr.status === 401 ? 'unauthorized' : detail))
+        reject(new ApiError(xhr.status, xhr.status === 401 ? 'unauthorized' : detail, { requestId, data }))
       }
     }
     xhr.onerror = () => reject(new ApiError(0, 'network error'))

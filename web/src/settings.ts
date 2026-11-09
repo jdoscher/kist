@@ -64,3 +64,22 @@ export function savePref<K extends keyof Prefs>(key: K, value: Prefs[K], store: 
     /* private mode */
   }
 }
+
+/** One-time hints and first-visit flags, kept per browser. */
+const ONCE_PREFIX = 'kist.once.'
+
+export function onceSeen(name: string, store: Store | null = browserStore()): boolean {
+  try {
+    return store?.getItem(ONCE_PREFIX + name) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function markOnce(name: string, store: Store | null = browserStore()) {
+  try {
+    store?.setItem(ONCE_PREFIX + name, '1')
+  } catch {
+    /* private mode */
+  }
+}

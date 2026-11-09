@@ -26,3 +26,14 @@ test('remove by id or by key; no change returns the same list', () => {
   assert.deepEqual(removeNotice(list, 2).map((n) => n.id), [1])
   assert.equal(removeNotice(list, 99), list)
 })
+
+test('a notice can carry two actions (Keep mine / Use theirs)', () => {
+  const keep = { label: 'Keep mine', run: () => {} }
+  const theirs = { label: 'Use theirs', run: () => {} }
+  const n = toNotice({ message: 'Changed elsewhere', tone: 'error', actions: [keep, theirs] }, 9)
+  assert.deepEqual(n.actions.map((a) => a.label), ['Keep mine', 'Use theirs'])
+  assert.equal(n.timeoutMs, null)
+  const both = toNotice({ message: 'x', action: keep, actions: [theirs] }, 10)
+  assert.deepEqual(both.actions.map((a) => a.label), ['Keep mine', 'Use theirs'])
+  assert.deepEqual(toNotice({ message: 'y' }, 11).actions, [])
+})

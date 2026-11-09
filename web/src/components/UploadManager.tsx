@@ -122,10 +122,11 @@ export function UploadManager({ children }: { children: ReactNode }) {
       serializeKey: itemId,
       onDone: (item) => {
         dispatch({ type: 'restored', key, at: Date.now() })
-        // patch it where it's loaded (drops it from Trash), then reload the
-        // list on screen so it shows up where it now belongs
+        // patch it where it's loaded (drops it from Trash; refreshes the
+        // counts), then reload just the list on screen so it shows up where
+        // it now belongs (itemsAdded would refetch the counts a second time)
         apply([item])
-        refresh.itemsAdded()
+        refresh.items()
       },
     })
 
@@ -194,15 +195,24 @@ export function UploadManager({ children }: { children: ReactNode }) {
           <div>Drop files to add them to the library</div>
         </div>
       )}
-      {entries.length > 0 && (
-        <div className="upload-toasts">
+      {/* always mounted: a live region must exist before its text changes */}
+      <div className="upload-toasts" role="status" aria-live="polite" aria-relevant="additions text" data-keep-live="">
           {entries.map((e) => (
             <div key={e.key} className={`toast ${e.status}`}>
               <span className="name">{e.name}</span>
               {e.status === 'uploading' &&
-                (e.isUrl ? <span>downloading…</span> : <progress value={e.pct} max={100} />)}
+                (e.isUrl ? (
+                  <span>downloading…</span>
+                ) : (
+                  <progress value={e.pct} max={100} aria-label={`Uploading ${e.name}`} />
+                ))}
               {e.status === 'queued' && <span>queued</span>}
-              {e.status === 'done' && <span>✓</span>}
+              {e.status === 'done' && (
+                <span>
+                  <span aria-hidden="true">✓</span>
+                  <span className="sr-only">added</span>
+                </span>
+              )}
               {e.status === 'duplicate' && <span>already in library</span>}
               {e.status === 'inTrash' && (
                 <>
@@ -211,29 +221,30 @@ export function UploadManager({ children }: { children: ReactNode }) {
                     Restore
                   </button>
                   <button
-                    aria-label="Dismiss"
+                    aria-label={`Dismiss ${e.name}`}
                     onClick={() => dispatch({ type: 'dismiss', key: e.key })}
                   >
-                    ✕
+                    <span aria-hidden="true">✕</span>
                   </button>
                 </>
               )}
               {e.status === 'error' && (
                 <>
-                  <span className="error">{e.error}</span>
+                  <span className="error" role="alert">
+                    {e.error}
+                  </span>
                   <button onClick={() => dispatch({ type: 'retry', key: e.key })}>Retry</button>
                   <button
-                    aria-label="Dismiss"
+                    aria-label={`Dismiss ${e.name}`}
                     onClick={() => dispatch({ type: 'dismiss', key: e.key })}
                   >
-                    ✕
+                    <span aria-hidden="true">✕</span>
                   </button>
                 </>
               )}
             </div>
           ))}
-        </div>
-      )}
+      </div>
     </Ctx.Provider>
   )
 }

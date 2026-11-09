@@ -46,6 +46,11 @@ export function hardDeleteQuestion(n: number): string {
     : `Permanently delete ${n} items? This cannot be undone.`
 }
 
+/** The notice after a trash, with Undo. */
+export function trashedText(n: number): string {
+  return n === 1 ? 'Moved 1 item to Trash.' : `Moved ${n} items to Trash.`
+}
+
 /** "Trashed 3 of 5. 2 failed: <first reason>." */
 export function bulkReport(r: BulkResult): string {
   return `${BULK_VERB[r.input.action.kind]} ${r.ok} of ${r.ok + r.failed.length}. ${r.failed.length} failed: ${r.failed[0]?.error ?? 'unknown error'}.`

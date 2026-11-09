@@ -33,7 +33,9 @@ export function NoticesProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={api}>
       {children}
-      <div className="notices" role="status" aria-live="polite">
+      {/* outside every overlay's inert background (useInertBackground), so
+          Undo / Keep mine stay reachable while a dialog is open */}
+      <div className="notices" role="status" aria-live="polite" data-keep-live="">
         {list.map((n) => (
           <NoticeRow key={n.id} notice={n} onDismiss={() => dismiss(n.id)} />
         ))}
@@ -60,19 +62,23 @@ function NoticeRow({ notice, onDismiss }: { notice: Notice; onDismiss: () => voi
       onFocus={() => setPaused(true)}
       onBlur={() => setPaused(false)}
     >
-      <span className="notice-text">{notice.message}</span>
-      {notice.action && (
+      {/* failures interrupt (alert); everything else is read politely */}
+      <span className="notice-text" role={notice.tone === 'error' ? 'alert' : undefined}>
+        {notice.message}
+      </span>
+      {notice.actions.map((a) => (
         <button
+          key={a.label}
           onClick={() => {
             onDismiss()
-            notice.action!.run()
+            a.run()
           }}
         >
-          {notice.action.label}
+          {a.label}
         </button>
-      )}
-      <button className="notice-close" aria-label="Dismiss" onClick={onDismiss}>
-        ✕
+      ))}
+      <button className="notice-close" aria-label="Dismiss notice" onClick={onDismiss}>
+        <span aria-hidden="true">✕</span>
       </button>
     </div>
   )

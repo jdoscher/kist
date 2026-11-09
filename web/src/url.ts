@@ -12,7 +12,8 @@
 //   &full=1           ...opened full screen
 //
 // Other filters are params: q, tags, any, untagged, folder (none), preview,
-// type, rating, order, after, before. Pure functions, tested in tests/url.test.ts.
+// type, rating, order, after, before, trash (a smart folder over the trash).
+// Pure functions, tested in tests/url.test.ts.
 
 import { emptyQuery, type PreviewStatus, type Query } from './api.ts'
 
@@ -32,8 +33,9 @@ const PREVIEWS: PreviewStatus[] = ['pending', 'ready', 'failed', 'none']
 /** The view part of the path (no item). */
 function placePath(p: Place): string {
   const q = p.query
-  if (q.deleted) return '/trash'
+  // a smart folder keeps its path even when it searches the trash
   if (p.smartId) return `/smart/${encodeURIComponent(p.smartId)}`
+  if (q.deleted) return '/trash'
   if (q.view === 'unfiled') return '/'
   if (q.folder && q.folder !== 'none') return `/folder/${encodeURIComponent(q.folder)}`
   if (q.tags.length === 1) return `/tag/${encodeURIComponent(q.tags[0])}`
@@ -52,6 +54,7 @@ export function toUrl(p: Place): string {
   // a folder is in the path unless trash or a smart folder took the path
   if (q.folder === 'none' || (q.folder && !path.startsWith('/folder/'))) s.set('folder', q.folder)
   if (q.view === 'unfiled' && path !== '/') s.set('view', 'unfiled')
+  if (q.deleted && path !== '/trash') s.set('trash', '1')
   if (q.preview) s.set('preview', q.preview)
   if (q.type) s.set('type', q.type)
   if (q.rating) s.set('rating', String(q.rating))
@@ -87,6 +90,7 @@ export function fromUrl(pathname: string, search: string): Place {
     order: s.get('order') || emptyQuery.order,
     created_after: s.get('after') || null,
     created_before: s.get('before') || null,
+    deleted: s.get('trash') === '1',
   }
   let smartId: string | null = null
   const [head, arg] = parts

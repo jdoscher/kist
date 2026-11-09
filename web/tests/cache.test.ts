@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { emptyQuery, type Item, type Query } from '../src/api.ts'
-import { patchPages, type ItemsPages } from '../src/cache.ts'
+import { flattenUnique, needsRefetch, patchPages, sortKeyChanged, type ItemsPages } from '../src/cache.ts'
 
 const item = (id: string, over: Partial<Item> = {}): Item =>
   ({
@@ -56,4 +56,24 @@ test('folder views include subfolders', () => {
 test('lists the edit does not touch are returned unchanged', () => {
   const data = pagesOf([item('a')])
   assert.equal(patchPages(data, q(), new Map([['z', item('z')]]), new Set(), []), data)
+})
+
+test('an edit that moves an item in the sort order refetches that list only', () => {
+  const data = pagesOf([item('a', { rating: 5 }), item('b', { rating: 4 })], [item('c', { rating: 3 })])
+  const rerated = new Map([['a', item('a', { rating: 1 })]])
+  assert.ok(needsRefetch(data, q({ order: '-rating' }), rerated, []))
+  // the default sort (newest first) doesn't care about ratings
+  assert.ok(!needsRefetch(data, q(), rerated, []))
+  // an item that leaves the view is dropped, not refetched for
+  assert.ok(!needsRefetch(data, q({ order: '-rating', rating: 4 }), rerated, []))
+  const renamed = new Map([['b', item('b', { filename: 'zzz.png' })]])
+  assert.ok(needsRefetch(data, q({ order: 'filename' }), renamed, []))
+  assert.ok(sortKeyChanged('-modified', item('a', { modified_at: '1' }), item('a', { modified_at: '2' })))
+  assert.ok(!sortKeyChanged('-size', item('a'), item('a', { rating: 2 })))
+})
+
+test('a page that repeats an item already shown adds no duplicate tile', () => {
+  const pages = [{ items: [item('a'), item('b')] }, { items: [item('b'), item('c')] }]
+  assert.deepEqual(flattenUnique(pages).map((i) => i.id), ['a', 'b', 'c'])
+  assert.deepEqual(flattenUnique(undefined), [])
 })

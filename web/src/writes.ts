@@ -31,13 +31,58 @@ export const setDraft = (key: string, value: string) => void drafts.set(key, val
 export const clearDraft = (key: string) => void drafts.delete(key)
 export const hasDrafts = () => drafts.size > 0
 
+/** A save of `sent` finished: drop the draft only if it still holds what
+ * was sent. Text typed while the save was in flight stays a draft (and on
+ * screen) instead of being replaced by the server's older copy. */
+export function clearDraftIf(key: string, sent: string) {
+  if (drafts.get(key) === sent) drafts.delete(key)
+}
+
+type DiscardListener = (value: string) => void
+const discardListeners = new Map<string, Set<DiscardListener>>()
+
+/** Throw the draft away and show `value` instead ("Use theirs"): an open
+ * field for the key is told, so it can replace what's on screen. */
+export function discardDraft(key: string, value: string) {
+  drafts.delete(key)
+  discardListeners.get(key)?.forEach((fn) => fn(value))
+}
+
+export function onDiscard(key: string, fn: DiscardListener): () => void {
+  let set = discardListeners.get(key)
+  if (!set) discardListeners.set(key, (set = new Set()))
+  set.add(fn)
+  return () => {
+    set.delete(fn)
+    if (set.size === 0) discardListeners.delete(key)
+  }
+}
+
+/** The later of two ISO timestamps (either may be missing): the
+ * modified_at to send as base_modified_at is the newest copy this tab has. */
+export function laterStamp(a: string | undefined | null, b: string | undefined | null): string | undefined {
+  if (!a) return b ?? undefined
+  if (!b) return a
+  const ta = Date.parse(a)
+  const tb = Date.parse(b)
+  if (Number.isNaN(ta) || Number.isNaN(tb)) return a
+  if (ta !== tb) return ta > tb ? a : b
+  // same millisecond: compare the full fraction (the server keeps µs)
+  const frac = (s: string) => (s.match(/\.(\d+)/)?.[1] ?? '').padEnd(9, '0')
+  return frac(b) > frac(a) ? b : a
+}
+
+/** What a 422 for a deleted folder reads as. */
+export const FOLDER_GONE = 'That folder no longer exists (it was deleted, maybe in another tab)'
+
 /** A short, plain reason for a failed request. */
 export function describeError(e: unknown): string {
   if (e instanceof ApiError) {
     if (e.status === 0) return 'No connection to the server'
     if (e.status === 401) return 'Signed out: enter the token again'
     if (e.status === 408) return 'The server took too long'
-    if (e.status >= 500) return `Server error (${e.status})`
+    if (e.status >= 500) return `Server error (${e.status}${e.requestId ? `, ref ${e.requestId}` : ''})`
+    if (e.status === 422 && e.message.startsWith('Unknown folder')) return FOLDER_GONE
     return e.message
   }
   if (e instanceof DOMException && (e.name === 'TimeoutError' || e.name === 'AbortError'))
@@ -112,7 +157,19 @@ export function failureText(what: string, message: string): string {
   return `Couldn't ${what}: ${message}`
 }
 
+/** A 422 because a folder the screen offered no longer exists. */
+export function isFolderGone(e: unknown): boolean {
+  return e instanceof ApiError && e.status === 422 && e.message.startsWith('Unknown folder')
+}
+
 /** 401s bring back the token screen, which says what's wrong: no notice. */
 export function isSignedOut(e: unknown): boolean {
   return e instanceof ApiError && e.status === 401
+}
+
+/** The server banner: the server answering with an error (its database is
+ * down: /api/health checks only that) reads differently from no answer. */
+export function bannerText(status: number | undefined): string {
+  if (status !== undefined && status >= 500) return "Kist is up but its database isn't answering. Retrying…"
+  return "Can't reach the Kist server. Retrying…"
 }

@@ -45,3 +45,30 @@ export function linkableUrl(raw: string | null | undefined): { href: string; hos
     return null
   }
 }
+
+/** What a screen reader says for a grid tile: name, kind, and the facts the
+ * tile shows as symbols (stars, preview state, duration). */
+export function tileLabel(item: {
+  filename: string
+  kind: string
+  rating: number
+  preview_status: string
+  duration_s: number | null
+}): string {
+  // filename and preview state first: a tile without a thumbnail shows
+  // exactly those words, and the name must contain what's visible (2.5.3)
+  return [
+    item.filename,
+    item.preview_status === 'pending' ? 'preview pending' : item.preview_status === 'failed' ? 'preview failed' : '',
+    item.kind,
+    item.rating ? `${item.rating} star${item.rating === 1 ? '' : 's'}` : '',
+    item.kind === 'video' && item.duration_s != null ? fmtDuration(item.duration_s) : '',
+  ]
+    .filter(Boolean)
+    .join(', ')
+}
+
+/** "1 item" / "3 items" */
+export function plural(n: number, word: string): string {
+  return `${n} ${word}${n === 1 ? '' : 's'}`
+}

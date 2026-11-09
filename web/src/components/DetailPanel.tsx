@@ -1,22 +1,26 @@
-import { useMemo, useState } from 'react'
-import { api, fileUrl, type Item } from '../api'
-import { useCurrentItems, useFolderNames, useFolders, useItem, useStats } from '../data'
+import { useId, useMemo, useState } from 'react'
+import { api, fileUrl, thumbUrl, type Item } from '../api'
+import { useCurrentItems, useFolderNames, useFolders, useItem, useStats, useVersion } from '../data'
 import { fmtBytes } from '../format'
 import { useAppState } from '../state'
-import { useDraftField, useItemWrite } from '../useWrite'
+import { useDraftField, useItemWrite, useTextSave } from '../useWrite'
 import { ItemMeta } from './ItemMeta'
 import { ItemStatus } from './ItemStatus'
 
+/** Five labelled toggle buttons; ★/☆ adds a shape cue to the colour. */
 function Stars({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   return (
-    <div className="stars">
+    <div className="stars" role="group" aria-label={`Rating: ${value ? `${value} of 5` : 'none'}`}>
       {[1, 2, 3, 4, 5].map((s) => (
         <button
           key={s}
           className={s <= value ? 'on' : ''}
+          aria-label={`${s} star${s > 1 ? 's' : ''}`}
+          aria-pressed={s <= value}
+          title={s === value ? 'Press again to clear the rating' : `${s} star${s > 1 ? 's' : ''}`}
           onClick={() => onChange(s === value ? 0 : s)}
         >
-          ★
+          <span aria-hidden="true">{s <= value ? '★' : '☆'}</span>
         </button>
       ))}
     </div>
@@ -27,21 +31,23 @@ function SingleItem({ item }: { item: Item }) {
   // every edit: in order, applied in place; a failure shows as a notice
   // with Retry, and typed text stays as a draft until the server has it
   const { write, busy } = useItemWrite(item.id)
+  const saveText = useTextSave(item)
+  const { setPreviewId } = useAppState()
   const { data: folders } = useFolders()
   const folderName = useFolderNames()
   const filename = useDraftField(item.id, 'filename', item.filename)
   const notes = useDraftField(item.id, 'notes', item.notes)
   const [tagText, setTagText] = useState('')
+  const uid = useId()
+  const thumb = thumbUrl(item, 512)
 
   const saveFilename = () => {
-    const v = filename.value.trim()
-    if (!v || !filename.dirty) return
-    void write('filename', () => api.patchItem(item.id, { filename: v }), filename.saved)
+    if (!filename.value.trim() || !filename.dirty) return
+    void saveText('filename', filename.value, filename.saved)
   }
   const saveNotes = () => {
     if (!notes.dirty) return
-    const v = notes.value
-    void write('notes', () => api.patchItem(item.id, { notes: v }), notes.saved)
+    void saveText('notes', notes.value, notes.saved)
   }
 
   // tags and folders send only the change, never the whole list, so a
@@ -58,58 +64,84 @@ function SingleItem({ item }: { item: Item }) {
 
   return (
     <>
+      <div className="detail-thumb">
+        {thumb ? <img src={thumb} alt="" /> : <div className="detail-thumb-icon" aria-hidden="true">.{item.ext}</div>}
+        <button className="open-full" onClick={() => setPreviewId(item.id)} title="Open full screen (Enter, or double-click the tile)">
+          Open <span aria-hidden="true">⤢</span>
+        </button>
+      </div>
       <ItemStatus item={item} />
+      <label htmlFor={`${uid}-name`} className="sr-only">
+        File name
+      </label>
       <input
+        id={`${uid}-name`}
         className={`detail-filename${filename.dirty ? ' unsaved' : ''}`}
         value={filename.value}
+        aria-describedby={filename.dirty ? `${uid}-name-note` : undefined}
         onChange={(e) => filename.change(e.target.value)}
         onBlur={saveFilename}
         onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
       />
+      {filename.dirty && (
+        <span id={`${uid}-name-note`} className="unsaved-note">
+          Name not saved yet
+        </span>
+      )}
 
       <div className="stars-row">
         <Stars
           value={item.rating}
           onChange={(rating) => void write('rating', () => api.patchItem(item.id, { rating }))}
         />
-        {busy() && <span className="saving">saving…</span>}
+        <span className="saving" role="status">
+          {busy() ? 'saving…' : ''}
+        </span>
       </div>
 
       <div className="detail-section">
-        <label>Tags</label>
+        <label htmlFor={`${uid}-tags`}>Tags</label>
         <div className="tag-chips">
           {item.tags.map((t) => (
             <span key={t} className="chip">
               #{t}
-              <button onClick={() => void removeTag(t)}>×</button>
+              <button aria-label={`Remove tag ${t}`} title={`Remove tag ${t}`} onClick={() => void removeTag(t)}>
+                <span aria-hidden="true">×</span>
+              </button>
             </span>
           ))}
         </div>
         <input
+          id={`${uid}-tags`}
           placeholder="Add tags, comma-sep, Enter"
+          aria-describedby={`${uid}-tags-hint`}
           value={tagText}
           onChange={(e) => setTagText(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && void addTags()}
         />
+        <span id={`${uid}-tags-hint`} className="sr-only">
+          Separate tags with commas; Enter adds them.
+        </span>
       </div>
 
       <div className="detail-section">
-        <label>Folders</label>
+        <label htmlFor={`${uid}-folders`}>Folders</label>
         <div className="tag-chips">
           {item.folder_ids.map((fid) => (
             <span key={fid} className="chip folder-chip">
               {folderName.get(fid) ?? fid}
               <button
-                onClick={() =>
-                  void write('folders', () => api.patchFolders(item.id, { remove: [fid] }))
-                }
+                aria-label={`Remove from folder ${folderName.get(fid) ?? fid}`}
+                title="Remove from this folder"
+                onClick={() => void write('folders', () => api.patchFolders(item.id, { remove: [fid] }))}
               >
-                ×
+                <span aria-hidden="true">×</span>
               </button>
             </span>
           ))}
         </div>
         <select
+          id={`${uid}-folders`}
           value=""
           onChange={(e) => {
             const fid = e.target.value
@@ -130,10 +162,11 @@ function SingleItem({ item }: { item: Item }) {
       </div>
 
       <div className="detail-section">
-        <label>
+        <label htmlFor={`${uid}-notes`}>
           Notes{notes.dirty && <span className="unsaved-note"> · not saved yet</span>}
         </label>
         <textarea
+          id={`${uid}-notes`}
           rows={4}
           value={notes.value}
           onChange={(e) => notes.change(e.target.value)}
@@ -145,7 +178,8 @@ function SingleItem({ item }: { item: Item }) {
       <ItemMeta item={item} />
 
       <a className="open-original" href={fileUrl(item)} target="_blank" rel="noreferrer">
-        Open original ↗
+        Open original <span aria-hidden="true">↗</span>
+        <span className="sr-only"> (new tab)</span>
       </a>
     </>
   )
@@ -153,13 +187,14 @@ function SingleItem({ item }: { item: Item }) {
 
 function LibrarySummary() {
   const { data: stats } = useStats()
+  const { data: version } = useVersion()
   return (
     <div className="multi-summary">
-      <h3>No selection</h3>
-      <p className="hint-text">Click an item to see and edit its details.</p>
+      <h2 className="panel-title">No selection</h2>
+      <p className="hint-text">Click an item to see and edit its details. Double-click (or Enter) opens it full screen.</p>
       {stats && (
         <div className="detail-section">
-          <label>Library</label>
+          <h3 className="section-label">Library</h3>
           <div className="meta-list">
             <div>
               <span>Items</span>
@@ -185,6 +220,15 @@ function LibrarySummary() {
               <span>In trash</span>
               <span>{stats.trashed_items.toLocaleString()}</span>
             </div>
+            {version && (
+              <div>
+                <span>Version</span>
+                <span title={`commit ${version.commit}`}>
+                  {version.version}
+                  {version.commit !== 'unknown' ? ` · ${version.commit.slice(0, 12)}` : ''}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -205,14 +249,14 @@ export function DetailPanel() {
   if (!panelOpen) return null
 
   return (
-    <aside className="detail-panel">
+    <aside className="detail-panel" aria-label="Item details">
       {selection.size === 0 ? (
         <LibrarySummary />
       ) : selection.size === 1 ? (
-        single ? <SingleItem key={single.id} item={single} /> : <div className="hint">Loading…</div>
+        single ? <SingleItem key={single.id} item={single} /> : <div className="hint" role="status">Loading…</div>
       ) : (
         <div className="multi-summary">
-          <h3>{selected.length} items selected</h3>
+          <h2 className="panel-title">{selected.length} items selected</h2>
           <p>{fmtBytes(selected.reduce((acc, i) => acc + i.size_bytes, 0))} total</p>
           <p className="hint">Use the bar below for bulk tag / move / trash.</p>
         </div>
