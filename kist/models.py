@@ -112,6 +112,8 @@ class Item(Base):
     # bumped whenever the preview files change; part of every thumbnail URL so
     # browsers can cache them forever and still see a regenerated preview
     preview_rev: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    # base64 ThumbHash of the preview (services/thumbhash.py); "" = can't be made
+    thumbhash: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     tags: Mapped[list[Tag]] = relationship(secondary="item_tags", lazy="selectin")
     folders: Mapped[list[Folder]] = relationship(

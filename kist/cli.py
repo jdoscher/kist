@@ -4,7 +4,8 @@
     kist rewrite-meta             rewrite every meta.json (+ folders.json) from
                                    Postgres; safe while Kist is running
     kist regen-previews [--all]   (re)generate thumbnails; default only
-                                   items that have none
+                                   items that have none. --thumbhash-only
+                                   just adds missing ThumbHash placeholders
     kist verify                   compare Postgres with the library on disk
                                    and report drift (changes nothing)
     kist reclassify [--dry-run]   give items Kist can't preview (e.g. a web
@@ -141,6 +142,7 @@ def item_from_meta(session, meta: dict, original: Path, folder_ids: set[str]) ->
         sha256=meta["sha256"],
         phash=meta.get("phash"),
         dominant_colors=meta.get("dominant_colors"),
+        thumbhash=meta.get("thumbhash") if isinstance(meta.get("thumbhash"), str) else None,
         rating=max(0, min(5, int(meta.get("rating") or 0))),
         notes=meta.get("notes") or "",
         source_url=meta.get("source_url"),
@@ -345,9 +347,37 @@ def rewrite_meta() -> int:
     return 0 if not failed and folders_ok else 2
 
 
-def regen_previews(do_all: bool) -> int:
+def regen_thumbhashes() -> int:
+    """Compute the ThumbHash placeholder for items that have previews but no
+    ThumbHash yet (the worker also does this in the background)."""
     from .services import previews
 
+    done = failed = 0
+    with SessionLocal() as session:
+        ids = session.execute(
+            sa.select(Item.id).where(
+                Item.thumbhash.is_(None), Item.preview_status == PreviewStatus.READY
+            ).order_by(Item.id)
+        ).scalars().all()
+        for item_id in ids:
+            item = session.get(Item, item_id, populate_existing=True)
+            if item is None:
+                continue
+            if previews.add_thumbhash(session, item):
+                done += 1
+            else:
+                failed += 1
+                print(f"  ! {item.id} {item.filename}: no ThumbHash (preview unreadable)",
+                      file=sys.stderr)
+    print(f"thumbhash: {done} added, {failed} couldn't be made")
+    return 0 if not failed else 2
+
+
+def regen_previews(do_all: bool, thumbhash_only: bool = False) -> int:
+    from .services import previews
+
+    if thumbhash_only:
+        return regen_thumbhashes()
     settings = get_settings()
     done = skipped = failed = screen = 0
     with SessionLocal() as session:
@@ -551,6 +581,10 @@ def main() -> None:
         "--all", action="store_true",
         help="regenerate for every item, not just items without previews",
     )
+    p_regen.add_argument(
+        "--thumbhash-only", action="store_true",
+        help="only compute missing ThumbHash placeholders from existing previews",
+    )
     sub.add_parser("verify", help="report drift between Postgres and the library on disk")
     p_reclass = sub.add_parser(
         "reclassify", help="mark items Kist can't preview (e.g. HTML named .pdf) as such"
@@ -564,7 +598,7 @@ def main() -> None:
     if args.cmd == "rewrite-meta":
         sys.exit(rewrite_meta())
     if args.cmd == "regen-previews":
-        sys.exit(regen_previews(args.all))
+        sys.exit(regen_previews(args.all, args.thumbhash_only))
     if args.cmd == "verify":
         sys.exit(verify())
     if args.cmd == "reclassify":

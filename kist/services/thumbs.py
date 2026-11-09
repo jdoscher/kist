@@ -356,6 +356,20 @@ def remove_previews(item_dir: Path) -> None:
         (item_dir / name).unlink(missing_ok=True)
 
 
+def thumbhash_for(item_dir: Path) -> str | None:
+    """The ThumbHash of an item's preview (thumb_256.webp), or None."""
+    from . import thumbhash
+
+    small = item_dir / "thumb_256.webp"
+    if not small.is_file():
+        return None
+    try:
+        return thumbhash.from_image(small)
+    except Exception:
+        log.exception("thumbhash failed for %s", item_dir)
+        return None
+
+
 def enrich(item_dir: Path) -> tuple[int | None, list[dict] | None]:
     """Perceptual hash + dominant colors, computed from generated thumbs."""
     phash = None

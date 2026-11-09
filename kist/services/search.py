@@ -184,7 +184,7 @@ def search_items(
     order: str = "-created",
     limit: int = 100,
     cursor: str | None = None,
-) -> tuple[list[Item], str | None, int]:
+) -> tuple[list[Item], str | None, int | None]:
     filters = build_filters(
         q=q, tags=tags, tags_any=tags_any, untagged=untagged,
         folder=folder, kind=kind,
@@ -196,9 +196,13 @@ def search_items(
         raise ValidationError(f"unknown order {order!r}; expected one of {', '.join(ORDERS)}")
     col, desc = ORDERS[order]
 
-    total = session.execute(
-        sa.select(sa.func.count()).select_from(Item).where(*filters)
-    ).scalar_one()
+    # counting re-scans every match: only the first page pays for it (the
+    # client keeps that total and adjusts it as items change)
+    total = None
+    if not cursor:
+        total = session.execute(
+            sa.select(sa.func.count()).select_from(Item).where(*filters)
+        ).scalar_one()
 
     stmt = sa.select(Item).where(*filters)
     if desc:

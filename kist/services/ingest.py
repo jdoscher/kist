@@ -142,6 +142,7 @@ def ingest_file(
             preview_status = PreviewStatus.FAILED
             preview_error = previews.short_error(exc)
         phash, colors = thumbs.enrich(item_dir)
+        placeholder = thumbs.thumbhash_for(item_dir)
 
         item = Item(
             id=item_id,
@@ -155,6 +156,7 @@ def ingest_file(
             sha256=digest,
             phash=phash,
             dominant_colors=colors,
+            thumbhash=placeholder,
             rating=rating,
             notes=notes or "",
             source_url=source_url,

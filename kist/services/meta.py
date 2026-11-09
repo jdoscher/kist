@@ -65,6 +65,7 @@ def to_meta(item: Item) -> dict:
         "sha256": item.sha256,
         "phash": item.phash,
         "dominant_colors": item.dominant_colors,
+        "thumbhash": item.thumbhash,
         "folder_ids": sorted(f.id for f in item.folders),
         "folder_paths": [folder_path(f) for f in item.folders],
         "rating": item.rating,

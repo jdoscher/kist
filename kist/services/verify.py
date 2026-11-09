@@ -23,7 +23,7 @@ RESULT_FILE = "verify.json"
 # compared as written; timestamps are compared as instants below
 COMPARED = (
     "filename", "rating", "notes", "source_url", "tags", "folder_ids", "sha256",
-    "preview_status", "preview_rev",
+    "preview_status", "preview_rev", "thumbhash",
 )
 COMPARED_TIMES = ("created_at", "modified_at", "deleted_at")
 FIXES = (

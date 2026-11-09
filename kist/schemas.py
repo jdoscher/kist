@@ -25,6 +25,8 @@ class ItemOut(BaseModel):
     sha256: str
     phash: int | None
     dominant_colors: list[dict[str, Any]] | None
+    # base64 ThumbHash placeholder (https://evanw.github.io/thumbhash/), or null
+    thumbhash: str | None = None
     folder_ids: list[str]
     rating: int
     notes: str
@@ -60,6 +62,7 @@ class ItemOut(BaseModel):
             sha256=item.sha256,
             phash=item.phash,
             dominant_colors=item.dominant_colors,
+            thumbhash=item.thumbhash or None,
             folder_ids=sorted(f.id for f in item.folders),
             rating=item.rating,
             notes=item.notes,

@@ -64,6 +64,9 @@ def regenerate(session: Session, item: Item) -> PreviewStatus:
                 item.phash = phash
             if colors is not None:
                 item.dominant_colors = colors
+            placeholder = thumbs.thumbhash_for(item_dir)
+            if placeholder is not None:
+                item.thumbhash = placeholder
             item.preview_status = outcome(item_dir, item.mime, item.ext)
             item.preview_error = (
                 None if item.preview_status is not PreviewStatus.FAILED
@@ -105,6 +108,38 @@ def add_screen_copy(session: Session, item: Item) -> bool:
     return True
 
 
+def add_thumbhash(session: Session, item: Item) -> bool:
+    """Compute a missing ThumbHash from the existing preview (older items).
+    One that can't be made is stored as "" so the backfill moves on."""
+    if item.thumbhash is not None:
+        return False
+    item.thumbhash = thumbs.thumbhash_for(get_settings().items_dir / item.id) or ""
+    session.commit()
+    meta_svc.sync_item(session, item.id)
+    return bool(item.thumbhash)
+
+
+THUMBHASH_BATCH = 50
+
+
+def backfill_thumbhashes(session: Session, limit: int = THUMBHASH_BATCH) -> int:
+    """Give up to `limit` ready items without a ThumbHash one (the worker
+    runs this in the background). Returns how many were looked at."""
+    import sqlalchemy as sa
+
+    ids = session.execute(
+        sa.select(Item.id)
+        .where(Item.thumbhash.is_(None), Item.preview_status == PreviewStatus.READY)
+        .order_by(Item.id)
+        .limit(limit)
+    ).scalars().all()
+    for item_id in ids:
+        item = session.get(Item, item_id)
+        if item is not None:
+            add_thumbhash(session, item)
+    return len(ids)
+
+
 def reclassify(session: Session, item: Item) -> bool:
     """Make an item's preview state agree with its kind (from its sniffed
     MIME type). An item that can't have a preview (e.g. an HTML page named
@@ -115,7 +150,7 @@ def reclassify(session: Session, item: Item) -> bool:
     thumbs.remove_previews(get_settings().items_dir / item.id)
     item.preview_status, item.preview_error = PreviewStatus.NONE, None
     item.width = item.height = item.duration_s = None
-    item.phash, item.dominant_colors = None, None
+    item.phash, item.dominant_colors, item.thumbhash = None, None, None
     item.preview_rev = Item.preview_rev + 1
     session.commit()
     meta_svc.sync_item(session, item.id)

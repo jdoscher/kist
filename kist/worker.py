@@ -164,6 +164,13 @@ def run_verify() -> None:
             len(report.problems))
 
 
+def backfill_thumbhashes() -> int:
+    from .services import previews
+
+    with SessionLocal() as s:
+        return previews.backfill_thumbhashes(s)
+
+
 def main() -> None:
     configure_logging()
     settings = get_settings()
@@ -175,6 +182,7 @@ def main() -> None:
     heartbeat.start()
 
     last_inbox_scan = last_reap = last_recover = last_verify_check = 0.0
+    last_backfill = 0.0
     last_error = ""
     while True:
         heartbeat.progressed()
@@ -196,6 +204,12 @@ def main() -> None:
                 last_verify_check = time.monotonic()
                 if verify_due(settings.verify_interval_hours):
                     run_verify()
+            # older items get their ThumbHash placeholder a batch at a time,
+            # only while the queue is idle
+            if not worked and time.monotonic() - last_backfill > 60:
+                last_backfill = time.monotonic()
+                if backfill_thumbhashes():
+                    last_backfill = 0.0  # more may be waiting
             last_error = ""
         except Exception as exc:
             # a database outage repeats the same error every few seconds:
