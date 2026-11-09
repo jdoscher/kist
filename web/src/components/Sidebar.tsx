@@ -11,6 +11,7 @@ import {
 } from '../state'
 import { isUnfiledView, unfiledQuery } from '../query'
 import { describeError } from '../writes'
+import { fmtBytes } from '../format'
 import type { Query } from '../api'
 
 interface TreeNode extends Folder {
@@ -39,13 +40,6 @@ function buildTree(folders: Folder[]): TreeNode[] {
     else roots.push(node)
   }
   return roots
-}
-
-function fmtBytes(n: number): string {
-  if (n >= 1 << 30) return `${(n / (1 << 30)).toFixed(1)} GB`
-  if (n >= 1 << 20) return `${(n / (1 << 20)).toFixed(1)} MB`
-  if (n >= 1 << 10) return `${(n / (1 << 10)).toFixed(0)} KB`
-  return `${n} B`
 }
 
 function FolderRow({

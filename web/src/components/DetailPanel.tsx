@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, emptyQuery, fileUrl, thumbUrl, type Item } from '../api'
+import { fmtBytes, fmtDuration, linkableUrl } from '../format'
 import { swipeDirection } from '../mobile'
 import { clearDraft, describeError, draftKey, getDraft, serialize, setDraft } from '../writes'
 import {
@@ -12,12 +13,6 @@ import {
   useStats,
 } from '../state'
 
-function fmtBytes(n: number): string {
-  if (n >= 1 << 30) return `${(n / (1 << 30)).toFixed(2)} GB`
-  if (n >= 1 << 20) return `${(n / (1 << 20)).toFixed(2)} MB`
-  if (n >= 1 << 10) return `${(n / (1 << 10)).toFixed(1)} KB`
-  return `${n} B`
-}
 
 function Stars({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   return (
@@ -297,6 +292,7 @@ function SingleItem({ item }: { item: Item }) {
 }
 
 function ItemMeta({ item }: { item: Item }) {
+  const source = linkableUrl(item.source_url)
   return (
     <>
       <div className="detail-section meta-list">
@@ -306,15 +302,20 @@ function ItemMeta({ item }: { item: Item }) {
           <div><span>Dimensions</span><span>{item.width}×{item.height}</span></div>
         )}
         {item.duration_s != null && (
-          <div><span>Duration</span><span>{item.duration_s.toFixed(1)}s</span></div>
+          <div><span>Duration</span><span>{fmtDuration(item.duration_s)}</span></div>
         )}
         <div><span>Added</span><span>{new Date(item.created_at).toLocaleString()}</span></div>
         {item.source_url && (
           <div>
             <span>Source</span>
-            <a href={item.source_url} target="_blank" rel="noreferrer">
-              {new URL(item.source_url).hostname} ↗
-            </a>
+            {source ? (
+              <a href={source.href} target="_blank" rel="noreferrer">
+                {source.host} ↗
+              </a>
+            ) : (
+              // not an http(s) URL: show it, don't link it (and never crash)
+              <span className="source-text">{item.source_url}</span>
+            )}
           </div>
         )}
       </div>

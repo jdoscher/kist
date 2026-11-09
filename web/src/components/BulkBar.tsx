@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { Item } from '../api'
 import { useAppState, useBulkAction, useFolders, type BulkInput, type BulkResult } from '../state'
 
 const VERB: Record<BulkInput['action']['kind'], string> = {
@@ -16,7 +15,7 @@ const VERB: Record<BulkInput['action']['kind'], string> = {
 // actions that take the items out of this view: clear the selection after
 const LEAVES_VIEW = new Set(['trash', 'restore', 'hardDelete'])
 
-export function BulkBar(_props: { items: Map<string, Item> }) {
+export function BulkBar() {
   const { query, selection, clearSelection, selectAll } = useAppState()
   const { data: folders } = useFolders()
   const bulk = useBulkAction()
