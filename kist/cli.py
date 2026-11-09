@@ -575,8 +575,8 @@ def fixity(limit: int) -> int:
             checked += 1
             if not fixity_svc.check_item(session, item):
                 failed += 1
-                print(f"  ! {item.id} {item.filename}: does not match its sha256 "
-                      f"{item.sha256}; restore it from a backup", file=sys.stderr)
+                print(f"  ! {item.id} {item.filename}: changed or unreadable (expected "
+                      f"sha256 {item.sha256}); restore it from a backup", file=sys.stderr)
     print(f"fixity: {checked} originals checked, {failed} failed")
     return 0 if not failed else 2
 
