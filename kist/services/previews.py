@@ -124,7 +124,8 @@ def add_thumbhash(session: Session, item: Item) -> bool:
     )
     session.commit()
     meta_svc.sync_item(session, item.id)
-    return bool(item.thumbhash)
+    # `item` still holds the old value (the update bypassed the ORM object)
+    return bool(value)
 
 
 THUMBHASH_BATCH = 50

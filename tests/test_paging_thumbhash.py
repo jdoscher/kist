@@ -38,6 +38,25 @@ def test_thumbhash_backfill_for_older_items(client, upload, clean):
     assert cli.regen_previews(False, thumbhash_only=True) == 0
     assert client.get(f"/api/items/{item['id']}").json()["thumbhash"] == item["thumbhash"]
 
+    # the worker's backfill filling it in between the CLI's list and its
+    # visit is a success, not "preview unreadable" (seen on the 2.0 upgrade)
+    from unittest import mock
+
+    with SessionLocal() as s:
+        s.execute(sa.update(Item).values(thumbhash=None))
+        s.commit()
+    real_get = sa.orm.Session.get
+
+    def get_after_worker(self, cls, ident, **kw):
+        if cls is Item:
+            with SessionLocal() as other:
+                other.execute(sa.update(Item).where(Item.id == ident).values(thumbhash="x"))
+                other.commit()
+        return real_get(self, cls, ident, **kw)
+
+    with mock.patch.object(sa.orm.Session, "get", get_after_worker):
+        assert cli.regen_previews(False, thumbhash_only=True) == 0
+
     with SessionLocal() as s:
         s.execute(sa.update(Item).values(thumbhash=None))
         s.commit()

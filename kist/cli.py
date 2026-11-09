@@ -444,6 +444,10 @@ def regen_thumbhashes() -> int:
             item = session.get(Item, item_id, populate_existing=True)
             if item is None:
                 continue
+            if item.thumbhash is not None:
+                # the worker's background backfill got there first
+                done += 1
+                continue
             if previews.add_thumbhash(session, item):
                 done += 1
             else:

@@ -475,11 +475,17 @@ def embed_source(item: Item) -> Path | None:
 
 
 def has_camera_exif(path: Path) -> bool:
+    import warnings
+
     from PIL import Image
 
-    with Image.open(path) as im:
-        exif = im.getexif()
-        return bool(exif.get(EXIF_MAKE) or exif.get(EXIF_MODEL))
+    # only the header is read (no pixels decoded), so a very large original
+    # isn't a decompression bomb here: don't warn about it
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", Image.DecompressionBombWarning)
+        with Image.open(path) as im:
+            exif = im.getexif()
+            return bool(exif.get(EXIF_MAKE) or exif.get(EXIF_MODEL))
 
 
 def ocr_kind(item: Item) -> str | None:
