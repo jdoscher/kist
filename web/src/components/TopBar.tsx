@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { TILE_SIZE_MAX, TILE_SIZE_MIN } from '../layout'
-import { useAppState, useTags } from '../state'
+import { useTags } from '../data'
+import { useAppState } from '../state'
 import type { MobileCols } from '../mobile'
 import { PasteButton } from './PasteButton'
 import { useUploads } from './UploadManager'

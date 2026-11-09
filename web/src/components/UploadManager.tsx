@@ -10,7 +10,8 @@ import {
 } from 'react'
 import { api, uploadFile } from '../api'
 import { jobLabel, jobsFromDataTransfer, type AddJob } from '../clipboard'
-import { useAppState, useInvalidateItems } from '../state'
+import { useInvalidateItems } from '../data'
+import { useAppState } from '../state'
 import { nextQueued, uploadsReducer } from '../uploads'
 import { describeError } from '../writes'
 

@@ -1,5 +1,5 @@
 // Query helpers shared by the sidebar, top bar and app state (no React).
-import type { Item, Query } from './api'
+import { emptyQuery, type Item, type Query } from './api.ts'
 
 // "Unfiled" is the inbox: items in no folder AND with no tags. The server
 // defines it (GET /api/items?view=unfiled, MCP search_items(view="unfiled")),
@@ -64,4 +64,32 @@ export function folderSubtree(
     }
   }
   return out
+}
+
+/** Older smart folders stored Unfiled as "no folder + untagged". */
+export function normalizeSaved(q: Partial<Query>): Query {
+  const merged: Query = { ...emptyQuery, ...q, deleted: false }
+  if (merged.folder === 'none' && merged.untagged && !merged.view) {
+    return { ...merged, view: 'unfiled', folder: null, untagged: false }
+  }
+  return merged
+}
+
+/** The filters a smart folder saves (the reverse of normalizeSaved). The
+ * server's SmartFolderQuery decides which fields it keeps: `preview` and
+ * `deleted` join this list once it stores them (Kist 1.5 contract item 7). */
+export function smartFolderQuery(q: Query): Partial<Query> {
+  return {
+    q: q.q,
+    tags: q.tags,
+    tags_any: q.tags_any,
+    untagged: q.untagged,
+    view: q.view,
+    folder: q.folder,
+    type: q.type,
+    rating: q.rating,
+    order: q.order,
+    created_after: q.created_after,
+    created_before: q.created_before,
+  }
 }

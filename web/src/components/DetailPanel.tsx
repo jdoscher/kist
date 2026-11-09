@@ -3,15 +3,8 @@ import { api, emptyQuery, fileUrl, thumbUrl, type Item } from '../api'
 import { fmtBytes, fmtDuration, linkableUrl } from '../format'
 import { swipeDirection } from '../mobile'
 import { clearDraft, describeError, draftKey, getDraft, serialize, setDraft } from '../writes'
-import {
-  flattenItems,
-  useAppState,
-  useFolders,
-  useApplyItems,
-  useItem,
-  useItems,
-  useStats,
-} from '../state'
+import { useApplyItems, useCurrentItems, useFolderNames, useFolders, useItem, useStats } from '../data'
+import { useAppState } from '../state'
 
 
 function Stars({ value, onChange }: { value: number; onChange: (v: number) => void }) {
@@ -156,10 +149,7 @@ const FIELD_LABEL: Record<string, string> = {
 function SingleItem({ item }: { item: Item }) {
   const { write, saving, failure, dismiss } = useItemWrite(item.id)
   const { data: folders } = useFolders()
-  const folderName = useMemo(
-    () => new Map((folders ?? []).map((f) => [f.id, f.name])),
-    [folders],
-  )
+  const folderName = useFolderNames()
   const filename = useDraftField(item.id, 'filename', item.filename)
   const notes = useDraftField(item.id, 'notes', item.notes)
   const [tagText, setTagText] = useState('')
@@ -375,9 +365,8 @@ function LibrarySummary() {
 // always mounted while open (even with nothing selected) so selecting an
 // item never changes the grid's width and reflows the columns
 export function DetailPanel() {
-  const { query, selection, panelOpen } = useAppState()
-  const result = useItems(query)
-  const items = useMemo(() => flattenItems(result.data?.pages), [result.data])
+  const { selection, panelOpen } = useAppState()
+  const { items } = useCurrentItems()
   const selected = useMemo(() => items.filter((i) => selection.has(i.id)), [items, selection])
   // one item that isn't in the loaded grid (opened from a link): fetch it
   const onlyId = selection.size === 1 ? [...selection][0] : null
@@ -409,10 +398,8 @@ export function DetailPanel() {
  */
 export function DetailSheet() {
   const { query, setQuery, selection, clearSelection, setPreviewId } = useAppState()
-  const result = useItems(query)
-  const items = useMemo(() => flattenItems(result.data?.pages), [result.data])
-  const { data: folders } = useFolders()
-  const folderName = useMemo(() => new Map((folders ?? []).map((f) => [f.id, f.name])), [folders])
+  const { items } = useCurrentItems()
+  const folderName = useFolderNames()
   const start = useRef<{ x: number; y: number } | null>(null)
   const [drag, setDrag] = useState(0)
 

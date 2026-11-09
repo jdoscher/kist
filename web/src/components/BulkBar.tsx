@@ -1,16 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useAppState, useBulkAction, useFolders, type BulkInput, type BulkResult } from '../state'
-
-const VERB: Record<BulkInput['action']['kind'], string> = {
-  move: 'Moved',
-  addFolder: 'Added',
-  trash: 'Trashed',
-  restore: 'Restored',
-  hardDelete: 'Deleted',
-  addTags: 'Tagged',
-  removeTag: 'Untagged',
-  rating: 'Rated',
-}
+import { BULK_VERB, hardDeleteQuestion, useBulkAction, type BulkInput, type BulkResult } from '../bulk'
+import { useFolders } from '../data'
+import { useAppState } from '../state'
 
 // actions that take the items out of this view: clear the selection after
 const LEAVES_VIEW = new Set(['trash', 'restore', 'hardDelete'])
@@ -59,7 +50,7 @@ export function BulkBar() {
       if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault()
         if (query.deleted) {
-          if (confirm(`Permanently delete ${ids.length} item(s)? This cannot be undone.`)) {
+          if (confirm(hardDeleteQuestion(ids.length))) {
             run({ kind: 'hardDelete' })
           }
         } else {
@@ -87,7 +78,7 @@ export function BulkBar() {
     <div className="bulkbar">
       {showReport ? (
         <span className="bulk-report">
-          {VERB[report.input.action.kind]} {report.ok} of {report.ok + report.failed.length}.{' '}
+          {BULK_VERB[report.input.action.kind]} {report.ok} of {report.ok + report.failed.length}.{' '}
           {report.failed.length} failed: {report.failed[0].error}.{' '}
           <button disabled={busy} onClick={() => run(report.input.action)}>
             Retry
@@ -142,7 +133,7 @@ export function BulkBar() {
             className="danger"
             disabled={busy}
             onClick={() => {
-              if (confirm(`Permanently delete ${ids.length} item(s)? This cannot be undone.`)) {
+              if (confirm(hardDeleteQuestion(ids.length))) {
                 run({ kind: 'hardDelete' })
               }
             }}

@@ -1,15 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { api, emptyQuery, type Folder } from '../api'
-import {
-  useAppState,
-  useBulkAction,
-  useFolders,
-  useInvalidateItems,
-  useSmartFolders,
-  useStats,
-  useTags,
-} from '../state'
-import { isUnfiledView, unfiledQuery } from '../query'
+import { useBulkAction } from '../bulk'
+import { useFolders, useInvalidateItems, useSmartFolders, useStats, useTags } from '../data'
+import { useAppState } from '../state'
+import { isUnfiledView, smartFolderQuery, unfiledQuery } from '../query'
 import { describeError } from '../writes'
 import { fmtBytes } from '../format'
 import type { Query } from '../api'
@@ -169,19 +163,7 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
     const name = prompt('Save current search as smart folder:')
     if (!name?.trim()) return
     const saved = await attempt(() =>
-      api.createSmartFolder(name.trim(), {
-        q: query.q,
-        tags: query.tags,
-        tags_any: query.tags_any,
-        untagged: query.untagged,
-        view: query.view,
-        folder: query.folder,
-        type: query.type,
-        rating: query.rating,
-        order: query.order,
-        created_after: query.created_after,
-        created_before: query.created_before,
-      }),
+      api.createSmartFolder(name.trim(), smartFolderQuery(query)),
     )
     if (!saved) return
     invalidate()

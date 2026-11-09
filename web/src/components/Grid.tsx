@@ -11,7 +11,8 @@ import {
   tilePositions,
   typicalAspect,
 } from '../layout'
-import { flattenItems, useAppState, useItems } from '../state'
+import { useCurrentItems } from '../data'
+import { useAppState } from '../state'
 import { describeError } from '../writes'
 import { BulkBar } from './BulkBar'
 
@@ -95,8 +96,7 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
     tileSize: desktopTileSize,
     mobileCols,
   } = useAppState()
-  const result = useItems(query)
-  const items = useMemo(() => flattenItems(result.data?.pages), [result.data])
+  const { result, items } = useCurrentItems()
   const flatIds = useMemo(() => items.map((i) => i.id), [items])
 
   const scrollRef = useRef<HTMLDivElement | null>(null)
