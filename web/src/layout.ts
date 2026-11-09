@@ -3,8 +3,9 @@
 
 export type GridLayout = 'justified' | 'square'
 
-/** Space each tile takes besides its own box: 4 px margin on both sides. */
-const TILE_GAP = 8
+/** Space each tile takes besides its own box (comfortable density: 4 px
+ * margin on both sides). Other densities pass their own (theme.ts). */
+export const TILE_GAP = 8
 
 /** Shapes beyond these are cropped, so very tall or wide images stay readable. */
 const MIN_ASPECT = 0.5 // 1:2
@@ -40,10 +41,10 @@ export function tileAspect(item: Sized): number {
   return Math.min(MAX_ASPECT, Math.max(MIN_ASPECT, r))
 }
 
-function squareRows(count: number, avail: number, size: number): Row[] {
+function squareRows(count: number, avail: number, size: number, gap: number): Row[] {
   // same maths as the original fixed grid: size 200 -> 210 px cells
-  const cols = Math.max(2, Math.floor(avail / (size + 10)))
-  const tile = Math.floor(avail / cols) - TILE_GAP
+  const cols = Math.max(2, Math.floor(avail / (size + gap + 2)))
+  const tile = Math.floor(avail / cols) - gap
   const rows: Row[] = []
   for (let start = 0; start < count; start += cols) {
     const tiles: RowTile[] = []
@@ -62,7 +63,7 @@ function fillWidths(aspects: number[], space: number): number[] {
   return widths
 }
 
-function justifiedRows(items: Sized[], avail: number, target: number): Row[] {
+function justifiedRows(items: Sized[], avail: number, target: number, gap: number): Row[] {
   const rows: Row[] = []
   const lo = target * (1 - FLEX)
   const hi = target * (1 + FLEX)
@@ -73,12 +74,12 @@ function justifiedRows(items: Sized[], avail: number, target: number): Row[] {
     let complete = false
     for (let i = start; i < items.length; i++) {
       const r = tileAspect(items[i])
-      const fitWith = (avail - TILE_GAP * (aspects.length + 1)) / (sum + r)
+      const fitWith = (avail - gap * (aspects.length + 1)) / (sum + r)
       if (fitWith <= target) {
         // adding this tile fills the row; keep it if that lands closer to the
         // target height than ending the row without it
         const fitWithout =
-          aspects.length > 0 ? (avail - TILE_GAP * aspects.length) / sum : Number.POSITIVE_INFINITY
+          aspects.length > 0 ? (avail - gap * aspects.length) / sum : Number.POSITIVE_INFINITY
         if (Math.abs(fitWith - target) <= Math.abs(fitWithout - target)) {
           aspects.push(r)
           sum += r
@@ -89,7 +90,7 @@ function justifiedRows(items: Sized[], avail: number, target: number): Row[] {
       aspects.push(r)
       sum += r
     }
-    const space = avail - TILE_GAP * aspects.length
+    const space = avail - gap * aspects.length
     let height: number
     let widths: number[]
     if (complete) {
@@ -113,11 +114,17 @@ function justifiedRows(items: Sized[], avail: number, target: number): Row[] {
  * Pack items into rows. `avail` is the usable content width; `size` is the
  * target tile height (justified) or tile edge (square).
  */
-export function layoutRows(items: Sized[], avail: number, size: number, mode: GridLayout): Row[] {
+export function layoutRows(
+  items: Sized[],
+  avail: number,
+  size: number,
+  mode: GridLayout,
+  gap: number = TILE_GAP,
+): Row[] {
   if (items.length === 0 || avail <= 0) return []
   return mode === 'square'
-    ? squareRows(items.length, avail, size)
-    : justifiedRows(items, avail, size)
+    ? squareRows(items.length, avail, size, gap)
+    : justifiedRows(items, avail, size, gap)
 }
 
 /** Which thumbnail covers a tile best: thumb_512 (short side 512, long side
@@ -147,8 +154,8 @@ export function pickThumbSize(
  * the items' typical aspect (see typicalAspect) so a row holds about `cols`
  * of them whether the folder is mostly portrait or landscape.
  */
-export function mobileTileSize(avail: number, cols: number, aspect = 1): number {
-  return Math.max(40, Math.floor((avail / cols - TILE_GAP - 2) / aspect))
+export function mobileTileSize(avail: number, cols: number, aspect = 1, gap: number = TILE_GAP): number {
+  return Math.max(40, Math.floor((avail / cols - gap - 2) / aspect))
 }
 
 /** Median tile aspect of the items (1 when there are none). */
@@ -166,13 +173,13 @@ export interface TilePos {
 }
 
 /** Item index -> its row and horizontal centre, from layoutRows' output. */
-export function tilePositions(rows: Row[]): TilePos[] {
+export function tilePositions(rows: Row[], gap: number = TILE_GAP): TilePos[] {
   const pos: TilePos[] = []
   rows.forEach((row, r) => {
     let x = 0
     for (const t of row.tiles) {
-      pos[t.index] = { row: r, center: x + TILE_GAP / 2 + t.width / 2 }
-      x += t.width + TILE_GAP
+      pos[t.index] = { row: r, center: x + gap / 2 + t.width / 2 }
+      x += t.width + gap
     }
   })
   return pos

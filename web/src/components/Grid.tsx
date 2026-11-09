@@ -1,4 +1,5 @@
 import { useVirtualizer } from '@tanstack/react-virtual'
+import { Check, File, FileText, Film, Hourglass, Image as ImageIcon, Star, TriangleAlert, type LucideIcon } from 'lucide-react'
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { emptyQuery, thumbUrl, type Item } from '../api'
 import { fmtDuration, plural, tileLabel } from '../format'
@@ -13,19 +14,29 @@ import {
 } from '../layout'
 import { useCurrentItems, useFolderNames, useSmartFolders, useStats } from '../data'
 import { emptyState, everywhere, isUnfiledView, viewTitle } from '../query'
+import { placeholderFor, placeholderStyle } from '../placeholder'
 import { markOnce, onceSeen } from '../settings'
+import { densityGap, densityTileSize } from '../theme'
 import type { KeyLike } from '../shortcuts'
 import { useAppState } from '../state'
 import { useShortcut } from '../useShortcuts'
 import { describeError } from '../writes'
 import { BulkBar } from './BulkBar'
 
-const KIND_ICONS: Record<string, string> = {
-  image: '🖼',
-  video: '🎞',
-  pdf: '📄',
-  other: '📦',
+const KIND_ICONS: Record<string, LucideIcon> = {
+  image: ImageIcon,
+  video: Film,
+  pdf: FileText,
+  other: File,
 }
+
+/** The thumbnail fades in over the placeholder once it has loaded (an
+ * already-cached one shows at once). One that fails to load stays hidden,
+ * so the placeholder shows instead of a broken-image icon. */
+function markLoaded(img: HTMLImageElement | null) {
+  if (img && img.complete && img.naturalWidth > 0) img.classList.add('loaded')
+}
+const onImgLoad = (e: React.SyntheticEvent<HTMLImageElement>) => e.currentTarget.classList.add('loaded')
 
 /** DOM id of a tile, so focus can follow the keyboard (and the preview can
  * hand focus back to the tile it was opened from). */
@@ -61,6 +72,13 @@ const Tile = memo(function Tile({
   // tiles are cover-cropped, so pick the thumb that covers the tile at the
   // screen's pixel density (thumb_512 is sized by its short side)
   const thumb = thumbUrl(item, pickThumbSize(item, width, height, window.devicePixelRatio || 1))
+  const placeholder = useMemo(() => (thumb ? placeholderStyle(placeholderFor(item)) : {}), [thumb, item])
+  const KindIcon =
+    item.preview_status === 'failed'
+      ? TriangleAlert
+      : item.preview_status === 'pending'
+        ? Hourglass
+        : (KIND_ICONS[item.kind] ?? File)
   return (
     <div
       id={tileDomId(item.id)}
@@ -70,8 +88,8 @@ const Tile = memo(function Tile({
       aria-posinset={index + 1}
       aria-label={tileLabel(item)}
       tabIndex={tabbable ? 0 : -1}
-      className={`tile ${selected ? 'selected' : ''}`}
-      style={{ width, height }}
+      className={`tile${selected ? ' selected' : ''}${thumb ? '' : ' no-thumb'}`}
+      style={{ width, height, ...placeholder }}
       onMouseDown={(e) => onPointerDown(item, e)}
       onDoubleClick={() => onDoubleClick(item)}
       onFocus={() => onFocus(item)}
@@ -80,16 +98,18 @@ const Tile = memo(function Tile({
       title={`${item.filename} — double-click to open`}
     >
       {thumb ? (
-        <img src={thumb} loading="lazy" draggable={false} alt="" />
+        <img
+          src={thumb}
+          loading="lazy"
+          decoding="async"
+          draggable={false}
+          alt=""
+          ref={markLoaded}
+          onLoad={onImgLoad}
+        />
       ) : (
         <div className={`tile-icon preview-${item.preview_status}`} aria-hidden="true">
-          <span>
-            {item.preview_status === 'failed'
-              ? '⚠'
-              : item.preview_status === 'pending'
-                ? '⏳'
-                : (KIND_ICONS[item.kind] ?? '📦')}
-          </span>
+          <KindIcon size={Math.max(20, Math.min(40, Math.round(height / 5)))} strokeWidth={1.5} />
           <span className="ext">
             {item.filename}
             {item.preview_status === 'failed' && ' · preview failed'}
@@ -103,8 +123,18 @@ const Tile = memo(function Tile({
       )}
       {item.rating > 0 && (
         <span className="badge rating" aria-hidden="true">
-          {'★'.repeat(item.rating)}
+          {Array.from({ length: item.rating }, (_, i) => (
+            <Star key={i} size={11} fill="currentColor" strokeWidth={0} />
+          ))}
         </span>
+      )}
+      {selected && (
+        <>
+          <span className="sel-corners" aria-hidden="true" />
+          <span className="sel-check" aria-hidden="true">
+            <Check size={14} strokeWidth={3} />
+          </span>
+        </>
       )}
       <div className="tile-caption" aria-hidden="true">
         {item.filename}
@@ -126,9 +156,12 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
     selectAll,
     setPreviewId,
     gridLayout,
-    tileSize: desktopTileSize,
+    tileSize: sliderSize,
     mobileCols,
+    density,
   } = useAppState()
+  const gap = densityGap(density)
+  const desktopTileSize = densityTileSize(sliderSize, density)
   const { result, items } = useCurrentItems()
   const { data: stats } = useStats()
   const { data: smartFolders } = useSmartFolders()
@@ -158,20 +191,20 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
     () => (mobile && gridLayout === 'justified' ? typicalAspect(items) : 1),
     [mobile, gridLayout, items],
   )
-  const tileSize = mobile ? mobileTileSize(width - 16, mobileCols, aspect) : desktopTileSize
+  const tileSize = mobile ? mobileTileSize(width - 16, mobileCols, aspect, gap) : desktopTileSize
   const rows = useMemo(
-    () => layoutRows(items, width - 16, tileSize, gridLayout),
-    [items, width, tileSize, gridLayout],
+    () => layoutRows(items, width - 16, tileSize, gridLayout, gap),
+    [items, width, tileSize, gridLayout, gap],
   )
   const rowCount = rows.length
 
   // item index -> its row and horizontal centre, for up/down arrow keys
-  const positions = useMemo(() => tilePositions(rows), [rows])
+  const positions = useMemo(() => tilePositions(rows, gap), [rows, gap])
 
   const virtualizer = useVirtualizer({
     count: rowCount,
     getScrollElement: () => scrollRef.current,
-    estimateSize: (i) => (rows[i]?.height ?? tileSize) + 8,
+    estimateSize: (i) => (rows[i]?.height ?? tileSize) + gap,
     overscan: 4,
     // the bulk bar and toasts float over the bottom: keep the current tile clear
     scrollPaddingEnd: 80,

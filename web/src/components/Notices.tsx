@@ -1,3 +1,4 @@
+import { X } from 'lucide-react'
 // Renders notices.ts's list: one polite live region at the bottom of the
 // screen. useNotices().notify({...}) from anywhere below the provider.
 
@@ -78,7 +79,7 @@ function NoticeRow({ notice, onDismiss }: { notice: Notice; onDismiss: () => voi
         </button>
       ))}
       <button className="notice-close" aria-label="Dismiss notice" onClick={onDismiss}>
-        <span aria-hidden="true">✕</span>
+        <X size={16} strokeWidth={1.75} aria-hidden="true" />
       </button>
     </div>
   )

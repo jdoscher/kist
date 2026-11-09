@@ -1,3 +1,4 @@
+import { ExternalLink } from 'lucide-react'
 import type { Item } from '../api'
 import { fmtBytes, fmtDuration, linkableUrl } from '../format'
 
@@ -21,7 +22,7 @@ export function ItemMeta({ item }: { item: Item }) {
             <span>Source</span>
             {source ? (
               <a href={source.href} target="_blank" rel="noreferrer">
-                {source.host} <span aria-hidden="true">↗</span>
+                {source.host} <ExternalLink size={13} strokeWidth={1.75} aria-hidden="true" />
               </a>
             ) : (
               // not an http(s) URL: show it, don't link it (and never crash)

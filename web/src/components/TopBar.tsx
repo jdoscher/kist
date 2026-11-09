@@ -1,8 +1,11 @@
+import { Info, Menu, PanelsLeftRight, RectangleHorizontal, Square, Upload, X } from 'lucide-react'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { TILE_SIZE_MAX, TILE_SIZE_MIN } from '../layout'
 import { useTags } from '../data'
 import { useAppState } from '../state'
 import type { MobileCols } from '../mobile'
+import { AppearanceMenu } from './Appearance'
+import { Mark, Wordmark } from './Brand'
 import { PasteButton } from './PasteButton'
 import { useUploads } from './UploadManager'
 
@@ -30,6 +33,9 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
     drawerOpen,
     mobileCols,
     setMobileCols,
+    density,
+    chromeShown,
+    setChromeShown,
   } = useAppState()
   const { data: tags } = useTags()
   const uploads = useUploads()
@@ -116,12 +122,12 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
           aria-expanded={drawerOpen}
           aria-controls="folder-drawer"
         >
-          <span aria-hidden="true">☰</span>
+          <Menu size={20} strokeWidth={1.75} aria-hidden="true" />
         </button>
       )}
       <div className="brand" title="Kist">
-        <img src="/favicon.svg?v=3" alt="" className="brand-icon" />
-        Kist
+        <Mark />
+        <Wordmark />
       </div>
 
       <div className="searchbox" ref={boxRef} role="search">
@@ -211,7 +217,11 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
           }
           aria-pressed={gridLayout === 'square'}
         >
-          <span aria-hidden="true">{gridLayout === 'justified' ? '▭' : '▢'}</span>
+          {gridLayout === 'justified' ? (
+            <RectangleHorizontal size={16} strokeWidth={1.75} aria-hidden="true" />
+          ) : (
+            <Square size={16} strokeWidth={1.75} aria-hidden="true" />
+          )}
           <span className={mobile ? 'sr-only' : 'btn-text'}>Square tiles</span>
         </button>
         {mobile ? (
@@ -270,8 +280,8 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
       >
         <option value={0}>{mobile ? 'Rating' : 'Any rating'}</option>
         {[1, 2, 3, 4, 5].map((r) => (
-          <option key={r} value={r} aria-label={`${r} star${r > 1 ? 's' : ''} or more`}>
-            {'★'.repeat(r)}+
+          <option key={r} value={r}>
+            {r}+ star{r > 1 ? 's' : ''}
           </option>
         ))}
       </select>
@@ -287,7 +297,8 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
       {!mobile && (
         <>
       <PasteButton />
-      <button className="primary" onClick={() => fileRef.current?.click()}>
+      <button className="primary btn-icon" onClick={() => fileRef.current?.click()}>
+        <Upload size={15} strokeWidth={2} aria-hidden="true" />
         Upload
       </button>
       <input
@@ -302,14 +313,28 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
           e.target.value = ''
         }}
       />
-      <button
-        className={`panel-toggle ${panelOpen ? 'on' : ''}`}
-        onClick={() => setPanelOpen(!panelOpen)}
-        title={panelOpen ? 'Hide the info panel' : 'Show the info panel'}
-        aria-pressed={panelOpen}
-      >
-        Info
-      </button>
+      {density === 'gallery' ? (
+        <button
+          className={`panel-toggle btn-icon ${chromeShown ? 'on' : ''}`}
+          onClick={() => setChromeShown(!chromeShown)}
+          title={chromeShown ? 'Hide the sidebar and info panel' : 'Show the sidebar and info panel'}
+          aria-pressed={chromeShown}
+        >
+          <PanelsLeftRight size={15} strokeWidth={1.75} aria-hidden="true" />
+          Panels
+        </button>
+      ) : (
+        <button
+          className={`panel-toggle btn-icon ${panelOpen ? 'on' : ''}`}
+          onClick={() => setPanelOpen(!panelOpen)}
+          title={panelOpen ? 'Hide the info panel' : 'Show the info panel'}
+          aria-pressed={panelOpen}
+        >
+          <Info size={15} strokeWidth={1.75} aria-hidden="true" />
+          Info
+        </button>
+      )}
+      <AppearanceMenu />
         </>
       )}
     </header>
@@ -322,7 +347,7 @@ function Chip({ label, clear, onClear, title }: { label: string; clear: string; 
     <span className="chip" title={title}>
       {label}
       <button aria-label={clear} title={clear} onClick={onClear}>
-        <span aria-hidden="true">×</span>
+        <X size={13} strokeWidth={2} aria-hidden="true" />
       </button>
     </span>
   )

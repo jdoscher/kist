@@ -1,3 +1,4 @@
+import { X } from 'lucide-react'
 // The one in-app dialog. <Modal> is the shell (role=dialog, aria-modal,
 // focus trapped inside, Escape and the backdrop close it, focus goes back
 // where it was, keyboard shortcuts behind it stand down). useDialog()
@@ -97,7 +98,7 @@ export function Modal({
           <h3 id={titleId}>{title}</h3>
           {headerClose && (
             <button className="icon-btn" onClick={onClose} aria-label={`Close ${title}`}>
-              <span aria-hidden="true">✕</span>
+              <X size={16} strokeWidth={1.75} aria-hidden="true" />
             </button>
           )}
         </div>

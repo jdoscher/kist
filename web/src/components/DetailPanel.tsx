@@ -1,3 +1,4 @@
+import { ExternalLink, Maximize2, Star, X } from 'lucide-react'
 import { useId, useMemo, useState } from 'react'
 import { api, fileUrl, thumbUrl, type Item } from '../api'
 import { useCurrentItems, useFolderNames, useFolders, useItem, useStats, useVersion } from '../data'
@@ -7,7 +8,7 @@ import { useDraftField, useItemWrite, useTextSave } from '../useWrite'
 import { ItemMeta } from './ItemMeta'
 import { ItemStatus } from './ItemStatus'
 
-/** Five labelled toggle buttons; ★/☆ adds a shape cue to the colour. */
+/** Five labelled toggle buttons; filled vs outline stars add a shape cue to the colour. */
 function Stars({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   return (
     <div className="stars" role="group" aria-label={`Rating: ${value ? `${value} of 5` : 'none'}`}>
@@ -20,7 +21,7 @@ function Stars({ value, onChange }: { value: number; onChange: (v: number) => vo
           title={s === value ? 'Press again to clear the rating' : `${s} star${s > 1 ? 's' : ''}`}
           onClick={() => onChange(s === value ? 0 : s)}
         >
-          <span aria-hidden="true">{s <= value ? '★' : '☆'}</span>
+          <Star size={18} strokeWidth={1.75} fill={s <= value ? 'currentColor' : 'none'} aria-hidden="true" />
         </button>
       ))}
     </div>
@@ -67,7 +68,7 @@ function SingleItem({ item }: { item: Item }) {
       <div className="detail-thumb">
         {thumb ? <img src={thumb} alt="" /> : <div className="detail-thumb-icon" aria-hidden="true">.{item.ext}</div>}
         <button className="open-full" onClick={() => setPreviewId(item.id)} title="Open full screen (Enter, or double-click the tile)">
-          Open <span aria-hidden="true">⤢</span>
+          Open <Maximize2 size={13} strokeWidth={1.75} aria-hidden="true" />
         </button>
       </div>
       <ItemStatus item={item} />
@@ -106,7 +107,7 @@ function SingleItem({ item }: { item: Item }) {
             <span key={t} className="chip">
               #{t}
               <button aria-label={`Remove tag ${t}`} title={`Remove tag ${t}`} onClick={() => void removeTag(t)}>
-                <span aria-hidden="true">×</span>
+                <X size={13} strokeWidth={2} aria-hidden="true" />
               </button>
             </span>
           ))}
@@ -135,7 +136,7 @@ function SingleItem({ item }: { item: Item }) {
                 title="Remove from this folder"
                 onClick={() => void write('folders', () => api.patchFolders(item.id, { remove: [fid] }))}
               >
-                <span aria-hidden="true">×</span>
+                <X size={13} strokeWidth={2} aria-hidden="true" />
               </button>
             </span>
           ))}
@@ -178,7 +179,7 @@ function SingleItem({ item }: { item: Item }) {
       <ItemMeta item={item} />
 
       <a className="open-original" href={fileUrl(item)} target="_blank" rel="noreferrer">
-        Open original <span aria-hidden="true">↗</span>
+        Open original <ExternalLink size={13} strokeWidth={1.75} aria-hidden="true" />
         <span className="sr-only"> (new tab)</span>
       </a>
     </>
@@ -239,14 +240,15 @@ function LibrarySummary() {
 // always mounted while open (even with nothing selected) so selecting an
 // item never changes the grid's width and reflows the columns
 export function DetailPanel() {
-  const { selection, panelOpen } = useAppState()
+  const { selection, panelOpen, density, chromeShown } = useAppState()
   const { items } = useCurrentItems()
   const selected = useMemo(() => items.filter((i) => selection.has(i.id)), [items, selection])
   // one item that isn't in the loaded grid (opened from a link): fetch it
   const onlyId = selection.size === 1 ? [...selection][0] : null
   const single = useItem(onlyId, items)
 
-  if (!panelOpen) return null
+  // gallery density tucks the panel away unless Panels is on
+  if (density === 'gallery' ? !chromeShown : !panelOpen) return null
 
   return (
     <aside className="detail-panel" aria-label="Item details">

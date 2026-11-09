@@ -1,3 +1,4 @@
+import { X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { bulkReport, hardDeleteQuestion, trashedText, useBulkAction, type BulkAction } from '../bulk'
 import { useFolders, useRefresh } from '../data'
@@ -169,7 +170,7 @@ export function BulkBar() {
       )}
 
       <button className="icon-btn" onClick={clearSelection} aria-label="Clear selection" title="Clear selection">
-        <span aria-hidden="true">✕</span>
+        <X size={16} strokeWidth={1.75} aria-hidden="true" />
       </button>
       <span className="working" role="status">
         {busy ? 'working…' : ''}

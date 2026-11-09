@@ -6,6 +6,34 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A new look. Kist has a new mark (two brass corners and a kept item), a
+  "kist" wordmark and a full icon set: an adaptive favicon, iPhone home
+  screen icon, Android and maskable icons, and a single-colour icon.
+- Kist can be installed as an app: it now ships a web app manifest, so "Add
+  to Home Screen" opens it full screen with its own icon.
+- Light, dark and gallery-grey themes. Kist follows your device's light or
+  dark setting by default; the new Appearance menu (the palette button, or
+  the bottom of the phone menu) overrides it. Gallery grey puts images on a
+  neutral 18 % grey for judging colour, in the grid and full screen.
+- Density: Compact (tight grid for sorting), Comfortable, and Gallery
+  (bigger tiles, more space, sidebars tucked away behind a Panels button).
+- Tiles show the image's colour while the thumbnail loads, then fade it in.
+- Opening an item grows its tile into the full-screen view, and closing
+  shrinks it back, in browsers that support it.
+- The brand guide is in `docs/brand.md`.
+
+### Changed
+
+- Selected items are marked with brass corners and a check, so selection
+  and the keyboard focus ring look different.
+- Icons are drawn from one consistent set instead of emoji and symbols.
+- New type: Inter for the interface, Instrument Serif for headings and
+  JetBrains Mono for file details, all served by Kist itself.
+- The accent colour is brass instead of blue, and rating stars match it.
+- Animations are switched off when your device asks for reduced motion.
+
 ## [1.5.0] - 2026-11-09
 
 A hardening release. Kist was reviewed for security, data integrity,
