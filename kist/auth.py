@@ -7,10 +7,25 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from .config import get_settings
 
 PUBLIC_PATHS = {"/api/health"}
+# FastAPI's interactive docs describe the whole API: token only. In a
+# browser the kist_token cookie the web UI sets is enough (they are GETs).
+DOCS_PATHS = {"/docs", "/docs/oauth2-redirect", "/redoc", "/openapi.json"}
+
+
+def needs_token(path: str) -> bool:
+    if path in PUBLIC_PATHS:
+        return False
+    return path.startswith(("/api", "/mcp")) or path in DOCS_PATHS
+
+
+def token_matches(given: str, expected: str) -> bool:
+    """Constant-time compare that can't raise: compare_digest refuses
+    non-ASCII str, which used to turn a bad token into a 500."""
+    return secrets.compare_digest(given.encode("utf-8"), expected.encode("utf-8"))
 
 
 class BearerTokenMiddleware:
-    """Require the shared bearer token on /api and /mcp routes.
+    """Require the shared bearer token on /api, /mcp and the API docs.
 
     The token is accepted via `Authorization: Bearer <token>` or — for
     GET/HEAD only — the `kist_token` cookie the web UI sets so <img>/<video>
@@ -28,7 +43,7 @@ class BearerTokenMiddleware:
             await self.app(scope, receive, send)
             return
         path = scope["path"]
-        if not (path.startswith("/api") or path.startswith("/mcp")) or path in PUBLIC_PATHS:
+        if not needs_token(path):
             await self.app(scope, receive, send)
             return
 
@@ -40,7 +55,7 @@ class BearerTokenMiddleware:
         if not token and scope["method"] in ("GET", "HEAD"):
             token = request.cookies.get("kist_token", "")
 
-        if not token or not secrets.compare_digest(token, get_settings().token):
+        if not token or not token_matches(token, get_settings().token):
             response = JSONResponse({"detail": "invalid or missing token"}, status_code=401)
             await response(scope, receive, send)
             return

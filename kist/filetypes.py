@@ -1,13 +1,16 @@
-"""Format allowlist and type classification.
+"""Type classification.
 
-Files outside the allowlist are still stored (content is king) but get no
-preview — the UI shows a generic icon.
+An item's kind (image | video | pdf | other) comes from the MIME type
+libmagic sniffed from its bytes, never from the name it arrived with: an
+HTML page saved as "invoice.pdf" is "other". The one exception is a video
+extension whose content libmagic can't name at all (application/octet-
+stream), which some valid MP4/MOV files sniff as.
+
+Files of kind "other" are still stored (content is king) but get no preview;
+the UI shows a generic icon.
 """
 
-ALLOWED_EXTS = {
-    "png", "jpg", "jpeg", "webp", "gif", "svg", "avif", "heic",
-    "mp4", "mov", "webm", "pdf",
-}
+OCTET_STREAM = "application/octet-stream"
 
 MIME_TO_EXT = {
     "image/png": "png",
@@ -26,17 +29,22 @@ MIME_TO_EXT = {
 
 VIDEO_EXTS = {"mp4", "mov", "webm"}
 
+KINDS = ("image", "video", "pdf", "other")
+
 
 def kind_for(mime: str, ext: str) -> str:
-    """Coarse type used for filtering: image | video | pdf | other."""
-    if mime == "application/pdf" or ext == "pdf":
+    """Coarse type used for filtering and previews. Keep in step with
+    services.search.KIND_FILTERS, which is the same rule in SQL."""
+    if mime == "application/pdf":
         return "pdf"
-    if mime.startswith("video/") or ext in VIDEO_EXTS:
+    if mime.startswith("video/") or (mime == OCTET_STREAM and ext.lower() in VIDEO_EXTS):
         return "video"
     if mime.startswith("image/"):
         return "image"
     return "other"
 
 
-def has_preview(mime: str, ext: str) -> bool:
-    return ext.lower() in ALLOWED_EXTS or kind_for(mime, ext) in {"image", "video", "pdf"}
+def serve_inline(mime: str) -> bool:
+    """Whether an original may be shown in the browser (by sniffed MIME).
+    Everything else is a download, sandboxed if opened anyway."""
+    return mime.startswith(("image/", "video/", "audio/")) or mime == "application/pdf"

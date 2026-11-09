@@ -52,6 +52,12 @@ def test_kind_for():
     assert kind_for("application/pdf", "pdf") == "pdf"
     assert kind_for("video/mp4", "mp4") == "video"
     assert kind_for("text/plain", "txt") == "other"
+    # the sniffed type decides, not the name it came with
+    assert kind_for("text/html", "pdf") == "other"
+    assert kind_for("application/octet-stream", "pdf") == "other"
+    assert kind_for("text/html", "mp4") == "other"
+    # ...except a video libmagic can't name at all
+    assert kind_for("application/octet-stream", "MP4") == "video"
 
 
 def test_cursor_roundtrip():

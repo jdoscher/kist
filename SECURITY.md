@@ -21,11 +21,20 @@ accounts or per-user permissions.
   (`KIST_HSTS_SECONDS`, on by default; browsers ignore it over plain HTTP).
 - **Untrusted files.** Originals are served with `nosniff`. Opened on their
   own, originals are sandboxed documents (`Content-Security-Policy: sandbox`),
-  and anything that isn't an image, video or PDF downloads instead of
-  opening, so a stored file can't run script in Kist's origin. PDFs are the
-  exception: Chromium-based browsers won't render a PDF in a sandboxed
-  document. Their built-in viewers run PDF script isolated from the page's
-  origin.
+  and anything that isn't an image, video, audio file or PDF downloads
+  instead of opening, so a stored file can't run script in Kist's origin.
+  What counts is the type sniffed from the file's bytes, never its name: an
+  HTML page named `invoice.pdf` is a sandboxed download. Real PDFs are the
+  exception to the sandbox: Chromium-based browsers won't render a PDF in a
+  sandboxed document. Their built-in viewers run PDF script isolated from
+  the page's origin. Direct uploads are capped at `KIST_MAX_UPLOAD_BYTES`
+  (4 GiB by default).
+- **Network exposure.** Compose publishes Kist on every interface by default
+  (`KIST_BIND=0.0.0.0`), which lets anything on the LAN reach it over plain
+  HTTP and see the token in transit. When the TLS reverse proxy runs on the
+  same host, set `KIST_BIND=127.0.0.1`. Set your own `KIST_DB_PASSWORD` too:
+  Postgres publishes no port, but the default password is public. The API
+  docs (`/docs`, `/openapi.json`) need the token.
 - **Decoders.** Previews are generated in a child process with a time limit,
   so a malformed file can crash or hang only its own preview. PDF posters are
   rendered at a capped size, and ffmpeg only reads local files in the
