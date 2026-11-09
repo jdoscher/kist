@@ -6,16 +6,14 @@ only ever exercised for real on the worst day. Every field the owner can see
 or edit must survive a wipe + rebuild, a damaged item must not stop the rest
 from coming back, and nothing on disk may be silently left out.
 
-Tests marked `xfail(strict=True)` with a "BUG:" reason document real defects
-in the current code (they fail today; fix the app and they will XPASS, which
-strict mode turns into a failure so the marker gets removed).
+The last group of tests started out as strict xfails documenting real
+defects (2026-11-09); they were fixed in 1.5.
 """
 
 import json
 import shutil
 from datetime import datetime
 
-import pytest
 import sqlalchemy as sa
 from conftest import png_bytes
 
@@ -123,7 +121,7 @@ def test_wipe_and_rebuild_restores_the_library_exactly(client, upload, clean, ca
     assert set(after) == set(before_items)
     for item_id, want in before_items.items():
         got = after[item_id]
-        # preview_rev is checked by its own (xfail) test below
+        # preview_rev is checked by its own test below
         want = {k: v for k, v in want.items() if k not in ("preview_rev", "thumb_url")}
         got = {k: v for k, v in got.items() if k not in ("preview_rev", "thumb_url")}
         assert got == want, item_id
@@ -295,14 +293,9 @@ def test_no_items_directory_is_an_error(clean, capsys):
     assert "no items directory" in capsys.readouterr().err
 
 
-# ---------- known bugs (strict xfail: they fail today) ----------
+# ---------- defects found 2026-11-09, fixed in 1.5 ----------
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason=(
-    "BUG: an item folder with an original but no meta.json (ingest tolerates a "
-    "failed meta write and says 'run kist rewrite-meta') is silently skipped by "
-    "rebuild-index: not restored, not reported, exit code 0"
-))
 def test_item_folder_without_meta_json_is_reported(client, upload, clean, capsys):
     upload()
     orphan = upload()["item"]
@@ -311,29 +304,23 @@ def test_item_folder_without_meta_json_is_reported(client, upload, clean, capsys
     code = cli.rebuild_index(wipe=True)
     captured = capsys.readouterr()
     assert orphan["id"] in captured.err and code != 0
+    # and it is back, from the file itself, with a fresh meta.json
+    got = client.get(f"/api/items/{orphan['id']}").json()
+    assert got["sha256"] == orphan["sha256"] and got["mime"] == "image/png"
+    assert got["filename"].endswith(".png")
+    assert _meta_path(clean, orphan["id"]).is_file()
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason=(
-    "BUG: rebuild-index --wipe empties the database before reading "
-    "folders.json; an unreadable folders.json then crashes it and leaves an "
-    "empty library"
-))
 def test_unreadable_folders_json_does_not_leave_an_empty_library(client, upload, clean):
     item = upload()["item"]
     (clean / "folders.json").write_text("{not json")
 
-    try:
-        cli.rebuild_index(wipe=True)
-    except Exception:
-        pass
+    assert cli.rebuild_index(wipe=True) == 1  # refused before wiping
     assert client.get(f"/api/items/{item['id']}").status_code == 200
+    # without --wipe it carries on with the existing folders, and says so
+    assert cli.rebuild_index(wipe=False) == 2
 
 
-@pytest.mark.xfail(strict=True, raises=sa.exc.IntegrityError, reason=(
-    "BUG: a folder in folders.json whose parent is not in the file is inserted "
-    "with a dangling parent_id; the FK violation aborts the whole rebuild "
-    "(after --wipe has already emptied the database)"
-))
 def test_folder_with_a_missing_parent_is_restored_at_top_level(client, upload, clean):
     a = client.post("/api/folders", json={"name": "A"}).json()
     b = client.post("/api/folders", json={"name": "B", "parent_id": a["id"]}).json()
@@ -343,14 +330,11 @@ def test_folder_with_a_missing_parent_is_restored_at_top_level(client, upload, c
     data["folders"] = [f for f in data["folders"] if f["id"] != a["id"]]
     path.write_text(json.dumps(data))
 
-    cli.rebuild_index(wipe=True)
+    assert cli.rebuild_index(wipe=True) == 2  # restored, with a warning
     assert client.get(f"/api/items/{item['id']}").json()["folder_ids"] == [b["id"]]
+    assert client.get("/api/folders").json()[0]["parent_id"] is None
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason=(
-    "BUG: folders in a parent cycle in folders.json are dropped without a "
-    "word, and so are their items' memberships; rebuild-index still exits 0"
-))
 def test_folder_cycle_in_folders_json_is_reported(client, upload, clean, capsys):
     a = client.post("/api/folders", json={"name": "A"}).json()
     b = client.post("/api/folders", json={"name": "B", "parent_id": a["id"]}).json()
@@ -364,14 +348,10 @@ def test_folder_cycle_in_folders_json_is_reported(client, upload, clean, capsys)
 
     code = cli.rebuild_index(wipe=True)
     names = {f["name"] for f in client.get("/api/folders").json()}
-    assert names == {"A", "B"} or (code != 0 and a["id"] in capsys.readouterr().err)
+    assert names == {"A", "B"}
+    assert code != 0 and a["id"] in capsys.readouterr().err
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason=(
-    "BUG: preview_rev is not in meta.json, so rebuild-index resets it to 0; "
-    "thumbnails are served 'immutable' per ?v=rev, so browsers keep showing "
-    "the stale cached preview of any item whose preview was regenerated"
-))
 def test_preview_version_survives_a_rebuild(client, upload):
     from kist.db import SessionLocal
     from kist.services import items as items_svc
@@ -387,11 +367,6 @@ def test_preview_version_survives_a_rebuild(client, upload):
     assert client.get(f"/api/items/{item['id']}").json()["preview_rev"] == rev
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason=(
-    "BUG: deleting a folder does not rewrite its items' meta.json, so the "
-    "durable copy keeps the dead folder id and `kist verify` reports drift "
-    "after an ordinary folder delete"
-))
 def test_verify_is_clean_after_a_folder_delete(client, upload, capsys):
     folder = client.post("/api/folders", json={"name": "Temp"}).json()
     upload(folder_id=folder["id"])
