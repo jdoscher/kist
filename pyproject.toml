@@ -58,3 +58,7 @@ extend-exclude = ["web"]
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP"]
 ignore = ["B008"]  # FastAPI's Depends()/Query() defaults
+
+[tool.ruff.lint.per-file-ignores]
+# the brand generator builds long SVG strings (docs/brand.md)
+"docs/brand/*.py" = ["E501"]

@@ -166,6 +166,8 @@ each item. Plus a new look for the web app.
     JetBrains Mono for file details, all served by Kist itself.
   - The accent colour is brass instead of blue, and rating stars match it.
   - Animations are switched off when your device asks for reduced motion.
+  - Edits made in the web app show as "web" in an item's history (it sends
+    `X-Kist-Client: web`).
 
 ### Performance
 - Paging through a large list no longer recounts every match on each page:
