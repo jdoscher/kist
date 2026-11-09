@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { api, emptyQuery, type Job } from '../api'
 import { useInvalidateItems, useJobs, useStats } from '../data'
 import { useAppState } from '../state'
+import { useLayer, useShortcut } from '../useShortcuts'
 
 /** Imports that failed (with Retry / Dismiss) and a way to find the items
  * whose preview failed. Opened from "Needs attention" in the sidebar. */
@@ -12,6 +13,8 @@ export function JobsPanel() {
   const invalidate = useInvalidateItems()
   const [busy, setBusy] = useState<number | null>(null)
   const [note, setNote] = useState('')
+  useLayer('modal', jobsOpen)
+  useShortcut('modal', (e) => (e.key === 'Escape' ? (setJobsOpen(false), true) : false), jobsOpen)
 
   if (!jobsOpen) return null
 

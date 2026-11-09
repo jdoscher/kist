@@ -13,6 +13,7 @@ import {
 } from '../layout'
 import { useCurrentItems } from '../data'
 import { useAppState } from '../state'
+import { useShortcut } from '../useShortcuts'
 import { describeError } from '../writes'
 import { BulkBar } from './BulkBar'
 
@@ -90,7 +91,6 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
     rangeSelect,
     clearSelection,
     selectAll,
-    previewId,
     setPreviewId,
     gridLayout,
     tileSize: desktopTileSize,
@@ -175,40 +175,35 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
     [selection],
   )
 
-  // keyboard: arrows navigate, enter previews, delete trashes (handled in BulkBar), cmd-a selects all
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement
-      if (target.closest('input, textarea, select, [contenteditable]')) return
-      if (previewId) return // Preview handles its own keys
-
-      if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
-        e.preventDefault()
-        selectAll(flatIds)
-        return
-      }
-      if (e.key === 'Escape') {
-        clearSelection()
-        return
-      }
-      if (e.key === 'Enter' && focusedId.current) {
-        setPreviewId(focusedId.current)
-        return
-      }
-      if (!isNavKey(e.key)) return
-      const idx = focusedId.current ? flatIds.indexOf(focusedId.current) : -1
-      const next = nextIndex(e.key, idx, flatIds.length, rows, positions)
+  // keyboard (grid layer: stands down while the preview or a dialog is
+  // open): arrows navigate, Enter previews, cmd-a selects all, Escape
+  // clears. Delete is BulkBar's.
+  useShortcut('grid', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
       e.preventDefault()
-      if (next >= 0 && flatIds[next]) {
-        focusedId.current = flatIds[next]
-        if (e.shiftKey) rangeSelect(flatIds[next], flatIds)
-        else selectOnly(flatIds[next])
-        if (positions[next]) virtualizer.scrollToIndex(positions[next].row)
-      }
+      selectAll(flatIds)
+      return true
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [flatIds, rows, positions, previewId, rangeSelect, selectOnly, selectAll, clearSelection, setPreviewId, virtualizer])
+    if (e.key === 'Escape') {
+      clearSelection()
+      return true
+    }
+    if (e.key === 'Enter' && focusedId.current) {
+      setPreviewId(focusedId.current)
+      return true
+    }
+    if (!isNavKey(e.key)) return false
+    const idx = focusedId.current ? flatIds.indexOf(focusedId.current) : -1
+    const next = nextIndex(e.key, idx, flatIds.length, rows, positions)
+    e.preventDefault()
+    if (next >= 0 && flatIds[next]) {
+      focusedId.current = flatIds[next]
+      if (e.shiftKey) rangeSelect(flatIds[next], flatIds)
+      else selectOnly(flatIds[next])
+      if (positions[next]) virtualizer.scrollToIndex(positions[next].row)
+    }
+    return true
+  })
 
   if (result.isLoading) return <main className="grid-area center">Loading library…</main>
   if (result.isError)

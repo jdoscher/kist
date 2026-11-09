@@ -3,6 +3,7 @@ import { api, emptyQuery, type Folder } from '../api'
 import { useBulkAction } from '../bulk'
 import { useFolders, useInvalidateItems, useSmartFolders, useStats, useTags } from '../data'
 import { useAppState } from '../state'
+import { useLayer } from '../useShortcuts'
 import { isUnfiledView, smartFolderQuery, unfiledQuery } from '../query'
 import { describeError } from '../writes'
 import { fmtBytes } from '../format'
@@ -327,6 +328,7 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
 /** Phone layout: the sidebar slides in over the grid from the ☰ button. */
 export function Drawer() {
   const { query, smartId, drawerOpen, setDrawerOpen, closeDrawer } = useAppState()
+  useLayer('modal', drawerOpen)
 
   // picking a folder, smart folder or tag changes the query: close the drawer
   const mounted = useRef(false)

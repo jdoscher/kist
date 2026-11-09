@@ -10,11 +10,14 @@ import { TopBar } from './components/TopBar'
 import { UploadManager } from './components/UploadManager'
 import { useIsMobile } from './mobile'
 import { AppStateProvider } from './state'
+import { useLayer } from './useShortcuts'
 import { describeError, hasDrafts } from './writes'
 
 function TokenGate({ onDone, overlay = false }: { onDone: () => void; overlay?: boolean }) {
   const [value, setValue] = useState('')
   const [error, setError] = useState('')
+  // over the app, the token screen is a modal layer: no grid shortcuts
+  useLayer('modal', overlay)
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()

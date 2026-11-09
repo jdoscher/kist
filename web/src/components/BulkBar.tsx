@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { BULK_VERB, hardDeleteQuestion, useBulkAction, type BulkInput, type BulkResult } from '../bulk'
 import { useFolders } from '../data'
 import { useAppState } from '../state'
+import { useShortcut } from '../useShortcuts'
 
 // actions that take the items out of this view: clear the selection after
 const LEAVES_VIEW = new Set(['trash', 'restore', 'hardDelete'])
@@ -41,26 +42,22 @@ export function BulkBar() {
     )
   }
 
-  // Delete key → trash (or delete forever in trash view)
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement
-      if (target.closest('input, textarea, select, [contenteditable]')) return
-      if (ids.length === 0) return
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        e.preventDefault()
-        if (query.deleted) {
-          if (confirm(hardDeleteQuestion(ids.length))) {
-            run({ kind: 'hardDelete' })
-          }
-        } else {
-          run({ kind: 'trash' })
-        }
+  // Delete key → trash (or delete forever in trash view). Grid layer only:
+  // with the preview or a dialog open the key does nothing.
+  useShortcut(
+    'grid',
+    (e) => {
+      if (e.key !== 'Delete' && e.key !== 'Backspace') return false
+      e.preventDefault()
+      if (query.deleted) {
+        if (confirm(hardDeleteQuestion(ids.length))) run({ kind: 'hardDelete' })
+      } else {
+        run({ kind: 'trash' })
       }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }) // re-bound every render: it needs the current selection and run()
+      return true
+    },
+    ids.length > 0,
+  )
 
   if (ids.length === 0) return null
 
