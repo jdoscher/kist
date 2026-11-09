@@ -6,6 +6,27 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-09
+
+A hardening release. Kist was reviewed for security, data integrity,
+failure handling, performance, accessibility, observability and first-use
+friction, and everything found was fixed:
+
+- A file can no longer pretend to be a PDF to run script as Kist.
+- The on-disk copy of the library (meta.json) is written atomically and
+  `kist rebuild-index` no longer drops anything silently.
+- Edits from two tabs or from an agent can't overwrite each other unnoticed.
+- Failed saves say why and offer Retry, trashing offers Undo, and a lost
+  token no longer throws away uploads or typed text.
+- The whole app works from the keyboard and with a screen reader (WCAG 2.2 AA).
+- `GET /api/health/deep`, request ids, client error reports and
+  `kist selftest` make problems visible.
+- Phones can upload, and zooming a desktop browser keeps the full app.
+
+After upgrading, run `kist rewrite-meta` once (it adds the preview revision
+to every meta.json), then `kist selftest`. If Kist sits behind a reverse
+proxy on the same host, set `KIST_BIND=127.0.0.1`.
+
 ### Security
 - **A web page saved with a `.pdf` name can no longer run as Kist.** Kist
   decided a file was a PDF from its name, then served it inline, so an HTML
