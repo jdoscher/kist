@@ -64,6 +64,18 @@ def folder_name(value: str) -> str:
     return name
 
 
+FOLDER_DESCRIPTION_MAX = 5000
+
+
+def folder_description(value: str | None) -> str:
+    value = str(value or "")
+    if len(value) > FOLDER_DESCRIPTION_MAX:
+        raise ValidationError(
+            f"folder descriptions are at most {FOLDER_DESCRIPTION_MAX:,} characters"
+        )
+    return value
+
+
 def notes(value: str) -> str:
     value = str(value)
     if len(value) > NOTES_MAX:

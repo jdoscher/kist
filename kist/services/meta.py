@@ -69,6 +69,8 @@ def to_meta(item: Item) -> dict:
         "folder_ids": sorted(f.id for f in item.folders),
         "folder_paths": [folder_path(f) for f in item.folders],
         "rating": item.rating,
+        "protected": bool(item.protected),
+        "links": _links(item),
         "notes": item.notes,
         "source_url": item.source_url,
         "tags": sorted(t.name for t in item.tags),
@@ -79,6 +81,12 @@ def to_meta(item: Item) -> dict:
         "preview_error": item.preview_error,
         "preview_rev": item.preview_rev or 0,
     }
+
+
+def _links(item: Item) -> list[dict]:
+    from .links import meta_links
+
+    return meta_links(item)
 
 
 def folder_path(folder) -> list[str]:
@@ -215,7 +223,8 @@ def folders_snapshot_rows(session: Session) -> tuple[list[dict], list[dict]]:
     smart = session.execute(sa.select(SmartFolder).order_by(SmartFolder.id)).scalars().all()
     return (
         [
-            {"id": f.id, "name": f.name, "parent_id": f.parent_id, "position": f.position}
+            {"id": f.id, "name": f.name, "parent_id": f.parent_id, "position": f.position,
+             "description": f.description or ""}
             for f in rows
         ],
         [{"id": s.id, "name": s.name, "query": s.query, "position": s.position} for s in smart],

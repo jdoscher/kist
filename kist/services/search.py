@@ -94,8 +94,13 @@ def build_filters(
     preview_status: str | None = None,
     created_after: datetime | None = None,
     created_before: datetime | None = None,
+    fixity: str | None = None,
 ) -> list[Any]:
     filters: list[Any] = []
+    if fixity is not None:
+        if fixity != "failed":
+            raise ValidationError(f"unknown fixity {fixity!r}; expected failed")
+        filters.append(Item.fixity_failed_at.isnot(None))
     if view is not None and view not in VIEWS:
         raise ValidationError(f"unknown view {view!r}; expected one of {', '.join(VIEWS)}")
     if state is not None and state not in tuple(ItemState):
@@ -194,6 +199,7 @@ def search_items(
     preview_status: str | None = None,
     created_after: datetime | None = None,
     created_before: datetime | None = None,
+    fixity: str | None = None,
     order: str = "-created",
     limit: int = 100,
     cursor: str | None = None,
@@ -203,7 +209,7 @@ def search_items(
         folder=folder, kind=kind,
         rating_min=rating_min, deleted=deleted, state=state, view=view,
         preview_status=preview_status,
-        created_after=created_after, created_before=created_before,
+        created_after=created_after, created_before=created_before, fixity=fixity,
     )
     if order not in ORDERS:
         raise ValidationError(f"unknown order {order!r}; expected one of {', '.join(ORDERS)}")

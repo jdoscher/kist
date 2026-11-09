@@ -3,9 +3,11 @@ from typing import Any
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     DateTime,
     Float,
     ForeignKey,
+    Identity,
     Integer,
     SmallInteger,
     String,
@@ -29,6 +31,7 @@ class Folder(Base):
         String(26), ForeignKey("folders.id", ondelete="CASCADE"), nullable=True
     )
     position: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    description: Mapped[str] = mapped_column(Text, default="", server_default="")
 
     children: Mapped[list["Folder"]] = relationship(
         back_populates="parent", cascade="all, delete-orphan"
@@ -112,6 +115,16 @@ class Item(Base):
     # bumped whenever the preview files change; part of every thumbnail URL so
     # browsers can cache them forever and still see a regenerated preview
     preview_rev: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    # protected items can't be trashed or purged (retention skips them too)
+    protected: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    # fixity: the worker re-hashes originals on a rolling schedule
+    # (items/<id>/fixity.jsonl is the record; services/fixity.py)
+    fixity_checked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    fixity_failed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     # base64 ThumbHash of the preview (services/thumbhash.py); "" = can't be made
     thumbhash: Mapped[str | None] = mapped_column(Text, nullable=True)
 
@@ -119,6 +132,41 @@ class Item(Base):
     folders: Mapped[list[Folder]] = relationship(
         secondary="item_folders", lazy="selectin"
     )
+
+
+class ItemLink(Base):
+    """A typed link between two items (services/links.py); kept in both
+    items' meta.json."""
+
+    __tablename__ = "item_links"
+
+    src_id: Mapped[str] = mapped_column(
+        String(26), ForeignKey("items.id", ondelete="CASCADE"), primary_key=True
+    )
+    dst_id: Mapped[str] = mapped_column(
+        String(26), ForeignKey("items.id", ondelete="CASCADE"), primary_key=True
+    )
+    kind: Mapped[str] = mapped_column(Text, primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class ItemEvent(Base):
+    """One change to one item (services/events.py). No foreign key: the
+    history of a purged item is kept."""
+
+    __tablename__ = "item_events"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    item_id: Mapped[str] = mapped_column(String(26))
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    actor: Mapped[str] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(Text)
+    batch_id: Mapped[str] = mapped_column(Text)
+    kind: Mapped[str] = mapped_column(Text)
+    before: Mapped[Any] = mapped_column(JSONB, nullable=True)
+    after: Mapped[Any] = mapped_column(JSONB, nullable=True)
 
 
 class ApiToken(Base):

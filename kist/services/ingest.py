@@ -26,8 +26,8 @@ from ..filetypes import MIME_TO_EXT
 from ..ids import new_ulid
 from ..lifecycle import JobKind, PreviewStatus
 from ..models import Item, Job
+from . import events, netguard, previews, thumbs, validation
 from . import meta as meta_svc
-from . import netguard, previews, thumbs, validation
 from . import tags as tags_svc
 
 log = logging.getLogger("kist.ingest")
@@ -174,6 +174,10 @@ def ingest_file(
             item.folders = items_svc.resolve_folders(session, all_folder_ids)
         if tag_names:
             item.tags = tags_svc.get_or_create(session, tag_names)
+        created_state = events.state(item)
+        if created_state["created_at"] is None:
+            created_state.pop("created_at")
+        events.record(session, item_id, events.Kind.CREATE, None, created_state)
         try:
             session.commit()
         except IntegrityError:

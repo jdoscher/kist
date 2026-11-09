@@ -19,7 +19,9 @@ def list_folders(session: Annotated[Session, Depends(get_session)]):
 
 @router.post("", response_model=FolderOut, status_code=201)
 def create_folder(body: FolderCreate, session: Annotated[Session, Depends(get_session)]):
-    return folders_svc.folder_dict(folders_svc.create_folder(session, body.name, body.parent_id))
+    return folders_svc.folder_dict(
+        folders_svc.create_folder(session, body.name, body.parent_id, body.description)
+    )
 
 
 @router.patch("/{folder_id}", response_model=FolderOut)

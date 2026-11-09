@@ -2,12 +2,14 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Response
+from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from ..db import get_session
 from ..observability import RateLimiter, request_id_var
 from ..schemas import ClientErrorIn, DuplicatePair, ItemOut, StatsOut, VersionOut
+from ..services import archive as archive_svc
 from ..services import health as health_svc
 from ..services import library
 
@@ -29,6 +31,24 @@ def health_deep(session: Annotated[Session, Depends(get_session)]) -> dict:
     """Every part: database, migrations, worker heartbeat, library disk,
     job queue, recent preview failures and the last verify run."""
     return health_svc.deep(session)
+
+
+class ChecklistIn(BaseModel):
+    id: str
+    done: bool
+
+
+@router.get("/archive-health")
+def archive_health(session: Annotated[Session, Depends(get_session)]) -> dict:
+    """Fixity, the last verify and backup, free disk and the 3-2-1 checklist."""
+    return archive_svc.health(session)
+
+
+@router.post("/archive-health/checklist")
+def archive_checklist(body: ChecklistIn, session: Annotated[Session, Depends(get_session)]):
+    """Tick a checklist item Kist can't measure (offsite)."""
+    archive_svc.set_checklist(body.id, body.done)
+    return archive_svc.health(session)
 
 
 @router.get("/version", response_model=VersionOut)

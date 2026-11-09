@@ -7,9 +7,9 @@ from sqlalchemy.orm import Session
 from .. import access, lifecycle
 from ..lifecycle import JobKind, JobStatus
 from ..models import Folder, Item, Job
+from . import events, validation
 from . import meta as meta_svc
 from . import tags as tags_svc
-from . import validation
 
 
 class NotFound(Exception):
@@ -17,6 +17,14 @@ class NotFound(Exception):
 
     def __init__(self, item_id: str):
         super().__init__(f"item {item_id} not found")
+        self.item_id = item_id
+
+
+class Protected(lifecycle.TransitionError):
+    """Trashing or purging a protected item (HTTP 409)."""
+
+    def __init__(self, item_id: str):
+        super().__init__("Protected: unprotect it first")
         self.item_id = item_id
 
 
@@ -114,6 +122,7 @@ def update_item(
         current = get_item(session, item_id)
         session.refresh(current)  # tags and folders too, for the 409 body
         raise Conflict(current)
+    before = events.state(item)
     if fields.get("filename") is not None:
         item.filename = validation.filename(fields["filename"])
     if fields.get("rating") is not None:
@@ -129,6 +138,12 @@ def update_item(
     elif "folder_id" in fields:
         fid = fields["folder_id"]
         item.folders = resolve_folders(session, [fid]) if fid else []
+    if fields.get("protected") is not None:
+        protect = bool(fields["protected"])
+        if item.protected and not protect:
+            access.require(access.Action.UNPROTECT)
+        item.protected = protect
+    events.record_changes(session, item.id, before, events.state(item))
     if fields.get("modified_at") is not None:
         # an explicit modified_at (e.g. an import) wins over the touch
         item.modified_at = validation.timestamp(fields["modified_at"], "modified_at")
@@ -148,6 +163,7 @@ def set_folders(
     replace with are refused; removing a membership that isn't there (or a
     folder that no longer exists) is a no-op, so retries stay safe."""
     item = get_item(session, item_id)
+    before = events.state(item)
     if replace is not None:
         item.folders = resolve_folders(session, replace)
     else:
@@ -157,6 +173,7 @@ def set_folders(
         for fid in remove or []:
             current.pop(fid, None)
         item.folders = list(current.values())
+    events.record_changes(session, item.id, before, events.state(item))
     return touch_and_save(session, item)
 
 
@@ -169,6 +186,7 @@ def set_tags(
     remove: list[str] | None = None,
 ) -> Item:
     item = get_item(session, item_id)
+    before = events.state(item)
     if replace is not None:
         item.tags = tags_svc.get_or_create(session, replace)
     else:
@@ -178,6 +196,7 @@ def set_tags(
         for name in remove or []:
             current.pop(tags_svc.normalize(name).lower(), None)
         item.tags = list(current.values())
+    events.record_changes(session, item.id, before, events.state(item))
     return touch_and_save(session, item)
 
 
@@ -194,6 +213,7 @@ def file_duplicate(
     (add folders and tags, fill notes and source_url only if empty), so a
     file dropped on a folder ends up in that folder."""
     changed = False
+    before = events.state(item)
     if folder_ids:
         have = {f.id for f in item.folders}
         new = [f for f in resolve_folders(session, folder_ids) if f.id not in have]
@@ -214,22 +234,29 @@ def file_duplicate(
         changed = True
     if not changed:
         return item
+    events.record_changes(session, item.id, before, events.state(item))
     return touch_and_save(session, item)
 
 
 def soft_delete(session: Session, item_id: str) -> Item:
     """active -> trashed (a no-op for an item already in the trash)."""
     item = get_item(session, item_id)
+    if item.protected and item.deleted_at is None:
+        raise Protected(item.id)
+    before = events.state(item)
     if not lifecycle.trash(item):
         return item
+    events.record_changes(session, item.id, before, events.state(item))
     return touch_and_save(session, item)
 
 
 def restore(session: Session, item_id: str) -> Item:
     """trashed -> active (a no-op for an active item)."""
     item = get_item(session, item_id)
+    before = events.state(item)
     if not lifecycle.restore(item):
         return item
+    events.record_changes(session, item.id, before, events.state(item))
     return touch_and_save(session, item)
 
 
@@ -241,7 +268,11 @@ def hard_delete(session: Session, item_id: str) -> None:
     """
     item = get_item(session, item_id)
     lifecycle.check_purge(item)
+    if item.protected:
+        raise Protected(item.id)
     meta_svc.advisory_lock(session, f"item:{item.id}")
+    linked = _linked_ids(session, item.id)
+    events.record(session, item.id, events.Kind.PURGE, meta_svc.to_meta(item), None)
     session.execute(
         sa.delete(Job).where(
             Job.kind == JobKind.REGEN_PREVIEW,
@@ -252,4 +283,18 @@ def hard_delete(session: Session, item_id: str) -> None:
     d = meta_svc.item_dir(item.id)
     session.delete(item)
     session.commit()
+    events.keep_purged_history(item_id)
     shutil.rmtree(d, ignore_errors=True)
+    for other in linked:  # their meta.json listed the link
+        meta_svc.sync_item(session, other)
+
+
+def _linked_ids(session: Session, item_id: str) -> list[str]:
+    from ..models import ItemLink
+
+    rows = session.execute(
+        sa.select(ItemLink.src_id, ItemLink.dst_id).where(
+            sa.or_(ItemLink.src_id == item_id, ItemLink.dst_id == item_id)
+        )
+    ).all()
+    return sorted({a if a != item_id else b for a, b in rows})

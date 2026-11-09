@@ -3,8 +3,11 @@ the inbox directory for dropped files. Job transitions live in
 services/jobs.py (see lifecycle.JobStatus).
 
 It also re-queues inbox files stranded in staging, runs `kist verify` once
-a day (result in library/.kist/verify.json), and keeps a heartbeat file in
-library/.kist/ that the container healthcheck and GET /api/health/deep read.
+a day (result in library/.kist/verify.json), empties trash older than
+KIST_TRASH_RETENTION_DAYS, re-hashes a share of the originals every day
+(fixity), runs `kist backup` every KIST_BACKUP_INTERVAL_HOURS, fills in
+missing ThumbHash placeholders, and keeps a heartbeat file in library/.kist/
+that the container healthcheck and GET /api/health/deep read.
 """
 
 import json
@@ -82,10 +85,12 @@ def healthcheck() -> int:
 
 
 def process_job(session, job: Job) -> None:
-    from .services import ingest, previews
+    from .services import events, ingest, previews
 
     if job.kind == JobKind.INGEST:
-        ingest.run_ingest_job(session, job.payload)
+        # inbox drops: recorded in item history as the importer
+        with events.acting("importer", "import"):
+            ingest.run_ingest_job(session, job.payload)
     elif job.kind == JobKind.REGEN_PREVIEW:
         item = session.get(Item, (job.payload or {}).get("item_id"))
         if item is None:
@@ -164,6 +169,47 @@ def run_verify() -> None:
             len(report.problems))
 
 
+def purge_expired_trash() -> int:
+    from .services import retention
+
+    with SessionLocal() as s:
+        return len(retention.purge_expired(s))
+
+
+def check_fixity() -> tuple[int, int]:
+    from .services import fixity
+
+    with SessionLocal() as s:
+        return fixity.run_some(s)
+
+
+_backup_thread: threading.Thread | None = None
+
+
+def start_backup_if_due() -> bool:
+    """Run `kist backup` in a background thread when it is due, so a long
+    upload never stalls the queue or the heartbeat."""
+    global _backup_thread
+    from .services import backup
+
+    if _backup_thread is not None and _backup_thread.is_alive():
+        return False
+    if not backup.due():
+        return False
+
+    def run() -> None:
+        try:
+            result = backup.run()
+            level = logging.INFO if result["ok"] else logging.WARNING
+            log.log(level, "backup: %s", "done" if result["ok"] else result.get("error"))
+        except Exception:
+            log.exception("backup failed")
+
+    _backup_thread = threading.Thread(target=run, name="backup", daemon=True)
+    _backup_thread.start()
+    return True
+
+
 def backfill_thumbhashes() -> int:
     from .services import previews
 
@@ -182,7 +228,8 @@ def main() -> None:
     heartbeat.start()
 
     last_inbox_scan = last_reap = last_recover = last_verify_check = 0.0
-    last_backfill = 0.0
+    last_backfill = last_retention = last_backup_check = 0.0
+    last_fixity = 0.0
     last_error = ""
     while True:
         heartbeat.progressed()
@@ -204,6 +251,18 @@ def main() -> None:
                 last_verify_check = time.monotonic()
                 if verify_due(settings.verify_interval_hours):
                     run_verify()
+            if time.monotonic() - last_retention > 3600:
+                last_retention = time.monotonic()
+                purge_expired_trash()
+            if time.monotonic() - last_backup_check > 600:
+                last_backup_check = time.monotonic()
+                start_backup_if_due()
+            # fixity: today's share of re-hashes, a chunk at a time while idle
+            if not worked and time.monotonic() - last_fixity > 60:
+                last_fixity = time.monotonic()
+                checked, _failed = check_fixity()
+                if checked:
+                    last_fixity = 0.0  # more may be due
             # older items get their ThumbHash placeholder a batch at a time,
             # only while the queue is idle
             if not worked and time.monotonic() - last_backfill > 60:

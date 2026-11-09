@@ -110,5 +110,13 @@ class BearerTokenMiddleware:
 
         scope.setdefault("state", {})["principal"] = principal
         scope["state"]["via_cookie"] = via_cookie
-        with access.acting_as(principal):
+        # item history: who did it, from where, and in which batch (one per
+        # request unless the client groups several with X-Kist-Batch)
+        from .services import events
+
+        web = via_cookie or request.headers.get("x-kist-client", "").lower() == "web"
+        batch = events.clean_batch_id(request.headers.get("x-kist-batch"))
+        with access.acting_as(principal), events.acting(
+            principal.name, "web" if web else "api", batch
+        ):
             await self.app(scope, receive, send)

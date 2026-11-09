@@ -23,10 +23,12 @@ from .config import get_settings
 from .db import SessionLocal
 from .lifecycle import PreviewStatus, TransitionError
 from .schemas import ItemOut
+from .services import events as events_svc
 from .services import folders as folders_svc
 from .services import ingest, library
 from .services import items as items_svc
 from .services import jobs as jobs_svc
+from .services import links as links_svc
 from .services import search as search_svc
 from .services import smart_folders as smart_svc
 from .services import tags as tags_svc
@@ -42,7 +44,11 @@ mcp = MCPServer(
         "web UI shows as Unfiled. Deleting only moves items to the trash; "
         "restore_item brings them back. Each item carries a web_url you can "
         "give the user to open it in Kist. list_jobs shows inbox imports and "
-        "preview retries that failed."
+        "preview retries that failed. Read folder descriptions (list_folders) "
+        "before filing. Every tool call is recorded as one batch in the item "
+        "history: recent_batches lists them and undo_batch reverts one, so "
+        "offer to undo when the user says you got something wrong. Protected "
+        "items can't be trashed."
     ),
     version=__version__,
 )
@@ -52,6 +58,7 @@ EXPECTED_ERRORS = (
     items_svc.NotFound,
     jobs_svc.NotFound,
     smart_svc.NotFound,
+    events_svc.NotFound,
     folders_svc.FolderError,
     TransitionError,
     ValueError,  # validation.ValidationError, BadCursor, NotMediaError, ...
@@ -83,8 +90,11 @@ def tool(description: str, needs: Action = Action.READ, restricted_ok: bool = Fa
         @functools.wraps(fn)
         def wrapper(*args, **kwargs):
             check_access(needs, restricted_ok)
+            principal = access.current()
             try:
-                return fn(*args, **kwargs)
+                # each tool call is one batch in the item history
+                with events_svc.acting(principal.name, "mcp"):  # type: ignore[union-attr]
+                    return fn(*args, **kwargs)
             except EXPECTED_ERRORS as exc:
                 raise as_tool_error(exc) from None
             except Exception as exc:
@@ -212,6 +222,8 @@ def add_item(
     "Update an item's rating (0-5), notes, filename, or source_url (an "
     "http(s) URL; empty string clears it). folder_id ADDS the item to that "
     "folder and keeps its other folders; use set_folders to remove one. "
+    "protected=true stops the item being trashed or deleted (only a write "
+    "or admin token can unprotect). "
     "Only the fields you pass change. Returns the updated item.",
     needs=Action.EDIT,
 )
@@ -222,8 +234,11 @@ def update_item(
     filename: str | None = None,
     folder_id: str | None = None,
     source_url: str | None = None,
+    protected: bool | None = None,
 ) -> dict[str, Any]:
     fields: dict[str, Any] = {}
+    if protected is not None:
+        fields["protected"] = protected
     if rating is not None:
         fields["rating"] = rating
     if notes is not None:
@@ -341,8 +356,10 @@ def retry_job(id: int) -> dict[str, Any]:
 
 
 @tool(
-    "List all folders (id, name, parent_id, position, item_count). item_count "
-    "includes items filed in subfolders, matching search_items(folder=...).",
+    "List all folders (id, name, parent_id, position, description, "
+    "item_count). Read a folder's description before filing into it: it "
+    "says what belongs there. item_count includes items filed in "
+    "subfolders, matching search_items(folder=...).",
     restricted_ok=True,
 )
 def list_folders() -> list[dict[str, Any]]:
@@ -350,10 +367,18 @@ def list_folders() -> list[dict[str, Any]]:
         return folders_svc.list_folders(session)
 
 
-@tool("Create a folder, optionally under a parent folder id.", needs=Action.EDIT)
-def create_folder(name: str, parent_id: str | None = None) -> dict[str, Any]:
+@tool(
+    "Create a folder, optionally under a parent folder id, with an optional "
+    "description of what belongs in it.",
+    needs=Action.EDIT,
+)
+def create_folder(
+    name: str, parent_id: str | None = None, description: str = ""
+) -> dict[str, Any]:
     with SessionLocal() as session:
-        return folders_svc.folder_dict(folders_svc.create_folder(session, name, parent_id))
+        return folders_svc.folder_dict(
+            folders_svc.create_folder(session, name, parent_id, description)
+        )
 
 
 @tool("List all tags with usage counts.")
@@ -392,6 +417,51 @@ def find_duplicates(threshold: int = 6, limit: int = 50) -> list[dict[str, Any]]
 def library_stats() -> dict[str, Any]:
     with SessionLocal() as session:
         return library.stats(session).model_dump(mode="json")
+
+
+@tool(
+    "Link two items: kind is derived_from (a crop or edit of the other), "
+    "alternate, related, not_duplicate (they look alike but aren't the same; "
+    "find_duplicates stops pairing them) or version_of. The link points from "
+    "id to dst_id. remove=true removes it instead. Returns the item's links.",
+    needs=Action.EDIT,
+)
+def link_items(id: str, dst_id: str, kind: str, remove: bool = False) -> list[dict[str, Any]]:
+    with SessionLocal() as session:
+        if remove:
+            links_svc.unlink(session, id, dst_id, kind)
+        else:
+            links_svc.link(session, id, dst_id, kind)
+        return [
+            {"item": item_out(other), "kind": k, "direction": d}
+            for other, k, d in links_svc.links_of(session, id)
+        ]
+
+
+@tool(
+    "Recent batches of changes, newest first. A batch is what one tool call, "
+    "web request or command changed: batch_id, actor (the token's name), "
+    "source (mcp, web, api, cli, worker, import), at, count and kinds. Pass "
+    "actor to see only one token's batches.",
+)
+def recent_batches(limit: int = 20, actor: str | None = None) -> list[dict[str, Any]]:
+    with SessionLocal() as session:
+        return [
+            {**b, "at": b["at"].isoformat()}
+            for b in events_svc.recent_batches(session, max(1, min(limit, 100)), actor)
+        ]
+
+
+@tool(
+    "Undo a batch of changes (see recent_batches): every change in it is "
+    "reverted, newest first, as a new batch. Changes something later touched "
+    "again are skipped and listed with the reason. Returns undone, skipped "
+    "and the new batch_id (undo that to redo).",
+    needs=Action.EDIT,
+)
+def undo_batch(batch_id: str) -> dict[str, Any]:
+    with SessionLocal() as session:
+        return events_svc.undo_batch(session, batch_id)
 
 
 # Mounted by kist.app at /mcp; streamable_http_path="/" so the endpoint is

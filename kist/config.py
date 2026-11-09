@@ -42,6 +42,15 @@ class Settings(BaseSettings):
     # the worker runs `kist verify` this often (0 turns it off); deep health
     # reports the last result
     verify_interval_hours: float = 24.0
+    # the worker permanently deletes items trashed longer than this (never
+    # protected ones); 0 keeps the trash forever
+    trash_retention_days: int = 30
+    # `kist backup` sends the library to this restic repository (a path,
+    # sftp:, rest:, s3:, b2: ...). The password comes from RESTIC_PASSWORD or
+    # RESTIC_PASSWORD_FILE, restic's own variables
+    backup_repo: str = ""
+    # the worker runs `kist backup` this often (0: only by hand)
+    backup_interval_hours: float = 0.0
 
     @property
     def items_dir(self) -> Path:

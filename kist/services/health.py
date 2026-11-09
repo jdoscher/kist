@@ -139,11 +139,28 @@ def deep(session: Session) -> dict:
         drift = last.get("drift")
         return {"ok": not drift, "last_run": last.get("last_run"), "drift": drift}
 
-    for fn in (migrations, worker, library, jobs, previews, verify):
+    def fixity():
+        failed = session.execute(
+            sa.select(sa.func.count()).where(Item.fixity_failed_at.isnot(None))
+        ).scalar_one()
+        return {"ok": failed == 0, "failed": failed}
+
+    def backup():
+        from . import backup as backup_svc
+
+        last = backup_svc.last_result() or {}
+        return {
+            "ok": not settings.backup_repo or bool(last.get("ok")),
+            "repo_set": bool(settings.backup_repo),
+            "last_at": last.get("last_at"),
+            "last_ok_at": last.get("last_ok_at"),
+        }
+
+    for fn in (migrations, worker, library, jobs, previews, verify, fixity, backup):
         checks[fn.__name__] = _guard(fn)
-        if fn in (migrations, jobs, previews) and not checks[fn.__name__].get("ok", True):
+        if fn in (migrations, jobs, previews, fixity) and not checks[fn.__name__].get("ok", True):
             session.rollback()
-    # what has to work for Kist to work; jobs/previews/verify are reported
+    # what has to work for Kist to work; jobs/previews/verify/fixity/backup are reported
     # for a person to judge
     essential = ("db", "migrations", "worker", "library")
     return {

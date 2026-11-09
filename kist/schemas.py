@@ -33,6 +33,7 @@ class ItemOut(BaseModel):
     notes: str
     source_url: str | None
     tags: list[str]
+    protected: bool = False  # can't be trashed or purged until unprotected
     state: str  # lifecycle.ItemState: active | trashed
     preview_status: str  # lifecycle.PreviewStatus: pending | ready | failed | none
     preview_error: str | None
@@ -69,6 +70,7 @@ class ItemOut(BaseModel):
             notes=item.notes,
             source_url=item.source_url,
             tags=sorted(t.name for t in item.tags),
+            protected=bool(item.protected),
             state=item_state(item).value,
             preview_status=str(status),
             preview_error=item.preview_error,
@@ -131,6 +133,9 @@ class ItemPatch(BaseModel):
     source_url: str | None = None
     created_at: datetime | None = None
     modified_at: datetime | None = None
+    # protected items can't be trashed or purged; unprotecting needs the
+    # write or admin scope
+    protected: bool | None = None
     # the modified_at the client last saw; a mismatch answers 409
     base_modified_at: datetime | None = None
 
@@ -173,6 +178,7 @@ class FolderOut(BaseModel):
     name: str
     parent_id: str | None
     position: int
+    description: str = ""
     item_count: int = 0
 
 
@@ -182,12 +188,14 @@ Position = Field(default=None, ge=validation.POSITION_MIN, le=validation.POSITIO
 class FolderCreate(BaseModel):
     name: str = Field(min_length=1, max_length=validation.FOLDER_NAME_MAX)
     parent_id: str | None = None
+    description: str = Field(default="", max_length=validation.FOLDER_DESCRIPTION_MAX)
 
 
 class FolderPatch(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=validation.FOLDER_NAME_MAX)
     parent_id: str | None = None
     position: int | None = Position
+    description: str | None = Field(default=None, max_length=validation.FOLDER_DESCRIPTION_MAX)
 
 
 class TagOut(BaseModel):
@@ -252,6 +260,7 @@ class StatsOut(BaseModel):
     folder_count: int
     failed_jobs: int = 0
     preview_failed: int = 0
+    fixity_failed: int = 0  # originals whose last fixity check failed
 
 
 class JobOut(BaseModel):
@@ -281,6 +290,68 @@ class ClientErrorIn(BaseModel):
     url: str | None = None  # clipped when logged
     user_agent: str | None = None
     kind: Literal["render", "error", "unhandledrejection"] | None = None
+
+
+class ItemLite(BaseModel):
+    """Just enough of an item to show it in a list of links."""
+
+    id: str
+    filename: str
+    kind: str
+    state: str
+    thumb_url: str | None
+    thumbhash: str | None
+    width: int | None
+    height: int | None
+
+    @classmethod
+    def from_item(cls, item: Item) -> "ItemLite":
+        full = ItemOut.from_item(item)
+        return cls(**full.model_dump(include=set(cls.model_fields)))
+
+
+class LinkOut(BaseModel):
+    item: ItemLite
+    kind: str
+    direction: Literal["out", "in"]
+
+
+class LinkCreate(BaseModel):
+    dst_id: str
+    kind: str
+
+
+class EventOut(BaseModel):
+    id: int
+    item_id: str
+    at: datetime
+    actor: str
+    source: str
+    batch_id: str
+    kind: str
+    before: Any = None
+    after: Any = None
+
+
+class BatchOut(BaseModel):
+    batch_id: str
+    actor: str
+    source: str
+    at: datetime
+    count: int
+    kinds: list[str]
+
+
+class UndoSkip(BaseModel):
+    item_id: str
+    event_id: int
+    reason: str
+
+
+class UndoOut(BaseModel):
+    undone: int
+    skipped: list[UndoSkip]
+    batch_id: str  # the new batch the undo was recorded as (undo it to redo)
 
 
 class VersionOut(BaseModel):

@@ -248,7 +248,7 @@ def test_folder_limited_reader_over_mcp(client, library):
         assert res["isError"] and "not found" in res["content"][0]["text"], (tool, res)
     assert not mcp_result(fam, "view_item", {"id": items["a"]["id"], "size": 256}).get("isError")
     for tool in ("list_tags", "library_stats", "find_duplicates", "list_smart_folders",
-                 "list_jobs"):
+                 "list_jobs", "recent_batches"):
         res = mcp_result(fam, tool)
         assert res["isError"] and "can't do that" in res["content"][0]["text"], tool
     listed = mcp_result(fam, "list_folders")

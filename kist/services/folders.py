@@ -4,8 +4,8 @@ from sqlalchemy.orm import Session
 from .. import access
 from ..ids import new_ulid
 from ..models import Folder, Item, ItemFolder
+from . import events, validation
 from . import meta as meta_svc
-from . import validation
 
 # every change to the folder tree's shape takes this lock, so two moves
 # can't each pass the loop check against the other's old state
@@ -62,6 +62,7 @@ def folder_dict(f: Folder, item_count: int = 0) -> dict:
         "name": f.name,
         "parent_id": f.parent_id,
         "position": f.position,
+        "description": f.description or "",
         "item_count": item_count,
     }
 
@@ -110,11 +111,14 @@ def _sync_items(session: Session, item_ids: list[str]) -> None:
         meta_svc.sync_item(session, item_id)
 
 
-def create_folder(session: Session, name: str, parent_id: str | None = None) -> Folder:
+def create_folder(
+    session: Session, name: str, parent_id: str | None = None, description: str = ""
+) -> Folder:
     name = validation.folder_name(name)
+    description = validation.folder_description(description)
     if parent_id is not None and session.get(Folder, parent_id) is None:
         raise validation.UnknownFolder(parent_id)
-    folder = Folder(id=new_ulid(), name=name, parent_id=parent_id)
+    folder = Folder(id=new_ulid(), name=name, parent_id=parent_id, description=description)
     session.add(folder)
     session.commit()
     snapshot(session)
@@ -150,6 +154,8 @@ def update_folder(session: Session, folder_id: str, fields: dict) -> Folder:
         folder.parent_id = new_parent
     if fields.get("position") is not None:
         folder.position = validation.position(fields["position"])
+    if fields.get("description") is not None:
+        folder.description = validation.folder_description(fields["description"])
     # members' meta.json carries folder paths: rewrite them on rename/move
     affected = _member_item_ids(session, _subtree_ids(session, folder_id)) if reshaped else []
     session.commit()
@@ -165,7 +171,14 @@ def delete_folder(session: Session, folder_id: str) -> None:
     if folder is None:
         raise FolderNotFound(folder_id)
     meta_svc.advisory_lock(session, TREE_LOCK)
-    affected = _member_item_ids(session, _subtree_ids(session, folder_id))
+    subtree = set(_subtree_ids(session, folder_id))
+    affected = _member_item_ids(session, sorted(subtree))
+    for item_id in affected:  # each item's history shows it was unfiled
+        item = session.get(Item, item_id)
+        if item is not None:
+            before = events.state(item)
+            after = {**before, "folder_ids": [f for f in before["folder_ids"] if f not in subtree]}
+            events.record_changes(session, item_id, before, after)
     session.delete(folder)
     session.commit()
     snapshot(session)

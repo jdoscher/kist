@@ -23,9 +23,11 @@ RESULT_FILE = "verify.json"
 # compared as written; timestamps are compared as instants below
 COMPARED = (
     "filename", "rating", "notes", "source_url", "tags", "folder_ids", "sha256",
-    "preview_status", "preview_rev", "thumbhash",
+    "preview_status", "preview_rev", "thumbhash", "protected", "links",
 )
 COMPARED_TIMES = ("created_at", "modified_at", "deleted_at")
+# keys older meta.json files don't have yet, and what their absence means
+MISSING_MEANS = {"protected": False, "links": []}
 FIXES = (
     "fixes: kist rewrite-meta (meta.json or folders.json out of date; safe while Kist "
     "runs, it re-reads each item as it writes it), kist rebuild-index (rows missing "
@@ -82,7 +84,9 @@ def check_items(session: Session, report: Report) -> None:
                 report.problems.append(f"{item.id}: meta.json unreadable")
             if isinstance(on_disk, dict):
                 expected = meta_svc.to_meta(item)
-                drift = [k for k in COMPARED if on_disk.get(k) != expected.get(k)]
+                drift = [
+                    k for k in COMPARED if on_disk.get(k, MISSING_MEANS.get(k)) != expected.get(k)
+                ]
                 drift += [
                     k for k in COMPARED_TIMES
                     if _instant(on_disk.get(k)) != _instant(expected.get(k))
@@ -130,12 +134,14 @@ def check_folders(session: Session, report: Report) -> None:
 
 
 def run(session: Session) -> Report:
+    from . import events as events_svc
     from . import tokens as tokens_svc
 
     report = Report()
     check_items(session, report)
     check_folders(session, report)
     report.problems.extend(tokens_svc.check_file(session))
+    report.problems.extend(events_svc.check_files(session))
     for key in meta_svc.pending():
         report.problems.append(f"{key}: an earlier write to disk failed")
     return report

@@ -17,18 +17,24 @@ from ..db import get_session
 from ..filetypes import serve_inline
 from ..ids import new_ulid
 from ..schemas import (
+    EventOut,
     FoldersPut,
     ItemCreateResponse,
+    ItemLite,
     ItemOut,
     ItemPage,
     ItemPatch,
+    LinkCreate,
+    LinkOut,
     MembershipPatch,
     TagsPut,
     UrlAdd,
 )
+from ..services import events as events_svc
 from ..services import ingest, search, thumbs, validation
 from ..services import items as items_svc
 from ..services import jobs as jobs_svc
+from ..services import links as links_svc
 
 # Errors: items_svc.NotFound -> 404, validation.ValidationError -> 422,
 # TransitionError -> 409, items_svc.Conflict -> 409 with the current item,
@@ -54,6 +60,7 @@ def list_items(
     order: str = "-created",
     created_after: datetime | None = None,
     created_before: datetime | None = None,
+    fixity: str | None = None,  # failed: originals whose fixity check failed
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
     cursor: str | None = None,
 ):
@@ -67,7 +74,7 @@ def list_items(
         untagged=untagged, folder=folder, kind=type,
         rating_min=rating, deleted=deleted, state=state, view=view,
         preview_status=preview_status, order=order,
-        created_after=created_after, created_before=created_before,
+        created_after=created_after, created_before=created_before, fixity=fixity,
         limit=limit, cursor=cursor,
     )
     return ItemPage(
@@ -352,3 +359,45 @@ def get_thumb(
                 headers={"Cache-Control": CACHE_FOREVER if exact else CACHE_REVALIDATE},
             )
     raise HTTPException(404, "no thumbnail for this item")
+
+
+@router.get("/{item_id}/history", response_model=list[EventOut])
+def item_history(
+    item_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    limit: Annotated[int, Query(ge=1, le=1000)] = 200,
+):
+    """Every change to the item, newest first (create, edits, tags, folders,
+    trash, restore, links, protect). Revert one with POST /api/events/{id}/revert."""
+    items_svc.get_item(session, item_id)
+    return events_svc.history(session, item_id, limit)
+
+
+@router.get("/{item_id}/links", response_model=list[LinkOut])
+def item_links(item_id: str, session: Annotated[Session, Depends(get_session)]):
+    items_svc.get_item(session, item_id)
+    return [
+        LinkOut(item=ItemLite.from_item(other), kind=kind, direction=direction)
+        for other, kind, direction in links_svc.links_of(session, item_id)
+    ]
+
+
+@router.post("/{item_id}/links", response_model=list[LinkOut], status_code=201)
+def add_link(
+    item_id: str, body: LinkCreate, session: Annotated[Session, Depends(get_session)]
+):
+    """Link this item to dst_id (kind: derived_from, alternate, related,
+    not_duplicate, version_of). Linking twice is a no-op. Returns the links."""
+    links_svc.link(session, item_id, body.dst_id, body.kind)
+    return item_links(item_id, session)
+
+
+@router.delete("/{item_id}/links/{dst_id}")
+def remove_link(
+    item_id: str,
+    dst_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    kind: str | None = None,
+):
+    """Remove this item's links to dst_id (only those of `kind`, if given)."""
+    return {"removed": links_svc.unlink(session, item_id, dst_id, kind)}

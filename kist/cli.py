@@ -12,6 +12,11 @@
                                    page saved as .pdf) preview status "none"
     kist selftest                 run tiny generated files through every
                                    preview decoder; exit 1 if one fails
+    kist backup                   dump the database to library/.kist and
+                                   back the library up with restic
+                                   (KIST_BACKUP_REPO); exit 2 if skipped
+    kist fixity [--limit N]       re-hash N originals now (the worker does
+                                   about 1/30 of them every day)
 
 The library on disk (items/*/meta.json + folders.json) is the durable copy;
 rebuild-index makes Postgres match it after a database loss or migration to
@@ -33,7 +38,18 @@ from .config import get_settings
 from .db import SessionLocal
 from .filetypes import kind_for
 from .lifecycle import JobKind, PreviewStatus, preview_status_for
-from .models import ApiToken, Folder, Item, ItemFolder, ItemTag, Job, SmartFolder, Tag
+from .models import (
+    ApiToken,
+    Folder,
+    Item,
+    ItemEvent,
+    ItemFolder,
+    ItemLink,
+    ItemTag,
+    Job,
+    SmartFolder,
+    Tag,
+)
 
 
 def parse_dt(value: str | None) -> datetime | None:
@@ -104,6 +120,7 @@ def restore_folders(session, data: dict) -> tuple[set[str], int]:
                         name=str(f["name"]),
                         parent_id=f.get("parent_id") or None,
                         position=int(f.get("position") or 0),
+                        description=str(f.get("description") or ""),
                     )
                 )
             restored.add(f["id"])
@@ -114,6 +131,7 @@ def restore_folders(session, data: dict) -> tuple[set[str], int]:
 
 
 def item_from_meta(session, meta: dict, original: Path, folder_ids: set[str]) -> Item:
+    from .services import fixity as fixity_svc
     from .services import tags as tags_svc
 
     # v2 meta has folder_ids; v1 had a single folder_id
@@ -144,6 +162,7 @@ def item_from_meta(session, meta: dict, original: Path, folder_ids: set[str]) ->
         dominant_colors=meta.get("dominant_colors"),
         thumbhash=meta.get("thumbhash") if isinstance(meta.get("thumbhash"), str) else None,
         rating=max(0, min(5, int(meta.get("rating") or 0))),
+        protected=bool(meta.get("protected")),
         notes=meta.get("notes") or "",
         source_url=meta.get("source_url"),
         deleted_at=parse_dt(meta.get("deleted_at")),
@@ -154,6 +173,7 @@ def item_from_meta(session, meta: dict, original: Path, folder_ids: set[str]) ->
     for key in ("created_at", "modified_at"):
         if meta.get(key):
             setattr(item, key, parse_dt(meta[key]))
+    item.fixity_checked_at, item.fixity_failed_at = fixity_svc.from_log(original.parent)
     item.tags = tags_svc.get_or_create(session, meta.get("tags", []), validate=False)
     item.folders = [session.get(Folder, f) for f in raw_folders if f in folder_ids]
     return item
@@ -201,7 +221,9 @@ def recover_without_meta(session, item_dir: Path) -> str | None:
 
 
 def rebuild_index(wipe: bool) -> int:
+    from .services import events as events_svc
     from .services import folders as folders_svc
+    from .services import links as links_svc
     from .services import tokens as tokens_svc
 
     settings = get_settings()
@@ -226,6 +248,8 @@ def rebuild_index(wipe: bool) -> int:
     with SessionLocal() as session:
         if wipe:
             print("wiping items/tags/folders tables…")
+            session.execute(sa.delete(ItemEvent))  # back from events.jsonl below
+            session.execute(sa.delete(ItemLink))
             session.execute(sa.delete(ItemTag))
             session.execute(sa.delete(ItemFolder))
             session.execute(sa.delete(Item))
@@ -323,6 +347,26 @@ def rebuild_index(wipe: bool) -> int:
                 errors += 1
 
         print(f"items: {ok} restored, {skipped} already present, {errors} errors")
+
+        # links need both ends: a second pass once every item is back
+        links = 0
+        for meta_file in sorted(items_dir.glob("*/meta.json")):
+            try:
+                meta = json.loads(meta_file.read_text())
+                if meta.get("links") and session.get(Item, meta.get("id")) is not None:
+                    links += links_svc.restore_from_meta(session, meta["id"], meta["links"])
+                    session.commit()
+            except Exception as exc:
+                session.rollback()
+                warn(f"{meta_file}: links not restored: {exc}")
+                warnings += 1
+        if links:
+            print(f"links: {links} restored")
+        restored_events, bad_lines = events_svc.restore(session)
+        print(f"history: {restored_events} events restored")
+        if bad_lines:
+            warn(f"{bad_lines} unreadable lines in events.jsonl files were skipped")
+            warnings += 1
         if recovered:
             print(f"items without meta.json restored from their files: {recovered}")
 
@@ -338,6 +382,7 @@ def rebuild_index(wipe: bool) -> int:
 
 
 def rewrite_meta() -> int:
+    from .services import events as events_svc
     from .services import meta as meta_svc
     from .services import tokens as tokens_svc
 
@@ -349,6 +394,8 @@ def rewrite_meta() -> int:
             # meanwhile is never overwritten with older data
             if meta_svc.sync_item(session, item_id):
                 written += 1
+                if not events_svc.rewrite_item_file(session, item_id):
+                    failed += 1
             elif session.get(Item, item_id) is not None and meta_svc.item_dir(item_id).is_dir():
                 failed += 1
         folders_ok = meta_svc.sync_folders(session)
@@ -497,6 +544,43 @@ def reclassify(dry_run: bool) -> int:
     return 0
 
 
+def backup() -> int:
+    from .services import backup as backup_svc
+
+    result = backup_svc.run()
+    db = result["db_dump"]
+    print(f"database dump: {'written to ' + db['path'] if db.get('ok') else db.get('error')}")
+    if result["ok"]:
+        print(f"backup: snapshot {result['snapshot_id']} in {result['repo']} "
+              f"({result['files']} files, {result['bytes']} bytes)")
+        return 0
+    print(f"backup: {result['error']}", file=sys.stderr)
+    return 2 if result.get("skipped") else 1
+
+
+def fixity(limit: int) -> int:
+    from .services import fixity as fixity_svc
+
+    checked = failed = 0
+    with SessionLocal() as session:
+        ids = session.execute(
+            sa.select(Item.id)
+            .order_by(Item.fixity_checked_at.asc().nulls_first(), Item.id)
+            .limit(limit)
+        ).scalars().all()
+        for item_id in ids:
+            item = session.get(Item, item_id, populate_existing=True)
+            if item is None:
+                continue
+            checked += 1
+            if not fixity_svc.check_item(session, item):
+                failed += 1
+                print(f"  ! {item.id} {item.filename}: does not match its sha256 "
+                      f"{item.sha256}; restore it from a backup", file=sys.stderr)
+    print(f"fixity: {checked} originals checked, {failed} failed")
+    return 0 if not failed else 2
+
+
 # ---------- selftest ----------
 
 
@@ -604,6 +688,10 @@ def main() -> None:
     )
     p_reclass.add_argument("--dry-run", action="store_true", help="only list what would change")
     sub.add_parser("selftest", help="check every preview decoder with tiny sample files")
+    sub.add_parser("backup", help="dump the database and back the library up with restic")
+    p_fix = sub.add_parser("fixity", help="re-hash originals now, oldest-checked first")
+    p_fix.add_argument("--limit", type=int, default=100,
+                       help="how many originals to check (default 100)")
 
     args = parser.parse_args()
     if args.cmd == "rebuild-index":
@@ -618,6 +706,10 @@ def main() -> None:
         sys.exit(reclassify(args.dry_run))
     if args.cmd == "selftest":
         sys.exit(selftest())
+    if args.cmd == "backup":
+        sys.exit(backup())
+    if args.cmd == "fixity":
+        sys.exit(fixity(args.limit))
 
 
 if __name__ == "__main__":

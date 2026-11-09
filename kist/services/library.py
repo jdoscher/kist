@@ -5,7 +5,7 @@ from sqlalchemy.dialects.postgresql import BIT
 from sqlalchemy.orm import Session, aliased
 
 from ..lifecycle import JobStatus, PreviewStatus
-from ..models import Folder, Item, Job, Tag
+from ..models import Folder, Item, ItemLink, Job, Tag
 from ..schemas import StatsOut
 from .search import KIND_FILTERS
 
@@ -29,6 +29,7 @@ def stats(session: Session) -> StatsOut:
             sa.func.coalesce(sa.func.sum(Item.size_bytes).filter(live), 0).label("size"),
             count(Item.deleted_at.isnot(None)).label("trashed"),
             count(live, Item.preview_status == PreviewStatus.FAILED).label("preview_failed"),
+            count(Item.fixity_failed_at.isnot(None)).label("fixity_failed"),
             *(count(live, cond).label(f"kind_{kind}") for kind, cond in KIND_FILTERS.items()),
             scalar(sa.select(sa.func.count()).select_from(Tag)).label("tags"),
             scalar(sa.select(sa.func.count()).select_from(Folder)).label("folders"),
@@ -46,6 +47,7 @@ def stats(session: Session) -> StatsOut:
         folder_count=row.folders,
         failed_jobs=row.failed_jobs,
         preview_failed=row.preview_failed,
+        fixity_failed=row.fixity_failed,
     )
 
 
@@ -69,6 +71,16 @@ def near_duplicates(
             a.deleted_at.is_(None),
             b.deleted_at.is_(None),
             distance <= threshold,
+            # a pair someone marked "not a duplicate" stays apart
+            sa.not_(
+                sa.exists().where(
+                    ItemLink.kind == "not_duplicate",
+                    sa.or_(
+                        sa.and_(ItemLink.src_id == a.id, ItemLink.dst_id == b.id),
+                        sa.and_(ItemLink.src_id == b.id, ItemLink.dst_id == a.id),
+                    ),
+                )
+            ),
         )
         .order_by(distance, a.id, b.id)
         .limit(limit)
