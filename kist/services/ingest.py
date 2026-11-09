@@ -27,16 +27,12 @@ from ..ids import new_ulid
 from ..lifecycle import JobKind, PreviewStatus
 from ..models import Item, Job
 from . import meta as meta_svc
-from . import netguard, previews, thumbs
+from . import netguard, previews, thumbs, validation
 from . import tags as tags_svc
 
-
-def items_folders_resolve(session: Session, folder_ids: list[str]):
-    from . import items as items_svc
-
-    return items_svc.resolve_folders(session, folder_ids)
-
 log = logging.getLogger("kist.ingest")
+
+
 
 
 def sha256_file(path: Path) -> str:
@@ -88,10 +84,25 @@ def ingest_file(
 
     Exact duplicates (sha256) are rejected: the existing item is returned
     (it may be in the trash: check its state) and the source file is removed.
-    If ingest fails, the source file is put back where it was, so a retry or
-    the user still has it.
+    An active duplicate still gets the folders and tags sent with it, and
+    notes / source_url if it has none. If ingest fails, the source file is
+    put back where it was, so a retry or the user still has it.
+
+    Everything sent along is checked before any work is done: an unknown
+    folder or a bad tag name raises validation.ValidationError and leaves
+    the file where it was.
     """
+    from . import items as items_svc
+
     settings = get_settings()
+    all_folder_ids = list(folder_ids or []) + ([folder_id] if folder_id else [])
+    items_svc.resolve_folders(session, all_folder_ids)  # unknown ids -> 422
+    tag_names = [validation.tag_name(t) for t in tag_names or []]
+    notes = validation.notes(notes or "")
+    source_url = validation.source_url(source_url)
+    rating = validation.rating(rating or 0)
+    created_at = validation.timestamp(created_at, "created_at")
+    modified_at = validation.timestamp(modified_at, "modified_at")
     digest = sha256_file(path)
 
     existing = session.execute(
@@ -99,6 +110,11 @@ def ingest_file(
     ).scalar_one_or_none()
     if existing is not None:
         path.unlink(missing_ok=True)
+        if existing.deleted_at is None:
+            existing = items_svc.file_duplicate(
+                session, existing, folder_ids=all_folder_ids, tag_names=tag_names,
+                notes=notes, source_url=source_url,
+            )
         return IngestResult(existing, created=False)
 
     mime = sniff_mime(path)
@@ -139,7 +155,7 @@ def ingest_file(
             sha256=digest,
             phash=phash,
             dominant_colors=colors,
-            rating=max(0, min(5, int(rating or 0))),
+            rating=rating,
             notes=notes or "",
             source_url=source_url,
             deleted_at=deleted_at,
@@ -152,11 +168,8 @@ def ingest_file(
         if modified_at is not None:
             item.modified_at = modified_at
         session.add(item)
-        all_folders = list(folder_ids or [])
-        if folder_id:
-            all_folders.append(folder_id)
-        if all_folders:
-            item.folders = items_folders_resolve(session, all_folders)
+        if all_folder_ids:
+            item.folders = items_svc.resolve_folders(session, all_folder_ids)
         if tag_names:
             item.tags = tags_svc.get_or_create(session, tag_names)
         try:
@@ -175,12 +188,10 @@ def ingest_file(
         shutil.rmtree(item_dir, ignore_errors=True)
         raise
 
-    # committed: the item exists, so never remove its files from here on
+    # committed: the item exists, so never remove its files from here on.
+    # A failed meta.json write is logged and noted for `kist verify`.
+    meta_svc.sync_item(session, item.id)
     session.refresh(item)
-    try:
-        meta_svc.write_meta(item)
-    except OSError:
-        log.exception("meta.json not written for %s (run kist rewrite-meta)", item.id)
     return IngestResult(item, created=True)
 
 
@@ -231,6 +242,12 @@ def ingest_url(
     modified_at: datetime | None = None,
     deleted_at: datetime | None = None,
 ) -> IngestResult:
+    from . import items as items_svc
+
+    # refuse bad input before downloading anything
+    items_svc.resolve_folders(session, list(folder_ids or []) + ([folder_id] if folder_id else []))
+    for name in tag_names or []:
+        validation.tag_name(name)
     staging, filename, content_type = _download(url)
     if content_type in ("text/html", "application/xhtml+xml"):
         # a page link (Pinterest, Unsplash, a blog post…): take its preview image
@@ -267,10 +284,16 @@ class NotMediaError(ValueError):
     pass
 
 
+class DownloadTooLarge(ValueError):
+    pass
+
+
 def describe_download_error(exc: Exception) -> tuple[int, str] | None:
     """(HTTP status, user-facing message) for a failed URL add, or None if
     exc isn't a download failure. Network errors are deliberately vague:
     detailed ones ("connection refused" vs "timed out") map the network."""
+    if isinstance(exc, validation.ValidationError):
+        return None  # not a download problem: the caller's input (422)
     if isinstance(exc, netguard.BlockedURLError):
         return 422, str(exc)
     if isinstance(exc, NotMediaError):
@@ -281,7 +304,7 @@ def describe_download_error(exc: Exception) -> tuple[int, str] | None:
         return 502, f"download failed: the server answered {exc.response.status_code}"
     if isinstance(exc, httpx.HTTPError):
         return 502, "download failed: could not fetch that URL"
-    if isinstance(exc, ValueError):  # size cap
+    if isinstance(exc, DownloadTooLarge):
         return 413, str(exc)
     return None
 
@@ -320,7 +343,7 @@ def _download(url: str, *, transport=None) -> tuple[Path, str, str]:
                 for chunk in resp.iter_bytes(1024 * 256):
                     received += len(chunk)
                     if received > max_bytes:
-                        raise ValueError(
+                        raise DownloadTooLarge(
                             f"download exceeds max size ({settings.max_download_mb} MB)"
                         )
                     if time.monotonic() > deadline:
@@ -353,6 +376,22 @@ def page_image_url(html: str, page_url: str) -> str | None:
         if key in found:
             return urljoin(page_url, unescape(found[key].strip()))
     return None
+
+
+def resolve_import_path(file_path: str) -> Path:
+    """The file an agent may import with add_item(file_path=...): it must
+    resolve (symlinks and '..' included) to a file inside an import
+    directory, never anywhere else on the host or in the library."""
+    path = Path(file_path).resolve()
+    allowed = [d.resolve() for d in get_settings().import_dirs]
+    if not any(path.is_relative_to(d) for d in allowed):
+        raise validation.ValidationError(
+            "file_path must be inside an import directory: "
+            + ", ".join(str(d) for d in allowed)
+        )
+    if not path.is_file():
+        raise validation.ValidationError(f"no file at {path}")
+    return path
 
 
 def run_ingest_job(session: Session, payload: dict) -> None:
@@ -398,12 +437,21 @@ def scan_inbox() -> None:
         except OSError:
             log.exception("failed to stage inbox file %s", entry)
             continue
-        with SessionLocal() as session:
-            session.add(
-                Job(
-                    kind=JobKind.INGEST,
-                    payload={"path": str(staged), "filename": entry.name},
+        try:
+            with SessionLocal() as session:
+                session.add(
+                    Job(
+                        kind=JobKind.INGEST,
+                        payload={"path": str(staged), "filename": entry.name},
+                    )
                 )
-            )
-            session.commit()
+                session.commit()
+        except BaseException:
+            # no job, no import: put it back in the inbox for the next scan
+            # (if even that fails, the worker's staging sweep queues it)
+            try:
+                staged.replace(entry)
+            except OSError:
+                log.exception("could not put %s back in the inbox", staged.name)
+            raise
         log.info("queued inbox file %s", entry.name)

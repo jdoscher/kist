@@ -8,8 +8,14 @@ from typing import Any
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
+from ..filetypes import KINDS, OCTET_STREAM, VIDEO_EXTS
 from ..lifecycle import ItemState, PreviewStatus
 from ..models import Folder, Item, ItemFolder, ItemTag, Tag
+from .validation import ValidationError
+
+
+class BadCursor(ValueError):
+    """A cursor this server didn't make (HTTP 400)."""
 
 # Named views. "unfiled" is the inbox: active items in no folder and with no
 # tags; filing or tagging an item takes it out. The web UI and MCP both use
@@ -26,15 +32,19 @@ ORDERS: dict[str, tuple[Any, bool]] = {
     "-modified": (Item.modified_at, True),
 }
 
+# filetypes.kind_for in SQL: the type filter, the stats and ItemOut.kind
+# all agree (tests/test_unit.py checks the two against each other)
+_PDF = Item.mime == "application/pdf"
+_VIDEO = sa.or_(
+    Item.mime.like("video/%"),
+    sa.and_(Item.mime == OCTET_STREAM, sa.func.lower(Item.ext).in_(sorted(VIDEO_EXTS))),
+)
+_IMAGE = Item.mime.like("image/%")
 KIND_FILTERS = {
-    "image": sa.and_(Item.mime.like("image/%")),
-    "video": Item.mime.like("video/%"),
-    "pdf": Item.mime == "application/pdf",
-    "other": sa.and_(
-        sa.not_(Item.mime.like("image/%")),
-        sa.not_(Item.mime.like("video/%")),
-        Item.mime != "application/pdf",
-    ),
+    "pdf": _PDF,
+    "video": _VIDEO,
+    "image": _IMAGE,
+    "other": sa.and_(sa.not_(_PDF), sa.not_(_VIDEO), sa.not_(_IMAGE)),
 }
 
 
@@ -46,10 +56,15 @@ def encode_cursor(value: Any, item_id: str) -> str:
 
 
 def decode_cursor(cursor: str) -> tuple[Any, str]:
-    pad = "=" * (-len(cursor) % 4)
-    value, item_id = json.loads(base64.urlsafe_b64decode(cursor + pad))
-    if isinstance(value, dict) and "$dt" in value:
-        value = datetime.fromisoformat(value["$dt"])
+    try:
+        pad = "=" * (-len(cursor) % 4)
+        value, item_id = json.loads(base64.urlsafe_b64decode(cursor + pad))
+        if isinstance(value, dict) and "$dt" in value:
+            value = datetime.fromisoformat(value["$dt"])
+        if not isinstance(item_id, str) or isinstance(value, (dict, list)):
+            raise TypeError("not a cursor")
+    except (ValueError, TypeError) as exc:
+        raise BadCursor("invalid cursor; start again without one") from exc
     return value, item_id
 
 
@@ -81,13 +96,13 @@ def build_filters(
 ) -> list[Any]:
     filters: list[Any] = []
     if view is not None and view not in VIEWS:
-        raise ValueError(f"unknown view {view!r}; expected one of {', '.join(VIEWS)}")
+        raise ValidationError(f"unknown view {view!r}; expected one of {', '.join(VIEWS)}")
     if state is not None and state not in tuple(ItemState):
-        raise ValueError(f"unknown state {state!r}; expected active or trashed")
+        raise ValidationError(f"unknown state {state!r}; expected active or trashed")
     trashed = (state == ItemState.TRASHED) if state is not None else deleted
     if preview_status is not None:
         if preview_status not in tuple(PreviewStatus):
-            raise ValueError(
+            raise ValidationError(
                 f"unknown preview_status {preview_status!r}; "
                 "expected pending, ready, failed or none"
             )
@@ -137,7 +152,9 @@ def build_filters(
                 ItemFolder.folder_id.in_(sa.select(folder_subtree(folder).c.id)),
             )
         )
-    if kind and kind in KIND_FILTERS:
+    if kind:
+        if kind not in KIND_FILTERS:
+            raise ValidationError(f"unknown type {kind!r}; expected one of {', '.join(KINDS)}")
         filters.append(KIND_FILTERS[kind])
     if rating_min:
         filters.append(Item.rating >= rating_min)
@@ -175,7 +192,9 @@ def search_items(
         preview_status=preview_status,
         created_after=created_after, created_before=created_before,
     )
-    col, desc = ORDERS.get(order, ORDERS["-created"])
+    if order not in ORDERS:
+        raise ValidationError(f"unknown order {order!r}; expected one of {', '.join(ORDERS)}")
+    col, desc = ORDERS[order]
 
     total = session.execute(
         sa.select(sa.func.count()).select_from(Item).where(*filters)

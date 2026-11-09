@@ -27,13 +27,21 @@ class Settings(BaseSettings):
     hsts_seconds: int = 15552000
     # sent when downloading URLs; some sites (Wikimedia) require contact info
     user_agent: str = ""
-    thumb_sizes: tuple[int, int] = (256, 1024)
     # a job a worker claimed longer ago than this is treated as abandoned (the
     # worker died) and queued again; keep it above download + preview limits
     job_lease_seconds: int = 900
     # the address people open Kist at (e.g. https://kist.example.com); MCP
     # results then carry absolute web_url links. Empty: links are site-relative
     public_url: str = ""
+    # largest direct upload accepted (bytes); bigger ones get 413
+    max_upload_bytes: int = 4 * 1024**3
+    # DEBUG | INFO | WARNING | ERROR for the app and worker logs
+    log_level: str = "INFO"
+    # the commit the image was built from (Dockerfile build arg)
+    git_commit: str = "unknown"
+    # the worker runs `kist verify` this often (0 turns it off); deep health
+    # reports the last result
+    verify_interval_hours: float = 24.0
 
     @property
     def items_dir(self) -> Path:
@@ -46,6 +54,11 @@ class Settings(BaseSettings):
     @property
     def staging_dir(self) -> Path:
         return self.library_dir / ".staging"
+
+    @property
+    def state_dir(self) -> Path:
+        """library/.kist: worker heartbeat, last verify result, repair notes."""
+        return self.library_dir / ".kist"
 
     @property
     def import_dirs(self) -> list[Path]:

@@ -298,11 +298,11 @@ def generate_previews_isolated(
         )
     except subprocess.TimeoutExpired:
         if cleanup:
-            _remove_previews(item_dir)
+            remove_previews(item_dir)
         raise RuntimeError("preview generation timed out") from None
     if out.returncode != 0:
         if cleanup:
-            _remove_previews(item_dir)
+            remove_previews(item_dir)
         raise RuntimeError(
             f"preview generation failed (exit {out.returncode}): {out.stderr[-800:]}"
         )
@@ -351,7 +351,7 @@ def screen_copy_isolated(original: Path, item_dir: Path, ext: str) -> None:
         raise RuntimeError(f"screen copy failed (exit {out.returncode}): {out.stderr[-800:]}")
 
 
-def _remove_previews(item_dir: Path) -> None:
+def remove_previews(item_dir: Path) -> None:
     for name in PREVIEW_FILES:
         (item_dir / name).unlink(missing_ok=True)
 

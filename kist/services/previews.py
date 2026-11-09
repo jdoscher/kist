@@ -75,11 +75,16 @@ def regenerate(session: Session, item: Item) -> PreviewStatus:
             kept = item.width is not None and (item_dir / "thumb_256.webp").is_file()
             item.preview_status = PreviewStatus.READY if kept else PreviewStatus.FAILED
             item.preview_error = short_error(exc)
-    item.preview_rev = (item.preview_rev or 0) + 1
+    status = PreviewStatus(item.preview_status)
+    # in SQL, so two processes regenerating one item both move it on
+    item.preview_rev = Item.preview_rev + 1
     session.commit()
-    session.refresh(item)
-    meta_svc.write_meta(item)
-    return PreviewStatus(item.preview_status)
+    if not meta_svc.sync_item(session, item.id):  # (it refreshes the item)
+        try:
+            session.refresh(item)
+        except Exception:  # purged meanwhile
+            session.rollback()
+    return status
 
 
 def add_screen_copy(session: Session, item: Item) -> bool:
@@ -94,6 +99,24 @@ def add_screen_copy(session: Session, item: Item) -> bool:
     ):
         return False
     thumbs.screen_copy_isolated(item_dir / f"original.{item.ext}", item_dir, item.ext)
-    item.preview_rev = (item.preview_rev or 0) + 1
+    item.preview_rev = Item.preview_rev + 1
     session.commit()
+    meta_svc.sync_item(session, item.id)
+    return True
+
+
+def reclassify(session: Session, item: Item) -> bool:
+    """Make an item's preview state agree with its kind (from its sniffed
+    MIME type). An item that can't have a preview (e.g. an HTML page named
+    .pdf, which older versions called a PDF) loses any previews it was given
+    and becomes preview_status none. Returns True if anything changed."""
+    if kind_for(item.mime, item.ext) != "other" or item.preview_status == PreviewStatus.NONE:
+        return False
+    thumbs.remove_previews(get_settings().items_dir / item.id)
+    item.preview_status, item.preview_error = PreviewStatus.NONE, None
+    item.width = item.height = item.duration_s = None
+    item.phash, item.dominant_colors = None, None
+    item.preview_rev = Item.preview_rev + 1
+    session.commit()
+    meta_svc.sync_item(session, item.id)
     return True

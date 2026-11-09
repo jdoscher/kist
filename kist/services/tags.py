@@ -1,29 +1,39 @@
 import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from ..models import Item, ItemTag, Tag
+from . import validation
 
 
 def normalize(name: str) -> str:
-    return " ".join(name.strip().split())[:100]
+    """Whitespace collapsed; used to match names (e.g. for removal)."""
+    return " ".join(str(name).split())[: validation.TAG_MAX]
 
 
-def get_or_create(session: Session, names: list[str]) -> list[Tag]:
+def get_or_create(session: Session, names: list[str], *, validate: bool = True) -> list[Tag]:
+    """The Tag rows for `names`, creating missing ones.
+
+    Safe against a concurrent writer creating the same tag: the insert is an
+    upsert, so neither side gets a unique-key error. With validate=False
+    (rebuild-index restoring old data) names are only cleaned, not refused.
+    """
     out: list[Tag] = []
     seen: set[str] = set()
     for raw in names:
-        name = normalize(raw)
-        if not name or name.lower() in seen:
+        if validate:
+            name = validation.tag_name(raw)
+        else:
+            name = normalize(raw)
+            if not name:
+                continue
+        if name.lower() in seen:
             continue
         seen.add(name.lower())
-        tag = session.execute(
-            sa.select(Tag).where(Tag.name == name)
-        ).scalar_one_or_none()
-        if tag is None:
-            tag = Tag(name=name)
-            session.add(tag)
-            session.flush()
-        out.append(tag)
+        session.execute(
+            pg_insert(Tag).values(name=name).on_conflict_do_nothing(index_elements=["name"])
+        )
+        out.append(session.execute(sa.select(Tag).where(Tag.name == name)).scalar_one())
     return out
 
 
