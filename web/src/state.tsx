@@ -16,7 +16,7 @@ import type { Query } from './api'
 import type { GridLayout } from './layout'
 import type { MobileCols } from './mobile'
 import { mergeQuery, normalizeSaved } from './query'
-import { fromUrl, type Place } from './url'
+import { fromUrl, type Place, type SettingsSection } from './url'
 import { usePrefs } from './usePrefs'
 import { inMenuLayer, pushMenuLayer, useUrlSync } from './urlSync'
 import type { Density, ThemePref } from './theme'
@@ -62,6 +62,13 @@ interface AppState {
   /** gallery density tucks the sidebars away; this shows them for the session */
   chromeShown: boolean
   setChromeShown: (shown: boolean) => void
+  /** the Settings screen (its own URL, /settings/<section>) */
+  settings: SettingsSection | null
+  openSettings: (section?: SettingsSection) => void
+  closeSettings: () => void
+  /** the Recent changes panel (batch undo) */
+  recentOpen: boolean
+  setRecentOpen: (open: boolean) => void
 }
 
 const Ctx = createContext<AppState | null>(null)
@@ -84,6 +91,11 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
     heroTransition(() => setPreviewIdRaw(id), heroFor(prev, id), prev === null)
   }, [])
   const [chromeShown, setChromeShown] = useState(false)
+  const [settings, setSettings] = useState<SettingsSection | null>(initial.settings ?? null)
+  // Settings was opened from inside the app, so Close can go Back to where
+  // you were instead of adding a history entry
+  const settingsFromApp = useRef(false)
+  const [recentOpen, setRecentOpen] = useState(false)
   const [jobsOpen, setJobsOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const anchor = useRef<string | null>(null)
@@ -91,6 +103,7 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
 
   const setQuery = useCallback((patch: Partial<Query>) => {
     setQueryRaw((prev) => mergeQuery(prev, patch))
+    setSettings(null)
     setSmartId(null)
     setSelection(new Set())
     setPreviewIdRaw(null)
@@ -98,6 +111,7 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
 
   const applySmartFolder = useCallback((id: string, q: Partial<Query>) => {
     setQueryRaw(normalizeSaved(q))
+    setSettings(null)
     setSmartId(id)
     setSelection(new Set())
     setPreviewIdRaw(null)
@@ -107,10 +121,11 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
     () => ({
       query,
       smartId,
-      item: previewId ?? (selection.size === 1 ? [...selection][0] : null),
-      full: previewId !== null,
+      item: settings ? null : previewId ?? (selection.size === 1 ? [...selection][0] : null),
+      full: !settings && previewId !== null,
+      ...(settings ? { settings } : {}),
     }),
-    [query, smartId, selection, previewId],
+    [query, smartId, selection, previewId, settings],
   )
   useUrlSync({
     initial,
@@ -118,12 +133,33 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
     mobile,
     onMenu: setDrawerOpen,
     onNavigate: (p) => {
+      if (p.settings) {
+        setSettings(p.settings)
+        return
+      }
+      setSettings(null)
+      settingsFromApp.current = false
       setQueryRaw(p.query)
       setSmartId(p.smartId)
       setSelection(new Set(p.item ? [p.item] : []))
       setPreviewIdRaw(p.full ? p.item : null)
     },
   })
+
+  const openSettings = useCallback((section: SettingsSection = 'tokens') => {
+    setSettings((cur) => {
+      if (!cur) settingsFromApp.current = true
+      return section
+    })
+    setDrawerOpen(false)
+  }, [])
+
+  const closeSettings = useCallback(() => {
+    if (settingsFromApp.current) {
+      settingsFromApp.current = false
+      window.history.back() // popstate shows the library place again
+    } else setSettings(null)
+  }, [])
 
   const openDrawer = useCallback(() => {
     setDrawerOpen(true)
@@ -218,8 +254,13 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
       setDensity,
       chromeShown,
       setChromeShown,
+      settings,
+      openSettings,
+      closeSettings,
+      recentOpen,
+      setRecentOpen,
     }),
-    [query, setQuery, smartId, applySmartFolder, selection, selectOnly, toggleSelect, rangeSelect, clearSelection, selectAll, previewId, setPreviewId, panelOpen, setPanelOpen, gridLayout, setGridLayout, tileSize, setTileSize, drawerOpen, openDrawer, closeDrawer, jobsOpen, mobile, mobileCols, setMobileCols, theme, setTheme, density, setDensity, chromeShown],
+    [settings, openSettings, closeSettings, recentOpen, query, setQuery, smartId, applySmartFolder, selection, selectOnly, toggleSelect, rangeSelect, clearSelection, selectAll, previewId, setPreviewId, panelOpen, setPanelOpen, gridLayout, setGridLayout, tileSize, setTileSize, drawerOpen, openDrawer, closeDrawer, jobsOpen, mobile, mobileCols, setMobileCols, theme, setTheme, density, setDensity, chromeShown],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

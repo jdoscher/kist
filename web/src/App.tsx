@@ -8,13 +8,17 @@ import { Grid } from './components/Grid'
 import { JobsPanel } from './components/JobsPanel'
 import { NoticesProvider } from './components/Notices'
 import { Preview } from './components/Preview'
+import { RecentChanges } from './components/RecentChanges'
+import { SettingsScreen } from './components/Settings'
 import { Drawer, Sidebar } from './components/Sidebar'
 import { TopBar } from './components/TopBar'
 import { UploadManager } from './components/UploadManager'
 import { useIsMobile } from './mobile'
 import { AppStateProvider } from './state'
 import { useFocusTrap, useInertBackground } from './useInert'
-import { useLayer } from './useShortcuts'
+import { useLayer, useShortcut } from './useShortcuts'
+import { cantBrowseText } from './tokens'
+import { useCaps } from './data'
 import { Mark, Wordmark } from './components/Brand'
 import { useAppState } from './state'
 import { bannerText, describeError, hasDrafts } from './writes'
@@ -34,7 +38,22 @@ function TokenGate({ onDone, overlay = false }: { onDone: () => void; overlay?: 
     e.preventDefault()
     setToken(value.trim())
     try {
-      await api.stats() // needs the token (/api/health doesn't, so it can't check one)
+      // /api/me answers any valid token (/api/health needs none, so it can't
+      // check one; /api/stats is 404 for a folder-limited reader)
+      let me = null
+      try {
+        me = await api.me()
+      } catch (err) {
+        // an older server without /api/me: fall back to stats
+        if ((err as { status?: number })?.status !== 404) throw err
+        await api.stats()
+      }
+      const why = me ? cantBrowseText(me) : null
+      if (why) {
+        setToken('') // don't keep a token that can't open the library
+        setError(why)
+        return
+      }
       onDone()
     } catch (err) {
       setError(
@@ -93,6 +112,40 @@ function TokenGate({ onDone, overlay = false }: { onDone: () => void; overlay?: 
         </details>
       </form>
     </div>
+  )
+}
+
+/** ⌘Z / Ctrl+Z (outside text fields, which keep their own undo) opens
+ * Recent changes with focus on the newest Undo. */
+function UndoShortcut() {
+  const { setRecentOpen } = useAppState()
+  const { canEdit } = useCaps()
+  useShortcut(
+    'grid',
+    (e) => {
+      if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey || e.key.toLowerCase() !== 'z') return false
+      e.preventDefault()
+      setRecentOpen(true)
+      return true
+    },
+    canEdit,
+  )
+  return null
+}
+
+/** The library (top bar, sidebar, grid, info panel) or Settings. */
+function Screens({ mobile }: { mobile: boolean }) {
+  const { settings } = useAppState()
+  if (settings) return <SettingsScreen />
+  return (
+    <>
+      <TopBar mobile={mobile} />
+      <div className="app-body">
+        {mobile ? <Drawer /> : <DesktopSidebar />}
+        <Grid mobile={mobile} />
+        {mobile ? <DetailSheet /> : <DetailPanel />}
+      </div>
+    </>
   )
 }
 
@@ -164,14 +217,11 @@ export default function App() {
           <UploadManager>
             <div className={`app-shell${mobile ? ' mobile' : ''}`}>
               <ServerBanner />
-              <TopBar mobile={mobile} />
-              <div className="app-body">
-                {mobile ? <Drawer /> : <DesktopSidebar />}
-                <Grid mobile={mobile} />
-                {mobile ? <DetailSheet /> : <DetailPanel />}
-              </div>
+              <Screens mobile={mobile} />
               <Preview />
               <JobsPanel />
+              <RecentChanges />
+              <UndoShortcut />
               {!authed && <TokenGate onDone={recheck} overlay />}
             </div>
           </UploadManager>

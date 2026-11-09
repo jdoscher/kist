@@ -8,20 +8,28 @@
 //   /folder/:id       a folder (and its subfolders)
 //   /tag/:name        one tag
 //   /smart/:id        a smart folder (its filters ride along as params)
+//   /settings/:section  Settings: tokens, archive (health) or ai
 //   ?item=:id         the item shown in the info panel / item sheet
 //   &full=1           ...opened full screen
 //
 // Other filters are params: q, tags, any, untagged, folder (none), preview,
-// type, rating, order, after, before, trash (a smart folder over the trash).
+// type, rating, order, after, before, trash (a smart folder over the trash),
+// fixity (failed). Unknown params (say ?semantic=, which milestone 2 uses)
+// are ignored, never an error.
 // Pure functions, tested in tests/url.test.ts.
 
 import { emptyQuery, type PreviewStatus, type Query } from './api.ts'
+
+export type SettingsSection = 'tokens' | 'archive' | 'ai'
+export const SETTINGS_SECTIONS: SettingsSection[] = ['tokens', 'archive', 'ai']
 
 export interface Place {
   query: Query
   smartId: string | null
   item: string | null
   full: boolean
+  /** the Settings screen is shown (over the library, which keeps its place) */
+  settings?: SettingsSection | null
 }
 
 export type Layer = 'view' | 'sheet' | 'full'
@@ -32,6 +40,7 @@ const PREVIEWS: PreviewStatus[] = ['pending', 'ready', 'failed', 'none']
 
 /** The view part of the path (no item). */
 function placePath(p: Place): string {
+  if (p.settings) return `/settings/${p.settings}`
   const q = p.query
   // a smart folder keeps its path even when it searches the trash
   if (p.smartId) return `/smart/${encodeURIComponent(p.smartId)}`
@@ -45,6 +54,7 @@ function placePath(p: Place): string {
 export function toUrl(p: Place): string {
   const q = p.query
   const path = placePath(p)
+  if (p.settings) return path
   const s = new URLSearchParams()
   const tagInPath = path.startsWith('/tag/')
   if (q.q) s.set('q', q.q)
@@ -56,6 +66,7 @@ export function toUrl(p: Place): string {
   if (q.view === 'unfiled' && path !== '/') s.set('view', 'unfiled')
   if (q.deleted && path !== '/trash') s.set('trash', '1')
   if (q.preview) s.set('preview', q.preview)
+  if (q.fixity) s.set('fixity', q.fixity)
   if (q.type) s.set('type', q.type)
   if (q.rating) s.set('rating', String(q.rating))
   if (q.order !== emptyQuery.order) s.set('order', q.order)
@@ -85,6 +96,7 @@ export function fromUrl(pathname: string, search: string): Place {
     preview: PREVIEWS.includes(s.get('preview') as PreviewStatus)
       ? (s.get('preview') as PreviewStatus)
       : null,
+    fixity: s.get('fixity') === 'failed' ? 'failed' : null,
     type: s.get('type') || null,
     rating: Math.max(0, Math.min(5, Number(s.get('rating')) || 0)),
     order: s.get('order') || emptyQuery.order,
@@ -99,6 +111,11 @@ export function fromUrl(pathname: string, search: string): Place {
   else if (head === 'folder' && arg) query.folder = arg
   else if (head === 'tag' && arg) query.tags = [arg, ...query.tags.filter((t) => t !== arg)]
   else if (head === 'smart' && arg) smartId = arg
+  else if (head === 'settings') {
+    // the library behind Settings is All items (closing Settings shows it)
+    const section = SETTINGS_SECTIONS.includes(arg as SettingsSection) ? (arg as SettingsSection) : 'tokens'
+    return { query: { ...emptyQuery }, smartId: null, item: null, full: false, settings: section }
+  }
   // anything else (including /all) is the whole library
   const item = s.get('item') || null
   return { query, smartId, item, full: !!item && s.get('full') === '1' }
@@ -126,6 +143,9 @@ export function historyAction(
   opts: { mobile: boolean; curPushed: boolean; curIsMenu?: boolean },
 ): HistoryAction {
   if (toUrl(cur) === toUrl(next)) return 'none'
+  // moving between Settings sections doesn't stack up history: Back (or
+  // Close) leaves Settings in one step
+  if (cur.settings && next.settings) return 'replace'
   if (placePath(cur) !== placePath(next)) {
     // picking a view from the menu replaces the menu's entry
     return opts.curIsMenu ? 'replace' : 'push'

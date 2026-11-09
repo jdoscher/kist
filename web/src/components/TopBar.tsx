@@ -1,7 +1,7 @@
-import { Info, Menu, PanelsLeftRight, RectangleHorizontal, Square, Upload, X } from 'lucide-react'
+import { History, Info, Menu, PanelsLeftRight, RectangleHorizontal, Settings, Square, Upload, X } from 'lucide-react'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { TILE_SIZE_MAX, TILE_SIZE_MIN } from '../layout'
-import { useTags } from '../data'
+import { useCaps, useTags } from '../data'
 import { useAppState } from '../state'
 import type { MobileCols } from '../mobile'
 import { AppearanceMenu } from './Appearance'
@@ -36,7 +36,10 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
     density,
     chromeShown,
     setChromeShown,
+    setRecentOpen,
+    openSettings,
   } = useAppState()
+  const caps = useCaps()
   const { data: tags } = useTags()
   const uploads = useUploads()
   const [text, setText] = useState(query.q)
@@ -55,6 +58,7 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
     query.tags_any.length > 0 ||
     query.untagged ||
     !!query.preview ||
+    !!query.fixity ||
     !!query.created_after ||
     !!query.created_before
 
@@ -146,6 +150,9 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
             )}
             {query.preview && (
               <Chip label={`preview ${query.preview}`} clear="Clear preview filter" onClear={() => setQuery({ preview: null })} />
+            )}
+            {query.fixity && (
+              <Chip label="fixity check failed" clear="Clear fixity filter" onClear={() => setQuery({ fixity: null })} />
             )}
             {query.untagged && (
               <Chip label="untagged" clear="Clear untagged filter" onClear={() => setQuery({ untagged: false })} />
@@ -296,11 +303,15 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
 
       {!mobile && (
         <>
-      <PasteButton />
-      <button className="primary btn-icon" onClick={() => fileRef.current?.click()}>
-        <Upload size={15} strokeWidth={2} aria-hidden="true" />
-        Upload
-      </button>
+      {caps.canEdit && (
+        <>
+          <PasteButton />
+          <button className="primary btn-icon" onClick={() => fileRef.current?.click()}>
+            <Upload size={15} strokeWidth={2} aria-hidden="true" />
+            Upload
+          </button>
+        </>
+      )}
       <input
         ref={fileRef}
         type="file"
@@ -334,7 +345,23 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
           Info
         </button>
       )}
+      {caps.canEdit && (
+        <button
+          className="icon-btn topbar-icon"
+          onClick={() => setRecentOpen(true)}
+          aria-label="Recent changes"
+          title="Recent changes and undo (⌘Z / Ctrl+Z)"
+          aria-keyshortcuts="Meta+Z Control+Z"
+        >
+          <History size={17} strokeWidth={1.75} aria-hidden="true" />
+        </button>
+      )}
       <AppearanceMenu />
+      {caps.isAdmin && (
+        <button className="icon-btn topbar-icon" onClick={() => openSettings()} aria-label="Settings" title="Settings: tokens, archive health, AI">
+          <Settings size={17} strokeWidth={1.75} aria-hidden="true" />
+        </button>
+      )}
         </>
       )}
     </header>

@@ -81,3 +81,28 @@ test('desktop selection changes replace; new views push', () => {
     'replace',
   )
 })
+
+test('Settings has its own URLs, and sections replace each other in history', () => {
+  assert.equal(toUrl(place({}, { settings: 'tokens' })), '/settings/tokens')
+  assert.equal(toUrl(place({ folder: 'F1' }, { settings: 'ai', item: 'I1' })), '/settings/ai')
+  assert.equal(fromUrl('/settings/archive', '').settings, 'archive')
+  assert.equal(fromUrl('/settings', '').settings, 'tokens')
+  assert.equal(fromUrl('/settings/bogus', '').settings, 'tokens')
+  const lib = place({ folder: 'F1' })
+  const tokens = place({ folder: 'F1' }, { settings: 'tokens' })
+  const ai = place({ folder: 'F1' }, { settings: 'ai' })
+  assert.equal(historyAction(lib, tokens, { mobile: false, curPushed: false }), 'push')
+  assert.equal(historyAction(tokens, ai, { mobile: false, curPushed: false }), 'replace')
+  // from the phone menu, Settings takes the menu's entry
+  assert.equal(historyAction(lib, tokens, { mobile: true, curPushed: true, curIsMenu: true }), 'replace')
+})
+
+test('the fixity filter round-trips; unknown params like ?semantic= are ignored', () => {
+  const p = place({ fixity: 'failed' })
+  assert.equal(toUrl(p), '/all?fixity=failed')
+  assert.deepEqual(roundTrip(p), p)
+  const s = fromUrl('/all', '?semantic=brown%20boots&q=x')
+  assert.equal(s.query.q, 'x')
+  assert.equal(toUrl(s), '/all?q=x')
+  assert.equal(fromUrl('/', '?fixity=nope').query.fixity, null)
+})

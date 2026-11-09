@@ -1,7 +1,10 @@
-import { X } from 'lucide-react'
+import { Lock, LockOpen, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { api } from '../api'
 import { bulkReport, hardDeleteQuestion, trashedText, useBulkAction, type BulkAction } from '../bulk'
-import { useFolders, useRefresh } from '../data'
+import { useAfterUndo, useCaps, useFolderNames, useFolders, useRefresh } from '../data'
+import { undoReport } from '../history'
+import { describeError } from '../writes'
 import { useAppState } from '../state'
 import { useShortcut } from '../useShortcuts'
 import { useDialog } from './Dialog'
@@ -17,6 +20,9 @@ export function BulkBar() {
   const dialog = useDialog()
   const { notify, dismiss } = useNotices()
   const refresh = useRefresh()
+  const afterUndo = useAfterUndo()
+  const caps = useCaps()
+  const folderName = useFolderNames()
   const [tagText, setTagText] = useState('')
 
   const ids = useMemo(() => [...selection], [selection])
@@ -39,17 +45,18 @@ export function BulkBar() {
               message: bulkReport(r),
               action: { label: 'Retry', run: () => run(action, failedIds) },
               // the ones that did go to the Trash can still come back
-              actions: action.kind === 'trash' && done.length ? [{ label: 'Undo', run: () => undoTrash(done) }] : [],
+              actions: action.kind === 'trash' && done.length ? [{ label: 'Undo', run: () => undoTrash(done, r.batch) }] : [],
             })
           } else if (LEAVES_VIEW.has(action.kind)) {
             clearSelection()
           }
-          // trashing is undoable: restore is idempotent, so Undo just restores
+          // trashing is undoable: the whole action was one batch, so Undo
+          // reverts that batch (and says so if something changed since)
           if (action.kind === 'trash' && r.ok > 0 && !r.failed.length) {
             notify({
               key: 'trash',
               message: trashedText(targets.length),
-              action: { label: 'Undo', run: () => undoTrash(targets) },
+              action: { label: 'Undo', run: () => undoTrash(targets, r.batch) },
             })
           }
         },
@@ -57,9 +64,38 @@ export function BulkBar() {
     )
   }
 
-  // put trashed items back, then reload the list on screen so they show up
-  // where they sort (restore answers each item; counts refresh with it)
-  const undoTrash = (trashed: string[]) =>
+  // put trashed items back by undoing the trash batch, then reload the
+  // list on screen so they show up where they sort. A server without batch
+  // undo (older) gets the items restored one by one instead.
+  const undoTrash = (trashed: string[], batch?: string) => {
+    if (batch) {
+      api.undoBatch(batch).then(
+        (res) => {
+          afterUndo()
+          const rep = undoReport(res, 'Restored', { folder: (id) => folderName.get(id) })
+          if (rep.tone === 'error') notify({ key: 'trash', tone: 'error', message: rep.message })
+          else {
+            dismiss('trash')
+            selectAll(trashed)
+          }
+        },
+        (e) => {
+          if ((e as { status?: number })?.status === 404) restoreEach(trashed)
+          else
+            notify({
+              key: 'trash',
+              tone: 'error',
+              message: `Couldn't undo: ${describeError(e)}`,
+              action: { label: 'Retry', run: () => undoTrash(trashed, batch) },
+            })
+        },
+      )
+      return
+    }
+    restoreEach(trashed)
+  }
+
+  const restoreEach = (trashed: string[]) =>
     bulk.mutate(
       { ids: trashed, action: { kind: 'restore' } },
       {
@@ -70,7 +106,7 @@ export function BulkBar() {
               key: 'trash',
               tone: 'error',
               message: bulkReport(r),
-              action: { label: 'Retry', run: () => undoTrash(r.failed.map((f) => f.id)) },
+              action: { label: 'Retry', run: () => restoreEach(r.failed.map((f) => f.id)) },
             })
           else selectAll(trashed)
         },
@@ -97,14 +133,15 @@ export function BulkBar() {
       const t = e.target as HTMLElement | null
       if (t && t !== document.body && !t.closest?.('.grid-scroll')) return false
       e.preventDefault()
-      if (query.deleted) void hardDelete()
-      else run({ kind: 'trash' })
+      if (query.deleted) {
+        if (caps.canDestroy) void hardDelete()
+      } else run({ kind: 'trash' })
       return true
     },
-    ids.length > 0,
+    ids.length > 0 && caps.canEdit,
   )
 
-  if (ids.length === 0) return null
+  if (ids.length === 0 || !caps.canEdit) return null
 
   const addTags = () => {
     const tags = tagText.split(',').map((t) => t.trim()).filter(Boolean)
@@ -152,6 +189,22 @@ export function BulkBar() {
             ))}
           </select>
 
+          <button
+            className="btn-icon"
+            disabled={busy}
+            onClick={() => run({ kind: 'protect', value: true })}
+            title="Protected items can't be trashed or deleted until unprotected"
+          >
+            <Lock size={14} strokeWidth={1.75} aria-hidden="true" />
+            Protect
+          </button>
+          {caps.canDestroy && (
+            <button className="btn-icon" disabled={busy} onClick={() => run({ kind: 'protect', value: false })}>
+              <LockOpen size={14} strokeWidth={1.75} aria-hidden="true" />
+              Unprotect
+            </button>
+          )}
+
           <button className="danger" disabled={busy} onClick={() => run({ kind: 'trash' })}>
             Trash
           </button>
@@ -163,9 +216,11 @@ export function BulkBar() {
           <button disabled={busy} onClick={() => run({ kind: 'restore' })}>
             Restore
           </button>
-          <button className="danger" disabled={busy} onClick={() => void hardDelete()}>
-            Delete forever
-          </button>
+          {caps.canDestroy && (
+            <button className="danger" disabled={busy} onClick={() => void hardDelete()}>
+              Delete forever
+            </button>
+          )}
         </>
       )}
 

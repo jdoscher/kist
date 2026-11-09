@@ -1,5 +1,5 @@
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { Check, File, FileText, Film, Hourglass, Image as ImageIcon, Star, TriangleAlert, type LucideIcon } from 'lucide-react'
+import { Check, File, FileText, Film, Hourglass, Image as ImageIcon, Lock, Star, TriangleAlert, type LucideIcon } from 'lucide-react'
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { emptyQuery, thumbUrl, type Item } from '../api'
 import { fmtDuration, plural, tileLabel } from '../format'
@@ -12,7 +12,7 @@ import {
   tilePositions,
   typicalAspect,
 } from '../layout'
-import { useCurrentItems, useFolderNames, useSmartFolders, useStats } from '../data'
+import { useCaps, useCurrentItems, useFolderNames, useFolders, useSmartFolders, useStats } from '../data'
 import { emptyState, everywhere, isUnfiledView, viewTitle } from '../query'
 import { placeholderFor, placeholderStyle } from '../placeholder'
 import { markOnce, onceSeen } from '../settings'
@@ -128,6 +128,11 @@ const Tile = memo(function Tile({
           ))}
         </span>
       )}
+      {item.protected && (
+        <span className="badge lock" aria-hidden="true" title="Protected">
+          <Lock size={11} strokeWidth={2.25} />
+        </span>
+      )}
       {selected && (
         <>
           <span className="sel-corners" aria-hidden="true" />
@@ -166,6 +171,8 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
   const { data: stats } = useStats()
   const { data: smartFolders } = useSmartFolders()
   const folderNames = useFolderNames()
+  const { data: folders } = useFolders()
+  const caps = useCaps()
   const flatIds = useMemo(() => items.map((i) => i.id), [items])
   const hintId = useId()
 
@@ -363,6 +370,17 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
       setQuery({ ...emptyQuery, order: query.order })
   }, [result.isSuccess]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // a folder-limited reader can't see Unfiled items (they're in no
+  // folder): show it everything it can see instead
+  useEffect(() => {
+    if (caps.restricted && (isUnfiledView(query) || query.deleted)) setQuery({ ...emptyQuery, order: query.order })
+  }, [caps.restricted, query]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const folderDescription =
+    query.folder && query.folder !== 'none' && !smartId && !query.deleted
+      ? (folders ?? []).find((f) => f.id === query.folder)?.description?.trim() || ''
+      : ''
+
   const smartName = smartId ? (smartFolders ?? []).find((s) => s.id === smartId)?.name : null
   const title = viewTitle(query, { folder: (id) => folderNames.get(id), smart: smartName })
 
@@ -405,6 +423,13 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
           {selection.size > 1 ? `, ${selection.size} selected` : ''}
         </span>
         <span aria-hidden="true">{result.isFetching ? ' · refreshing…' : ''}</span>
+        {folderDescription && <p className="view-subtitle folder-description">{folderDescription}</p>}
+        {query.fixity === 'failed' && (
+          <p className="view-subtitle">
+            These originals no longer match the fingerprint (SHA-256) Kist took when they were added: the file on disk
+            changed or vanished. Restore each from a backup: Settings, Archive health lists the fingerprint to look for.
+          </p>
+        )}
         {isUnfiledView(query) && (
           <p className="view-subtitle">
             Items with no folder and no tag. Tag or file them to clear this list; they stay in All items.

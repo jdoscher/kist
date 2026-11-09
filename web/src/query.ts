@@ -44,6 +44,7 @@ export function stillMatches(item: Item, q: Query, folderSubtree?: Set<string>):
   if (q.type && item.kind !== q.type) return false
   if (q.rating && item.rating < q.rating) return false
   if (q.preview && item.preview_status !== q.preview) return false
+  // fixity: the server's call (a re-check clears it); keep the item
   return true
 }
 
@@ -118,6 +119,7 @@ export function hasNarrowing(q: Query): boolean {
     !!q.type ||
     q.rating > 0 ||
     !!q.preview ||
+    !!q.fixity ||
     !!q.created_after ||
     !!q.created_before ||
     q.untagged ||

@@ -1,4 +1,5 @@
 import { api, type Item } from '../api'
+import { useCaps } from '../data'
 import { useItemWrite } from '../useWrite'
 
 /** The item's server-side states, with the action that moves each one on:
@@ -6,6 +7,7 @@ import { useItemWrite } from '../useWrite'
  * A pending preview is re-checked by useItem (data.ts), not here. */
 export function ItemStatus({ item }: { item: Item }) {
   const { write, busy } = useItemWrite(item.id)
+  const { canEdit } = useCaps()
 
   // always mounted, so changes (Retry -> making the preview -> done) are read out
   const quiet = item.state === 'active' && (item.preview_status === 'ready' || item.preview_status === 'none')
@@ -15,9 +17,9 @@ export function ItemStatus({ item }: { item: Item }) {
       {item.state === 'trashed' && (
         <div className="status-row trashed">
           <span>In Trash</span>
-          <button disabled={busy()} onClick={() => void write('restore', () => api.restoreItem(item.id))}>
+          {canEdit && <button disabled={busy()} onClick={() => void write('restore', () => api.restoreItem(item.id))}>
             Restore
-          </button>
+          </button>}
         </div>
       )}
       {item.preview_status === 'failed' && (
@@ -25,9 +27,11 @@ export function ItemStatus({ item }: { item: Item }) {
           <span title={item.preview_error ?? ''}>
             Preview failed{item.preview_error ? `: ${item.preview_error}` : ''}
           </span>
-          <button disabled={busy()} onClick={() => void write('retry', () => api.retryPreview(item.id))}>
-            Retry
-          </button>
+          {canEdit && (
+            <button disabled={busy()} onClick={() => void write('retry', () => api.retryPreview(item.id))}>
+              Retry
+            </button>
+          )}
         </div>
       )}
       {item.preview_status === 'pending' && (

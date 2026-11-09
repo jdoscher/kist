@@ -92,6 +92,7 @@ const FIELD_LABEL: Record<string, string> = {
   filename: 'the name',
   notes: 'the notes',
   rating: 'the rating',
+  protected: 'the protection',
   tags: 'the tags',
   folders: 'the folders',
   restore: 'restore it',

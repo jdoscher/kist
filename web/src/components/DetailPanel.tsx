@@ -1,12 +1,42 @@
-import { ExternalLink, Maximize2, Star, X } from 'lucide-react'
+import { ExternalLink, Lock, LockOpen, Maximize2, Star, X } from 'lucide-react'
 import { useId, useMemo, useState } from 'react'
 import { api, fileUrl, thumbUrl, type Item } from '../api'
-import { useCurrentItems, useFolderNames, useFolders, useItem, useStats, useVersion } from '../data'
+import { useCaps, useCurrentItems, useFolderNames, useFolders, useItem, useStats, useVersion } from '../data'
 import { fmtBytes } from '../format'
 import { useAppState } from '../state'
 import { useDraftField, useItemWrite, useTextSave } from '../useWrite'
+import { ItemHistory } from './ItemHistory'
+import { ItemLinks } from './ItemLinks'
 import { ItemMeta } from './ItemMeta'
 import { ItemStatus } from './ItemStatus'
+import { ReadOnlyItem } from './DetailSheet'
+
+/** Protected items can't be trashed or deleted. Agents can protect but not
+ * unprotect; removing protection needs a full-access (write/admin) token. */
+function ProtectToggle({ item }: { item: Item }) {
+  const { write, busy } = useItemWrite(item.id)
+  const caps = useCaps()
+  const on = !!item.protected
+  const locked = on && !caps.canDestroy
+  return (
+    <button
+      className={`protect-toggle btn-icon${on ? ' on' : ''}`}
+      aria-pressed={on}
+      disabled={busy('protected') || locked}
+      title={
+        locked
+          ? 'Protected. Only a full-access token can remove protection.'
+          : on
+            ? 'Protected: it can’t be trashed or deleted. Press to remove protection.'
+            : 'Protect it so it can’t be trashed or deleted'
+      }
+      onClick={() => void write('protected', () => api.patchItem(item.id, { protected: !on }))}
+    >
+      {on ? <Lock size={14} strokeWidth={1.75} aria-hidden="true" /> : <LockOpen size={14} strokeWidth={1.75} aria-hidden="true" />}
+      {on ? 'Protected' : 'Protect'}
+    </button>
+  )
+}
 
 /** Five labelled toggle buttons; filled vs outline stars add a shape cue to the colour. */
 function Stars({ value, onChange }: { value: number; onChange: (v: number) => void }) {
@@ -95,6 +125,7 @@ function SingleItem({ item }: { item: Item }) {
           value={item.rating}
           onChange={(rating) => void write('rating', () => api.patchItem(item.id, { rating }))}
         />
+        <ProtectToggle item={item} />
         <span className="saving" role="status">
           {busy() ? 'saving…' : ''}
         </span>
@@ -176,12 +207,16 @@ function SingleItem({ item }: { item: Item }) {
         />
       </div>
 
+      <ItemLinks item={item} editable />
+
       <ItemMeta item={item} />
 
       <a className="open-original" href={fileUrl(item)} target="_blank" rel="noreferrer">
         Open original <ExternalLink size={13} strokeWidth={1.75} aria-hidden="true" />
         <span className="sr-only"> (new tab)</span>
       </a>
+
+      <ItemHistory item={item} />
     </>
   )
 }
@@ -246,6 +281,7 @@ export function DetailPanel() {
   // one item that isn't in the loaded grid (opened from a link): fetch it
   const onlyId = selection.size === 1 ? [...selection][0] : null
   const single = useItem(onlyId, items)
+  const caps = useCaps()
 
   // gallery density tucks the panel away unless Panels is on
   if (density === 'gallery' ? !chromeShown : !panelOpen) return null
@@ -255,7 +291,15 @@ export function DetailPanel() {
       {selection.size === 0 ? (
         <LibrarySummary />
       ) : selection.size === 1 ? (
-        single ? <SingleItem key={single.id} item={single} /> : <div className="hint" role="status">Loading…</div>
+        single ? (
+          caps.canEdit ? (
+            <SingleItem key={single.id} item={single} />
+          ) : (
+            <ReadOnlyItem key={single.id} item={single} withThumb />
+          )
+        ) : (
+          <div className="hint" role="status">Loading…</div>
+        )
       ) : (
         <div className="multi-summary">
           <h2 className="panel-title">{selected.length} items selected</h2>

@@ -1,13 +1,27 @@
-import { ChevronRight, FolderSearch, Hash, Inbox, LayoutGrid, Pencil, Plus, Trash2, TriangleAlert, Upload, X } from 'lucide-react'
-import { useMemo, useRef, useState, useEffect, type ReactNode } from 'react'
+import {
+  ChevronRight,
+  FolderSearch,
+  Hash,
+  History,
+  Inbox,
+  LayoutGrid,
+  Pencil,
+  Plus,
+  Settings as SettingsIcon,
+  Trash2,
+  TriangleAlert,
+  Upload,
+  X,
+} from 'lucide-react'
+import { useId, useMemo, useRef, useState, useEffect, type ReactNode } from 'react'
 import { api, emptyQuery, type Folder, type SmartFolder } from '../api'
 import { bulkReport, useBulkAction } from '../bulk'
-import { useFolders, useRefresh, useSmartFolders, useStats, useTags, useVersion } from '../data'
+import { useCaps, useFolders, useRefresh, useSmartFolders, useStats, useTags, useVersion } from '../data'
 import { useAppState } from '../state'
 import { useFocusInOut, useFocusTrap, useInertBackground } from '../useInert'
 import { useLayer } from '../useShortcuts'
 import { useWrite } from '../useWrite'
-import { useDialog } from './Dialog'
+import { Modal, useDialog } from './Dialog'
 import { useNotices } from './Notices'
 import { AppearanceControls } from './Appearance'
 import { useUploads } from './UploadManager'
@@ -96,6 +110,85 @@ function Row({
   )
 }
 
+const DESCRIPTION_MAX = 5000
+
+/** Name and description of a folder (new or existing). The description
+ * says what belongs in it: it's shown above the grid, and agents read it
+ * in list_folders before filing. */
+function FolderDialog({
+  title,
+  confirmLabel,
+  initialName = '',
+  initialDescription = '',
+  onDone,
+}: {
+  title: string
+  confirmLabel: string
+  initialName?: string
+  initialDescription?: string
+  onDone: (v: { name: string; description: string } | null) => void
+}) {
+  const [name, setName] = useState(initialName)
+  const [description, setDescription] = useState(initialDescription)
+  const id = useId()
+  const ok = name.trim().length > 0 && description.length <= DESCRIPTION_MAX
+  return (
+    <Modal title={title} onClose={() => onDone(null)} className="dialog" headerClose={false}>
+      <form
+        className="dialog-form"
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (ok) onDone({ name: name.trim(), description: description.trim() })
+        }}
+      >
+        <label htmlFor={`${id}-name`}>Name</label>
+        <input id={`${id}-name`} data-autofocus value={name} onChange={(e) => setName(e.target.value)} />
+        <label htmlFor={`${id}-desc`}>Description (optional)</label>
+        <textarea
+          id={`${id}-desc`}
+          rows={4}
+          value={description}
+          maxLength={DESCRIPTION_MAX}
+          aria-describedby={`${id}-desc-hint`}
+          placeholder="What belongs in this folder?"
+          onChange={(e) => setDescription(e.target.value)}
+        />
+        <p id={`${id}-desc-hint`} className="hint">
+          Shown above the folder’s items. Agents read it too, so they know what to file here.
+        </p>
+        <div className="dialog-actions">
+          <button type="button" onClick={() => onDone(null)}>
+            Cancel
+          </button>
+          <button type="submit" className="primary" disabled={!ok}>
+            {confirmLabel}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+/** Open a FolderDialog and wait for its answer. */
+function useFolderDialog() {
+  const [req, setReq] = useState<{
+    props: Omit<Parameters<typeof FolderDialog>[0], 'onDone'>
+    resolve: (v: { name: string; description: string } | null) => void
+  } | null>(null)
+  const ask = (props: Omit<Parameters<typeof FolderDialog>[0], 'onDone'>) =>
+    new Promise<{ name: string; description: string } | null>((resolve) => setReq({ props, resolve }))
+  const element = req ? (
+    <FolderDialog
+      {...req.props}
+      onDone={(v) => {
+        req.resolve(v)
+        setReq(null)
+      }}
+    />
+  ) : null
+  return { ask, element }
+}
+
 function FolderRow({
   node,
   depth,
@@ -108,6 +201,8 @@ function FolderRow({
   const { query, setQuery } = useAppState()
   const refresh = useRefresh()
   const dialog = useDialog()
+  const folderDialog = useFolderDialog()
+  const { canEdit } = useCaps()
   const w = useWrite()
   const [expanded, setExpanded] = useState(depth < 1)
   const [dragOver, setDragOver] = useState(false)
@@ -115,10 +210,15 @@ function FolderRow({
 
   // folder writes touch no item: only the folder list refreshes
   const rename = async () => {
-    const name = await dialog.prompt({ title: 'Rename folder', label: 'Name', initial: node.name, confirmLabel: 'Rename' })
-    if (!name || name === node.name) return
-    void w.run('rename', () => api.patchFolder(node.id, { name }), {
-      what: 'rename the folder',
+    const v = await folderDialog.ask({
+      title: 'Edit folder',
+      confirmLabel: 'Save',
+      initialName: node.name,
+      initialDescription: node.description ?? '',
+    })
+    if (!v || (v.name === node.name && v.description === (node.description ?? ''))) return
+    void w.run('rename', () => api.patchFolder(node.id, { name: v.name, description: v.description }), {
+      what: 'save the folder',
       onDone: refresh.folders,
     })
   }
@@ -145,9 +245,9 @@ function FolderRow({
   }
 
   const addChild = async () => {
-    const name = await dialog.prompt({ title: `New folder in “${node.name}”`, label: 'Name', confirmLabel: 'Create' })
-    if (!name) return
-    void w.run('create', () => api.createFolder(name, node.id), {
+    const v = await folderDialog.ask({ title: `New folder in “${node.name}”`, confirmLabel: 'Create' })
+    if (!v) return
+    void w.run('create', () => api.createFolder(v.name, node.id, v.description), {
       what: 'create the folder',
       onDone: () => {
         setExpanded(true)
@@ -178,11 +278,11 @@ function FolderRow({
           </button>
         }
         actions={
-          <>
+          canEdit && <>
             <button title="New subfolder" aria-label={`New subfolder in ${node.name}`} onClick={() => void addChild()}>
               <Plus size={14} strokeWidth={2} aria-hidden="true" />
             </button>
-            <button title="Rename" aria-label={`Rename ${node.name}`} onClick={() => void rename()}>
+            <button title="Rename or describe" aria-label={`Edit ${node.name}`} onClick={() => void rename()}>
               <Pencil size={13} strokeWidth={1.75} aria-hidden="true" />
             </button>
             <button title="Delete" aria-label={`Delete ${node.name}`} onClick={() => void remove()}>
@@ -210,6 +310,7 @@ function FolderRow({
         node.children.map((c) => (
           <FolderRow key={c.id} node={c} depth={depth + 1} onDropItems={onDropItems} />
         ))}
+      {folderDialog.element}
     </div>
   )
 }
@@ -243,7 +344,9 @@ function PhoneUpload() {
 }
 
 export function Sidebar({ mobile = false }: { mobile?: boolean }) {
-  const { query, setQuery, smartId, applySmartFolder, setJobsOpen } = useAppState()
+  const { query, setQuery, smartId, applySmartFolder, setJobsOpen, setRecentOpen, openSettings, settings, closeDrawer } = useAppState()
+  const caps = useCaps()
+  const folderDialog = useFolderDialog()
   const { data: folders } = useFolders()
   const { data: tags } = useTags()
   const { data: stats } = useStats()
@@ -259,9 +362,9 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
   const tree = useMemo(() => buildTree(folders ?? []), [folders])
 
   const newFolder = async () => {
-    const name = await dialog.prompt({ title: 'New folder', label: 'Name', confirmLabel: 'Create' })
-    if (!name) return
-    void w.run('newFolder', () => api.createFolder(name, null), {
+    const v = await folderDialog.ask({ title: 'New folder', confirmLabel: 'Create' })
+    if (!v) return
+    void w.run('newFolder', () => api.createFolder(v.name, null, v.description), {
       what: 'create the folder',
       onDone: refresh.folders,
     })
@@ -326,10 +429,12 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
     !query.deleted &&
     !query.view &&
     !query.preview &&
+    !query.fixity &&
     !smartId &&
+    !settings &&
     query.tags.length === 0 &&
     query.tags_any.length === 0
-  const attention = (stats?.failed_jobs ?? 0) + (stats?.preview_failed ?? 0)
+  const attention = (stats?.failed_jobs ?? 0) + (stats?.preview_failed ?? 0) + (stats?.fixity_failed ?? 0)
 
   const visibleTags = (tags ?? []).filter(
     (t) => !tagFilter || t.name.toLowerCase().includes(tagFilter.toLowerCase()),
@@ -340,7 +445,7 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
   return (
     <aside className="sidebar" aria-label="Library navigation">
       <nav className="section" aria-label="Views">
-        {mobile && <PhoneUpload />}
+        {mobile && caps.canEdit && <PhoneUpload />}
         <Row
           icon={<LayoutGrid {...ROW_ICON} />}
           name="All items"
@@ -349,20 +454,24 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
           onActivate={() => setQuery({ ...emptyQuery, order: query.order })}
           title="Show everything and clear all filters"
         />
-        <Row
-          icon={<Inbox {...ROW_ICON} />}
-          name="Unfiled"
-          active={isUnfiledView(query) && !smartId}
-          onActivate={() => setQuery({ ...emptyQuery, ...unfiledQuery, order: query.order } as Query)}
-          title="Items with no folder and no tag: your inbox"
-        />
-        <Row
-          icon={<Trash2 {...ROW_ICON} />}
-          name="Trash"
-          count={stats?.trashed_items || ''}
-          active={query.deleted && !smartId}
-          onActivate={() => setQuery({ deleted: !query.deleted, folder: null })}
-        />
+        {!caps.restricted && (
+          <>
+            <Row
+              icon={<Inbox {...ROW_ICON} />}
+              name="Unfiled"
+              active={isUnfiledView(query) && !smartId && !settings}
+              onActivate={() => setQuery({ ...emptyQuery, ...unfiledQuery, order: query.order } as Query)}
+              title="Items with no folder and no tag: your inbox"
+            />
+            <Row
+              icon={<Trash2 {...ROW_ICON} />}
+              name="Trash"
+              count={stats?.trashed_items || ''}
+              active={query.deleted && !smartId && !settings}
+              onActivate={() => setQuery({ deleted: !query.deleted, folder: null })}
+            />
+          </>
+        )}
         {attention > 0 && (
           <Row
             className="attention-row"
@@ -371,7 +480,24 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
             count={attention}
             active={false}
             onActivate={() => setJobsOpen(true)}
-            title="Imports and previews that failed"
+            title="Imports, previews and fixity checks that failed"
+          />
+        )}
+        {mobile && caps.canEdit && (
+          <Row icon={<History {...ROW_ICON} />} name="Recent changes"
+            active={false}
+            onActivate={() => {
+              closeDrawer()
+              setRecentOpen(true)
+            }}
+          />
+        )}
+        {mobile && caps.isAdmin && (
+          <Row
+            icon={<SettingsIcon {...ROW_ICON} />}
+            name="Settings"
+            active={!!settings}
+            onActivate={() => openSettings()}
           />
         )}
       </nav>
@@ -379,27 +505,32 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
       <div className="section grow">
         <div className="section-head">
           <h2>Folders</h2>
-          <button className="icon-btn" onClick={() => void newFolder()} title="New folder" aria-label="New folder">
-            <Plus size={14} strokeWidth={2} aria-hidden="true" />
-          </button>
+          {caps.canEdit && (
+            <button className="icon-btn" onClick={() => void newFolder()} title="New folder" aria-label="New folder">
+              <Plus size={14} strokeWidth={2} aria-hidden="true" />
+            </button>
+          )}
         </div>
+        {folderDialog.element}
         {tree.map((n) => (
           <FolderRow key={n.id} node={n} depth={0} onDropItems={onDropItems} />
         ))}
         {tree.length === 0 && (
-          <div className="hint">{mobile ? 'No folders yet.' : 'No folders yet. Press + to make one.'}</div>
+          <div className="hint">{mobile || !caps.canEdit ? 'No folders yet.' : 'No folders yet. Press + to make one.'}</div>
         )}
 
+        {!caps.restricted && (
+          <>
         <div className="section-head" style={{ marginTop: 16 }}>
           <h2>Smart folders</h2>
-          <button
+          {caps.canEdit && <button
             className="icon-btn"
             onClick={() => void saveSmartFolder()}
             title="Save this search as a smart folder"
             aria-label="Save this search as a smart folder"
           >
             <Plus size={14} strokeWidth={2} aria-hidden="true" />
-          </button>
+          </button>}
         </div>
         {(smartFolders ?? []).map((s) => (
           <Row
@@ -409,7 +540,7 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
             active={smartId === s.id}
             onActivate={() => applySmartFolder(s.id, s.query)}
             actions={
-              <>
+              caps.canEdit && <>
                 <button title="Rename" aria-label={`Rename smart folder ${s.name}`} onClick={() => void renameSmart(s)}>
                   <Pencil size={13} strokeWidth={1.75} aria-hidden="true" />
                 </button>
@@ -422,7 +553,7 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
         ))}
         {(smartFolders?.length ?? 0) === 0 && (
           <div className="hint">
-            {mobile ? 'No saved searches yet.' : 'Save a search: filter the grid, then press + above.'}
+            {mobile || !caps.canEdit ? 'No saved searches yet.' : 'Save a search: filter the grid, then press + above.'}
           </div>
         )}
 
@@ -458,7 +589,9 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
           )
         })}
         {(tags?.length ?? 0) === 0 && (
-          <div className="hint">No tags yet. Add them in an item’s info panel.</div>
+          <div className="hint">{caps.canEdit ? 'No tags yet. Add them in an item’s info panel.' : 'No tags yet.'}</div>
+        )}
+          </>
         )}
       </div>
 

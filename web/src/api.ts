@@ -31,6 +31,8 @@ export interface Item {
   dominant_colors: { hex: string; pct: number }[] | null
   /** base64 ThumbHash for the loading placeholder (newer servers only) */
   thumbhash?: string | null
+  /** can't be trashed or deleted until unprotected (Kist 2.0) */
+  protected?: boolean
   folder_ids: string[]
   rating: number
   notes: string
@@ -58,6 +60,8 @@ export interface Folder {
   name: string
   parent_id: string | null
   position: number
+  /** what belongs in it (up to 5,000 characters; Kist 2.0) */
+  description?: string
   item_count: number
 }
 
@@ -76,6 +80,8 @@ export interface Stats {
   folder_count: number
   failed_jobs: number
   preview_failed: number
+  /** originals whose last fixity check failed (Kist 2.0) */
+  fixity_failed?: number
 }
 
 export interface Query {
@@ -86,6 +92,8 @@ export interface Query {
   view: 'unfiled' | null // the inbox: no folder and no tags (server-defined)
   folder: string | null // folder id, or 'none' for items in no folder
   preview: PreviewStatus | null
+  /** 'failed': originals whose fixity check failed */
+  fixity: 'failed' | null
   type: string | null
   rating: number
   order: string
@@ -102,6 +110,7 @@ export const emptyQuery: Query = {
   view: null,
   folder: null,
   preview: null,
+  fixity: null,
   type: null,
   rating: 0,
   order: '-created',
@@ -115,6 +124,110 @@ export interface SmartFolder {
   name: string
   query: Partial<Query>
   position: number
+}
+
+/** GET /api/me: who this token is. */
+export interface Me {
+  name: string
+  scopes: string[]
+  folder_ids: string[]
+  expires_at: string | null
+}
+
+export interface ApiToken {
+  id: string
+  name: string
+  scopes: string[]
+  folder_ids: string[]
+  created_at: string
+  expires_at: string | null
+  last_used_at: string | null
+  revoked_at: string | null
+  active: boolean
+}
+
+export interface ItemEvent {
+  id: number
+  item_id: string
+  at: string
+  actor: string
+  source: string
+  batch_id: string
+  kind: string
+  before: Record<string, unknown> | null
+  after: Record<string, unknown> | null
+}
+
+export interface Batch {
+  batch_id: string
+  actor: string
+  source: string
+  at: string
+  count: number
+  kinds: string[]
+}
+
+export interface UndoResult {
+  undone: number
+  skipped: { item_id: string; event_id: number; reason: string }[]
+  /** the batch the undo was recorded as (undo it to redo) */
+  batch_id: string
+}
+
+export type LinkKind = 'derived_from' | 'alternate' | 'related' | 'not_duplicate' | 'version_of'
+
+export interface ItemLite {
+  id: string
+  filename: string
+  kind: string
+  state: string
+  thumb_url: string | null
+  thumbhash: string | null
+  width: number | null
+  height: number | null
+}
+
+export interface ItemLink {
+  item: ItemLite
+  kind: LinkKind
+  direction: 'out' | 'in'
+}
+
+export interface ArchiveHealth {
+  fixity: {
+    checked_30d: number
+    total: number
+    failed: { id: string; filename: string; failed_at: string | null; expected_sha256: string }[]
+  }
+  verify: { last_run: string | null; items_checked: number | null; drift: unknown; ok: boolean }
+  backup: {
+    last_at: string | null
+    last_ok_at: string | null
+    ok: boolean
+    repo_set: boolean
+    age_h: number | null
+    error: string | null
+    snapshot_id: string | null
+    interval_hours: number
+  }
+  disk: { free_bytes: number | null }
+  trash_retention_days?: number
+  checklist: { id: string; label: string; done: boolean }[]
+}
+
+export interface AiStatus {
+  enabled: boolean
+  model: string
+  ml_url_set?: boolean
+  ml_ok: boolean
+  embedded: number
+  ocr_done: number
+  pending: number
+  jobs?: Record<string, Record<string, number>>
+  window: string | null
+  window_open?: boolean
+  concurrency?: number
+  helpers: { name: string; last_seen: string | null; jobs_done?: number }[]
 }
 
 /** Sent on every API request: the server records edits made here with
@@ -236,6 +349,17 @@ async function request<T>(
   return (await res.json()) as T
 }
 
+/** Requests sent with the same X-Kist-Batch id are one batch in the item
+ * history, so a bulk action is undone in one step. */
+export function newBatchId(now = Date.now(), rand = Math.random): string {
+  return `web-${now.toString(36)}-${Math.floor(rand() * 36 ** 6).toString(36).padStart(6, '0')}`
+}
+
+function withBatch(init: RequestInit, batch?: string): RequestInit {
+  if (!batch) return init
+  return { ...init, headers: { ...((init.headers as Record<string, string>) ?? {}), 'X-Kist-Batch': batch } }
+}
+
 function json(body: unknown): RequestInit {
   return {
     method: 'POST',
@@ -253,6 +377,7 @@ function itemsUrl(query: Query, cursor?: string, limit = 120): string {
   if (query.view) p.set('view', query.view)
   if (query.folder) p.set('folder', query.folder)
   if (query.preview) p.set('preview_status', query.preview)
+  if (query.fixity) p.set('fixity', query.fixity)
   if (query.type) p.set('type', query.type)
   if (query.rating) p.set('rating', String(query.rating))
   if (query.deleted) p.set('state', 'trashed')
@@ -273,17 +398,18 @@ export const api = {
    * answers 409 (conflictItem) if someone else changed it since */
   patchItem: (
     id: string,
-    patch: Partial<Pick<Item, 'filename' | 'rating' | 'notes' | 'folder_ids' | 'source_url'>> & {
+    patch: Partial<Pick<Item, 'filename' | 'rating' | 'notes' | 'folder_ids' | 'source_url' | 'protected'>> & {
       base_modified_at?: string
     },
-  ) => request<Item>(`/api/items/${id}`, { ...json(patch), method: 'PATCH' }),
-  putFolders: (id: string, folder_ids: string[]) =>
-    request<Item>(`/api/items/${id}/folders`, { ...json({ folder_ids }), method: 'PUT' }),
+    batch?: string,
+  ) => request<Item>(`/api/items/${id}`, withBatch({ ...json(patch), method: 'PATCH' }, batch)),
+  putFolders: (id: string, folder_ids: string[], batch?: string) =>
+    request<Item>(`/api/items/${id}/folders`, withBatch({ ...json({ folder_ids }), method: 'PUT' }, batch)),
   // add/remove against what the server has: never overwrites another writer
-  patchTags: (id: string, change: { add?: string[]; remove?: string[] }) =>
-    request<Item>(`/api/items/${id}/tags`, { ...json(change), method: 'PATCH' }),
-  patchFolders: (id: string, change: { add?: string[]; remove?: string[] }) =>
-    request<Item>(`/api/items/${id}/folders`, { ...json(change), method: 'PATCH' }),
+  patchTags: (id: string, change: { add?: string[]; remove?: string[] }, batch?: string) =>
+    request<Item>(`/api/items/${id}/tags`, withBatch({ ...json(change), method: 'PATCH' }, batch)),
+  patchFolders: (id: string, change: { add?: string[]; remove?: string[] }, batch?: string) =>
+    request<Item>(`/api/items/${id}/folders`, withBatch({ ...json(change), method: 'PATCH' }, batch)),
   listSmartFolders: () => request<SmartFolder[]>('/api/smart-folders'),
   createSmartFolder: (name: string, query: Partial<Query>) =>
     request<SmartFolder>('/api/smart-folders', json({ name, query })),
@@ -291,10 +417,12 @@ export const api = {
     request<SmartFolder>(`/api/smart-folders/${id}`, { ...json(patch), method: 'PATCH' }),
   deleteSmartFolder: (id: string) =>
     request<unknown>(`/api/smart-folders/${id}`, { method: 'DELETE' }),
-  trashItem: (id: string) =>
-    request<{ status: string; item: Item }>(`/api/items/${id}`, { method: 'DELETE' }),
-  hardDeleteItem: (id: string) => request<unknown>(`/api/items/${id}?hard=true`, { method: 'DELETE' }),
-  restoreItem: (id: string) => request<Item>(`/api/items/${id}/restore`, { method: 'POST' }),
+  trashItem: (id: string, batch?: string) =>
+    request<{ status: string; item: Item }>(`/api/items/${id}`, withBatch({ method: 'DELETE' }, batch)),
+  hardDeleteItem: (id: string, batch?: string) =>
+    request<unknown>(`/api/items/${id}?hard=true`, withBatch({ method: 'DELETE' }, batch)),
+  restoreItem: (id: string, batch?: string) =>
+    request<Item>(`/api/items/${id}/restore`, withBatch({ method: 'POST' }, batch)),
   addUrl: (url: string, folder_id: string | null) =>
     request<{ item: Item; created: boolean }>(
       '/api/items',
@@ -302,9 +430,12 @@ export const api = {
       150_000,
     ),
   listFolders: () => request<Folder[]>('/api/folders'),
-  createFolder: (name: string, parent_id: string | null) =>
-    request<Folder>('/api/folders', json({ name, parent_id })),
-  patchFolder: (id: string, patch: { name?: string; parent_id?: string | null; position?: number }) =>
+  createFolder: (name: string, parent_id: string | null, description = '') =>
+    request<Folder>('/api/folders', json({ name, parent_id, description })),
+  patchFolder: (
+    id: string,
+    patch: { name?: string; parent_id?: string | null; position?: number; description?: string },
+  ) =>
     request<Folder>(`/api/folders/${id}`, { ...json(patch), method: 'PATCH' }),
   deleteFolder: (id: string) => request<unknown>(`/api/folders/${id}`, { method: 'DELETE' }),
   listTags: () => request<Tag[]>('/api/tags'),
@@ -313,6 +444,28 @@ export const api = {
   listJobs: (status?: JobStatus) =>
     request<Job[]>(`/api/jobs${status ? `?status=${status}` : ''}`),
   retryJob: (id: number) => request<Job>(`/api/jobs/${id}/retry`, { method: 'POST' }),
+  me: () => request<Me>('/api/me'),
+  listTokens: () => request<ApiToken[]>('/api/tokens'),
+  createToken: (body: { name: string; scopes: string[]; folder_ids?: string[]; expires_at?: string | null }) =>
+    request<ApiToken & { token: string }>('/api/tokens', json(body)),
+  revokeToken: (id: string) => request<ApiToken>(`/api/tokens/${id}`, { method: 'DELETE' }),
+  history: (id: string) => request<ItemEvent[]>(`/api/items/${id}/history`),
+  batches: (limit = 30) => request<Batch[]>(`/api/batches?limit=${limit}`),
+  undoBatch: (batchId: string) =>
+    request<UndoResult>(`/api/batches/${encodeURIComponent(batchId)}/undo`, { method: 'POST' }),
+  revertEvent: (eventId: number) => request<UndoResult>(`/api/events/${eventId}/revert`, { method: 'POST' }),
+  links: (id: string) => request<ItemLink[]>(`/api/items/${id}/links`),
+  addLink: (id: string, dst_id: string, kind: LinkKind) =>
+    request<ItemLink[]>(`/api/items/${id}/links`, json({ dst_id, kind })),
+  removeLink: (src: string, dst: string, kind: LinkKind) =>
+    request<{ removed: number }>(`/api/items/${src}/links/${dst}?kind=${kind}`, { method: 'DELETE' }),
+  archiveHealth: () => request<ArchiveHealth>('/api/archive-health'),
+  setChecklist: (id: string, done: boolean) =>
+    request<ArchiveHealth>('/api/archive-health/checklist', json({ id, done })),
+  aiStatus: () => request<AiStatus>('/api/ai/status'),
+  /** a few items by filename, for the link picker */
+  searchItems: (q: string, limit = 12) =>
+    request<ItemPage>(itemsUrl({ ...emptyQuery, q }, undefined, limit)),
   dismissJob: (id: number) =>
     request<{ status: string; file_left_at: string | null }>(`/api/jobs/${id}`, {
       method: 'DELETE',

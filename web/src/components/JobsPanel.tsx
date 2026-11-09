@@ -33,8 +33,25 @@ export function JobsPanel() {
     setQuery({ ...emptyQuery, preview: 'failed' })
   }
 
+  const showFixityFailed = () => {
+    setJobsOpen(false)
+    if (mobile) closeDrawer()
+    setQuery({ ...emptyQuery, fixity: 'failed' })
+  }
+  const fixityFailed = stats?.fixity_failed ?? 0
+
   return (
     <Modal title="Needs attention" onClose={() => setJobsOpen(false)}>
+      {fixityFailed > 0 && (
+        <div className="attention-block">
+          <p>
+            {fixityFailed === 1
+              ? '1 original no longer matches its fingerprint: the file on disk changed or is missing. Restore it from a backup.'
+              : `${fixityFailed} originals no longer match their fingerprints: the files on disk changed or are missing. Restore them from a backup.`}
+          </p>
+          <button onClick={showFixityFailed}>Show them</button>
+        </div>
+      )}
       {(stats?.preview_failed ?? 0) > 0 && (
         <div className="attention-block">
           <p>

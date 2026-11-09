@@ -1,11 +1,84 @@
-import { ExternalLink, Star, X } from 'lucide-react'
+import { ExternalLink, Lock, Maximize2, Star, X } from 'lucide-react'
 import { useRef, useState } from 'react'
-import { emptyQuery, fileUrl, thumbUrl } from '../api'
+import { emptyQuery, fileUrl, thumbUrl, type Item } from '../api'
 import { useCurrentItems, useFolderNames, useItem } from '../data'
 import { swipeDirection } from '../mobile'
 import { useAppState } from '../state'
+import { ItemHistory } from './ItemHistory'
+import { ItemLinks } from './ItemLinks'
 import { ItemMeta } from './ItemMeta'
 import { ItemStatus } from './ItemStatus'
+
+/** An item's details without edit controls: the phone sheet's body, and
+ * the info panel for a read-only token. Tags and folders are links to
+ * their views. */
+export function ReadOnlyItem({ item, withThumb = false }: { item: Item; withThumb?: boolean }) {
+  const { query, setQuery, setPreviewId } = useAppState()
+  const folderName = useFolderNames()
+  const thumb = thumbUrl(item, 512)
+  return (
+    <>
+      {withThumb && (
+        <>
+          <div className="detail-thumb">
+            {thumb ? <img src={thumb} alt="" /> : <div className="detail-thumb-icon" aria-hidden="true">.{item.ext}</div>}
+            <button className="open-full" onClick={() => setPreviewId(item.id)} title="Open full screen">
+              Open <Maximize2 size={13} strokeWidth={1.75} aria-hidden="true" />
+            </button>
+          </div>
+          <h2 className="detail-filename readonly">{item.filename}</h2>
+        </>
+      )}
+      <ItemStatus item={item} />
+      {item.protected && (
+        <p className="protected-note">
+          <Lock size={13} strokeWidth={1.75} aria-hidden="true" /> Protected: it can’t be trashed or deleted.
+        </p>
+      )}
+      {item.tags.length > 0 && (
+        <div className="detail-section">
+          <h3 className="section-label">Tags</h3>
+          <div className="tag-chips">
+            {item.tags.map((t) => (
+              <button key={t} className="chip" onClick={() => setQuery({ ...emptyQuery, tags: [t], order: query.order })}>
+                #{t}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {item.folder_ids.length > 0 && (
+        <div className="detail-section">
+          <h3 className="section-label">Folders</h3>
+          <div className="tag-chips">
+            {item.folder_ids.map((fid) => (
+              <button
+                key={fid}
+                className="chip folder-chip"
+                onClick={() => setQuery({ ...emptyQuery, folder: fid, order: query.order })}
+              >
+                {folderName.get(fid) ?? fid}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {item.notes && (
+        <div className="detail-section">
+          <h3 className="section-label">Notes</h3>
+          <p className="sheet-notes">{item.notes}</p>
+        </div>
+      )}
+      <ItemLinks item={item} editable={false} />
+      <ItemMeta item={item} />
+      <a className="open-original" href={fileUrl(item)} target="_blank" rel="noreferrer">
+        Open original <ExternalLink size={13} strokeWidth={1.75} aria-hidden="true" />
+        <span className="sr-only"> (new tab)</span>
+      </a>
+      <ItemHistory item={item} />
+    </>
+  )
+}
 
 /**
  * Phone layout: a read-only sheet that slides up over the grid when one item
@@ -13,9 +86,8 @@ import { ItemStatus } from './ItemStatus'
  * handle down or tap ✕ to close.
  */
 export function DetailSheet() {
-  const { query, setQuery, selection, clearSelection, setPreviewId } = useAppState()
+  const { selection, clearSelection, setPreviewId } = useAppState()
   const { items } = useCurrentItems()
-  const folderName = useFolderNames()
   const start = useRef<{ x: number; y: number } | null>(null)
   const [drag, setDrag] = useState(0)
 
@@ -79,46 +151,7 @@ export function DetailSheet() {
       </div>
 
       <div className="sheet-body">
-        <ItemStatus item={item} />
-        {item.tags.length > 0 && (
-          <div className="detail-section">
-            <label>Tags</label>
-            <div className="tag-chips">
-              {item.tags.map((t) => (
-                <button key={t} className="chip" onClick={() => setQuery({ ...emptyQuery, tags: [t], order: query.order })}>
-                  #{t}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        {item.folder_ids.length > 0 && (
-          <div className="detail-section">
-            <label>Folders</label>
-            <div className="tag-chips">
-              {item.folder_ids.map((fid) => (
-                <button
-                  key={fid}
-                  className="chip folder-chip"
-                  onClick={() => setQuery({ ...emptyQuery, folder: fid, order: query.order })}
-                >
-                  {folderName.get(fid) ?? fid}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        {item.notes && (
-          <div className="detail-section">
-            <label>Notes</label>
-            <p className="sheet-notes">{item.notes}</p>
-          </div>
-        )}
-        <ItemMeta item={item} />
-        <a className="open-original" href={fileUrl(item)} target="_blank" rel="noreferrer">
-          Open original <ExternalLink size={13} strokeWidth={1.75} aria-hidden="true" />
-          <span className="sr-only"> (new tab)</span>
-        </a>
+        <ReadOnlyItem item={item} />
       </div>
     </aside>
   )

@@ -1,9 +1,11 @@
 // The bulk-action engine: one action over many items, item by item, carrying
 // on past failures. The result says which failed and why, so the UI can
-// offer Retry for just those.
+// offer Retry for just those. Every request of one bulk action carries the
+// same X-Kist-Batch id, so the whole action is one batch in the history and
+// Undo reverts it in one step.
 
 import { useMutation } from '@tanstack/react-query'
-import { api, type Item } from './api'
+import { api, newBatchId, type Item } from './api'
 import { useApplyItems } from './data'
 import { runEach, serialize } from './writes'
 
@@ -16,6 +18,7 @@ export type BulkAction =
   | { kind: 'addTags'; tags: string[] }
   | { kind: 'removeTag'; tag: string }
   | { kind: 'rating'; rating: number }
+  | { kind: 'protect'; value: boolean }
 
 export interface BulkInput {
   ids: string[]
@@ -26,6 +29,8 @@ export interface BulkResult {
   input: BulkInput
   ok: number
   failed: { id: string; error: string }[]
+  /** the X-Kist-Batch the action was sent as: POST /api/batches/{id}/undo */
+  batch: string
 }
 
 export const BULK_VERB: Record<BulkAction['kind'], string> = {
@@ -37,6 +42,7 @@ export const BULK_VERB: Record<BulkAction['kind'], string> = {
   addTags: 'Tagged',
   removeTag: 'Untagged',
   rating: 'Rated',
+  protect: 'Changed protection on',
 }
 
 /** The one wording for permanent deletion, wherever it's asked. */
@@ -62,32 +68,35 @@ export function useBulkAction() {
     mutationFn: async (input: BulkInput): Promise<BulkResult> => {
       const { ids, action } = input
       const removed: string[] = []
+      const batch = newBatchId()
       const res = await runEach<Item | null>(ids, (id) =>
         serialize(id, async () => {
           switch (action.kind) {
             case 'move':
-              return api.putFolders(id, action.folderId ? [action.folderId] : [])
+              return api.putFolders(id, action.folderId ? [action.folderId] : [], batch)
             case 'addFolder':
-              return api.patchFolders(id, { add: [action.folderId] })
+              return api.patchFolders(id, { add: [action.folderId] }, batch)
             case 'trash':
-              return (await api.trashItem(id)).item
+              return (await api.trashItem(id, batch)).item
             case 'restore':
-              return api.restoreItem(id)
+              return api.restoreItem(id, batch)
             case 'hardDelete':
-              await api.hardDeleteItem(id)
+              await api.hardDeleteItem(id, batch)
               removed.push(id)
               return null
             case 'addTags':
-              return api.patchTags(id, { add: action.tags })
+              return api.patchTags(id, { add: action.tags }, batch)
             case 'removeTag':
-              return api.patchTags(id, { remove: [action.tag] })
+              return api.patchTags(id, { remove: [action.tag] }, batch)
             case 'rating':
-              return api.patchItem(id, { rating: action.rating })
+              return api.patchItem(id, { rating: action.rating }, batch)
+            case 'protect':
+              return api.patchItem(id, { protected: action.value }, batch)
           }
         }),
       )
       apply(res.done.filter((i): i is Item => i !== null), removed)
-      return { input, ok: res.done.length, failed: res.failed }
+      return { input, ok: res.done.length, failed: res.failed, batch }
     },
   })
 }

@@ -10,6 +10,7 @@ import { useNotices } from './components/Notices'
 import { isUnfiledView, stillMatches } from './query'
 import { markOnce, onceSeen } from './settings'
 import { useAppState } from './state'
+import { capsOf, type Caps } from './tokens'
 
 const PENDING_POLL_MS = 3000
 
@@ -67,6 +68,9 @@ export function useApplyItems() {
       // the server's call, so that one list reloads (if it's on screen)
       for (const key of moved) void qc.invalidateQueries({ queryKey: key, exact: true })
       filedHint.check(updated, shownBefore)
+      // every edit is a history event and part of a batch
+      qc.invalidateQueries({ queryKey: ['history'] })
+      qc.invalidateQueries({ queryKey: ['batches'] })
       // small lists whose counts may have changed
       qc.invalidateQueries({ queryKey: ['tags'] })
       qc.invalidateQueries({ queryKey: ['folders'] })
@@ -202,16 +206,56 @@ export function useFolderNames(): Map<string, string> {
   return useMemo(() => new Map((data ?? []).map((f) => [f.id, f.name])), [data])
 }
 
+// a folder-limited read token gets 404 for tags, smart folders and stats
+// (they'd tell it about the rest of the library): don't ask
 export function useTags() {
-  return useQuery({ queryKey: ['tags'], queryFn: api.listTags })
+  const { restricted, ready } = useCaps()
+  return useQuery({ queryKey: ['tags'], queryFn: api.listTags, enabled: ready && !restricted })
 }
 
 export function useSmartFolders() {
-  return useQuery({ queryKey: ['smartFolders'], queryFn: api.listSmartFolders })
+  const { restricted, ready } = useCaps()
+  return useQuery({ queryKey: ['smartFolders'], queryFn: api.listSmartFolders, enabled: ready && !restricted })
 }
 
 export function useStats() {
-  return useQuery({ queryKey: ['stats'], queryFn: api.stats, refetchInterval: 30_000 })
+  const { restricted, ready } = useCaps()
+  return useQuery({ queryKey: ['stats'], queryFn: api.stats, refetchInterval: 30_000, enabled: ready && !restricted })
+}
+
+/** Who the signed-in token is (GET /api/me). */
+export function useMe() {
+  return useQuery({ queryKey: ['me'], queryFn: api.me, staleTime: 5 * 60_000, retry: false })
+}
+
+/** What the signed-in token may do: edit, delete for good, manage tokens,
+ * and whether it's a folder-limited reader (tokens.ts). */
+export function useCaps(): Caps & { ready: boolean } {
+  const { data, isPending } = useMe()
+  // an older server without /api/me (error) is the owner's
+  return useMemo(() => ({ ...capsOf(data), ready: !isPending }), [data, isPending])
+}
+
+/** Recent batches of changes (GET /api/batches), for Recent changes. */
+export function useBatches(enabled: boolean) {
+  return useQuery({ queryKey: ['batches'], queryFn: () => api.batches(30), enabled, refetchInterval: enabled ? 15_000 : false })
+}
+
+/** After an undo or revert: the server changed items we can't patch in
+ * place (the answer has no items), so the list on screen reloads and the
+ * rest are marked stale. */
+export function useAfterUndo() {
+  const qc = useQueryClient()
+  return useCallback(() => {
+    void qc.invalidateQueries({ queryKey: ['items'], refetchType: 'active' })
+    void qc.invalidateQueries({ queryKey: ['item'] })
+    void qc.invalidateQueries({ queryKey: ['history'] })
+    void qc.invalidateQueries({ queryKey: ['links'] })
+    void qc.invalidateQueries({ queryKey: ['batches'] })
+    void qc.invalidateQueries({ queryKey: ['tags'] })
+    void qc.invalidateQueries({ queryKey: ['folders'] })
+    void qc.invalidateQueries({ queryKey: ['stats'] })
+  }, [qc])
 }
 
 

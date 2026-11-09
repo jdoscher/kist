@@ -54,6 +54,7 @@ export function tileLabel(item: {
   rating: number
   preview_status: string
   duration_s: number | null
+  protected?: boolean
 }): string {
   // filename and preview state first: a tile without a thumbnail shows
   // exactly those words, and the name must contain what's visible (2.5.3)
@@ -63,6 +64,7 @@ export function tileLabel(item: {
     item.kind,
     item.rating ? `${item.rating} star${item.rating === 1 ? '' : 's'}` : '',
     item.kind === 'video' && item.duration_s != null ? fmtDuration(item.duration_s) : '',
+    item.protected ? 'protected' : '',
   ]
     .filter(Boolean)
     .join(', ')
@@ -71,4 +73,23 @@ export function tileLabel(item: {
 /** "1 item" / "3 items" */
 export function plural(n: number, word: string): string {
   return `${n} ${word}${n === 1 ? '' : 's'}`
+}
+
+/** An age given in hours, rounded the way people say it: "under an hour",
+ * "5 hours", "3 days". */
+export function fmtAgeHours(h: number | null | undefined): string {
+  if (h == null || !Number.isFinite(h)) return 'never'
+  if (h < 1) return 'under an hour'
+  if (h < 48) {
+    const n = Math.round(h)
+    return `${n} hour${n === 1 ? '' : 's'}`
+  }
+  const d = Math.round(h / 24)
+  return `${d} days`
+}
+
+/** "37 %" of a part, never NaN (0 of 0 is 100 %: nothing left to check). */
+export function percent(part: number, total: number): number {
+  if (!total) return 100
+  return Math.max(0, Math.min(100, Math.round((part / total) * 100)))
 }
