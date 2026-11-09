@@ -1,28 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { api, emptyQuery, type Folder } from '../api'
-import { useBulkAction } from '../bulk'
-import { useFolders, useInvalidateItems, useSmartFolders, useStats, useTags } from '../data'
+import { api, emptyQuery, type Folder, type SmartFolder } from '../api'
+import { bulkReport, useBulkAction } from '../bulk'
+import { useFolders, useRefresh, useSmartFolders, useStats, useTags } from '../data'
 import { useAppState } from '../state'
 import { useLayer } from '../useShortcuts'
+import { useWrite } from '../useWrite'
+import { useDialog } from './Dialog'
+import { useNotices } from './Notices'
 import { isUnfiledView, smartFolderQuery, unfiledQuery } from '../query'
-import { describeError } from '../writes'
 import { fmtBytes } from '../format'
 import type { Query } from '../api'
 
 interface TreeNode extends Folder {
   children: TreeNode[]
-}
-
-/** Run a sidebar action; on failure say why instead of failing silently.
- * Returns whether it worked. */
-async function attempt(fn: () => Promise<unknown>): Promise<boolean> {
-  try {
-    await fn()
-    return true
-  } catch (e) {
-    window.alert(`That didn't work: ${describeError(e)}.`)
-    return false
-  }
 }
 
 function buildTree(folders: Folder[]): TreeNode[] {
@@ -47,39 +37,54 @@ function FolderRow({
   onDropItems: (folderId: string, ids: string[]) => void
 }) {
   const { query, setQuery } = useAppState()
-  const invalidate = useInvalidateItems()
+  const refresh = useRefresh()
+  const dialog = useDialog()
+  const w = useWrite()
   const [expanded, setExpanded] = useState(depth < 1)
   const [dragOver, setDragOver] = useState(false)
   const active = query.folder === node.id && !query.deleted
 
+  // folder writes touch no item: only the folder list refreshes
   const rename = async () => {
-    const name = prompt('Rename folder', node.name)
-    if (name && name.trim() && name !== node.name) {
-      if (!(await attempt(() => api.patchFolder(node.id, { name: name.trim() })))) return
-      invalidate()
-    }
+    const name = await dialog.prompt({ title: 'Rename folder', initial: node.name, confirmLabel: 'Rename' })
+    if (!name || name === node.name) return
+    void w.run('rename', () => api.patchFolder(node.id, { name }), {
+      what: 'rename the folder',
+      onDone: refresh.folders,
+    })
   }
 
   const remove = async () => {
     const sub = node.children.length
       ? ` and its ${node.children.length === 1 ? 'subfolder' : `${node.children.length} subfolders`}`
       : ''
-    const msg =
-      `Delete folder “${node.name}”${sub}? The items inside are kept; ` +
-      'any that end up in no folder and with no tags go back to Unfiled.'
-    if (!confirm(msg)) return
-    if (!(await attempt(() => api.deleteFolder(node.id)))) return
-    if (query.folder === node.id) setQuery({ folder: null })
-    invalidate()
+    const ok = await dialog.confirm({
+      title: `Delete folder “${node.name}”${sub}?`,
+      message:
+        'The items inside are kept; any that end up in no folder and with no tags go back to Unfiled.',
+      confirmLabel: 'Delete',
+      danger: true,
+    })
+    if (!ok) return
+    void w.run('delete', () => api.deleteFolder(node.id), {
+      what: 'delete the folder',
+      onDone: () => {
+        if (query.folder === node.id) setQuery({ folder: null })
+        refresh.folderDeleted()
+      },
+    })
   }
 
   const addChild = async () => {
-    const name = prompt('New folder name')
-    if (name?.trim()) {
-      if (!(await attempt(() => api.createFolder(name.trim(), node.id)))) return
-      setExpanded(true)
-      invalidate()
-    }
+    const name = await dialog.prompt({ title: `New folder in “${node.name}”`, label: 'Name', confirmLabel: 'Create' })
+    if (!name) return
+    void w.run('create', () => api.createFolder(name, node.id), {
+      what: 'create the folder',
+      onDone: () => {
+        setExpanded(true)
+        refresh.folders()
+      },
+    })
   }
 
   return (
@@ -133,18 +138,22 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
   const { data: tags } = useTags()
   const { data: stats } = useStats()
   const { data: smartFolders } = useSmartFolders()
-  const invalidate = useInvalidateItems()
+  const refresh = useRefresh()
+  const dialog = useDialog()
+  const { notify } = useNotices()
+  const w = useWrite()
   const bulk = useBulkAction()
   const [tagFilter, setTagFilter] = useState('')
 
   const tree = useMemo(() => buildTree(folders ?? []), [folders])
 
   const newFolder = async () => {
-    const name = prompt('New folder name')
-    if (name?.trim()) {
-      if (!(await attempt(() => api.createFolder(name.trim(), null)))) return
-      invalidate()
-    }
+    const name = await dialog.prompt({ title: 'New folder', label: 'Name', confirmLabel: 'Create' })
+    if (!name) return
+    void w.run('newFolder', () => api.createFolder(name, null), {
+      what: 'create the folder',
+      onDone: refresh.folders,
+    })
   }
 
   const onDropItems = (folderId: string, ids: string[]) => {
@@ -153,21 +162,52 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
       { ids, action: { kind: 'addFolder', folderId } },
       {
         onSuccess: (r) => {
-          if (r.failed.length)
-            window.alert(`Added ${r.ok} of ${ids.length} to the folder. ${r.failed[0].error}.`)
+          if (!r.failed.length) return
+          notify({
+            key: 'bulk',
+            tone: 'error',
+            message: bulkReport(r),
+            action: { label: 'Retry', run: () => onDropItems(folderId, r.failed.map((f) => f.id)) },
+          })
         },
       },
     )
   }
 
   const saveSmartFolder = async () => {
-    const name = prompt('Save current search as smart folder:')
-    if (!name?.trim()) return
-    const saved = await attempt(() =>
-      api.createSmartFolder(name.trim(), smartFolderQuery(query)),
-    )
-    if (!saved) return
-    invalidate()
+    const name = await dialog.prompt({
+      title: 'Save this search as a smart folder',
+      label: 'Name',
+      confirmLabel: 'Save',
+    })
+    if (!name) return
+    void w.run('smartSave', () => api.createSmartFolder(name, smartFolderQuery(query)), {
+      what: 'save the smart folder',
+      onDone: refresh.smartFolders,
+    })
+  }
+
+  const renameSmart = async (s: SmartFolder) => {
+    const name = await dialog.prompt({ title: 'Rename smart folder', initial: s.name, confirmLabel: 'Rename' })
+    if (!name || name === s.name) return
+    void w.run(`smart:${s.id}`, () => api.patchSmartFolder(s.id, { name }), {
+      what: 'rename the smart folder',
+      onDone: refresh.smartFolders,
+    })
+  }
+
+  const deleteSmart = async (s: SmartFolder) => {
+    const ok = await dialog.confirm({
+      title: `Delete smart folder “${s.name}”?`,
+      message: 'Only the saved search goes; no items are touched.',
+      confirmLabel: 'Delete',
+      danger: true,
+    })
+    if (!ok) return
+    void w.run(`smart:${s.id}`, () => api.deleteSmartFolder(s.id), {
+      what: 'delete the smart folder',
+      onDone: refresh.smartFolders,
+    })
   }
 
   const isAll =
@@ -252,25 +292,18 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
             <span className="row-actions">
               <button
                 title="Rename"
-                onClick={async (e) => {
+                onClick={(e) => {
                   e.stopPropagation()
-                  const name = prompt('Rename smart folder', s.name)
-                  if (name?.trim() && name !== s.name) {
-                    if (!(await attempt(() => api.patchSmartFolder(s.id, { name: name.trim() })))) return
-                    invalidate()
-                  }
+                  void renameSmart(s)
                 }}
               >
                 ✎
               </button>
               <button
                 title="Delete"
-                onClick={async (e) => {
+                onClick={(e) => {
                   e.stopPropagation()
-                  if (confirm(`Delete smart folder “${s.name}”?`)) {
-                    if (!(await attempt(() => api.deleteSmartFolder(s.id)))) return
-                    invalidate()
-                  }
+                  void deleteSmart(s)
                 }}
               >
                 🗑

@@ -1145,21 +1145,6 @@ select:focus {
   background: rgba(18, 18, 20, 0.85);
   height: auto;
 }
-.save-error {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid #6e2f2b;
-  border-radius: 8px;
-  padding: 6px 8px;
-  color: #ffd9d6;
-}
-.save-error span {
-  flex: 1;
-}
-.save-error button {
-  padding: 1px 8px;
-}
 .stars-row {
   display: flex;
   align-items: center;
@@ -1175,9 +1160,65 @@ select:focus {
 .detail-filename.unsaved {
   border-color: #8a6d1a;
 }
-.bulk-report {
+
+/* ---------- notices (components/Notices.tsx) and dialogs (Dialog.tsx) ---------- */
+.notices {
+  position: fixed;
+  left: 50%;
+  bottom: 72px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 250;
+  width: min(480px, calc(100vw - 24px));
+  pointer-events: none;
+}
+.notice {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.55);
+  font-size: 13px;
+}
+.notice.error {
+  border-color: #6e2f2b;
   color: #ffd9d6;
 }
-.bulk-report button {
-  margin-left: 4px;
+.notice-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.notice button {
+  padding: 1px 8px;
+}
+.mobile .notice button {
+  min-height: 36px;
+  padding: 0 12px;
+}
+.modal.dialog {
+  width: min(420px, 100%);
+}
+.dialog-message {
+  margin: 0;
+  color: var(--text-dim);
+}
+.dialog-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.source-text {
+  overflow-wrap: anywhere;
 }

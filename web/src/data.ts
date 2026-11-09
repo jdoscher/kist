@@ -156,16 +156,3 @@ export function useStats() {
   return useQuery({ queryKey: ['stats'], queryFn: api.stats, refetchInterval: 30_000 })
 }
 
-/** Invalidate everything that shows item data. (Being replaced by useRefresh.) */
-export function useInvalidateItems() {
-  const qc = useQueryClient()
-  return useCallback(() => {
-    qc.invalidateQueries({ queryKey: ['items'] })
-    qc.invalidateQueries({ queryKey: ['item'] })
-    qc.invalidateQueries({ queryKey: ['jobs'] })
-    qc.invalidateQueries({ queryKey: ['tags'] })
-    qc.invalidateQueries({ queryKey: ['folders'] })
-    qc.invalidateQueries({ queryKey: ['smartFolders'] })
-    qc.invalidateQueries({ queryKey: ['stats'] })
-  }, [qc])
-}
