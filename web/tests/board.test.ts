@@ -34,6 +34,7 @@ import {
   zoomAt,
   type BoardContent,
   type BoardNode,
+  freeSpot,
 } from '../src/board.ts'
 
 const n = (id: string, x: number, y: number, w = 100, h = 100, z = 1, extra: Partial<BoardNode> = {}): BoardNode => ({
@@ -310,4 +311,11 @@ test('undo and redo within the session', () => {
   assert.equal(undo({ past: [], future: [] }, a), null)
   // a new edit clears the redo stack
   assert.equal(pushHistory(u.history, u.content).future.length, 0)
+})
+
+test('adding again puts the new thing beside, not on top of, the last', () => {
+  assert.deepEqual(freeSpot([], 100, 100), { x: 100, y: 100 })
+  assert.deepEqual(freeSpot([{ x: 100, y: 100 }], 100, 100), { x: 132, y: 132 })
+  assert.deepEqual(freeSpot([{ x: 100, y: 100 }, { x: 132, y: 132 }], 100, 100), { x: 164, y: 164 })
+  assert.deepEqual(freeSpot([{ x: 400, y: 100 }], 100, 100), { x: 100, y: 100 })
 })

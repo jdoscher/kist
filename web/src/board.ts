@@ -412,6 +412,17 @@ export function reorder(nodes: BoardNode[], ids: string[], mode: OrderMode): Boa
   return nodes.map((n) => (z.get(n.id) === n.z ? n : { ...n, z: z.get(n.id) as number }))
 }
 
+/** Where to put something new near (x, y): stepped down and right past any
+ * node whose corner is already there, so pressing Add three times doesn't
+ * stack three pictures exactly on top of each other. */
+export function freeSpot(nodes: Pick<BoardNode, 'x' | 'y'>[], x: number, y: number, step = 32): { x: number; y: number } {
+  let p = { x, y }
+  for (let i = 0; i < 50 && nodes.some((n) => Math.abs(n.x - p.x) < step / 2 && Math.abs(n.y - p.y) < step / 2); i++) {
+    p = { x: p.x + step, y: p.y + step }
+  }
+  return p
+}
+
 export function topZ(nodes: BoardNode[]): number {
   return nodes.reduce((m, n) => Math.max(m, n.z), 0)
 }

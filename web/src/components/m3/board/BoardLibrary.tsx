@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Plus, Search, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api, thumbUrl, type Item } from '../../../api'
-import { itemNodes, topZ } from '../../../board'
+import { freeSpot, itemNodes, topZ } from '../../../board'
 import { api3 } from '../../../creativeApi'
 import { useAppState } from '../../../state'
 import type { Editor } from './BoardEditor'
@@ -28,8 +28,7 @@ export function BoardLibrary({ ed, onClose }: { ed: Editor; onClose: () => void 
     ed.addItems(list)
     const { w, h } = ed.viewSize()
     const c = ed.content
-    const x = (w / 2 - ed.vp.x) / ed.vp.zoom - 120
-    const y = (h / 2 - ed.vp.y) / ed.vp.zoom - 120
+    const { x, y } = freeSpot(c.nodes, (w / 2 - ed.vp.x) / ed.vp.zoom - 120, (h / 2 - ed.vp.y) / ed.vp.zoom - 120)
     const nodes = itemNodes(list, x, y, topZ(c.nodes), ed.grid)
     ed.commit({ ...c, nodes: [...c.nodes, ...nodes] })
     ed.setSel(nodes.map((n) => n.id))
