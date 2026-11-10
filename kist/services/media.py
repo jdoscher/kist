@@ -475,9 +475,36 @@ def _gps(values, ref) -> float | None:
     return round(deg, 7)
 
 
+HEIF_EXIF_EXTS = {".heic", ".heif", ".avif"}
+
+
+def _exif_blob_vips(path: Path) -> bytes | None:
+    import pyvips
+
+    im = pyvips.Image.new_from_file(str(path), access="sequential")
+    if "exif-data" not in im.get_fields():
+        return None
+    return im.get("exif-data")
+
+
 def exif_pillow(path: Path) -> dict:
     from PIL import Image
 
+    if path.suffix.lower() in HEIF_EXIF_EXTS:
+        # HEIF: read the EXIF block through libvips, never pillow_heif. The
+        # preview child has already decoded the photo with libvips (the
+        # system libheif); opening it again with pillow_heif loads its own
+        # bundled libheif into the same process, and that segfaults (exit
+        # -11 on every iPhone photo in the Docker image, Kist 2.0 M5).
+        blob = _exif_blob_vips(path)
+        if not blob:
+            return {}
+        exif = Image.Exif()
+        exif.load(blob)
+        if not exif:
+            return {}
+        return normalize_exif(dict(exif), dict(exif.get_ifd(0x8769)),
+                              dict(exif.get_ifd(0x8825)))
     try:
         from pillow_heif import register_heif_opener
 

@@ -293,6 +293,33 @@ def test_exif_from_a_jpeg():
     assert data["lon"] == pytest.approx(151.2153, abs=1e-4)
 
 
+def test_exif_from_a_heic_reads_through_libvips(tmp_path):
+    """iPhone photos: EXIF (date, GPS) comes from libvips, not pillow_heif,
+    whose bundled libheif segfaults next to libvips' in the preview child."""
+    pytest.importorskip("pyvips")
+    pillow_heif = pytest.importorskip("pillow_heif")
+    from PIL import Image
+
+    pillow_heif.register_heif_opener()
+    p = tmp_path / "original.heic"
+    try:
+        Image.new("RGB", (64, 48), "teal").save(
+            p, "HEIF", exif=F.exif_bytes(gps=(33.2, -117.24)))
+    except Exception as exc:  # no HEIF encoder in this build
+        pytest.skip(f"can't write HEIF here: {exc}")
+    called = []
+    orig = pillow_heif.register_heif_opener
+    pillow_heif.register_heif_opener = lambda *a, **k: called.append(1)
+    try:
+        data = media.exif_pillow(p)
+    finally:
+        pillow_heif.register_heif_opener = orig
+    assert not called  # pillow_heif never touched for HEIF
+    assert data["lens"] == "RF24-70mm F2.8 L IS USM"
+    assert data["lat"] == pytest.approx(33.2, abs=1e-4)
+    assert data["lon"] == pytest.approx(-117.24, abs=1e-4)
+
+
 # ---------- design files ----------
 
 
