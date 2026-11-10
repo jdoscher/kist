@@ -124,8 +124,8 @@ def add_thumbhash(session: Session, item: Item) -> bool:
     if item.thumbhash is not None:
         return False
     value = thumbs.thumbhash_for(get_settings().items_dir / item.id) or ""
-    # a placeholder isn't an edit: keep modified_at (onupdate would move it,
-    # and the upgrade backfill would make every item "recently edited")
+    # a placeholder isn't an edit: keep modified_at (or the upgrade backfill
+    # would make every item "recently edited"; models.BOOKKEEPING_COLUMNS)
     session.execute(
         sa.update(Item).where(Item.id == item.id).values(
             thumbhash=value, modified_at=Item.modified_at

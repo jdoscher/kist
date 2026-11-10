@@ -120,7 +120,8 @@ def due_ids(session: Session, limit: int = BATCH) -> list[str]:
 def record(session: Session, item_id: str, status: str, wayback: str | None = None) -> None:
     """Save a check's result. Not an edit (no history event, modified_at
     stays): it is what Kist observed, written to meta.json all the same."""
-    values = {"source_status": status, "source_checked_at": datetime.now(UTC)}
+    values = {"source_status": status, "source_checked_at": datetime.now(UTC),
+              "modified_at": Item.modified_at}
     if wayback:
         values["source_wayback_url"] = wayback
     session.execute(sa.update(Item).where(Item.id == item_id).values(**values))

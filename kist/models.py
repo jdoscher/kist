@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import (
@@ -13,8 +13,10 @@ from sqlalchemy import (
     SmallInteger,
     String,
     Text,
+    event,
     func,
 )
+from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.dialects.postgresql import ARRAY, CITEXT, JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.types import UserDefinedType
@@ -133,8 +135,11 @@ class Item(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+    # moved by edits only: _touch_on_edit below (an ORM flush that changes
+    # anything outside BOOKKEEPING_COLUMNS) or an explicit set. Background
+    # bookkeeping (previews, link checks, fixity, backfills) leaves it alone.
     modified_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True), server_default=func.now()
     )
     deleted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
@@ -224,6 +229,38 @@ class Item(Base):
     def caption(self) -> str | None:
         row = self.caption_row
         return row.text if row is not None and row.text else None
+
+
+# Columns that background jobs write about an item without anyone editing
+# it: what Kist derived from the file (previews, size, metadata, palette),
+# and what it observed (fixity, link checks). Changing only these never
+# moves modified_at, so "recently modified" keeps meaning edited, and an
+# open editor's base_modified_at stays current.
+BOOKKEEPING_COLUMNS = frozenset({
+    "preview_status", "preview_error", "preview_rev",
+    "width", "height", "duration_s", "phash", "dominant_colors", "thumbhash", "mime",
+    "fixity_checked_at", "fixity_failed_at",
+    "source_status", "source_checked_at", "source_wayback_url",
+    "media", "taken_at", "has_gps", "lat", "lon", "camera", "lens", "vertical",
+    "has_audio", "place", "raw_pair_key",
+})
+
+
+@event.listens_for(Item, "before_update")
+def _touch_on_edit(_mapper, _connection, target: Item) -> None:
+    """Move modified_at when a flush edits the item (what onupdate=now did),
+    unless it only touches BOOKKEEPING_COLUMNS or sets modified_at itself.
+    Core UPDATEs (sa.update(Item)) never move it: they set it explicitly
+    when they are an edit (media.update_media(touch=True))."""
+    state = sa_inspect(target)
+    if state.attrs.modified_at.history.has_changes():
+        return
+    for attr in state.mapper.column_attrs:
+        if attr.key in BOOKKEEPING_COLUMNS or attr.key == "modified_at":
+            continue
+        if state.attrs[attr.key].history.has_changes():
+            target.modified_at = datetime.now(UTC)
+            return
 
 
 class ItemLink(Base):

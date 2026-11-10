@@ -666,9 +666,9 @@ def update_media(session: Session, item_id: str, changes: dict, *, touch: bool =
             media.pop(k, None)
         else:
             media[k] = v
-    values: dict = {"media": media or None}
-    if not touch:
-        values["modified_at"] = Item.modified_at
+    # a Core UPDATE never moves modified_at by itself (models._touch_on_edit)
+    values: dict = {"media": media or None,
+                    "modified_at": sa.func.now() if touch else Item.modified_at}
     session.execute(sa.update(Item).where(Item.id == item_id).values(**values))
     session.commit()
     meta_svc.sync_item(session, item_id)
@@ -787,6 +787,7 @@ def set_cover(session: Session, item_id: str, t: float | None) -> Item:
     else:
         media["cover_time"] = t
     item.media = media
+    item.modified_at = datetime.now(UTC)  # a choice, not derived (BOOKKEEPING_COLUMNS)
     events.record(session, item.id, "cover", {"cover_time": old}, {"cover_time": t})
     session.commit()
     previews.regenerate(session, item)
@@ -1007,6 +1008,7 @@ def set_poster(session: Session, item_id: str, data: bytes) -> Item:
     media["poster"] = {"at": datetime.now(UTC).isoformat(timespec="seconds"),
                        "width": img.width, "height": img.height}
     item.media = media
+    item.modified_at = datetime.now(UTC)  # a choice, not derived (BOOKKEEPING_COLUMNS)
     events.record(session, item.id, "poster", None, {"poster": True})
     session.commit()
     previews.regenerate(session, item)

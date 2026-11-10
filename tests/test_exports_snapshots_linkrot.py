@@ -344,6 +344,52 @@ def test_link_check_records_status(client, upload, public_dns):
     assert kinds == ["create"]
 
 
+def _stamp(client, item_id):
+    return client.get(f"/api/items/{item_id}").json()["modified_at"]
+
+
+def test_link_check_leaves_modified_at(client, upload, public_dns):
+    """A source check is bookkeeping: it must not reorder "recently
+    modified" or move the base an open editor will send."""
+    item = upload("k.png", source_url="https://ok.test/k")["item"]
+    base = _stamp(client, item["id"])
+    from kist.db import SessionLocal
+
+    with SessionLocal() as s:
+        linkrot.run_batch(s, transport=httpx.MockTransport(lambda r: httpx.Response(200)),
+                          sleep=lambda t: None)
+    got = client.get(f"/api/items/{item['id']}").json()
+    assert got["source_status"] == "ok"
+    assert got["modified_at"] == base
+    # a PATCH based on what the editor saw before the check goes through
+    res = client.patch(f"/api/items/{item['id']}",
+                       json={"notes": "after the check", "base_modified_at": base})
+    assert res.status_code == 200, res.text
+    assert res.json()["modified_at"] != base  # a real edit still moves it
+    from kist.services import verify
+    with SessionLocal() as s:
+        assert verify.run(s).problems == []
+
+
+def test_background_bookkeeping_keeps_modified_at_and_edits_move_it(client, upload):
+    from kist.db import SessionLocal
+    from kist.models import Item
+    from kist.services import previews
+
+    item = upload("b.png")["item"]
+    run_jobs()
+    base = _stamp(client, item["id"])
+    with SessionLocal() as s:  # a preview retry/backfill writes through the ORM
+        previews.regenerate(s, s.get(Item, item["id"]))
+        assert previews.add_screen_copy(s, s.get(Item, item["id"])) in (True, False)
+    assert _stamp(client, item["id"]) == base
+    with SessionLocal() as s:  # an ORM edit with no explicit touch still moves it
+        row = s.get(Item, item["id"])
+        row.notes = "edited"
+        s.commit()
+        assert row.modified_at > datetime.fromisoformat(base)
+
+
 def test_wayback_is_opt_in(client, upload, monkeypatch, public_dns):
     calls = []
 
