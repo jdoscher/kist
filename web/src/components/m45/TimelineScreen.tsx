@@ -111,13 +111,16 @@ export default function TimelineScreen({ group }: { group: TimelineGroup }) {
             <ul className="timeline-list">
               {s.buckets.map((b) => (
                 <li key={b.key}>
-                  <button type="button" className="timeline-row" onClick={() => jump(b)} aria-label={`${bucketLabel(b.key)}: ${b.count} item${b.count === 1 ? '' : 's'}. Show them`}>
+                  <button type="button" className="timeline-row" onClick={() => jump(b)}>
                     {b.first_item_id ? <img src={`/api/items/${b.first_item_id}/thumb?size=256`} alt="" loading="lazy" /> : <span className="tl-noimg" />}
                     <span className="tl-label">{bucketLabel(b.key)}</span>
                     <span className="tl-bar" aria-hidden="true">
                       <span style={{ width: `${barPct(b.count, max)}%` }} />
                     </span>
-                    <span className="tl-count mono">{b.count.toLocaleString()}</span>
+                    <span className="tl-count mono">
+                      {b.count.toLocaleString()}
+                      <span className="sr-only"> item{b.count === 1 ? '' : 's'}, show them</span>
+                    </span>
                   </button>
                 </li>
               ))}

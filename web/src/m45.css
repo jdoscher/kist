@@ -448,6 +448,9 @@ a.button.primary {
   border-radius: 10px;
   padding: 16px;
 }
+.font-stage > * {
+  flex-shrink: 0;
+}
 .font-head .hint {
   padding: 0;
 }

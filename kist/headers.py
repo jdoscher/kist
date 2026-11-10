@@ -14,7 +14,8 @@ from .config import get_settings
 APP_CSP = "; ".join(
     [
         "default-src 'self'",
-        "script-src 'self'",
+        # WebAssembly only (never JS eval): the 3D viewer's meshopt decoder
+        "script-src 'self' 'wasm-unsafe-eval'",
         # React sets style attributes; harmless without script
         "style-src 'self' 'unsafe-inline'",
         "img-src 'self' data: blob:",

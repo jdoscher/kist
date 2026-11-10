@@ -67,6 +67,9 @@ def test_app_shell_cannot_be_framed(client):
     # only the /add card may show images from other sites (its preview)
     assert "img-src 'self' data: blob: https: http:" in client.get("/add").headers["content-security-policy"]
     assert "https:" not in client.get("/all").headers["content-security-policy"]
+    # WebAssembly may compile (the 3D viewer's decoder); JS eval may not
+    csp = client.get("/all").headers["content-security-policy"]
+    assert "script-src 'self' 'wasm-unsafe-eval';" in csp and "'unsafe-eval'" not in csp.replace("'wasm-unsafe-eval'", "")
     # the API and share pages keep their own rules
     res = client.get("/api/health")
     assert res.headers["x-frame-options"] == "SAMEORIGIN"

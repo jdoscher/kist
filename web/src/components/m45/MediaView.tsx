@@ -280,8 +280,8 @@ function FontView({ item }: { item: Item }) {
           <output className="mono">{size}px</output>
         </label>
         {SAMPLES.map((s, i) => (
-          <button key={i} type="button" className="small" onClick={() => setSample(s)} aria-label={`Sample text: ${s}`}>
-            {s.slice(0, 12)}…
+          <button key={i} type="button" className="small" onClick={() => setSample(s)} title={`Sample text: ${s}`}>
+            {s.slice(0, 12)}…<span className="sr-only"> (sample text)</span>
           </button>
         ))}
         {(fi?.axes ?? []).map((a) => (
