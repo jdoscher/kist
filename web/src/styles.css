@@ -881,6 +881,10 @@ select:focus-visible {
 
 /* ---------- detail panel ---------- */
 .detail-panel {
+  /* the containing block for its .sr-only text: without it an absolute
+     span far down the panel overflowed the page, and focusing or scrolling
+     to it scrolled the whole app up under the top bar */
+  position: relative;
   width: 270px;
   flex-shrink: 0;
   background: var(--bg-raised);
