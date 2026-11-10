@@ -323,6 +323,16 @@ def test_collection_labels_skip_bookkeeping_tags(client, upload, ml):
     assert labels == {"red", None}, data["clusters"]
 
 
+def test_a_zero_shot_label_takes_the_usual_spelling():
+    uses = {"architecture": 40, "archtecture": 1, "dogs": 2, "dog": 30, "credit:dog": 99}
+    members = {"architecture": 3, "archtecture": 1, "credit:dog": 5, "dog": 2}
+    assert collections._usual_spelling("archtecture", members, uses) == "architecture"
+    assert collections._usual_spelling("dogs", members, uses) == "dog"
+    assert collections._usual_spelling("architecture", members, uses) == "architecture"
+    # only tags the members carry, never a bookkeeping one, and not just any short tag
+    assert collections._usual_spelling("cat", {"car": 9}, {"car": 9, "cat": 1}) == "cat"
+
+
 def test_members_must_agree_with_a_zero_shot_label():
     names = ["red", "green", "blue"]
     m = np.asarray([colour_vector(COLOURS[n]) for n in names], dtype=np.float32)

@@ -197,8 +197,10 @@ def compute(session: Session) -> dict:
             sa.select(ItemTag.item_id, Tag.name).join(Tag, Tag.id == ItemTag.tag_id)
         ).all()
         tags_of: dict[str, list[str]] = {}
+        uses: dict[str, int] = {}
         for item_id, name in tag_rows:
             tags_of.setdefault(item_id, []).append(name)
+            uses[name] = uses.get(name, 0) + 1
         folders_of: dict[str, list[str]] = {}
         for item_id, fid in session.execute(sa.select(ItemFolder.item_id, ItemFolder.folder_id)):
             folders_of.setdefault(item_id, []).append(fid)
@@ -239,7 +241,7 @@ def compute(session: Session) -> dict:
             if shared and shared[0][1] / len(members) >= TAG_SHARE:
                 label, source = shared[0][0], "tags"
             elif zs and _members_agree(zs[0][0], x[idx], tag_names, tag_m):
-                label, source = zs[0][0], "zero_shot"
+                label, source = _usual_spelling(zs[0][0], tcount, uses), "zero_shot"
             else:
                 label, source = None, None
             out["clusters"].append({
@@ -258,6 +260,24 @@ def compute(session: Session) -> dict:
         out["clusters"].sort(key=lambda c: (-c["cohesion"] * c["size"] ** 0.5, c["id"]))
     write_cache(out)
     return out
+
+
+def _usual_spelling(label: str, member_tags: dict[str, int], uses: dict[str, int]) -> str:
+    """A zero-shot label that is a variant spelling of a tag the members
+    carry ("archtecture" next to "architecture", "dogs" next to "dog") gives
+    way to the one more items in the library use."""
+    from . import suggestions as sugg
+    from .tags import _stem, levenshtein
+
+    low = label.lower()
+    best = label
+    for t in member_tags:
+        tl = t.lower()
+        if tl == low or not sugg.candidate_tag(t) or uses.get(t, 0) <= uses.get(best, 0):
+            continue
+        if _stem(tl) == _stem(low) or (min(len(tl), len(low)) >= 5 and levenshtein(tl, low) <= 2):
+            best = t
+    return best
 
 
 def _members_agree(tag: str, vecs, tag_names: list[str], tag_m) -> bool:
