@@ -16,7 +16,7 @@ import type { Query } from './api'
 import type { GridLayout } from './layout'
 import type { MobileCols } from './mobile'
 import { mergeQuery, normalizeSaved } from './query'
-import { fromUrl, type Place, type SettingsSection } from './url'
+import { fromUrl, type OrganiseSection, type Place, type SettingsSection } from './url'
 import { usePrefs } from './usePrefs'
 import { inMenuLayer, pushMenuLayer, useUrlSync } from './urlSync'
 import type { Density, ThemePref } from './theme'
@@ -66,6 +66,10 @@ interface AppState {
   settings: SettingsSection | null
   openSettings: (section?: SettingsSection) => void
   closeSettings: () => void
+  /** the Organise screen (its own URL, /organise/<section>) */
+  organise: OrganiseSection | null
+  openOrganise: (section?: OrganiseSection) => void
+  closeOrganise: () => void
   /** the Recent changes panel (batch undo) */
   recentOpen: boolean
   setRecentOpen: (open: boolean) => void
@@ -95,6 +99,8 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
   // Settings was opened from inside the app, so Close can go Back to where
   // you were instead of adding a history entry
   const settingsFromApp = useRef(false)
+  const [organise, setOrganise] = useState<OrganiseSection | null>(initial.organise ?? null)
+  const organiseFromApp = useRef(false)
   const [recentOpen, setRecentOpen] = useState(false)
   const [jobsOpen, setJobsOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -104,6 +110,7 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
   const setQuery = useCallback((patch: Partial<Query>) => {
     setQueryRaw((prev) => mergeQuery(prev, patch))
     setSettings(null)
+    setOrganise(null)
     setSmartId(null)
     setSelection(new Set())
     setPreviewIdRaw(null)
@@ -112,6 +119,7 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
   const applySmartFolder = useCallback((id: string, q: Partial<Query>) => {
     setQueryRaw(normalizeSaved(q))
     setSettings(null)
+    setOrganise(null)
     setSmartId(id)
     setSelection(new Set())
     setPreviewIdRaw(null)
@@ -121,11 +129,11 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
     () => ({
       query,
       smartId,
-      item: settings ? null : previewId ?? (selection.size === 1 ? [...selection][0] : null),
-      full: !settings && previewId !== null,
-      ...(settings ? { settings } : {}),
+      item: settings || organise ? null : previewId ?? (selection.size === 1 ? [...selection][0] : null),
+      full: !settings && !organise && previewId !== null,
+      ...(settings ? { settings } : organise ? { organise } : {}),
     }),
-    [query, smartId, selection, previewId, settings],
+    [query, smartId, selection, previewId, settings, organise],
   )
   useUrlSync({
     initial,
@@ -134,10 +142,18 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
     onMenu: setDrawerOpen,
     onNavigate: (p) => {
       if (p.settings) {
+        setOrganise(null)
         setSettings(p.settings)
         return
       }
+      if (p.organise) {
+        setSettings(null)
+        setOrganise(p.organise)
+        return
+      }
       setSettings(null)
+      setOrganise(null)
+      organiseFromApp.current = false
       settingsFromApp.current = false
       setQueryRaw(p.query)
       setSmartId(p.smartId)
@@ -148,10 +164,27 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
 
   const openSettings = useCallback((section: SettingsSection = 'tokens') => {
     setSettings((cur) => {
-      if (!cur) settingsFromApp.current = true
+      if (!cur) settingsFromApp.current = !organise
       return section
     })
+    setOrganise(null)
     setDrawerOpen(false)
+  }, [organise])
+
+  const openOrganise = useCallback((section: OrganiseSection = 'duplicates') => {
+    setOrganise((cur) => {
+      if (!cur) organiseFromApp.current = !settings
+      return section
+    })
+    setSettings(null)
+    setDrawerOpen(false)
+  }, [settings])
+
+  const closeOrganise = useCallback(() => {
+    if (organiseFromApp.current) {
+      organiseFromApp.current = false
+      window.history.back()
+    } else setOrganise(null)
   }, [])
 
   const closeSettings = useCallback(() => {
@@ -259,8 +292,11 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
       closeSettings,
       recentOpen,
       setRecentOpen,
+      organise,
+      openOrganise,
+      closeOrganise,
     }),
-    [settings, openSettings, closeSettings, recentOpen, query, setQuery, smartId, applySmartFolder, selection, selectOnly, toggleSelect, rangeSelect, clearSelection, selectAll, previewId, setPreviewId, panelOpen, setPanelOpen, gridLayout, setGridLayout, tileSize, setTileSize, drawerOpen, openDrawer, closeDrawer, jobsOpen, mobile, mobileCols, setMobileCols, theme, setTheme, density, setDensity, chromeShown],
+    [organise, openOrganise, closeOrganise, settings, openSettings, closeSettings, recentOpen, query, setQuery, smartId, applySmartFolder, selection, selectOnly, toggleSelect, rangeSelect, clearSelection, selectAll, previewId, setPreviewId, panelOpen, setPanelOpen, gridLayout, setGridLayout, tileSize, setTileSize, drawerOpen, openDrawer, closeDrawer, jobsOpen, mobile, mobileCols, setMobileCols, theme, setTheme, density, setDensity, chromeShown],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

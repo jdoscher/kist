@@ -368,6 +368,64 @@ undoes as one batch.
 - A folder-limited read token sees people, stacks and faces only for its
   own items.
 
+#### Web app
+- **One search box, several ways to search.** A mode button beside the box:
+  **Auto** (the default) searches names and codes as words (`IMG_2231`,
+  `receipt.pdf`, a quoted phrase) and anything else as words *and* meaning
+  together, so "orvis" finds the receipt that says it and "dog on grass"
+  finds the photo that shows it; `#2f4f3a` searches that colour. Or pick
+  **Words**, **Meaning**, **Text in images**, **Colour** (a picker with
+  swatches, a hex field and how close) or **Image**: choose a picture, or
+  drop or paste one onto the search box (it searches; it isn't added to
+  the library, and it isn't kept). The mode you pick is remembered.
+- **Why it matched.** Ranked results say "Best matches first"; where words
+  and meaning were mixed, the tiles the words found carry a badge, and text
+  hits show the words around the hit with the match highlighted, on the
+  tile and in the info panel ("Why it's here", with the score). If the AI
+  service is down, a words + meaning search falls back to the words and
+  says so; a meaning-only search offers "Search the words instead".
+- **More like this** in the info panel, the phone's item sheet, the
+  full-screen preview and a new right-click menu on tiles (which also finds
+  an item's main colour). More like this, a colour, an image or a person is
+  its own place in the history, so Back returns to where you were.
+- **Info panel:** the item's colours (press one to find that colour), the
+  caption (editable; Describe / Regenerate when a caption provider is set,
+  asking first when the provider is a cloud service, with the warning that
+  the image leaves your network), suggested tags under the tag box (add
+  one, or say no and it isn't suggested for that item again; each says
+  whether it came from look-alike items or the picture), implied tags shown
+  greyed with what implies them, `brand:rolex` tags shown as two-part chips,
+  the people in the photo (name them, move a face to someone else) and the
+  item's stack.
+- **Stacks in the grid.** A stack shows once, with a count on it; press the
+  count (or S) to open it in place and again to close it. Stack and Unstack
+  in the selection bar, Make cover and Take out in the info panel, each with
+  Undo.
+- **Organise** (sidebar: Duplicates, Collections, People; its own URLs under
+  `/organise/`): **Duplicates** review, groups of the same picture or of
+  look-alikes side by side with the suggested keeper, choose the copy to
+  keep and what to carry over to it (tags, folders, notes, best rating,
+  source), "Not duplicates", and "Keep the suggested copy in every group";
+  **Stacks** suggestions (RAW + JPEG, bursts, versions); **"You seem to
+  collect…"** cards with samples, kept as a folder or a tag plus smart
+  folder, or put off; **People** (when faces are on): name, merge, and see
+  everything with someone.
+- **Settings → Vocabulary** (aliases, implied tags, namespaces) and
+  **Settings → Tag cleanup** (clashes, near spellings and plurals, tags used
+  once, unused tags, smart folders naming missing tags; every merge and
+  rename says first how many items it changes, and Undo in the notice puts
+  the tags back and removes the aliases the merge left). **Settings → AI**
+  shows the caption provider (with "Images leave your network" for OpenAI,
+  Anthropic and Gemini) and whether faces are on.
+- The new screens have phone layouts and pass axe-core with no violations
+  in the dark, light and gallery themes. Organise and the tag screens load
+  when first opened.
+
+#### Fixed
+- A keyword match whose words were split between the filename (or notes)
+  and the text inside the item now still gets a snippet marking the words
+  the text has.
+
 ### Milestone 3: creative workflows (backend)
 
 Boards, culling and pinned notes: the backend for the boards canvas,

@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Copy, Cpu, KeyRound, ShieldCheck, TriangleAlert, X } from 'lucide-react'
-import { useId, useState } from 'react'
+import { BookOpen, Check, Copy, Cpu, KeyRound, ShieldCheck, Sparkles, TriangleAlert, X } from 'lucide-react'
+import { lazy, Suspense, useId, useState } from 'react'
 import { api, emptyQuery, type ApiToken, type ArchiveHealth } from '../api'
 import { useCaps, useFolderNames, useFolders, useMe, useStats } from '../data'
 import { fmtAgeHours, fmtBytes, percent } from '../format'
@@ -12,11 +12,17 @@ import { useWrite } from '../useWrite'
 import { Mark, Wordmark } from './Brand'
 import { Modal, useDialog } from './Dialog'
 import { useNotices } from './Notices'
+import { AiExtras } from './AiExtras'
+
+const VocabularySection = lazy(() => import('./TagSettings').then((m) => ({ default: m.VocabularySection })))
+const CleanupSection = lazy(() => import('./TagSettings').then((m) => ({ default: m.CleanupSection })))
 
 const SECTIONS: { id: SettingsSection; label: string; icon: typeof KeyRound }[] = [
   { id: 'tokens', label: 'Tokens', icon: KeyRound },
   { id: 'archive', label: 'Archive health', icon: ShieldCheck },
   { id: 'ai', label: 'AI', icon: Cpu },
+  { id: 'vocabulary', label: 'Vocabulary', icon: BookOpen },
+  { id: 'cleanup', label: 'Tag cleanup', icon: Sparkles },
 ]
 
 const dateText = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : '')
@@ -63,6 +69,10 @@ export function SettingsScreen() {
             {section === 'tokens' && <TokensSection />}
             {section === 'archive' && <ArchiveSection />}
             {section === 'ai' && <AiSection />}
+            <Suspense fallback={<p className="hint" role="status">Loading…</p>}>
+              {section === 'vocabulary' && <VocabularySection />}
+              {section === 'cleanup' && <CleanupSection />}
+            </Suspense>
           </main>
         </div>
       )}
@@ -629,7 +639,7 @@ function AiSection() {
                   ? Object.entries(data.jobs)
                       .map(
                         ([kind, by]) =>
-                          `${(by.pending ?? 0).toLocaleString()} ${kind === 'embed' ? 'to understand' : kind === 'ocr' ? 'to read' : kind}`,
+                          `${(by.pending ?? 0).toLocaleString()} ${kind === 'embed' ? 'to understand' : kind === 'ocr' ? 'to read' : kind === 'caption' ? 'to caption' : kind === 'faces' ? 'to look for faces' : kind}`,
                       )
                       .join(', ')
                   : data.pending.toLocaleString()}
@@ -641,6 +651,7 @@ function AiSection() {
               </Fact>
             </dl>
           </div>
+          <AiExtras data={data} />
           <div className="health-card">
             <h3>Helpers</h3>
             {data.helpers.length === 0 ? (

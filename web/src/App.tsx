@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState } from 'react'
 import { api, getToken, setToken, setUnauthorizedHandler } from './api'
 import { DetailPanel } from './components/DetailPanel'
 import { DetailSheet } from './components/DetailSheet'
@@ -133,10 +133,19 @@ function UndoShortcut() {
   return null
 }
 
-/** The library (top bar, sidebar, grid, info panel) or Settings. */
+// Organise (duplicates, stacks, collections, people) loads when first opened
+const OrganiseScreen = lazy(() => import('./components/Organise').then((m) => ({ default: m.OrganiseScreen })))
+
+/** The library (top bar, sidebar, grid, info panel), Settings or Organise. */
 function Screens({ mobile }: { mobile: boolean }) {
-  const { settings } = useAppState()
+  const { settings, organise } = useAppState()
   if (settings) return <SettingsScreen />
+  if (organise)
+    return (
+      <Suspense fallback={<main className="grid-area center" role="status">Loading…</main>}>
+        <OrganiseScreen />
+      </Suspense>
+    )
   return (
     <>
       <TopBar mobile={mobile} />

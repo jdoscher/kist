@@ -1,3 +1,5 @@
+import { imageFor } from './imageSearch.ts'
+
 // Server-defined states (kist/lifecycle.py); the UI never derives these itself.
 type ItemState = 'active' | 'trashed'
 export type PreviewStatus = 'pending' | 'ready' | 'failed' | 'none'
@@ -47,12 +49,31 @@ export interface Item {
   created_at: string
   modified_at: string
   deleted_at: string | null
+  /** Milestone 2: a sentence describing the image (generated or edited) */
+  caption?: string | null
+  /** tags the vocabulary implies (boots -> shoes): virtual, never stored */
+  implied_tags?: string[]
+  /** why it's in a ranked search (search.ts) */
+  match?: Match | null
+  /** the item's stack and, in a collapsed list, how many members it has */
+  stack_id?: string | null
+  stack_count?: number | null
+}
+
+/** Why an item is in a ranked (or keyword) search. The snippet marks the
+ * matched words <<like this>>. */
+export interface Match {
+  kind: 'keyword' | 'meaning' | 'text' | 'color' | 'similar' | 'hybrid'
+  score: number
+  snippet?: string | null
 }
 
 export interface ItemPage {
   items: Item[]
   next_cursor: string | null
   total: number | null
+  /** the client fell back to words only (the AI service didn't answer) */
+  degraded?: 'meaning'
 }
 
 export interface Folder {
@@ -100,6 +121,20 @@ export interface Query {
   deleted: boolean
   created_after: string | null
   created_before: string | null
+  // Milestone 2 search (search.ts): ranked modes and filters
+  /** search by meaning (a description) */
+  semantic: string
+  /** more like this item */
+  similar: string | null
+  /** a hex colour, and how close (0-100) */
+  color: string | null
+  color_tol: number
+  /** only words inside images and PDFs */
+  text: string
+  /** a person (faces) */
+  person: string | null
+  /** search by an image that isn't in the library (imageSearch.ts; this tab only) */
+  image: string | null
 }
 
 export const emptyQuery: Query = {
@@ -117,6 +152,13 @@ export const emptyQuery: Query = {
   deleted: false,
   created_after: null,
   created_before: null,
+  semantic: '',
+  similar: null,
+  color: null,
+  color_tol: 30,
+  text: '',
+  person: null,
+  image: null,
 }
 
 export interface SmartFolder {
@@ -230,6 +272,17 @@ export interface AiStatus {
   window_open?: boolean
   concurrency?: number
   helpers: { name: string; last_seen: string | null; jobs_done?: number }[]
+  /** Milestone 2 */
+  captioned?: number
+  captions?: {
+    provider: string | null
+    model: string | null
+    auto: boolean
+    runs_on: 'server' | 'helper' | null
+    leaves_house: boolean
+    warning: string | null
+  }
+  faces?: boolean
 }
 
 /** Sent on every API request: the server records edits made here with
@@ -309,7 +362,7 @@ function notifyUnauthorized() {
   onUnauthorized?.()
 }
 
-async function request<T>(
+export async function request<T>(
   path: string,
   init: RequestInit = {},
   timeoutMs = REQUEST_TIMEOUT_MS,
@@ -357,12 +410,12 @@ export function newBatchId(now = Date.now(), rand = Math.random): string {
   return `web-${now.toString(36)}-${Math.floor(rand() * 36 ** 6).toString(36).padStart(6, '0')}`
 }
 
-function withBatch(init: RequestInit, batch?: string): RequestInit {
+export function withBatch(init: RequestInit, batch?: string): RequestInit {
   if (!batch) return init
   return { ...init, headers: { ...((init.headers as Record<string, string>) ?? {}), 'X-Kist-Batch': batch } }
 }
 
-function json(body: unknown): RequestInit {
+export function json(body: unknown): RequestInit {
   return {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -370,7 +423,8 @@ function json(body: unknown): RequestInit {
   }
 }
 
-function itemsUrl(query: Query, cursor?: string, limit = 120): string {
+/** The filters as GET /api/items parameters (also POST /api/search/image's). */
+export function itemsParams(query: Query, cursor?: string, limit = 120): URLSearchParams {
   const p = new URLSearchParams()
   if (query.q) p.set('q', query.q)
   if (query.tags.length) p.set('tags', query.tags.join(','))
@@ -385,22 +439,49 @@ function itemsUrl(query: Query, cursor?: string, limit = 120): string {
   if (query.deleted) p.set('state', 'trashed')
   if (query.created_after) p.set('created_after', query.created_after)
   if (query.created_before) p.set('created_before', query.created_before)
+  if (query.semantic) p.set('semantic', query.semantic)
+  if (query.similar) p.set('similar', query.similar)
+  if (query.color) {
+    p.set('color', query.color)
+    p.set('color_tol', String(query.color_tol))
+  }
+  if (query.text) p.set('text', query.text)
+  if (query.person) p.set('person', query.person)
+  // a stack shows once (its cover, or in a ranked search the member that
+  // matched); the trash lists every item
+  if (!query.deleted) p.set('stacks', 'collapse')
   p.set('order', query.order)
   p.set('limit', String(limit))
   if (cursor) p.set('cursor', cursor)
-  return `/api/items?${p}`
+  return p
+}
+
+function itemsUrl(query: Query, cursor?: string, limit = 120): string {
+  return `/api/items?${itemsParams(query, cursor, limit)}`
 }
 
 export const api = {
   health: () => request<{ status: string }>('/api/health'),
   version: () => request<{ version: string; commit: string }>('/api/version'),
-  listItems: (query: Query, cursor?: string) => request<ItemPage>(itemsUrl(query, cursor)),
+  listItems: async (query: Query, cursor?: string): Promise<ItemPage> => {
+    if (query.image) return searchByImage(query, cursor)
+    try {
+      return await request<ItemPage>(itemsUrl(query, cursor))
+    } catch (e) {
+      // words + meaning while the AI service is down: the words alone
+      if (e instanceof ApiError && e.status === 503 && query.semantic && query.q) {
+        const page = await request<ItemPage>(itemsUrl({ ...query, semantic: '' }, cursor))
+        return { ...page, degraded: 'meaning' }
+      }
+      throw e
+    }
+  },
   getItem: (id: string) => request<Item>(`/api/items/${id}`),
   /** base_modified_at: the item's modified_at as last seen; the server
    * answers 409 (conflictItem) if someone else changed it since */
   patchItem: (
     id: string,
-    patch: Partial<Pick<Item, 'filename' | 'rating' | 'notes' | 'folder_ids' | 'source_url' | 'protected'>> & {
+    patch: Partial<Pick<Item, 'filename' | 'rating' | 'notes' | 'folder_ids' | 'source_url' | 'protected' | 'caption'>> & {
       base_modified_at?: string
     },
     batch?: string,
@@ -472,6 +553,16 @@ export const api = {
     request<{ status: string; file_left_at: string | null }>(`/api/jobs/${id}`, {
       method: 'DELETE',
     }),
+}
+
+/** POST /api/search/image with the image kept for this tab (imageSearch.ts). */
+async function searchByImage(query: Query, cursor?: string): Promise<ItemPage> {
+  const blob = query.image ? imageFor(query.image) : undefined
+  if (!blob) throw new ApiError(410, 'The image you searched with isn’t kept after a reload: drop or paste it again')
+  const form = new FormData()
+  form.append('file', blob, 'search-image')
+  const p = itemsParams({ ...query, image: null }, cursor)
+  return request<ItemPage>(`/api/search/image?${p}`, { method: 'POST', body: form }, 60_000)
 }
 
 export function uploadFile(

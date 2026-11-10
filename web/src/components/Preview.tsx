@@ -8,6 +8,7 @@ import { useAppState } from '../state'
 import { useFocusInOut, useFocusTrap, useInertBackground } from '../useInert'
 import { useLayer, useShortcut } from '../useShortcuts'
 import { tileDomId } from './Grid'
+import { MoreLikeThisButton } from './ItemAI'
 
 /** Show the 1024 thumb at once, then swap in the sharper copy the screen
  * actually needs (preview.ts: usually the 2048 WebP, not the original). */
@@ -158,6 +159,7 @@ export function Preview() {
             {item.width && item.height ? `${item.width}×${item.height}` : ''}
             {idx >= 0 ? `${item.width && item.height ? ' · ' : ''}${idx + 1} / ${items.length}` : ''}
           </span>
+          <MoreLikeThisButton item={item} className="preview-more" />
           <a href={fileUrl(item)} target="_blank" rel="noreferrer">
             Open original <ExternalLink size={13} strokeWidth={1.75} aria-hidden="true" />
             <span className="sr-only"> (new tab)</span>

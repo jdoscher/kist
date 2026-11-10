@@ -10,6 +10,7 @@ import { ItemLinks } from './ItemLinks'
 import { ItemMeta } from './ItemMeta'
 import { ItemStatus } from './ItemStatus'
 import { ReadOnlyItem } from './DetailSheet'
+import { CaptionField, ImpliedTags, ItemFaces, MatchWhy, MoreLikeThisButton, PaletteSwatches, StackInfo, TagSuggestions, TagText } from './ItemAI'
 
 /** Protected items can't be trashed or deleted. Agents can protect but not
  * unprotect; removing protection needs a full-access (write/admin) token. */
@@ -102,6 +103,7 @@ function SingleItem({ item }: { item: Item }) {
         </button>
       </div>
       <ItemStatus item={item} />
+      <MatchWhy item={item} />
       <label htmlFor={`${uid}-name`} className="sr-only">
         File name
       </label>
@@ -130,13 +132,15 @@ function SingleItem({ item }: { item: Item }) {
           {busy() ? 'saving…' : ''}
         </span>
       </div>
+      <MoreLikeThisButton item={item} />
+      <CaptionField item={item} editable />
 
       <div className="detail-section">
         <label htmlFor={`${uid}-tags`}>Tags</label>
         <div className="tag-chips">
           {item.tags.map((t) => (
             <span key={t} className="chip">
-              #{t}
+              <TagText tag={t} />
               <button aria-label={`Remove tag ${t}`} title={`Remove tag ${t}`} onClick={() => void removeTag(t)}>
                 <X size={13} strokeWidth={2} aria-hidden="true" />
               </button>
@@ -154,6 +158,8 @@ function SingleItem({ item }: { item: Item }) {
         <span id={`${uid}-tags-hint`} className="sr-only">
           Separate tags with commas; Enter adds them.
         </span>
+        <ImpliedTags item={item} />
+        <TagSuggestions item={item} />
       </div>
 
       <div className="detail-section">
@@ -207,6 +213,9 @@ function SingleItem({ item }: { item: Item }) {
         />
       </div>
 
+      <PaletteSwatches item={item} />
+      <ItemFaces item={item} editable />
+      <StackInfo item={item} editable />
       <ItemLinks item={item} editable />
 
       <ItemMeta item={item} />

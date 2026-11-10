@@ -1,5 +1,8 @@
 import {
   ChevronRight,
+  Copy,
+  Library,
+  Users,
   FolderSearch,
   Hash,
   History,
@@ -27,6 +30,7 @@ import { AppearanceControls } from './Appearance'
 import { useUploads } from './UploadManager'
 import { isUnfiledView, smartFolderQuery, unfiledQuery } from '../query'
 import { fmtBytes } from '../format'
+import { useAiFlags } from './ItemAI'
 import type { Query } from '../api'
 
 interface TreeNode extends Folder {
@@ -344,7 +348,8 @@ function PhoneUpload() {
 }
 
 export function Sidebar({ mobile = false }: { mobile?: boolean }) {
-  const { query, setQuery, smartId, applySmartFolder, setJobsOpen, setRecentOpen, openSettings, settings, closeDrawer } = useAppState()
+  const { query, setQuery, smartId, applySmartFolder, setJobsOpen, setRecentOpen, openSettings, settings, closeDrawer, organise, openOrganise } = useAppState()
+  const aiFlags = useAiFlags()
   const caps = useCaps()
   const folderDialog = useFolderDialog()
   const { data: folders } = useFolders()
@@ -432,6 +437,11 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
     !query.fixity &&
     !smartId &&
     !settings &&
+    !organise &&
+    !query.similar &&
+    !query.color &&
+    !query.image &&
+    !query.person &&
     query.tags.length === 0 &&
     query.tags_any.length === 0
   const attention = (stats?.failed_jobs ?? 0) + (stats?.preview_failed ?? 0) + (stats?.fixity_failed ?? 0)
@@ -470,6 +480,33 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
               active={query.deleted && !smartId && !settings}
               onActivate={() => setQuery({ deleted: !query.deleted, folder: null })}
             />
+          </>
+        )}
+        {!caps.restricted && (
+          <>
+            <Row
+              icon={<Copy {...ROW_ICON} />}
+              name="Duplicates"
+              active={organise === 'duplicates' || organise === 'stacks'}
+              onActivate={() => openOrganise('duplicates')}
+              title="Review duplicate pictures and stack suggestions"
+            />
+            <Row
+              icon={<Library {...ROW_ICON} />}
+              name="Collections"
+              active={organise === 'collections'}
+              onActivate={() => openOrganise('collections')}
+              title="You seem to collect…: groups of look-alike items to keep as folders"
+            />
+            {aiFlags.faces && (
+              <Row
+                icon={<Users {...ROW_ICON} />}
+                name="People"
+                active={organise === 'people' || !!query.person}
+                onActivate={() => openOrganise('people')}
+                title="Faces grouped into people"
+              />
+            )}
           </>
         )}
         {attention > 0 && (

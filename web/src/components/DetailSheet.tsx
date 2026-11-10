@@ -8,6 +8,7 @@ import { ItemHistory } from './ItemHistory'
 import { ItemLinks } from './ItemLinks'
 import { ItemMeta } from './ItemMeta'
 import { ItemStatus } from './ItemStatus'
+import { CaptionField, ImpliedTags, ItemFaces, MatchWhy, MoreLikeThisButton, PaletteSwatches, StackInfo, TagText } from './ItemAI'
 
 /** An item's details without edit controls: the phone sheet's body, and
  * the info panel for a read-only token. Tags and folders are links to
@@ -30,6 +31,9 @@ export function ReadOnlyItem({ item, withThumb = false }: { item: Item; withThum
         </>
       )}
       <ItemStatus item={item} />
+      <MatchWhy item={item} />
+      <MoreLikeThisButton item={item} />
+      <CaptionField item={item} editable={false} />
       {item.protected && (
         <p className="protected-note">
           <Lock size={13} strokeWidth={1.75} aria-hidden="true" /> Protected: it can’t be trashed or deleted.
@@ -41,10 +45,11 @@ export function ReadOnlyItem({ item, withThumb = false }: { item: Item; withThum
           <div className="tag-chips">
             {item.tags.map((t) => (
               <button key={t} className="chip" onClick={() => setQuery({ ...emptyQuery, tags: [t], order: query.order })}>
-                #{t}
+                <TagText tag={t} />
               </button>
             ))}
           </div>
+          <ImpliedTags item={item} />
         </div>
       )}
       {item.folder_ids.length > 0 && (
@@ -69,6 +74,9 @@ export function ReadOnlyItem({ item, withThumb = false }: { item: Item; withThum
           <p className="sheet-notes">{item.notes}</p>
         </div>
       )}
+      <PaletteSwatches item={item} />
+      <ItemFaces item={item} editable={false} />
+      <StackInfo item={item} editable={false} />
       <ItemLinks item={item} editable={false} />
       <ItemMeta item={item} />
       <a className="open-original" href={fileUrl(item)} target="_blank" rel="noreferrer">

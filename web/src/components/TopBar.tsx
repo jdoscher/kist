@@ -1,4 +1,4 @@
-import { History, Info, Menu, PanelsLeftRight, RectangleHorizontal, Settings, Square, Upload, X } from 'lucide-react'
+import { History, ImageUp, Info, Menu, PanelsLeftRight, RectangleHorizontal, Settings, Square, Upload, X } from 'lucide-react'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { TILE_SIZE_MAX, TILE_SIZE_MIN } from '../layout'
 import { useCaps, useTags } from '../data'
@@ -8,8 +8,19 @@ import { AppearanceMenu } from './Appearance'
 import { Mark, Wordmark } from './Brand'
 import { PasteButton } from './PasteButton'
 import { useUploads } from './UploadManager'
+import { buildSearch, isRanked, modeOf, searchText, type SearchMode } from '../search'
+import { ColourPicker, hasSearchChips, SearchChips, SearchModeMenu, useImageSearch, useSearchMode } from './SearchModes'
 
-const TYPES = ['image', 'video', 'pdf', 'other'] as const
+const PLACEHOLDER: Record<SearchMode, string> = {
+  auto: 'Search, or describe it…',
+  words: 'Search names, notes, text…',
+  meaning: 'Describe it: red car at night…',
+  text: 'Words inside images and PDFs…',
+  color: 'Search…',
+  image: 'Narrow with words…',
+}
+
+const TYPES = ['image', 'video', 'pdf', 'font', 'other'] as const
 const ORDERS: [string, string][] = [
   ['-created', 'Newest'],
   ['created', 'Oldest'],
@@ -42,7 +53,13 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
   const caps = useCaps()
   const { data: tags } = useTags()
   const uploads = useUploads()
-  const [text, setText] = useState(query.q)
+  const [text, setText] = useState(searchText(query))
+  // search modes (search.ts): the preferred one, the colour picker, images
+  const [prefMode, setPrefMode] = useSearchMode()
+  const mode = modeOf(query, prefMode)
+  const [colourOpen, setColourOpen] = useState(false)
+  const img = useImageSearch((image) => setQuery({ image, q: '', semantic: '', text: '', similar: null, color: null }))
+  const ranked = isRanked(query)
   const [open, setOpen] = useState(false)
   const [hilite, setHilite] = useState(0)
   const boxRef = useRef<HTMLDivElement>(null)
@@ -50,10 +67,11 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
   const listId = useId()
   const optId = (i: number) => `${listId}-opt-${i}`
 
-  useEffect(() => setText(query.q), [query.q])
+  useEffect(() => setText(searchText(query)), [query.q, query.semantic, query.text]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // every active filter shows as a chip, so nothing narrows the grid invisibly
   const hasChips =
+    hasSearchChips(query) ||
     query.tags.length > 0 ||
     query.tags_any.length > 0 ||
     query.untagged ||
@@ -62,13 +80,23 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
     !!query.created_after ||
     !!query.created_before
 
-  // debounce free-text search
+  // debounce free-text search; what it sends depends on the mode
   useEffect(() => {
     const t = setTimeout(() => {
-      if (text !== query.q) setQuery({ q: text })
-    }, 250)
+      if (text === searchText(query)) return
+      // words typed over an image search narrow it
+      if (query.image) setQuery({ q: text.trim() })
+      else setQuery(buildSearch(text, prefMode))
+    }, 300)
     return () => clearTimeout(t)
   }, [text]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const pickMode = (m: SearchMode) => {
+    if (m === 'color') return setColourOpen(true)
+    if (m === 'image') return img.pick()
+    setPrefMode(m)
+    if (text.trim()) setQuery(buildSearch(text, m))
+  }
 
   const suggestions = useMemo(() => {
     if (!text.trim() || !tags) return []
@@ -89,7 +117,7 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
   }, [])
 
   const addTag = (name: string) => {
-    setQuery({ tags: [...query.tags, name], q: '' })
+    setQuery({ tags: [...query.tags, name], q: '', semantic: '', text: '' })
     setText('')
     setOpen(false)
   }
@@ -134,9 +162,16 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
         <Wordmark />
       </div>
 
-      <div className="searchbox" ref={boxRef} role="search">
+      <div
+        className={`searchbox${img.over ? ' drop-target' : ''}`}
+        ref={boxRef}
+        role="search"
+        {...img.handlers}
+      >
+        <SearchModeMenu mode={mode} onPick={pickMode} compact={mobile} />
         {hasChips && (
           <div className="chips" role="group" aria-label="Active filters">
+            <SearchChips query={query} setQuery={setQuery} />
             {query.tags.map((t) => (
               <Chip key={t} label={`#${t}`} clear={`Remove tag ${t}`} onClear={() => setQuery({ tags: query.tags.filter((x) => x !== t) })} />
             ))}
@@ -176,7 +211,7 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
         <input
           value={text}
           aria-label="Search library"
-          placeholder={hasChips ? 'Add search…' : 'Search filenames, #tags…'}
+          placeholder={img.over ? 'Drop to search by this image' : hasChips ? 'Add search…' : PLACEHOLDER[mode]}
           role="combobox"
           aria-autocomplete="list"
           aria-expanded={open && suggestions.length > 0}
@@ -209,6 +244,27 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
         <span className="sr-only" role="status">
           {open && suggestions.length > 0 ? `${suggestions.length} tag suggestions, use up and down to pick` : ''}
         </span>
+        <button
+          type="button"
+          className="search-image-btn"
+          onClick={img.pick}
+          aria-label="Search by image"
+          title="Search by image: choose a picture, or drop or paste one onto the search box (it isn’t saved)"
+        >
+          <ImageUp size={15} strokeWidth={1.75} aria-hidden="true" />
+        </button>
+        {img.input}
+        {colourOpen && (
+          <ColourPicker
+            initial={query.color}
+            tol={query.color_tol}
+            onClose={() => setColourOpen(false)}
+            onSearch={(color, color_tol) => {
+              setColourOpen(false)
+              setQuery({ color, color_tol, q: '', semantic: '', text: '', similar: null, image: null })
+            }}
+          />
+        )}
       </div>
 
       {mobile && <div className="topbar-break" />}
@@ -293,7 +349,14 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
         ))}
       </select>
 
-      <select value={query.order} onChange={(e) => setQuery({ order: e.target.value })} title="Sort" aria-label="Sort">
+      <select
+        value={ranked ? '__best' : query.order}
+        onChange={(e) => setQuery({ order: e.target.value })}
+        title={ranked ? 'Ranked by best match while searching by meaning, colour, text or image' : 'Sort'}
+        aria-label="Sort"
+        disabled={ranked}
+      >
+        {ranked && <option value="__best">Best match</option>}
         {ORDERS.map(([v, label]) => (
           <option key={v} value={v}>
             {mobile && v === '-modified' ? 'Edited' : label}

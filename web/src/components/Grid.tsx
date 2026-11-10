@@ -12,7 +12,7 @@ import {
   tilePositions,
   typicalAspect,
 } from '../layout'
-import { useCaps, useCurrentItems, useFolderNames, useFolders, useSmartFolders, useStats } from '../data'
+import { useCaps, useCurrentItems, useFolderNames, useFolders, useItem, useSmartFolders, useStats } from '../data'
 import { emptyState, everywhere, isUnfiledView, viewTitle } from '../query'
 import { placeholderFor, placeholderStyle } from '../placeholder'
 import { markOnce, onceSeen } from '../settings'
@@ -22,6 +22,8 @@ import { useAppState } from '../state'
 import { useShortcut } from '../useShortcuts'
 import { describeError } from '../writes'
 import { BulkBar } from './BulkBar'
+import { ItemContextMenu, RankedError, rankedErrorText, SearchNote, usePersonName, showMatchBadge, StackBadge, TileMatch, tileExtra, useExpandedStacks, useStackToggle } from './GridExtras'
+import { searchTitle } from '../search'
 
 const KIND_ICONS: Record<string, LucideIcon> = {
   image: ImageIcon,
@@ -55,7 +57,17 @@ const Tile = memo(function Tile({
   onDragStart,
   onFocus,
   draggable,
+  extraLabel = '',
+  member = false,
+  matchBadge = false,
+  onStackClick,
+  onContextMenu,
 }: {
+  extraLabel?: string
+  member?: boolean
+  matchBadge?: boolean
+  onStackClick?: (item: Item) => void
+  onContextMenu?: (item: Item, e: React.MouseEvent) => void
   item: Item
   width: number
   height: number
@@ -86,11 +98,19 @@ const Tile = memo(function Tile({
       aria-selected={selected}
       aria-setsize={total}
       aria-posinset={index + 1}
-      aria-label={tileLabel(item)}
+      aria-label={tileLabel(item) + extraLabel}
       tabIndex={tabbable ? 0 : -1}
-      className={`tile${selected ? ' selected' : ''}${thumb ? '' : ' no-thumb'}`}
+      className={`tile${selected ? ' selected' : ''}${thumb ? '' : ' no-thumb'}${member ? ' stack-member' : ''}`}
       style={{ width, height, ...placeholder }}
-      onMouseDown={(e) => onPointerDown(item, e)}
+      onMouseDown={(e) => {
+        if (onStackClick && (e.target as HTMLElement).closest('[data-stack-toggle]')) {
+          e.preventDefault()
+          onStackClick(item)
+          return
+        }
+        onPointerDown(item, e)
+      }}
+      onContextMenu={onContextMenu ? (e) => onContextMenu(item, e) : undefined}
       onDoubleClick={() => onDoubleClick(item)}
       onFocus={() => onFocus(item)}
       draggable={draggable}
@@ -133,6 +153,8 @@ const Tile = memo(function Tile({
           <Lock size={11} strokeWidth={2.25} />
         </span>
       )}
+      <TileMatch item={item} badge={matchBadge} />
+      <StackBadge item={item} member={member} />
       {selected && (
         <>
           <span className="sel-corners" aria-hidden="true" />
@@ -175,6 +197,32 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
   const caps = useCaps()
   const flatIds = useMemo(() => items.map((i) => i.id), [items])
   const hintId = useId()
+  // stacks opened in place: their members (not the entry) get a marker
+  const expanded = useExpandedStacks()
+  const toggleStack = useStackToggle()
+  const memberIds = useMemo(() => {
+    const seen = new Set<string>()
+    const out = new Set<string>()
+    for (const it of items) {
+      if (!it.stack_id || !expanded.has(it.stack_id)) continue
+      if (seen.has(it.stack_id)) out.add(it.id)
+      else seen.add(it.stack_id)
+    }
+    return out
+  }, [items, expanded])
+  const [ctxMenu, setCtxMenu] = useState<{ item: Item; x: number; y: number } | null>(null)
+  const onTileContextMenu = useCallback(
+    (item: Item, e: React.MouseEvent) => {
+      e.preventDefault()
+      if (!selection.has(item.id)) selectOnly(item.id)
+      const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+      // the keyboard's context-menu key reports 0,0: open by the tile
+      const kb = e.clientX === 0 && e.clientY === 0
+      setCtxMenu({ item, x: kb ? r.left + 12 : e.clientX, y: kb ? r.top + 12 : e.clientY })
+    },
+    [selection, selectOnly],
+  )
+  const closeCtx = useCallback(() => setCtxMenu(null), [])
 
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const observer = useRef<ResizeObserver | null>(null)
@@ -325,6 +373,13 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
       return true
     }
     const cur = focusedId ? flatIds.indexOf(focusedId) : -1
+    if ((e.key === 's' || e.key === 'S') && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      const it = items[cur >= 0 ? cur : flatIds.indexOf([...selection][0] ?? '')]
+      if (!it?.stack_id) return false
+      e.preventDefault()
+      void toggleStack(it)
+      return true
+    }
     if (e.key === 'Enter') {
       const id = cur >= 0 ? focusedId : selection.size === 1 ? [...selection][0] : null
       if (!id) return false
@@ -381,13 +436,25 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
       ? (folders ?? []).find((f) => f.id === query.folder)?.description?.trim() || ''
       : ''
 
+  // more like this: the item it started from (not in the results)
+  const similarTo = useItem(query.similar, items)
+  const personName = usePersonName(query.person)
   const smartName = smartId ? (smartFolders ?? []).find((s) => s.id === smartId)?.name : null
-  const title = viewTitle(query, { folder: (id) => folderNames.get(id), smart: smartName })
+  const title =
+    searchTitle(query, { item: () => similarTo?.filename, person: () => personName ?? undefined }) ??
+    viewTitle(query, { folder: (id) => folderNames.get(id), smart: smartName })
 
   if (result.isLoading)
     return (
       <main className="grid-area center" role="status">
         Loading library…
+      </main>
+    )
+  const status = (result.error as { status?: number } | null)?.status
+  if (result.isError && rankedErrorText(status, query))
+    return (
+      <main className="grid-area center">
+        <RankedError status={status} />
       </main>
     )
   if (result.isError)
@@ -423,6 +490,7 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
           {selection.size > 1 ? `, ${selection.size} selected` : ''}
         </span>
         <span aria-hidden="true">{result.isFetching ? ' · refreshing…' : ''}</span>
+        <SearchNote />
         {folderDescription && <p className="view-subtitle folder-description">{folderDescription}</p>}
         {query.fixity === 'failed' && (
           <p className="view-subtitle">
@@ -438,8 +506,8 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
       </div>
       <span id={hintId} className="sr-only">
         Arrow keys move and select, Space adds or removes one item, Shift with arrows extends the selection,
-        Control with arrows moves without selecting, Enter opens full screen
-        {mobile ? '' : ', Delete moves to Trash'}.
+        Control with arrows moves without selecting, Enter opens full screen, S opens or closes a stack
+        {mobile ? '' : ', Delete moves to Trash, the context menu key shows More like this'}.
       </span>
       <div
         className="grid-scroll"
@@ -481,6 +549,11 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
                     onDragStart={handleDragStart}
                     onFocus={onTileFocus}
                     draggable={!mobile}
+                    member={memberIds.has(item.id)}
+                    matchBadge={showMatchBadge(item.match?.kind, query)}
+                    extraLabel={tileExtra(item, memberIds.has(item.id), !!item.stack_id && expanded.has(item.stack_id), query)}
+                    onStackClick={toggleStack}
+                    onContextMenu={mobile ? undefined : onTileContextMenu}
                   />
                 )
               })}
@@ -500,6 +573,7 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
         </div>
       )}
       {!mobile && <BulkBar />}
+      {ctxMenu && <ItemContextMenu item={ctxMenu.item} x={ctxMenu.x} y={ctxMenu.y} onClose={closeCtx} />}
     </main>
   )
 }
