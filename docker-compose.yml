@@ -88,6 +88,13 @@ services:
       KIST_CAPTION_TIMEOUT_SECONDS: ${KIST_CAPTION_TIMEOUT_SECONDS:-180}
       # faces and people (opt-in; also set for the worker and ml service)
       KIST_FACES: ${KIST_FACES:-0}
+      # M4: sharing, exports, snapshots, XMP (the worker has the same)
+      KIST_EXPORT_RETENTION_DAYS: ${KIST_EXPORT_RETENTION_DAYS:-7}
+      KIST_SNAPSHOTS: ${KIST_SNAPSHOTS:-false}
+      KIST_XMP_SIDECARS: ${KIST_XMP_SIDECARS:-true}
+      KIST_SHARE_PASSWORD_ATTEMPTS: ${KIST_SHARE_PASSWORD_ATTEMPTS:-10}
+      KIST_WAYBACK: ${KIST_WAYBACK:-false}
+      KIST_LINK_CHECK_DAYS: ${KIST_LINK_CHECK_DAYS:-7}
       # KIST_AI_WINDOW is in this time zone (/api/ai/status reports window_open)
       TZ: ${TZ:-UTC}
     # KIST_BIND is the host address to listen on. 0.0.0.0 (the default) is
@@ -162,6 +169,14 @@ services:
       KIST_CAPTION_TIMEOUT_SECONDS: ${KIST_CAPTION_TIMEOUT_SECONDS:-180}
       KIST_FACES: ${KIST_FACES:-0}
       KIST_COLLECTIONS_INTERVAL_HOURS: ${KIST_COLLECTIONS_INTERVAL_HOURS:-24}
+      # M4: exports, imports, link-rot watch (Wayback is an outside service:
+      # off unless you set it), XMP sidecars, server-side page snapshots
+      KIST_EXPORT_RETENTION_DAYS: ${KIST_EXPORT_RETENTION_DAYS:-7}
+      KIST_SNAPSHOTS: ${KIST_SNAPSHOTS:-false}
+      KIST_XMP_SIDECARS: ${KIST_XMP_SIDECARS:-true}
+      KIST_LINK_CHECK_DAYS: ${KIST_LINK_CHECK_DAYS:-7}
+      KIST_LINK_CHECK_DELAY_SECONDS: ${KIST_LINK_CHECK_DELAY_SECONDS:-2}
+      KIST_WAYBACK: ${KIST_WAYBACK:-false}
       # KIST_AI_WINDOW is in this time zone
       TZ: ${TZ:-UTC}
     volumes:

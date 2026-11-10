@@ -92,6 +92,9 @@ def check_items(session: Session, report: Report) -> None:
                     k for k in COMPARED_TIMES
                     if _instant(on_disk.get(k)) != _instant(expected.get(k))
                 ]
+                from .provenance import meta_drift
+
+                drift += meta_drift(on_disk, expected)
                 if drift:
                     report.problems.append(
                         f"{item.id}: meta.json differs in {', '.join(drift)}"
@@ -204,6 +207,16 @@ def check_creative(session: Session, report: Report) -> None:
     report.problems.extend(templates.check_file(session))
 
 
+def check_m4(session: Session, report: Report) -> None:
+    """Share links (shares.json), page snapshot text (page/text.txt) and
+    the export presets file."""
+    from . import export_images, shares, snapshots
+
+    report.problems.extend(shares.check_file(session))
+    report.problems.extend(snapshots.check(session))
+    report.problems.extend(export_images.check_file())
+
+
 def run(session: Session) -> Report:
     from . import events as events_svc
     from . import tokens as tokens_svc
@@ -222,6 +235,7 @@ def run(session: Session) -> Report:
     report.problems.extend(faces_svc.check(session))
     report.problems.extend(suggestions_svc.check_feedback_files(session))
     check_creative(session, report)
+    check_m4(session, report)
     for key in meta_svc.pending():
         report.problems.append(f"{key}: an earlier write to disk failed")
     return report

@@ -22,6 +22,14 @@
                                    (they run inside KIST_AI_WINDOW)
     kist ai-sidecars              write AI sidecar files missing on disk
                                    from the database (verify reports them)
+    kist import KIND SOURCE [--dry-run] [--folder NAME]
+                                  import a Pinterest/Are.na/Raindrop/Takeout/
+                                   Apple Photos (osxphotos)/sidecar/Eagle
+                                   export into Imported/<kind> <date>
+    kist xmp --export DIR | --rewrite
+                                  write .xmp sidecars beside exported files
+                                   (matched by content) or for every image
+    kist link-check [--limit N]   check source pages for link rot now
     kist helper --url URL         run AI jobs on this machine for a Kist
                                    server (token: $KIST_HELPER_TOKEN)
 
@@ -183,6 +191,9 @@ def item_from_meta(session, meta: dict, original: Path, folder_ids: set[str]) ->
     for key in ("created_at", "modified_at"):
         if meta.get(key):
             setattr(item, key, parse_dt(meta[key]))
+    from .services import provenance as provenance_svc
+
+    provenance_svc.restore_from_meta(item, meta)  # M4 provenance + source check
     item.fixity_checked_at, item.fixity_failed_at = fixity_svc.from_log(original.parent)
     item.tags = tags_svc.get_or_create(session, meta.get("tags", []), validate=False)
     item.folders = [session.get(Folder, f) for f in raw_folders if f in folder_ids]
@@ -293,6 +304,20 @@ def rebuild_index(wipe: bool) -> int:
                 # tokens come back from tokens.json just below
                 session.execute(sa.delete(ApiToken))
             session.commit()
+
+        from .services import shares as shares_svc
+
+        if wipe and shares_svc.path().is_file():
+            from .models import Share
+
+            session.execute(sa.delete(Share))  # back from shares.json just below
+            session.commit()
+        restored_shares, share_problem = shares_svc.restore(session)
+        if share_problem:
+            warn(f"shares.json unreadable: {share_problem}")
+            warnings += 1
+        elif restored_shares:
+            print(f"share links: {restored_shares} restored")
 
         restored_tokens, token_problem = tokens_svc.restore(session)
         if token_problem:
@@ -449,6 +474,11 @@ def rebuild_index(wipe: bool) -> int:
         if face_rows or people or feedback:
             print(f"faces: {face_rows} loaded, {people} people restored; "
                   f"tag feedback: {feedback}")
+        from .services import snapshots as snapshots_svc
+
+        pages = snapshots_svc.restore(session)
+        if pages:
+            print(f"page snapshot texts loaded: {pages}")
 
         # keep snapshots in sync with what we just restored
         folders_svc.snapshot(session)
@@ -511,6 +541,9 @@ def rewrite_meta() -> int:
         ).scalars().all():
             suggestions_svc.write_feedback_sidecar(session, item_id)
         failed += rewrite_creative(session)
+        from .services import shares as shares_svc
+
+        folders_ok = shares_svc.sync_file(session) and folders_ok
     if not failed and folders_ok:
         meta_svc.clear_pending()
     print(f"rewrote meta.json for {written} items (+ folders.json, tokens.json, "
@@ -856,6 +889,81 @@ def selftest() -> int:
     return 0 if not failures else 1
 
 
+# ---------- M4 ----------
+
+
+def import_cmd(kind: str, source: str, dry_run: bool, folder: str | None) -> int:
+    from .importers import base as importers
+
+    try:
+        path = importers.resolve_source(source, allow_url=kind == "arena")
+        with SessionLocal() as session:
+            def progress(report: dict) -> None:
+                print(f"  … {report['found']} found, {report['imported']} "
+                      f"{'new' if not dry_run else 'would be new'}, "
+                      f"{report['duplicates']} duplicates, {report['errors_count']} errors",
+                      file=sys.stderr)
+
+            report = importers.run_import(session, kind, str(path), dry_run=dry_run,
+                                          folder=folder, progress=progress)
+    except importers.ImportError_ as exc:
+        print(f"import: {exc}", file=sys.stderr)
+        return 1
+    print(json.dumps({k: v for k, v in report.items() if k != "errors"}, indent=2))
+    for e in report["errors"][:50]:
+        warn(f"{e['key']}: {e['error']}")
+    if dry_run:
+        print("dry run: nothing was changed")
+    return 2 if report["errors_count"] else 0
+
+
+def xmp_cmd(export_dir: str | None, rewrite: bool) -> int:
+    """--rewrite: items/<id>/original.xmp for every image. --export DIR:
+    `<name>.xmp` beside each file in DIR that is in the library (matched by
+    content), for round trips through other photo tools."""
+    from .services import ingest
+    from .services import xmp as xmp_svc
+
+    written = 0
+    with SessionLocal() as session:
+        if rewrite:
+            for item in session.execute(sa.select(Item).order_by(Item.id)).scalars():
+                if xmp_svc.write_item_sidecar(item):
+                    written += 1
+            print(f"wrote original.xmp for {written} images")
+        if export_dir:
+            root = Path(export_dir)
+            if not root.is_dir():
+                print(f"no folder at {root}", file=sys.stderr)
+                return 1
+            unknown = 0
+            for f in sorted(p for p in root.rglob("*") if p.is_file()):
+                if f.suffix.lower() in (".xmp", ".json", ".jsonl", ".csv", ".txt", ".html"):
+                    continue
+                item = session.execute(
+                    sa.select(Item).where(Item.sha256 == ingest.sha256_file(f))
+                ).scalar_one_or_none()
+                if item is None:
+                    unknown += 1
+                    continue
+                target = f.with_suffix(".xmp")
+                existing = target.read_bytes() if target.is_file() else None
+                target.write_bytes(xmp_svc.build(xmp_svc.item_fields(item), existing))
+                written += 1
+            print(f"wrote {written} .xmp sidecars in {root}"
+                  + (f"; {unknown} files aren't in the library" if unknown else ""))
+    return 0
+
+
+def link_check(limit: int) -> int:
+    from .services import linkrot
+
+    with SessionLocal() as session:
+        counts = linkrot.run_batch(session, limit=limit)
+    print(", ".join(f"{k}: {v}" for k, v in counts.items()))
+    return 0
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="kist", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -902,6 +1010,22 @@ def main() -> None:
     sub.add_parser("ai-sidecars", help="write missing AI sidecar files from the database")
     sub.add_parser("helper", help="run AI jobs here for a Kist server (see kist helper -h)",
                    add_help=False)
+    p_import = sub.add_parser("import", help="import from another tool (M4)")
+    p_import.add_argument("kind", choices=["pinterest", "arena", "raindrop", "takeout",
+                                           "apple-photos", "sidecar", "eagle"])
+    p_import.add_argument("source", help="a folder or zip (or an Are.na channel URL)")
+    p_import.add_argument("--dry-run", action="store_true",
+                          help="report counts, duplicates and errors; change nothing")
+    p_import.add_argument("--folder", default=None,
+                          help="name of the run's folder under Imported/ "
+                               "(default '<kind> <date>')")
+    p_xmp = sub.add_parser("xmp", help="write XMP sidecars (M4)")
+    p_xmp.add_argument("--export", metavar="DIR", default=None,
+                       help="write <name>.xmp beside every library file found in DIR")
+    p_xmp.add_argument("--rewrite", action="store_true",
+                       help="(re)write items/<id>/original.xmp for every image")
+    p_links = sub.add_parser("link-check", help="check source pages for link rot now (M4)")
+    p_links.add_argument("--limit", type=int, default=50)
 
     if len(sys.argv) > 1 and sys.argv[1] == "helper":
         from . import helper
@@ -928,6 +1052,14 @@ def main() -> None:
         sys.exit(ai_backfill(args.kind, args.limit))
     if args.cmd == "ai-sidecars":
         sys.exit(ai_sidecars())
+    if args.cmd == "import":
+        sys.exit(import_cmd(args.kind, args.source, args.dry_run, args.folder))
+    if args.cmd == "xmp":
+        if not args.export and not args.rewrite:
+            parser.error("xmp needs --export DIR and/or --rewrite")
+        sys.exit(xmp_cmd(args.export, args.rewrite))
+    if args.cmd == "link-check":
+        sys.exit(link_check(args.limit))
 
 
 if __name__ == "__main__":

@@ -63,6 +63,12 @@ class ItemOut(BaseModel):
     # the item's stack (services/stacks.py) and how many members you can see
     stack_id: str | None = None
     stack_count: int | None = None
+    # M4: where it came from (services/provenance.py; page_url = source_url)
+    provenance: dict[str, Any] = {}
+    # M4 link-rot watch: ok | gone | moved | error, or null (never checked)
+    source_status: str | None = None
+    source_checked_at: datetime | None = None
+    source_wayback_url: str | None = None
 
     @classmethod
     def from_item(cls, item: Item, match: dict | None = None) -> "ItemOut":
@@ -112,6 +118,7 @@ class ItemOut(BaseModel):
             match=MatchOut(**match) if match else None,
             stack_id=item.stack_id,
             stack_count=count_for(item),
+            **_m4_fields(item),
         )
 
     @classmethod
@@ -126,6 +133,17 @@ class ItemOut(BaseModel):
         out["file_url"] = f"/api/items/{item.id}/file"
         out["web_url"] = web_url(item)
         return out
+
+
+def _m4_fields(item: Item) -> dict[str, Any]:
+    from .services.provenance import out as provenance_out
+
+    return {
+        "provenance": provenance_out(item),
+        "source_status": getattr(item, "source_status", None),
+        "source_checked_at": getattr(item, "source_checked_at", None),
+        "source_wayback_url": getattr(item, "source_wayback_url", None),
+    }
 
 
 def web_url(item: Item) -> str:
@@ -173,6 +191,9 @@ class ItemPatch(BaseModel):
     # Milestone 3: null clears
     flag: Literal["pick", "reject"] | None = None
     label: Literal["red", "orange", "yellow", "green", "blue", "purple"] | None = None
+    # M4: merged into the item's provenance; a field set to null is removed.
+    # provenance.page_url is source_url
+    provenance: dict[str, Any] | None = None
     # the modified_at the client last saw; a mismatch answers 409
     base_modified_at: datetime | None = None
 
@@ -206,6 +227,12 @@ class UrlAdd(BaseModel):
     created_at: datetime | None = None
     modified_at: datetime | None = None
     deleted_at: datetime | None = None
+    # M4: provenance fields the client knows (method paste/extension/...)
+    provenance: dict[str, Any] | None = None
+    # an iOS Shortcut's share sheet sends the page title and selected text:
+    # title becomes provenance.page_title, text is added to the notes
+    title: str | None = Field(default=None, max_length=2000)
+    text: str | None = Field(default=None, max_length=validation.NOTES_MAX)
 
     _source_url = field_validator("source_url")(_check_source_url)
 
@@ -333,6 +360,7 @@ class StatsOut(BaseModel):
     failed_jobs: int = 0
     preview_failed: int = 0
     fixity_failed: int = 0  # originals whose last fixity check failed
+    source_gone: int = 0  # M4: live items whose source page is gone (link-rot watch)
 
 
 class JobOut(BaseModel):

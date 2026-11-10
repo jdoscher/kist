@@ -85,7 +85,8 @@ def _tsq(q: str):
 
 
 def text_match(tsq: str, sources: tuple[str, ...] | None = None):
-    """EXISTS: the item has text (OCR, PDF, caption) matching the query."""
+    """EXISTS: the item has text (OCR, PDF, caption, page snapshot) matching
+    the query; `sources` narrows it (text= passes READ_SOURCES)."""
     conds = [ItemText.item_id == Item.id, _tsv(ItemText.text).op("@@")(_tsq(tsq))]
     if sources:
         conds.append(ItemText.source.in_(sources))
@@ -393,7 +394,7 @@ def keyword_matches(session: Session, items: list[Item], q: str) -> dict[str, di
 def snippets(session: Session, item_ids: list[str], tsq: str,
              sources: tuple[str, ...] | None) -> dict[str, str]:
     """The text around each item's hit, the words marked << >> (OCR and PDF
-    text before a caption)."""
+    text first, then a page snapshot's text, then a caption)."""
     if not item_ids:
         return {}
     conds = [ItemText.item_id.in_(item_ids), _tsv(ItemText.text).op("@@")(_tsq(tsq))]
@@ -407,7 +408,8 @@ def snippets(session: Session, item_ids: list[str], tsq: str,
     )
     rows = session.execute(
         sa.select(ItemText.item_id, ItemText.source, headline).where(*conds)
-        .order_by(ItemText.item_id, sa.case((ItemText.source == "caption", 1), else_=0))
+        .order_by(ItemText.item_id, sa.case((ItemText.source == "caption", 2),
+                                            (ItemText.source == "page", 1), else_=0))
     ).all()
     out: dict[str, str] = {}
     for item_id, _source, snip in rows:

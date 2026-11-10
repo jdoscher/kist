@@ -90,6 +90,8 @@ class JobKind(StrEnum):
     OCR = "ocr"  # text in screenshots and PDFs
     CAPTION = "caption"  # a sentence describing an image (services/captions.py)
     FACES = "faces"  # faces and their embeddings (opt-in: KIST_FACES)
+    EXPORT = "export"  # M4: a BagIt zip (services/exports.py)
+    IMPORT = "import"  # M4: an importer run (kist/importers)
 
 
 # the heavy kinds: they wait while any light job (ingest, previews) is

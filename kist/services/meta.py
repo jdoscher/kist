@@ -83,7 +83,23 @@ def to_meta(item: Item) -> dict:
         "preview_status": item.preview_status,
         "preview_error": item.preview_error,
         "preview_rev": item.preview_rev or 0,
+        **_m4_meta(item),
     }
+
+
+def _m4_meta(item: Item) -> dict:
+    """M4 keys: provenance (page_url mirrors source_url) and the last
+    link-rot check of the source."""
+    from .provenance import out as provenance_out
+
+    check = None
+    if item.source_status or item.source_checked_at:
+        check = {
+            "status": item.source_status,
+            "checked_at": _iso(item.source_checked_at),
+            "wayback_url": item.source_wayback_url,
+        }
+    return {"provenance": provenance_out(item), "source_check": check}
 
 
 def _links(item: Item) -> list[dict]:
@@ -146,6 +162,9 @@ def write_meta(item: Item) -> None:
         item_dir(item.id) / "meta.json",
         json.dumps(to_meta(item), indent=2, ensure_ascii=False),
     )
+    from .xmp import write_item_sidecar
+
+    write_item_sidecar(item)  # KIST_XMP_SIDECARS: the copy other photo tools read
 
 
 def write_folders_snapshot(

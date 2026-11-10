@@ -423,6 +423,75 @@ compare, triage, quick look and the Cmd+K palette (the web screens follow).
 - `kist rebuild-index` puts stacked items back in their stacks without
   touching their `modified_at` (verify used to report them afterwards).
 
+### Milestone 4: in, out and sharing
+
+#### Upgrade notes
+- Migration 0501 runs on start: the `shares` table, `items.provenance`
+  (seeded from `source_url`, which stays and equals `provenance.page_url`),
+  the link-rot columns, and `item_text` accepting source `page`.
+- Run `kist rewrite-meta` once: it adds `provenance` and `source_check` to
+  every meta.json, writes `library/.kist/shares.json` and an `original.xmp`
+  for every image (`kist xmp --rewrite` does only the latter). Until then
+  `kist verify` stays quiet about the missing keys.
+- The worker now checks each item's source page about once a week (a
+  request every 2 s, never the same host twice in 10 s). Set
+  `KIST_LINK_CHECK_DAYS=0` to keep Kist from contacting those sites.
+- Back up `library/.kist/shares.json`, `export-presets.json` and the new
+  `items/*/page/` folders with the rest of the library; `library/exports/`
+  can be left out (it empties itself).
+- New settings: `KIST_EXPORT_RETENTION_DAYS` (7), `KIST_SNAPSHOTS` (off),
+  `KIST_LINK_CHECK_DAYS` (7), `KIST_LINK_CHECK_DELAY_SECONDS` (2),
+  `KIST_WAYBACK` (off), `KIST_XMP_SIDECARS` (on),
+  `KIST_SHARE_PASSWORD_ATTEMPTS` (10). All are in `.env.example` and passed
+  through by `docker-compose.yml`.
+
+#### Added
+- **Share links.** Read-only pages at `/s/<slug>` for a folder, smart
+  folder, board or hand-picked items, with an optional password, expiry
+  (30 days by default), and download / original switches. The first pages
+  Kist serves without a token: plain HTML with no script, a sandboxing CSP,
+  noindex, a per-link signed cookie, rate-limited passwords, 410 once
+  expired or revoked, and views counted without recording who
+  (`/api/shares`, write and admin tokens).
+- **Portable export.** `POST /api/exports` builds a BagIt 1.0 zip with the
+  originals under readable folder paths and names, `.json` and `.xmp`
+  sidecars, optional history, `items.csv` and an `index.html` that browses
+  offline. Old exports are removed after `KIST_EXPORT_RETENTION_DAYS`.
+- **Export presets.** Resized/converted copies (jpg, webp, png, avif) with
+  GPS always stripped, an optional text watermark, or a PDF contact sheet,
+  from `POST /api/items/export-images`; presets saved in
+  `library/.kist/export-presets.json`.
+- **Provenance and the AI-generated flag.** Every item records where it came
+  from (page and image URL, title, when, how, creator, credit, licence,
+  rights URL) and whether it is AI-generated, read from IPTC
+  `DigitalSourceType` in XMP or a C2PA manifest. Editable (and undoable),
+  and filterable with `ai_generated=` and `license=`.
+- **XMP sidecars.** `items/<id>/original.xmp` for every image, merged with
+  what other tools wrote; ratings, keywords, notes, labels and rights come
+  in from embedded XMP and from a `.xmp` dropped beside a file in the inbox.
+  `kist xmp --export DIR` writes `<name>.xmp` beside exported files.
+- **Page snapshots.** `POST /api/items/{id}/snapshot` keeps the page an item
+  came from (sent by the browser, or fetched once by the server with
+  `KIST_SNAPSHOTS=1`), scripts stripped, served sandboxed; its text is
+  stored as item text for search and `get_page_snapshot` over MCP.
+- **Link-rot watch.** Weekly, polite checks of every source page record
+  `ok`, `moved`, `gone` or `error`; gone sources are counted in
+  `/api/stats` (`source_gone`) and listed with `source_status=gone`.
+  `KIST_WAYBACK=1` keeps the Wayback Machine's copy as well.
+- **Importers.** `kist import pinterest|arena|raindrop|takeout|apple-photos|
+  sidecar|eagle <path|url> [--dry-run] [--folder NAME]` and
+  `POST /api/imports`: each run files into `Imported/<kind> <date>`, keeps
+  provenance, is one undoable history batch, and a dry run reports counts,
+  duplicates and errors. The Eagle importer is the former standalone
+  `aerie_import.py`, now built in (folders, tags, ratings, notes, trash and
+  simple smart folders).
+- **iPhone share sheet.** `POST /api/items` takes `{url, title, text}` from
+  a Shortcut and answers `Saved to Kist: <name>` when asked for
+  `text/plain`; `docs/ios-shortcut.md` and `GET /api/shortcut` walk through
+  building the Shortcut with an add-only token.
+- MCP: `set_provenance`, `export_collection`, `export_status`,
+  `get_page_snapshot`.
+- CLI: `kist import`, `kist xmp`, `kist link-check`.
 
 ## [1.5.0] - 2026-11-09
 

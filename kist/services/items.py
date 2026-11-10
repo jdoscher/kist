@@ -133,6 +133,14 @@ def update_item(
         item.source_url = validation.source_url(fields["source_url"])
     if fields.get("created_at") is not None:
         item.created_at = validation.timestamp(fields["created_at"], "created_at")
+    if "provenance_replace" in fields:  # undo: the whole block as it was
+        from . import provenance as provenance_svc
+
+        provenance_svc.replace(item, fields["provenance_replace"])
+    elif fields.get("provenance") is not None:  # PATCH: merge, null removes
+        from . import provenance as provenance_svc
+
+        provenance_svc.merge(item, fields["provenance"])
     if fields.get("folder_ids") is not None:
         item.folders = resolve_folders(session, list(fields["folder_ids"]))
     elif "folder_id" in fields:

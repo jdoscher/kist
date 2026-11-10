@@ -11,14 +11,22 @@ from .config import get_settings
 
 log = logging.getLogger("kist.auth")
 
-PUBLIC_PATHS = {"/api/health"}
+PUBLIC_PATHS = {"/api/health", "/robots.txt"}
+# M4 share links: the only pages served with no token (kist/share_pages.py).
+# They never read the token or set one; everything else under /api and /mcp
+# still needs it (tests/test_shares_security.py checks both directions)
+PUBLIC_PREFIXES = ("/s/",)
 # FastAPI's interactive docs describe the whole API: token only. In a
 # browser the kist_token cookie the web UI sets is enough (they are GETs).
 DOCS_PATHS = {"/docs", "/docs/oauth2-redirect", "/redoc", "/openapi.json"}
 
 
+def is_public_share_path(path: str) -> bool:
+    return path.startswith(PUBLIC_PREFIXES) and not path.startswith(("/api", "/mcp"))
+
+
 def needs_token(path: str) -> bool:
-    if path in PUBLIC_PATHS:
+    if path in PUBLIC_PATHS or is_public_share_path(path):
         return False
     return path.startswith(("/api", "/mcp")) or path in DOCS_PATHS
 

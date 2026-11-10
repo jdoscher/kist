@@ -6,7 +6,8 @@ It also re-queues inbox files stranded in staging, runs `kist verify` once
 a day (result in library/.kist/verify.json), empties trash older than
 KIST_TRASH_RETENTION_DAYS, re-hashes a share of the originals every day
 (fixity), runs `kist backup` every KIST_BACKUP_INTERVAL_HOURS, fills in
-missing ThumbHash placeholders, and keeps a heartbeat file in library/.kist/
+missing ThumbHash placeholders, re-checks source pages for link rot (M4),
+deletes old exports, and keeps a heartbeat file in library/.kist/
 that the container healthcheck and GET /api/health/deep read.
 """
 
@@ -104,6 +105,14 @@ def process_job(session, job: Job) -> None:
         from .services import ai
 
         ai.on_new_item(session, item)  # now it has a thumbnail to embed
+    elif job.kind == JobKind.EXPORT:
+        from .services import exports
+
+        exports.run_job(session, job)
+    elif job.kind == JobKind.IMPORT:
+        from .importers import base as importers
+
+        importers.run_job(session, job)
     else:
         raise ValueError(f"unknown job kind: {job.kind}")
 
@@ -341,6 +350,41 @@ def start_backup_if_due() -> bool:
     return True
 
 
+_linkcheck_thread: threading.Thread | None = None
+
+
+def start_link_check() -> bool:
+    """One polite batch of link-rot checks in a background thread (it
+    sleeps between requests; the queue must not wait for it)."""
+    global _linkcheck_thread
+    from .services import linkrot
+
+    if _linkcheck_thread is not None and _linkcheck_thread.is_alive():
+        return False
+    if get_settings().link_check_days <= 0:
+        return False
+    with SessionLocal() as s:
+        if not linkrot.due_ids(s, 1):
+            return False
+
+    def run() -> None:
+        try:
+            with SessionLocal() as s:
+                linkrot.run_batch(s)
+        except Exception:
+            log.exception("link check failed")
+
+    _linkcheck_thread = threading.Thread(target=run, name="link-check", daemon=True)
+    _linkcheck_thread.start()
+    return True
+
+
+def purge_old_exports() -> int:
+    from .services import exports
+
+    return exports.purge_expired()
+
+
 def backfill_thumbhashes() -> int:
     from .services import previews
 
@@ -411,6 +455,7 @@ def main() -> None:
     last_inbox_scan = last_reap = last_recover = last_verify_check = 0.0
     last_backfill = last_retention = last_backup_check = 0.0
     last_fixity = last_organise = 0.0
+    last_link_check = last_export_purge = 0.0
     last_error = ""
     while True:
         heartbeat.progressed()
@@ -440,6 +485,14 @@ def main() -> None:
             if time.monotonic() - last_backup_check > 600:
                 last_backup_check = time.monotonic()
                 start_backup_if_due()
+            # M4: finished exports past KIST_EXPORT_RETENTION_DAYS go
+            if time.monotonic() - last_export_purge > 3600:
+                last_export_purge = time.monotonic()
+                purge_old_exports()
+            # M4 link-rot watch: a batch at a time while the queue is idle
+            if not worked and time.monotonic() - last_link_check > 300:
+                last_link_check = time.monotonic()
+                start_link_check()
             # fixity: today's share of re-hashes, a chunk at a time while idle
             if not worked and time.monotonic() - last_fixity > 60:
                 last_fixity = time.monotonic()

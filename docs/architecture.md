@@ -52,6 +52,10 @@ kist/
 │                    organise (vocabulary, cleanup, duplicates, stacks,
 │                    collections, people), boards, creative (annotations,
 │                    versions, templates, rename, triage, palette)
+│                    shares (share-link CRUD), m4 (exports, presets, imports,
+│                    snapshots, the iOS Shortcut helper)
+├── share_pages.py   the public /s/<slug> pages and /robots.txt: server-rendered,
+│                    no script, sandboxing CSP; the only routes with no token
 ├── services/        all business logic, shared by REST, MCP, CLI, and worker
 │   ├── validation.py input rules every path shares (422 / MCP ToolError)
 │   ├── ingest.py    hash → dedupe → sniff → store → previews → meta.json;
@@ -111,6 +115,20 @@ kist/
 │   │                version becomes the cover of the old one's stack)
 │   ├── triage.py    the triage cursor over a view
 │   └── palette.py   Cmd+K search across folders, tags, boards, people, items
+│   ├── shares.py    share links: scrypt passwords, signed per-link cookie,
+│   │                rate limit, shares.json
+│   ├── selection.py which items a folder / smart folder / board / list covers
+│   │                (shares and exports)
+│   ├── exports.py   portable BagIt zip + offline index.html (a worker job)
+│   ├── export_images.py  export presets: resize/convert/strip GPS/watermark,
+│   │                contact-sheet PDF; export-presets.json
+│   ├── provenance.py the provenance block, C2PA detection, filters
+│   ├── xmp.py       XMP reader/writer on xml.etree; original.xmp sidecars
+│   ├── snapshots.py page snapshots (page/), cleaned HTML, readable text
+│   └── linkrot.py   the weekly source check (netguard) and opt-in Wayback
+├── importers/       `kist import` / POST /api/imports: base (runner, folders,
+│                    safe unzip), eagle, links (pinterest, arena, raindrop),
+│                    sidecar (sidecar, takeout, apple-photos)
 ├── mcp_server.py    MCP tools (thin wrappers over services/; no queries)
 ├── worker.py        job loop, inbox scanner, staging sweep, daily verify,
 │                    trash retention, fixity, scheduled backups (thread),
@@ -237,6 +255,15 @@ by `rebuild-index`:
 | annotations | `items/{id}/annotations.json`, rewritten from the rows after each change under the item's annotation lock |
 | boards | `library/boards/{id}/board.json` (the whole document, incl. `version` and `deleted_at`) + `thumb.webp`; history in `boards/{id}/events.jsonl`, a purged board's in `library/.kist/board-events-purged.jsonl` |
 | metadata templates | `library/.kist/templates.json` only (no table: nothing to rebuild; verify checks it parses and its folders exist) |
+| provenance, last source check (M4) | each item's `meta.json` (`provenance`, `source_check`) |
+| share links (M4; passwords scrypt-hashed) | `library/.kist/shares.json` (view counters are written at most every 5 minutes; verify ignores them) |
+| page snapshot text (M4) | `items/{id}/page/text.txt` (item_text rows with source `page`) |
+| export presets (M4) | `library/.kist/export-presets.json` (the file is the store; no table) |
+| exports (M4) | `library/exports/{id}.json` + `.zip` (the file is the store) |
+
+`items/{id}/original.xmp` is derived from `meta.json` and rewritten with
+it (`kist xmp --rewrite` refreshes them); it is never read back as the
+source of truth.
 
 `kist verify` also checks that `tokens.json` matches the database and that
 every item's `events.jsonl` has all of its events; `kist rewrite-meta`
@@ -266,6 +293,35 @@ Edits that can race in Postgres are guarded there: `PATCH` with
 `base_modified_at` locks the row and answers 409 if the item changed since the
 client loaded it; folder moves take a tree-wide lock and re-check for loops;
 new tags are an upsert.
+
+## Share links (the public surface)
+
+`/s/<slug>` and `/robots.txt` are the only routes served without a token
+(`auth.PUBLIC_PREFIXES`; `tests/test_shares_security.py` checks that every
+other path still answers 401, in both directions). The rules:
+
+- The slug is 128 random bits. Each request re-checks that the share is
+  active (410 when expired or revoked) and that the item is covered by it
+  right now (`selection.filters`): an item id from anywhere else, a trashed
+  one, or one filed out of the shared folder is a 404 indistinguishable
+  from a missing one. Item ids must look like ULIDs and variants are a
+  fixed list, so nothing in the path reaches the file system.
+- Pages are rendered with `html.escape` everywhere and carry `CSP:
+  default-src 'none'; img-src 'self'; style-src 'unsafe-inline';
+  sandbox allow-forms allow-same-origin allow-downloads` (no script at all),
+  `X-Robots-Tag: noindex`, `Referrer-Policy: no-referrer`, `no-store`. They
+  never show where an item came from.
+- Originals only with `allow_original` (which needs `allow_download`), and
+  then with `CSP: sandbox`.
+- Passwords are scrypt hashes; the right one sets `kist_share`, an
+  HttpOnly cookie for `/s/<slug>` signed with a key derived from
+  `KIST_TOKEN` over the slug, the expiry and the password hash (changing
+  the password signs visitors out). Wrong passwords are counted per link in
+  memory (`KIST_SHARE_PASSWORD_ATTEMPTS` per 15 minutes, then 429).
+- The share pages never read `kist_token` or a bearer header and never set
+  either. View counts are kept; who viewed isn't (uvicorn's access log
+  drops the client address for `/s/` lines).
+- No public route fetches anything from the network.
 
 ## Tokens and scopes
 

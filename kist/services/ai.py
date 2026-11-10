@@ -76,7 +76,8 @@ EMBED_SOURCES = ("thumb_512.webp", "thumb_1024.webp", "thumb_256.webp")
 EXIF_MAKE, EXIF_MODEL = 0x010F, 0x0110
 MODEL_NAME = re.compile(r"^[A-Za-z0-9._-]{1,100}$")
 # item_text sources that are text read from the item itself (a caption is
-# the third source, written about it: services/captions.py)
+# the third source, written about it: services/captions.py; "page", M4 page
+# snapshot text, is a fourth and is never touched by the AI jobs)
 READ_SOURCES = ("ocr", "pdf")
 MAX_TEXT = 1_000_000
 

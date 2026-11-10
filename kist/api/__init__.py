@@ -8,9 +8,11 @@ from . import (
     history,
     items,
     jobs,
+    m4,
     misc,
     organise,
     search,
+    shares,  # M4
     smart_folders,
     tags,
     tokens,
@@ -30,3 +32,5 @@ api_router.include_router(search.router)
 api_router.include_router(organise.router)
 api_router.include_router(boards.router)
 api_router.include_router(creative.router)
+api_router.include_router(shares.router)
+api_router.include_router(m4.router)

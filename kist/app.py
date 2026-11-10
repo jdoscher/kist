@@ -5,7 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import __version__
+from . import __version__, share_pages
 from .access import FORBIDDEN_MESSAGE, Forbidden
 from .api import api_router
 from .auth import BearerTokenMiddleware
@@ -21,10 +21,12 @@ from .services import annotations as annotations_svc
 from .services import boards as boards_svc
 from .services import collections as collections_svc
 from .services import events as events_svc
+from .services import exports as exports_svc
 from .services import faces as faces_svc
 from .services import folders as folders_svc
 from .services import items as items_svc
 from .services import jobs as jobs_svc
+from .services import shares as shares_svc
 from .services import smart_folders as smart_svc
 from .services import stacks as stacks_svc
 from .services import templates as templates_svc
@@ -77,6 +79,7 @@ class McpPathRewrite:
 # /docs, /redoc and /openapi.json exist but need the token (auth.DOCS_PATHS)
 app = FastAPI(title="Kist", version=__version__, lifespan=lifespan)
 app.include_router(api_router, prefix="/api")
+app.include_router(share_pages.router)  # /s/<slug> and /robots.txt: public, no token
 app.mount("/mcp", mcp_http_app)
 app.add_middleware(BearerTokenMiddleware)
 app.add_middleware(McpPathRewrite)
@@ -104,6 +107,8 @@ def _error(status: int, detail) -> JSONResponse:
 @app.exception_handler(boards_svc.NotFound)
 @app.exception_handler(annotations_svc.NotFound)
 @app.exception_handler(templates_svc.NotFound)
+@app.exception_handler(shares_svc.NotFound)
+@app.exception_handler(exports_svc.NotFound)
 async def not_found(request: Request, exc: Exception):
     return _error(404, str(exc))
 
@@ -173,7 +178,7 @@ if WEB_DIST.is_dir():
     @app.get("/{path:path}", include_in_schema=False)
     async def spa(path: str):
         # an unknown API path is an error, not the web app
-        if path.split("/", 1)[0] in ("api", "mcp"):
+        if path.split("/", 1)[0] in ("api", "mcp", "s"):
             return JSONResponse({"detail": "Not Found"}, status_code=404)
         candidate = (WEB_DIST / path).resolve()
         if path and candidate.is_file() and candidate.is_relative_to(WEB_DIST):

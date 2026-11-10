@@ -30,6 +30,7 @@ def stats(session: Session) -> StatsOut:
             count(Item.deleted_at.isnot(None)).label("trashed"),
             count(live, Item.preview_status == PreviewStatus.FAILED).label("preview_failed"),
             count(Item.fixity_failed_at.isnot(None)).label("fixity_failed"),
+            count(live, Item.source_status == "gone").label("source_gone"),
             *(count(live, cond).label(f"kind_{kind}") for kind, cond in KIND_FILTERS.items()),
             scalar(sa.select(sa.func.count()).select_from(Tag)).label("tags"),
             scalar(sa.select(sa.func.count()).select_from(Folder)).label("folders"),
@@ -48,6 +49,7 @@ def stats(session: Session) -> StatsOut:
         failed_jobs=row.failed_jobs,
         preview_failed=row.preview_failed,
         fixity_failed=row.fixity_failed,
+        source_gone=row.source_gone,
     )
 
 

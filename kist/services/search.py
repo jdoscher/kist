@@ -132,8 +132,18 @@ def build_filters(
     person: str | None = None,
     flag: str | None = None,
     label: str | None = None,
+    # M4: provenance / link-rot (services/provenance.filters)
+    ai_generated: str | bool | None = None,
+    license: str | None = None,
+    source_status: str | None = None,
+    # extra SQL conditions (internal callers)
+    extra: list[Any] | None = None,
 ) -> list[Any]:
-    filters: list[Any] = []
+    from . import provenance
+
+    filters: list[Any] = list(extra or [])
+    filters += provenance.filters(ai_generated=ai_generated, license=license,
+                                  source_status=source_status)
     filters += _creative_filters(flag, label)
     if fixity is not None:
         if fixity != "failed":
@@ -287,6 +297,12 @@ def search(
     color_tol: float | None = None,
     text: str | None = None,
     has_text: bool | None = None,
+    # M4: provenance / link-rot (services/provenance.filters)
+    ai_generated: str | bool | None = None,
+    license: str | None = None,
+    source_status: str | None = None,
+    # extra SQL conditions (internal callers)
+    extra: list[Any] | None = None,
 ) -> SearchResult:
     """One page of items. total is counted on the first page only (no
     cursor); later pages return None.
@@ -334,6 +350,8 @@ def search(
         created_after=created_after, created_before=created_before, fixity=fixity,
         stacks=None if collapse_ranked else stacks, person=person,
         flag=flag, label=label,
+        ai_generated=ai_generated, license=license, source_status=source_status,
+        extra=extra,
     )
     if collapse_ranked:
         # the trash lists every trashed item on its own (as build_filters does)
