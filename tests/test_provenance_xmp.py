@@ -112,6 +112,23 @@ def test_url_add_records_page_and_image(client, fake_web):
     assert prov["page_title"] == "A post"
 
 
+def test_url_add_of_a_page_named_as_the_image(client, fake_web):
+    """The /add card sends image_url = url; when that url is a page, the
+    image Kist downloaded (its og:image) is the image_url, and the page is
+    the page_url, not the other way round."""
+    fake_web["https://blog.test/post"] = (
+        b'<html><head><title>A post</title><meta property="og:image" content="/hero.png">'
+        b"</head></html>", "text/html")
+    fake_web["https://blog.test/hero.png"] = (png_bytes((9, 9, 8)), "image/png")
+    item = client.post("/api/items", json={
+        "url": "https://blog.test/post", "image_url": "https://blog.test/post",
+        "method": "bookmarklet"}).json()["item"]
+    prov = item["provenance"]
+    assert prov["image_url"] == "https://blog.test/hero.png"
+    assert prov["page_url"] == "https://blog.test/post" == item["source_url"]
+    assert prov["method"] == "bookmarklet"
+
+
 def test_provenance_edits_are_events_and_undoable(client, upload):
     item = upload("a.png", source_url="https://old.test/")["item"]
     res = client.patch(f"/api/items/{item['id']}", json={"provenance": {

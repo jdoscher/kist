@@ -325,6 +325,13 @@ def ingest_url(
     prov = {"method": "url", "image_url": image_url}
     if page_title:
         prov["page_title"] = page_title[: provenance_svc.TEXT_MAX]
+    if image_url != url:
+        # the url was a page: a caller that named it as the image (the /add
+        # card sends image_url = url) gets the image actually downloaded,
+        # and the page becomes the page_url
+        if provenance.get("image_url") == url:
+            provenance = {k: v for k, v in provenance.items() if k != "image_url"}
+        provenance.setdefault("page_url", url)
     prov.update(provenance)
     return ingest_file(
         session, staging, filename,
