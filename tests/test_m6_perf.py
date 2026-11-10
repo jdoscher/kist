@@ -10,6 +10,7 @@ page and the total, so a faster plan can't quietly change a result.
 """
 
 import contextlib
+import math
 
 import pytest
 import sqlalchemy as sa
@@ -790,7 +791,12 @@ def test_colour_prefilter_keeps_every_match(seeded):
                 cq = ColourQuery.parse(hex_, tol)
                 new = dict(s.execute(sa.select(colour_hits(cq))).all())
                 old = dict(s.execute(sa.select(legacy_colour_hits(cq))).all())
-                assert new == old, (hex_, tol)
+                assert new.keys() == old.keys(), (hex_, tol)
+                # the score is a float sum over the item's palette rows; its
+                # last bit depends on the order Postgres feeds the rows
+                # (a sort-based aggregate reorders them), in the old query
+                # as much as the new, so compare to 1e-12
+                assert all(math.isclose(new[k], old[k], rel_tol=1e-12) for k in new)
                 assert new or tol == 0, (hex_, tol)
         s.rollback()
 
