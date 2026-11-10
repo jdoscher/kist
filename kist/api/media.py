@@ -302,7 +302,9 @@ def get_timeline(session: Annotated[Session, Depends(get_session)],
                  group: Literal["day", "month", "year"] = "month"):
     """[{key, count, first_item_id}], newest first, by date taken (else the
     date added). The same filters as GET /api/items."""
-    return timeline.buckets(session, group, filters)
+    # plain str/int values: a JSONResponse renders the same bytes without
+    # jsonable_encoder walking ~5,000 day buckets (~100 ms on dev0's N100)
+    return JSONResponse(timeline.buckets(session, group, filters))
 
 
 @router.get("/on-this-day")
