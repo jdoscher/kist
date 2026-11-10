@@ -4,7 +4,8 @@
 // note, text or shape, +/−/0/1 zoom, Space held pans.
 
 import { useEffect, useRef } from 'react'
-import { duplicate, group, moveNodes, removeNodes, ungroup } from '../../../board'
+import { boardTakesKey, duplicate, group, moveNodes, removeNodes, ungroup, type BoardKeyPlace } from '../../../board'
+import { isTyping } from '../../../shortcuts'
 import { useShortcut } from '../../../useShortcuts'
 import type { Editor } from './BoardEditor'
 
@@ -42,11 +43,12 @@ export function useBoardKeys(ed: Editor | null, active: boolean) {
     (e) => {
       if (!ed) return false
       const t = e.target as HTMLElement | null
-      // keys belong to the board when focus is on it (or nowhere)
-      if (t && t !== document.body && !t.closest?.('.board-viewport, .board-list, .board-inspector')) return false
       const c = ed.content
       const mod = e.metaKey || e.ctrlKey
       const k = e.key.length === 1 ? e.key.toLowerCase() : e.key
+      // keys belong to the board when focus is on it (or nowhere); its ⌘
+      // shortcuts also when focus is on its toolbar
+      if (!boardTakesKey(keyPlace(t), mod, k)) return false
       const sel = ed.sel
       const done = () => {
         e.preventDefault()
@@ -127,4 +129,11 @@ export function useBoardKeys(ed: Editor | null, active: boolean) {
     },
     !!ed,
   )
+}
+
+function keyPlace(t: HTMLElement | null): BoardKeyPlace {
+  if (!t || t === document.body) return 'board'
+  if (isTyping(t)) return 'text'
+  if (t.closest?.('.board-viewport, .board-list, .board-inspector')) return 'board'
+  return t.closest?.('.board-screen') ? 'chrome' : 'outside'
 }

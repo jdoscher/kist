@@ -756,3 +756,20 @@ export function nodeLabel(n: BoardNode, itemName?: (id: string) => string | unde
       return `Group${short && short !== 'Group' ? ` “${short}”` : ''} (${n.children?.length ?? 0} inside)`
   }
 }
+
+/** Where a key press landed, for the board's shortcuts: the canvas or its
+ * list/inspector (or nowhere: the page), the board's other chrome (the
+ * toolbar's buttons), a text field, or somewhere else on screen. */
+export type BoardKeyPlace = 'board' | 'chrome' | 'text' | 'outside'
+
+/** Whether the board takes a key. On the canvas, every board key; on the
+ * toolbar (focus stays on the last button pressed) the ⌘ shortcuts too, so
+ * ⌘A, ⌘Z, ⌘D and ⌘G work without clicking the canvas first, and Escape
+ * clears the selection; never in a text field or outside the board. */
+export function boardTakesKey(place: BoardKeyPlace, mod: boolean, key: string): boolean {
+  if (place === 'board') return true
+  if (place !== 'chrome') return false
+  if (key === 'Escape') return true
+  if (!mod) return false
+  return ['a', 'z', 'y', 'd', 'g'].includes(key.toLowerCase())
+}

@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
+  boardTakesKey,
   align,
   applyPatch,
   borderPoint,
@@ -318,4 +319,14 @@ test('adding again puts the new thing beside, not on top of, the last', () => {
   assert.deepEqual(freeSpot([{ x: 100, y: 100 }], 100, 100), { x: 132, y: 132 })
   assert.deepEqual(freeSpot([{ x: 100, y: 100 }, { x: 132, y: 132 }], 100, 100), { x: 164, y: 164 })
   assert.deepEqual(freeSpot([{ x: 400, y: 100 }], 100, 100), { x: 100, y: 100 })
+})
+
+test('board keys: the canvas takes all, the toolbar only the ⌘ shortcuts', () => {
+  assert.ok(boardTakesKey('board', false, 'Delete') && boardTakesKey('board', true, 'a'))
+  // focus left on a toolbar button: ⌘A still selects everything
+  assert.ok(boardTakesKey('chrome', true, 'a') && boardTakesKey('chrome', true, 'Z'))
+  assert.ok(!boardTakesKey('chrome', false, 'a')) // a plain key stays the button's
+  assert.ok(boardTakesKey('chrome', false, 'Escape'))
+  assert.ok(!boardTakesKey('chrome', true, 'c')) // ⌘C copies as usual
+  assert.ok(!boardTakesKey('text', true, 'a') && !boardTakesKey('outside', true, 'a'))
 })
