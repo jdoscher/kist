@@ -193,7 +193,7 @@ export function BoardCanvas({ ed, viewportRef }: { ed: Editor; viewportRef: RefO
     else if (g.kind === 'connect') {
       const w = world(e)
       const to = hitTest(c.nodes, w.x, w.y)
-      if (to && to.id !== g.from) {
+      if (to && to.id !== g.from && !c.edges.some((x) => x.from === g.from && x.to === to.id)) {
         ed.commit({ ...c, edges: [...c.edges, { id: newNodeId(), from: g.from, to: to.id, label: '', style: { arrow: 'end' } }] })
         ed.announce('Arrow added')
       }
@@ -447,6 +447,7 @@ function NodeView({ n, ed, selected }: { n: BoardNode; ed: Editor; selected: boo
             className="bnode-text-edit"
             style={textStyle}
             autoFocus
+            onFocus={(e) => e.target.select()}
             aria-label={`Text of the ${n.type}`}
             defaultValue={n.text ?? ''}
             onBlur={(e) => {

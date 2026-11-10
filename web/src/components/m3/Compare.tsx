@@ -197,8 +197,15 @@ export default function Compare({
       role="dialog"
       aria-modal="true"
       aria-label={mode === 'survey' ? `Survey ${items.length} items` : `Compare ${items.length} items`}
+      onKeyDown={(e) => {
+        // Escape closes even from a slider or a field
+        if (e.key === 'Escape') {
+          e.stopPropagation()
+          onClose()
+        }
+      }}
     >
-      <header className="cmp-bar">
+      <div className="cmp-bar">
         <div className="seg" role="group" aria-label="Mode">
           <button className={mode === 'compare' ? 'on' : ''} aria-pressed={mode === 'compare'} onClick={() => onMode('compare')}>
             <Columns2 size={14} aria-hidden="true" /> Compare
@@ -262,7 +269,7 @@ export default function Compare({
         <button ref={closeRef} className="icon-btn cmp-close" onClick={onClose} aria-label="Close compare">
           <X size={18} aria-hidden="true" />
         </button>
-      </header>
+      </div>
 
       {fetched.isLoading && <p className="center">Loading…</p>}
 

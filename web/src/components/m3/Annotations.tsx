@@ -155,7 +155,7 @@ export function Annotated({ item, children }: { item: Item; children: ReactNode 
 
   return (
     <div className={`annotated${open ? ' panel-open' : ''}`}>
-      <div ref={wrap} className="ann-media">
+      <div ref={wrap} className={`ann-media${loupe && !tool ? " loupe-on" : ""}`}>
         {isImage ? <Loupe item={item} on={loupe}>{children}</Loupe> : children}
         {isImage && (
           <div
@@ -419,10 +419,10 @@ function AnnotationRow({
   }, [focus])
   return (
     <li ref={ref} className={`ann-row${focus ? ' focus' : ''}${a.resolved ? ' resolved' : ''}`}>
-      <button className="ann-row-main" onClick={onFocus} aria-label={`Note ${n}, ${annotationWhere(a)}: ${a.text || 'no text'}`}>
-        <span className="ann-num" aria-hidden="true">
-          {n}
-        </span>
+      <button className="ann-row-main" onClick={onFocus} aria-describedby={`${a.id}-text`}>
+        <span className="sr-only">Note </span>
+        <span className="ann-num">{n}</span>
+        <span className="sr-only">, </span>
         <span className="ann-where">{annotationWhere(a)}</span>
       </button>
       {editing ? (
@@ -444,7 +444,7 @@ function AnnotationRow({
           </div>
         </form>
       ) : (
-        <p className="ann-text">{a.text || <em>No text</em>}</p>
+        <p className="ann-text" id={`${a.id}-text`}>{a.text || <em>No text</em>}</p>
       )}
       <div className="ann-row-meta">
         <span>

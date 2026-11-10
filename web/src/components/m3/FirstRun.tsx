@@ -182,8 +182,11 @@ export function SetupChecklist() {
       </div>
       {open && (
         <ol id="setup-steps" className="setup-steps">
-          {steps.map((s) => (
-            <li key={s.id} className={s.done ? 'done' : ''}>
+          {steps.map((s) => {
+            // only the next step to do shows its details, so the list stays short
+            const next = s === steps.find((x) => !x.done)
+            return (
+            <li key={s.id} className={`${s.done ? 'done' : ''}${next ? ' next' : ''}`}>
               <span className="setup-tick" aria-hidden="true">
                 {s.done ? <Check size={12} strokeWidth={3} /> : null}
               </span>
@@ -192,14 +195,14 @@ export function SetupChecklist() {
                   {s.title}
                   <span className="sr-only">{s.done ? ' (done)' : ' (to do)'}</span>
                 </span>
-                {!s.done && <span className="setup-detail">{s.detail}</span>}
-                {!s.done && s.id === 'agent' && !mobile && <CopyCode text={mcpCommand(window.location.origin)} label="the MCP command" />}
-                {!s.done && s.id === 'backup' && caps.isAdmin && (
+                {next && <span className="setup-detail">{s.detail}</span>}
+                {next && s.id === 'agent' && !mobile && <CopyCode text={mcpCommand(window.location.origin)} label="the MCP command" />}
+                {next && s.id === 'backup' && caps.isAdmin && (
                   <button className="small" onClick={() => openSettings('archive')}>
                     Open Archive health
                   </button>
                 )}
-                {!s.auto && s.id !== 'items' && (
+                {next && !s.auto && s.id !== 'items' && (
                   <label className="check-inline setup-manual">
                     <input type="checkbox" checked={!!prefs.manual[s.id]} onChange={(e) => mark(s.id, e.target.checked)} />
                     Done
@@ -207,7 +210,8 @@ export function SetupChecklist() {
                 )}
               </span>
             </li>
-          ))}
+            )
+          })}
         </ol>
       )}
     </section>

@@ -122,7 +122,9 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
         { kind: 'action', id: 'apply-template', title: `Apply template to ${sel.length}…`, keywords: 'metadata credit license' },
       )
     }
-    a.push({ kind: 'action', id: 'theme', title: 'Toggle theme', subtitle: `Now: ${theme}`, keywords: 'dark light gallery appearance' })
+    for (const t of ['dark', 'light', 'gallery', 'system'] as const) {
+      if (t !== theme) a.push({ kind: 'action', id: `theme:${t}`, title: t === 'system' ? 'Theme: follow the system' : `Theme: ${t}`, subtitle: `Now: ${theme}`, keywords: 'appearance colour mode' })
+    }
     if (caps.isAdmin) a.push({ kind: 'action', id: 'settings', title: 'Settings', keywords: 'tokens templates archive' })
     return a
   }, [sel.length, caps.canEdit, caps.isAdmin, theme]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -130,7 +132,9 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
   // the server's actions we can run; the rest are dropped
   const KNOWN_ACTIONS = new Set(local.map((l) => l.id).concat(['add-url', 'new-folder']))
   const serverEntries = (server.data ?? []).filter((e) => e.kind !== 'action' || KNOWN_ACTIONS.has(e.id))
-  const groups = mergeResults(q, local, serverEntries, recent)
+  // a recent action that no longer applies (e.g. the theme you're on now) is dropped
+  const liveRecent = recent.filter((r) => r.kind !== 'action' || local.some((l) => l.id === r.id))
+  const groups = mergeResults(q, local, serverEntries, liveRecent)
   const flat = groups.flatMap((g) => g.entries.map((e) => ({ ...e, group: g.kind })))
   const cur = Math.min(active, flat.length - 1)
   useEffect(() => setActive(0), [q, debounced])
@@ -171,8 +175,11 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
         return setRecentOpen(true)
       case 'settings':
         return openSettings()
-      case 'theme':
-        return setTheme(theme === 'dark' ? 'light' : theme === 'light' ? 'gallery' : 'dark')
+      case 'theme:dark':
+      case 'theme:light':
+      case 'theme:gallery':
+      case 'theme:system':
+        return setTheme(id.slice(6) as 'dark' | 'light' | 'gallery' | 'system')
       case 'upload':
       case 'add-url': {
         const input = document.createElement('input')
@@ -225,7 +232,7 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
     } else if (e.key === 'Enter') {
       e.preventDefault()
       const pick = flat[cur]
-      if (pick) void run(pick.kind === 'recent' ? pick : pick)
+      if (pick) void run(pick)
     }
   }
 

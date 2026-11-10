@@ -29,7 +29,9 @@ interface ElementLike {
   closest?: (sel: string) => unknown
 }
 
-const TYPING = 'input, textarea, select, [contenteditable]:not([contenteditable="false"])'
+// a checkbox takes only Space, so the other keys still reach the shortcuts
+// (P/X in triage with focus on Auto-advance)
+const TYPING = 'input:not([type="checkbox"]), textarea, select, [contenteditable]:not([contenteditable="false"])'
 
 /** Whether a key event comes from somewhere the user is typing. */
 export function isTyping(target: EventTarget | null): boolean {

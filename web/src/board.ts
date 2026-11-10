@@ -193,7 +193,8 @@ export function wheel(
   sy: number,
 ): Viewport {
   const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1
-  if (e.ctrlKey || e.metaKey) return zoomAt(vp, sx, sy, Math.exp((-e.deltaY * unit) / 300))
+  // one wheel notch (~100) is about ×1.4; a fast flick is capped at ×2
+  if (e.ctrlKey || e.metaKey) return zoomAt(vp, sx, sy, Math.exp(Math.max(-0.7, Math.min(0.7, (-e.deltaY * unit) / 300))))
   return { ...vp, x: vp.x - e.deltaX * unit, y: vp.y - e.deltaY * unit }
 }
 
@@ -741,6 +742,6 @@ export function nodeLabel(n: BoardNode, itemName?: (id: string) => string | unde
     case 'link':
       return `Link ${n.style?.url || short || ''}`.trim()
     case 'group':
-      return `Group ${short || ''} (${n.children?.length ?? 0} inside)`.replace('  ', ' ')
+      return `Group${short && short !== 'Group' ? ` “${short}”` : ''} (${n.children?.length ?? 0} inside)`
   }
 }

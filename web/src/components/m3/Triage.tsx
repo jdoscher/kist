@@ -181,10 +181,10 @@ export default function Triage({ screen }: { screen: Extract<Screen, { kind: 'tr
 
   return (
     <div className={`triage-screen${mobile ? ' mobile' : ''}`} role="main" aria-labelledby={titleId}>
-      <header className="triage-bar">
-        <button className="btn-icon" onClick={exit} aria-label="Leave triage" title="Back to the library (Esc)">
+      <div className="triage-bar">
+        <button className="btn-icon" onClick={exit} aria-label={mobile ? "Leave triage" : undefined} title="Back to the library (Esc)">
           <X size={16} aria-hidden="true" />
-          {!mobile && 'Done'}
+          {!mobile && 'Done triaging'}
         </button>
         <h1 id={titleId} className="triage-title">
           Triage · {view === 'unfiled' ? 'Unfiled' : 'All items'}
@@ -220,7 +220,7 @@ export default function Triage({ screen }: { screen: Extract<Screen, { kind: 'tr
             </dl>
           </details>
         )}
-      </header>
+      </div>
 
       <span className="sr-only" role="status" aria-live="polite">
         {said}

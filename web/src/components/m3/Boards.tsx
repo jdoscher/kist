@@ -219,7 +219,7 @@ export function BoardsScreen({ trash = false }: { trash?: boolean }) {
 
   return (
     <main className={`boards-screen${mobile ? ' mobile' : ''}`} aria-labelledby="boards-h">
-      <header className="boards-head">
+      <div className="boards-head">
         <button className="btn-icon" onClick={() => setQuery({ ...emptyQuery })}>
           <X size={16} aria-hidden="true" /> {mobile ? '' : 'Library'}
           {mobile && <span className="sr-only">Back to the library</span>}
@@ -234,7 +234,7 @@ export function BoardsScreen({ trash = false }: { trash?: boolean }) {
             <Plus size={15} aria-hidden="true" /> New board
           </button>
         )}
-      </header>
+      </div>
       {boards.isLoading && <p className="center">Loading…</p>}
       {boards.isError && <p className="error" role="alert">Couldn’t load the boards: {describeError(boards.error)}</p>}
       {boards.data?.length === 0 && (

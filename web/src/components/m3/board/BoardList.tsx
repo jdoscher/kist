@@ -123,6 +123,7 @@ export function BoardList({ ed }: { ed: Editor }) {
           onSubmit={(e) => {
             e.preventDefault()
             if (!from || !to || from === to) return
+            if (c.edges.some((x) => x.from === from && x.to === to)) return ed.announce('Those two are already connected')
             ed.commit({ ...c, edges: [...c.edges, { id: newNodeId(), from, to, label, style: { arrow: 'end' } }] })
             setLabel('')
             ed.announce('Arrow added')

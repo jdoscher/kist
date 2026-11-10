@@ -110,7 +110,8 @@ export default function BoardEditor({ id }: { id: string }) {
   const caps = useCaps()
   const qc = useQueryClient()
   const canEdit = caps.canEdit && !mobile
-  const board = useQuery({ queryKey: ['board', id], queryFn: () => api3.getBoard(id), refetchOnWindowFocus: true, retry: 1 })
+  // re-read now and then: an agent or another tab may have changed it (adopted only while nothing here is unsaved)
+  const board = useQuery({ queryKey: ['board', id], queryFn: () => api3.getBoard(id), refetchOnWindowFocus: true, refetchInterval: 15_000, retry: 1 })
 
   const [content, setContent] = useState<BoardContent | null>(null)
   const [history, setHistory] = useState<History>({ past: [], future: [] })
@@ -303,6 +304,12 @@ export default function BoardEditor({ id }: { id: string }) {
       n.x = Math.round(n.x / grid) * grid
       n.y = Math.round(n.y / grid) * grid
     }
+    // don't stack exactly on top of the last thing added here
+    const step = grid || 24
+    for (let i = 0; i < 40 && content.nodes.some((o) => Math.abs(o.x - n.x) < 8 && Math.abs(o.y - n.y) < 8); i++) {
+      n.x += step
+      n.y += step
+    }
     commit({ ...content, nodes: [...content.nodes, n] })
     setSel([n.id])
     if (type === 'note' || type === 'text') setEditingText(n.id)
@@ -425,8 +432,9 @@ export default function BoardEditor({ id }: { id: string }) {
   const trashed = board.data?.state === 'trashed'
 
   return (
-    <main className={`board-screen${mobile ? ' mobile' : ''}`} aria-labelledby="board-title">
-      <header className="board-bar" role="toolbar" aria-label="Board tools">
+    <main className={`board-screen${mobile ? ' mobile' : ''}`} aria-labelledby="board-h1">
+      <h1 id="board-h1" className="sr-only">Board: {content.name}</h1>
+      <div className="board-bar" role="toolbar" aria-label="Board tools">
         <button className="btn-icon" onClick={() => openScreen({ kind: 'boards' })} title="All boards">
           <ArrowLeft size={16} aria-hidden="true" />
           {!mobile && 'Boards'}
@@ -443,9 +451,9 @@ export default function BoardEditor({ id }: { id: string }) {
             onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
           />
         ) : (
-          <h1 id="board-title" className="board-name">
+          <span id="board-title" className="board-name" aria-hidden="true">
             {content.name}
-          </h1>
+          </span>
         )}
         <span className={`save-state ${saveState}`} role="status">
           {saveText[saveState]}
@@ -491,15 +499,17 @@ export default function BoardEditor({ id }: { id: string }) {
             >
               <Grid3x3 size={15} aria-hidden="true" />
             </button>
-            <div className="seg" role="group" aria-label="History">
-              <button className="icon-btn" onClick={undo} disabled={!history.past.length} aria-label="Undo (⌘Z)" title="Undo (⌘Z)">
-                <Undo2 size={15} aria-hidden="true" />
-              </button>
-              <button className="icon-btn" onClick={redo} disabled={!history.future.length} aria-label="Redo (⇧⌘Z)" title="Redo (⇧⌘Z)">
-                <Redo2 size={15} aria-hidden="true" />
-              </button>
-            </div>
           </>
+        )}
+        {canEdit && (
+          <div className="seg" role="group" aria-label="History">
+            <button className="icon-btn" onClick={undo} disabled={!history.past.length} aria-label="Undo (⌘Z)" title="Undo (⌘Z)">
+              <Undo2 size={15} aria-hidden="true" />
+            </button>
+            <button className="icon-btn" onClick={redo} disabled={!history.future.length} aria-label="Redo (⇧⌘Z)" title="Redo (⇧⌘Z)">
+              <Redo2 size={15} aria-hidden="true" />
+            </button>
+          </div>
         )}
         <span className="grow" />
         {view === 'canvas' && (
@@ -524,11 +534,11 @@ export default function BoardEditor({ id }: { id: string }) {
         {canEdit && <BackgroundMenu ed={ed} />}
         <ExportMenu id={id} name={content.name} />
         {!mobile && (
-          <button className="btn-icon" disabled title="Share links arrive in Milestone 4">
-            <Share2 size={15} aria-hidden="true" /> Share
+          <button className="icon-btn" disabled aria-label="Share (coming in Milestone 4)" title="Share links arrive in Milestone 4">
+            <Share2 size={15} aria-hidden="true" />
           </button>
         )}
-      </header>
+      </div>
 
       {conflict && (
         <div className="board-conflict" role="alert">
@@ -611,8 +621,8 @@ function BackgroundMenu({ ed }: { ed: Editor }) {
   const c = ed.content
   return (
     <details className="board-menu">
-      <summary className="btn-icon">
-        <span className="bg-dot" style={{ background: c.canvas.bg }} aria-hidden="true" /> Background
+      <summary className="btn-icon" aria-label="Board background" title="Board background">
+        <span className="bg-dot" style={{ background: c.canvas.bg }} aria-hidden="true" />
       </summary>
       <div className="board-menu-pop" role="group" aria-label="Board background">
         {CANVAS_BGS.map((b) => (
