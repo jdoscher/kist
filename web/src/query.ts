@@ -70,7 +70,15 @@ export function folderSubtree(
 /** A smart folder's saved filters as a full query. Older smart folders
  * stored Unfiled as "no folder + untagged". */
 export function normalizeSaved(q: Partial<Query>): Query {
-  const merged: Query = { ...emptyQuery, ...q, deleted: !!q.deleted }
+  const merged: Query = {
+    ...emptyQuery,
+    ...q,
+    deleted: !!q.deleted,
+    // the server stores unset Milestone 2 fields as null
+    semantic: q.semantic ?? '',
+    text: q.text ?? '',
+    color_tol: q.color_tol ?? emptyQuery.color_tol,
+  }
   if (merged.folder === 'none' && merged.untagged && !merged.view) {
     return { ...merged, view: 'unfiled', folder: null, untagged: false }
   }
@@ -94,6 +102,12 @@ export function smartFolderQuery(q: Query): Partial<Query> {
     order: q.order,
     created_after: q.created_after,
     created_before: q.created_before,
+    // Milestone 2: the server saves these too (not similar or an image)
+    semantic: q.semantic,
+    color: q.color,
+    color_tol: q.color_tol,
+    text: q.text,
+    person: q.person,
   }
 }
 
@@ -123,7 +137,13 @@ export function hasNarrowing(q: Query): boolean {
     !!q.created_after ||
     !!q.created_before ||
     q.untagged ||
-    q.tags_any.length > 0
+    q.tags_any.length > 0 ||
+    !!q.semantic ||
+    !!q.similar ||
+    !!q.color ||
+    !!q.text ||
+    !!q.person ||
+    !!q.image
   )
 }
 
@@ -155,7 +175,8 @@ export function emptyState(
     }
   const narrowView = q.view !== null || q.folder !== null || q.tags.length > 0 || q.deleted || !!opts.smart
   if (hasNarrowing(q)) {
-    const what = q.q ? `matches “${q.q}”` : 'matches these filters'
+    const words = q.q || q.semantic || q.text
+    const what = words ? `matches “${words}”` : 'matches these filters'
     return {
       text: q.view === null && !narrowView ? `Nothing ${what}.` : `Nothing in ${opts.title} ${what}.`,
       action: narrowView ? 'everywhere' : null,

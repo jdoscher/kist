@@ -249,6 +249,21 @@ def test_keyword_search_also_reads_text_and_says_where(client, docs):
     assert client.get("/api/items").json()["items"][0]["match"] is None
 
 
+def test_snippet_marks_the_words_the_text_has_when_others_matched_elsewhere(client, docs, upload):
+    # the filename has both words, the text only one: the item matches, and
+    # the snippet still marks the word its text has
+    doc = upload("orvis-waders-list.pdf", data=text_pdf("Waders and wading boots"),
+                 mime="application/pdf")["item"]["id"]
+    drain()
+    page = client.get("/api/items", params={"q": "orvis waders"}).json()
+    hit = next(i for i in page["items"] if i["id"] == doc)
+    assert hit["match"]["kind"] == "keyword" and "<<Waders>>" in hit["match"]["snippet"]
+    # and in a words + meaning search
+    page = client.get("/api/items", params={"q": "orvis waders", "semantic": "orvis waders"}).json()
+    hit = next(i for i in page["items"] if i["id"] == doc)
+    assert "<<Waders>>" in hit["match"]["snippet"]
+
+
 def test_has_text_filter(client, docs):
     with_text = ids(client.get("/api/items", params={"has_text": "true"}).json())
     # the PDFs have text; the photo's OCR (fake) found some too

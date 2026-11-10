@@ -3,12 +3,13 @@
 // writes whose effect on item lists can't be patched in place.
 
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'react'
 import { api, emptyQuery, type Item, type Query } from './api'
 import { flattenUnique, needsRefetch, patchPages, type ItemsPages } from './cache'
 import { useNotices } from './components/Notices'
 import { isUnfiledView, stillMatches } from './query'
 import { markOnce, onceSeen } from './settings'
+import { expandStacks, getExpanded, subscribeExpanded } from './stacks'
 import { useAppState } from './state'
 import { capsOf, type Caps } from './tokens'
 
@@ -31,11 +32,13 @@ export function flattenItems(pages: { items: Item[] }[] | undefined): Item[] {
   return flattenUnique(pages)
 }
 
-/** The grid's current list (the app's query), flattened. */
+/** The grid's current list (the app's query), flattened, with any stacks
+ * opened in place (stacks.ts). */
 export function useCurrentItems() {
   const { query } = useAppState()
   const result = useItems(query)
-  const items = useMemo(() => flattenItems(result.data?.pages), [result.data])
+  const expanded = useSyncExternalStore(subscribeExpanded, getExpanded)
+  const items = useMemo(() => expandStacks(flattenItems(result.data?.pages), expanded), [result.data, expanded])
   return { result, items }
 }
 

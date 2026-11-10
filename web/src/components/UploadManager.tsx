@@ -156,7 +156,8 @@ export function UploadManager({ children }: { children: ReactNode }) {
     const onDrop = (e: DragEvent) => {
       depth = 0
       setDragging(false)
-      if (!hasFiles(e)) return
+      // handled already (an image dropped on the search box searches)
+      if (!hasFiles(e) || e.defaultPrevented) return
       e.preventDefault()
       const files = Array.from(e.dataTransfer?.files ?? [])
       if (files.length) enqueue(files)

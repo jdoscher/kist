@@ -9,6 +9,7 @@ import { useAppState } from '../state'
 import { useShortcut } from '../useShortcuts'
 import { useDialog } from './Dialog'
 import { useNotices } from './Notices'
+import { StackActions } from './BulkStack'
 
 // actions that take the items out of this view: clear the selection after
 const LEAVES_VIEW = new Set(['trash', 'restore', 'hardDelete'])
@@ -204,6 +205,8 @@ export function BulkBar() {
               Unprotect
             </button>
           )}
+
+          <StackActions disabled={busy} />
 
           <button className="danger" disabled={busy} onClick={() => run({ kind: 'trash' })}>
             Trash

@@ -8,20 +8,27 @@
 //   /folder/:id       a folder (and its subfolders)
 //   /tag/:name        one tag
 //   /smart/:id        a smart folder (its filters ride along as params)
-//   /settings/:section  Settings: tokens, archive (health) or ai
+//   /settings/:section  Settings: tokens, archive (health), ai, vocabulary
+//                     or cleanup (tag cleanup)
+//   /organise/:section  Organise: duplicates, stacks, collections (suggested)
+//                     or people
 //   ?item=:id         the item shown in the info panel / item sheet
 //   &full=1           ...opened full screen
 //
 // Other filters are params: q, tags, any, untagged, folder (none), preview,
 // type, rating, order, after, before, trash (a smart folder over the trash),
-// fixity (failed). Unknown params (say ?semantic=, which milestone 2 uses)
-// are ignored, never an error.
+// fixity (failed); and the Milestone 2 searches: semantic, similar (an item
+// id), color + tol, text, person, image (an image kept for this tab:
+// imageSearch.ts). Unknown params are ignored, never an error.
 // Pure functions, tested in tests/url.test.ts.
 
 import { emptyQuery, type PreviewStatus, type Query } from './api.ts'
 
-export type SettingsSection = 'tokens' | 'archive' | 'ai'
-export const SETTINGS_SECTIONS: SettingsSection[] = ['tokens', 'archive', 'ai']
+export type SettingsSection = 'tokens' | 'archive' | 'ai' | 'vocabulary' | 'cleanup'
+export const SETTINGS_SECTIONS: SettingsSection[] = ['tokens', 'archive', 'ai', 'vocabulary', 'cleanup']
+
+export type OrganiseSection = 'duplicates' | 'stacks' | 'collections' | 'people'
+export const ORGANISE_SECTIONS: OrganiseSection[] = ['duplicates', 'stacks', 'collections', 'people']
 
 export interface Place {
   query: Query
@@ -30,6 +37,8 @@ export interface Place {
   full: boolean
   /** the Settings screen is shown (over the library, which keeps its place) */
   settings?: SettingsSection | null
+  /** the Organise screen (duplicates, stacks, collections, people) */
+  organise?: OrganiseSection | null
 }
 
 export type Layer = 'view' | 'sheet' | 'full'
@@ -41,6 +50,7 @@ const PREVIEWS: PreviewStatus[] = ['pending', 'ready', 'failed', 'none']
 /** The view part of the path (no item). */
 function placePath(p: Place): string {
   if (p.settings) return `/settings/${p.settings}`
+  if (p.organise) return `/organise/${p.organise}`
   const q = p.query
   // a smart folder keeps its path even when it searches the trash
   if (p.smartId) return `/smart/${encodeURIComponent(p.smartId)}`
@@ -54,7 +64,7 @@ function placePath(p: Place): string {
 export function toUrl(p: Place): string {
   const q = p.query
   const path = placePath(p)
-  if (p.settings) return path
+  if (p.settings || p.organise) return path
   const s = new URLSearchParams()
   const tagInPath = path.startsWith('/tag/')
   if (q.q) s.set('q', q.q)
@@ -72,10 +82,24 @@ export function toUrl(p: Place): string {
   if (q.order !== emptyQuery.order) s.set('order', q.order)
   if (q.created_after) s.set('after', q.created_after)
   if (q.created_before) s.set('before', q.created_before)
+  if (q.semantic) s.set('semantic', q.semantic)
+  if (q.similar) s.set('similar', q.similar)
+  if (q.color) {
+    s.set('color', q.color)
+    if (q.color_tol !== emptyQuery.color_tol) s.set('tol', String(q.color_tol))
+  }
+  if (q.text) s.set('text', q.text)
+  if (q.person) s.set('person', q.person)
+  if (q.image) s.set('image', q.image)
   if (p.item) s.set('item', p.item)
   if (p.item && p.full) s.set('full', '1')
   const qs = s.toString()
   return qs ? `${path}?${qs}` : path
+}
+
+function tolerance(v: string | null): number {
+  const n = Number(v)
+  return v !== null && v !== '' && Number.isFinite(n) ? Math.max(0, Math.min(100, Math.round(n))) : emptyQuery.color_tol
 }
 
 function list(v: string | null): string[] {
@@ -103,6 +127,13 @@ export function fromUrl(pathname: string, search: string): Place {
     created_after: s.get('after') || null,
     created_before: s.get('before') || null,
     deleted: s.get('trash') === '1',
+    semantic: s.get('semantic') ?? '',
+    similar: s.get('similar') || null,
+    color: /^#[0-9a-f]{6}$/i.test(s.get('color') ?? '') ? (s.get('color') as string).toLowerCase() : null,
+    color_tol: tolerance(s.get('tol')),
+    text: s.get('text') ?? '',
+    person: s.get('person') || null,
+    image: s.get('image') || null,
   }
   let smartId: string | null = null
   const [head, arg] = parts
@@ -115,6 +146,9 @@ export function fromUrl(pathname: string, search: string): Place {
     // the library behind Settings is All items (closing Settings shows it)
     const section = SETTINGS_SECTIONS.includes(arg as SettingsSection) ? (arg as SettingsSection) : 'tokens'
     return { query: { ...emptyQuery }, smartId: null, item: null, full: false, settings: section }
+  } else if (head === 'organise') {
+    const section = ORGANISE_SECTIONS.includes(arg as OrganiseSection) ? (arg as OrganiseSection) : 'duplicates'
+    return { query: { ...emptyQuery }, smartId: null, item: null, full: false, organise: section }
   }
   // anything else (including /all) is the whole library
   const item = s.get('item') || null
@@ -146,6 +180,11 @@ export function historyAction(
   // moving between Settings sections doesn't stack up history: Back (or
   // Close) leaves Settings in one step
   if (cur.settings && next.settings) return 'replace'
+  if (cur.organise && next.organise) return 'replace'
+  // a search started from an item, a colour, an image or a person is a
+  // new place even in the same view, so Back returns to where you were
+  const pivot = (q: Query) => [q.similar, q.color, q.image, q.person].join('|')
+  if (pivot(next.query) !== pivot(cur.query) && pivot(next.query) !== '|||') return opts.curIsMenu ? 'replace' : 'push'
   if (placePath(cur) !== placePath(next)) {
     // picking a view from the menu replaces the menu's entry
     return opts.curIsMenu ? 'replace' : 'push'
