@@ -159,8 +159,31 @@ def legacy_keyword_condition(q):
     return sa.or_(*conds)
 
 
+def legacy_timeline_buckets(session, group, filters, limit=5000):
+    from sqlalchemy.dialects.postgresql import ARRAY, aggregate_order_by
+
+    from kist.services.timeline import GROUPS, _utc
+    from kist.services.validation import ValidationError
+
+    if group not in GROUPS:
+        raise ValidationError("group must be day, month or year")
+    key = sa.func.to_char(_utc(Item.taken_sort), GROUPS[group]).label("key")
+    first = sa.type_coerce(
+        sa.func.array_agg(aggregate_order_by(Item.id, Item.taken_sort.desc(), Item.id.desc())),
+        ARRAY(sa.Text),
+    )[1]
+    rows = session.execute(
+        sa.select(key, sa.func.count().label("count"), first.label("first"))
+        .where(*filters)
+        .group_by(key)
+        .order_by(key.desc())
+        .limit(limit)
+    ).all()
+    return [{"key": r.key, "count": r.count, "first_item_id": r.first} for r in rows]
+
+
 def _legacy_patches():
-    from kist.services import folders, ranking, search, stacks, tags
+    from kist.services import folders, ranking, search, stacks, tags, timeline
 
     return [
         (search, "tag_condition", legacy_tag_condition),
@@ -170,6 +193,7 @@ def _legacy_patches():
         (folders, "list_folders", legacy_list_folders),
         (ranking, "keyword_condition", legacy_keyword_condition),
         (ranking, "ranked_page", legacy_ranked_page),
+        (timeline, "buckets", legacy_timeline_buckets),
     ]
 
 
@@ -471,6 +495,11 @@ def seeded(clean):
         for item_id, name in zip(some[:3], ("hotel_bill.jpg", "hotel_lobby.jpg",
                                             "hotel_receipt.jpg"), strict=True):
             x(sa.text("UPDATE items SET filename = :f WHERE id = :i"), {"f": name, "i": item_id})
+        # ties in taken_sort at a bucket's newest moment (the timeline's
+        # first_item_id is then the largest id)
+        x(sa.text("UPDATE items SET taken_at = (SELECT max(taken_sort) FROM items "
+                  "WHERE deleted_at IS NULL) WHERE id IN (SELECT id FROM items "
+                  "WHERE deleted_at IS NULL ORDER BY id LIMIT 3)"))
         x(sa.text("ANALYZE"))
         s.commit()
         yield {"tags": tags, "alias": "perf-alias", "implied": a, "chain": (a, b, c),
@@ -636,7 +665,9 @@ def _sidebar_urls(lib):
         "/api/folders", "/api/stats",
         "/api/items/buckets?sort=taken&order=desc&stacks=collapse",
         f"/api/items/buckets?sort=created&order=asc&stacks=collapse&tags={tags[1]}",
-        "/api/timeline?group=day", f"/api/timeline?group=month&tags={lib['implied']}",
+        "/api/timeline?group=day", "/api/timeline?group=year",
+        "/api/timeline?group=day&state=trashed", "/api/timeline?group=day&view=unfiled",
+        f"/api/timeline?group=month&tags={lib['implied']}",
         f"/api/timeline?group=day&tags_any={tags[3]},{lib['alias']}&stacks=collapse",
         "/api/map?zoom=2", f"/api/map?zoom=3&tags={tags[0]}",
     ]
