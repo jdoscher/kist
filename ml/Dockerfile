@@ -1,4 +1,5 @@
-# kist-ml: CLIP embeddings and OCR for Kist, on ONNX Runtime (no torch).
+# kist-ml: CLIP embeddings, OCR and (opt-in, KIST_FACES=1) faces for Kist,
+# on ONNX Runtime (no torch).
 #
 # Build from the repository root (compose does this):
 #   docker build -f ml/Dockerfile -t kist-ml .
@@ -9,7 +10,9 @@
 #
 # Model files are not in the image: they download on first start into
 # /models (a volume), pinned by revision and checked by sha256
-# (kist/ml/models.py). Set KIST_ML_BASE_URL to use a mirror.
+# (kist/ml/models.py). Set KIST_ML_BASE_URL to use a mirror. The face models
+# (YuNet + SFace, ~39 MB) download the same way, and only with KIST_FACES=1
+# (KIST_FACE_MODELS_URL for a mirror).
 FROM python:3.12-slim-bookworm
 
 ARG OPENVINO=0

@@ -6,162 +6,18 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
-### Milestone 2: finding things (search)
-
-Search by what images show, by colour, by the words inside them, or by
-another image, and "more like this" on any item. Everything still runs on
-your own hardware unless you choose a cloud caption provider.
-
-- **One search box, several ways to search.** `GET /api/items` (and the MCP
-  tool `search_items`) gains `semantic` (describe it: "brown suede boots on
-  cobblestones"), `similar` (more like this item), `color` with `color_tol`
-  (0–100), `text` (only words inside screenshots and PDFs) and `has_text`.
-  They combine with every filter you already use (tags, folders, type,
-  rating, dates). Words plus a description (`q` + `semantic`) blend both
-  rankings. Keyword search (`q`) now also finds the text inside screenshots,
-  PDFs and captions.
-- **Why it matched.** Ranked results carry `match` with the way they matched
-  (meaning, similar, colour, text, keyword, or several: hybrid), a score, and
-  for text hits a snippet with the words marked `<<like this>>`.
-- **Search by image:** `POST /api/search/image` with a picture (it isn't
-  saved) finds items that look like it. Read-only tokens may use it.
-- **Colour.** Every item's palette is at `GET /api/items/{id}/palette` with
-  everyday colour names; colour search uses perceptual distance (CIEDE2000),
-  not RGB. New palettes keep small saturated areas (a red car in a grey
-  street now counts as red); `kist regen-previews --colors-only` refreshes
-  older items' palettes in seconds.
-- **Fonts.** TTF, OTF, WOFF and WOFF2 files are now their own type (`font`)
-  with a specimen preview showing the family name and "Aa Bb Cc 0123 The
-  quick brown fox". Fonts you added before are queued for a specimen when
-  you upgrade.
-- **Captions (optional, off by default).** A sentence describing an image,
-  written by a local Ollama vision model (e.g. `qwen2.5vl:3b`), or by OpenAI,
-  Anthropic or Gemini with your own key. **The cloud providers receive every
-  image you caption.** Caption one item (`POST /api/items/{id}/caption`), a
-  backlog (`kist ai-backfill --kind caption`) or every new item
-  (`KIST_CAPTION_AUTO=true`). Captions are searchable, editable
-  (`PATCH /api/items/{id} {"caption": …}`), in the item's history and
-  undoable, and kept in `ai/caption.json` next to the item. A Mac running
-  Ollama can do them for the NAS: `kist helper --kinds caption`.
-- **Faster embedding.** The worker now runs two AI jobs at once and sends
-  embeddings 16 at a time (`KIST_AI_CONCURRENCY=2`, `KIST_AI_EMBED_BATCH=16`),
-  writing results side by side. On a fast disk that measured 53 → 84–99
-  items/s; with slow disk syncs like a busy NAS, 3.9 → 44 items/s.
-- **For agents (MCP):** `search_items` takes `semantic`, `similar_to`,
-  `color`, `color_tol`, `text` and `has_text`; new `search_by_image`
-  (a URL or a file in the import folder) and `item_palette`;
-  `update_item(caption=…)`. Agents are told to pass descriptions as
-  `semantic`.
-- **Upgrade notes:** migration 0201 runs on start (palette table, colour
-  functions, caption rows). Rebuild the `ml` image (`docker compose build
-  ml`): it gained a batch endpoint. New settings, all optional and in
-  `.env.example`: `KIST_AI_EMBED_BATCH`, `KIST_CAPTION_PROVIDER`,
-  `KIST_CAPTION_URL`, `KIST_CAPTION_MODEL`, `KIST_CAPTION_API_KEY`,
-  `KIST_CAPTION_AUTO`, `KIST_CAPTION_PROMPT`, `KIST_CAPTION_TIMEOUT_SECONDS`;
-  `KIST_AI_CONCURRENCY` now defaults to 2. Then optionally
-  `docker compose exec worker kist regen-previews --colors-only`.
-
-### Milestone 1: the platform
-
-Kist 2.0, milestone 1: the platform and AI infrastructure. Named tokens
-with scopes, history and undo for every item, links, protection, trash
-retention, fixity checks, backups and archive health; and every image is
-embedded (OpenCLIP ViT-B-32) and the text in screenshots and PDFs read,
-entirely on your own hardware, with the results kept as plain files next to
-each item. Plus a new look for the web app.
-
-### Milestone 2: organising
-
-Keeping a growing library tidy: a tag vocabulary with aliases and implied
-tags, a cleanup workbench, tag suggestions, duplicate groups you resolve in
-one step, stacks, suggested collections, and (opt-in) faces and people. All
-of it runs on your own hardware, writes plain files the database can be
-rebuilt from, and every change undoes as one batch.
-
-#### Upgrade notes
-- Migration 0301 runs on start (new tables `tag_aliases`, `tag_implies`,
-  `tag_embeddings`, `tag_feedback`, `stacks`, `faces`, `people`, and
-  `items.stack_id`).
-- New settings: `KIST_FACES` (0; set it for the app, worker and ml service),
-  `KIST_FACE_MODELS_URL`, `KIST_COLLECTIONS_INTERVAL_HOURS` (24). With faces
-  on, `kist ai-backfill --kind faces` looks at the items you already have.
-- New files to back up with the library: `vocabulary.json`,
-  `.kist/people.json`, `items/*/ai/faces.json`, `items/*/ai/tag-feedback.json`
-  (`.kist/collections.json` is a cache).
-
-#### Added
-- **Tag vocabulary.** Aliases (`POST /api/vocabulary/aliases`) rewrite the
-  items carrying the variant, as tag events in one batch, and every later
-  use on every path; implied tags (`POST /api/vocabulary/implies`) are
-  matched at search time and shown as `implied_tags`, never written to items,
-  and loops are refused; `namespace:value` tags are grouped
-  (`GET /api/tags?namespace=`, `tags=brand:*`). Kept in
-  `library/vocabulary.json`. MCP `get_vocabulary`; `set_tags` resolves aliases.
-- **Tag cleanup.** `GET /api/tags/cleanup` (one-offs, case/spacing clashes,
-  near-misspellings and plurals, unused since a date, smart folders naming
-  missing tags or folders), `POST /api/tags/merge` with a dry run and
-  `POST /api/tags/rename`, each one undoable batch. MCP `tag_cleanup`,
-  `merge_tags`.
-- **Tag suggestions.** `GET /api/items/{id}/tag-suggestions`: the tags of the
-  item's nearest look-alikes ("similar items") and CLIP zero-shot over the
-  tag names ("matches the image"), with feedback that keeps a rejected tag
-  away from that item. MCP `suggest_tags`.
-- **Duplicate groups.** `GET /api/duplicates/groups?kind=same_image|similar|exact`
-  with a suggested keeper; `POST /api/duplicates/resolve` merges tags,
-  folders, notes, the best rating and the source URL into it and trashes the
-  rest, in one batch. MCP `duplicate_groups`, `resolve_duplicates`.
-- **Stacks.** `POST/GET/PATCH/DELETE /api/stacks`, `GET /api/items?stacks=collapse`
-  (covers only, with `stack_count`), suggestions for RAW+JPEG pairs, bursts
-  and `version_of` links. Membership is a `stack` event and lives in
-  `meta.json`. MCP `suggest_stacks`, `stack_items`.
-- **Suggested collections.** `GET /api/collections/suggested`: clusters of 8+
-  look-alike items not already in one folder, labelled from their tags or
-  zero-shot, recomputed daily by the worker; accept one as a folder or a
-  tag plus smart folder. MCP `suggested_collections`.
-- **Faces and people (opt-in).** YuNet + SFace (OpenCV zoo, Apache-2.0) in the
-  ml service with numpy pre/post-processing; a `faces` job per image; people
-  formed automatically, named, merged and searched
-  (`GET /api/people`, `PATCH /api/people/{id}`, `POST /api/people/merge`,
-  `GET /api/items?person=`, face crops). MCP `list_people`.
-- Smart folders can save `stacks` and `person`. A folder-limited read token
-  sees people, stacks and faces only for its own items.
-### Milestone 3: creative workflows (backend)
-
-Boards, culling and pinned notes: the backend for the boards canvas,
-compare, triage, quick look and the Cmd+K palette (the web screens follow).
-
-- **Boards.** `library/boards/{id}/board.json` holds nodes (items, notes,
-  text, shapes, groups, links, colour swatches) and arrows; `thumb.webp` is
-  a rendered snapshot. `GET/POST /api/boards`, `GET/PUT/PATCH/DELETE
-  /api/boards/{id}` (PUT/PATCH with `base_version`, 409 when stale),
-  duplicate, restore, a boards trash purged with the item trash's retention,
-  `GET /api/items/{id}/boards`, and export to PNG or PDF at a chosen scale
-  or to one self-contained HTML file. A deleted item stays on its boards as
-  a missing-item node. Board edits are in the batch history and undo.
-- **Pick/reject flags and colour labels** on items: in `ItemOut` and
-  `meta.json`, filterable (`flag=`, `label=`), editable with PATCH and MCP
-  `update_item`, recorded as edits.
-- **Annotations:** notes pinned to a point, a box or a video time range
-  (`/api/items/{id}/annotations`), kept in `items/{id}/annotations.json`,
-  found by `q`, recorded in the item history.
-- **Versions and compare:** `GET/POST /api/items/{id}/versions` (the
-  `version_of` chain; uploading a new version links it to the newest) and
-  `GET /api/items?ids=a,b,c`.
-- **Metadata templates** (`/api/templates`, applied as one batch) and
-  **bulk rename** with a pattern (`POST /api/items/rename`, dry run first).
-- **Triage queue** (`GET /api/triage/next`) and the **command palette**
-  (`GET /api/palette?q=`).
-- MCP: `list_boards`, `get_board`, `create_board`, `add_to_board`,
-  `annotate`, `list_annotations`; flags and labels in `update_item` and
-  `search_items`.
-- `kist rebuild-index` restores boards, board history, annotations, flags
-  and labels from their files; `kist verify` checks them (and
-  `templates.json`); `kist rewrite-meta` rewrites them.
-- Upgrade: migration 0401 runs on start; run `kist rewrite-meta` once to add
-  `flag`/`label` to every `meta.json`. Back up `library/boards/` with the
-  rest of the library.
+Kist 2.0, milestones 1 to 3: the platform and AI infrastructure; finding
+things (search by meaning, colour, text in images and by image; a tag
+vocabulary, stacks, duplicates, suggested collections, faces); and the
+backend for creative workflows (boards, flags and labels, annotations,
+versions, templates, triage, the command palette). Everything runs on your
+own hardware unless you choose a cloud caption provider, every change is in
+the item history and undoes as a batch, and every new piece of data is a
+plain file next to the library, so `kist rebuild-index` restores it.
 
 ### Upgrade notes
+From 1.5.0, in this order:
+
 - **Back up the database first:** `docker compose exec db pg_dump -U kist
   kist | gzip > kist-before-2.0.sql.gz`.
 - **Switch the database image to `pgvector/pgvector:pg16`.** Kist's
@@ -173,7 +29,8 @@ compare, triage, quick look and the Cmd+K palette (the web screens follow).
   migration 0101 says why. Stay on the `pg16` tag: a different Postgres
   major version can't open a pg16 data directory.
 - Then: `docker compose pull db && docker compose build && docker compose
-  up -d`. Migrations 0006–0010 and 0101 run on start. The new `ml` service
+  up -d`. Migrations 0006–0010, 0101, 0201, 0301 and 0401 run on start
+  (one line, in that order). The new `ml` service
   downloads its model files (~600 MB, checked by sha256) into the
   `ml-models` volume on first start; AI jobs wait for it.
 - Run `kist rewrite-meta` once (it adds `protected`, `links` and `thumbhash`
@@ -196,8 +53,49 @@ compare, triage, quick look and the Cmd+K palette (the web screens follow).
   `KIST_ML_OPENVINO`. All are in `.env.example`.
 - The trash now empties itself after 30 days; set
   `KIST_TRASH_RETENTION_DAYS=0` before upgrading to keep it forever.
+- Milestones 2 and 3's migrations: 0201 (search: the `item_colors` palette
+  table kept by a trigger, CIEDE2000 in SQL, caption rows), 0301
+  (organising: `tag_aliases`, `tag_implies`, `tag_embeddings`,
+  `tag_feedback`, `stacks`, `faces`, `people`, `items.stack_id`) and 0401
+  (creative workflows: `items.flag`/`label`, `boards`, `board_items`,
+  `board_events`, `annotations`).
+- The `docker compose build` above rebuilds the `ml` image, which gained a
+  batch embedding endpoint (it needs `python-multipart`) and the optional
+  face models. Those (YuNet + SFace, ~39 MB) are only downloaded, on first
+  use, when `KIST_FACES=1`.
+- The one `kist rewrite-meta` above also adds `stack`, `flag` and `label` to
+  every `meta.json` and writes `vocabulary.json` and `.kist/people.json`.
+- Palettes changed (they keep small saturated areas):
+  `docker compose exec worker kist regen-previews --colors-only` refreshes
+  older items' palettes in seconds. Fonts added before get a specimen
+  preview queued on upgrade.
+- Optional: captions for what you already have,
+  `kist ai-backfill --kind caption` (only once a caption provider is set;
+  a cloud provider receives every image it captions).
+- Optional: faces. Set `KIST_FACES=1` for the app, worker and ml service,
+  then `kist ai-backfill --kind faces` looks at the items you already have
+  (plain `kist ai-backfill` includes faces whenever they're on).
+- New settings, all optional and in `.env.example`: `KIST_AI_EMBED_BATCH`
+  (16); captions `KIST_CAPTION_PROVIDER`, `KIST_CAPTION_URL`,
+  `KIST_CAPTION_MODEL`, `KIST_CAPTION_API_KEY`, `KIST_CAPTION_AUTO`,
+  `KIST_CAPTION_PROMPT`, `KIST_CAPTION_TIMEOUT_SECONDS`; faces `KIST_FACES`
+  (0), `KIST_FACE_MODELS_URL`; `KIST_COLLECTIONS_INTERVAL_HOURS` (24).
+  `KIST_AI_CONCURRENCY` now defaults to 2.
+- New files to back up with the library: `vocabulary.json`, `boards/`,
+  `.kist/people.json`, `.kist/templates.json`, `items/*/annotations.json`,
+  `items/*/ai/caption.json`, `items/*/ai/faces.json` and
+  `items/*/ai/tag-feedback.json` (`.kist/collections.json` is a cache).
 
-### Added
+### Milestone 1: the platform
+
+Kist 2.0, milestone 1: the platform and AI infrastructure. Named tokens
+with scopes, history and undo for every item, links, protection, trash
+retention, fixity checks, backups and archive health; and every image is
+embedded (OpenCLIP ViT-B-32) and the text in screenshots and PDFs read,
+entirely on your own hardware, with the results kept as plain files next to
+each item. Plus a new look for the web app.
+
+#### Added
 - **Named tokens with scopes.** Make a token for each phone, person and
   agent with `POST /api/tokens`: `add` can only add items (the iPhone
   Shortcut), `read` only looks (optionally only at some folders and their
@@ -349,7 +247,7 @@ compare, triage, quick look and the Cmd+K palette (the web screens follow).
     Trash, tags or smart folders). An add-only or helper token is told at
     the token screen that it can't open the library, instead of failing.
 
-### Changed
+#### Changed
 - The database image is `pgvector/pgvector:pg16` (see the upgrade notes).
 - `/api/health/deep`'s oldest pending job age ignores AI jobs, which wait
   for their window on purpose.
@@ -367,17 +265,163 @@ compare, triage, quick look and the Cmd+K palette (the web screens follow).
     limited to some folders can sign in (it used to be refused, because it
     can't read `/api/stats`).
 
-### Fixed
+#### Fixed
 - A fixity check, or the ThumbHash backfill after upgrading, no longer
   counts as an edit: it used to move the item's `modified_at`, so every
   checked item looked "recently edited", `kist verify` reported its
   meta.json as out of date, and saving notes in an open info panel could
   report a false "changed elsewhere".
 
-### Performance
+#### Performance
 - Paging through a large list no longer recounts every match on each page:
   `total` comes with the first page only, and later pages say `null`.
 - Every sort order has its own index, so deep pages stay fast.
+
+
+### Milestone 2: finding things
+
+Search by what images show, by colour, by the words inside them, or by
+another image, and "more like this" on any item; and keep a growing
+library tidy: a tag vocabulary with aliases and implied tags, a cleanup
+workbench, tag suggestions, duplicate groups you resolve in one step,
+stacks, suggested collections, and (opt-in) faces and people. All of it
+runs on your own hardware (unless you choose a cloud caption provider),
+writes plain files the database can be rebuilt from, and every change
+undoes as one batch.
+
+#### Search
+- **One search box, several ways to search.** `GET /api/items` (and the MCP
+  tool `search_items`) gains `semantic` (describe it: "brown suede boots on
+  cobblestones"), `similar` (more like this item), `color` with `color_tol`
+  (0–100), `text` (only words inside screenshots and PDFs) and `has_text`.
+  They combine with every filter you already use (tags, folders, type,
+  rating, dates). Words plus a description (`q` + `semantic`) blend both
+  rankings. Keyword search (`q`) now also finds the text inside screenshots,
+  PDFs and captions.
+- **Why it matched.** Ranked results carry `match` with the way they matched
+  (meaning, similar, colour, text, keyword, or several: hybrid), a score, and
+  for text hits a snippet with the words marked `<<like this>>`.
+- **Search by image:** `POST /api/search/image` with a picture (it isn't
+  saved) finds items that look like it. Read-only tokens may use it.
+- **Colour.** Every item's palette is at `GET /api/items/{id}/palette` with
+  everyday colour names; colour search uses perceptual distance (CIEDE2000),
+  not RGB. New palettes keep small saturated areas (a red car in a grey
+  street now counts as red); `kist regen-previews --colors-only` refreshes
+  older items' palettes in seconds.
+- **Fonts.** TTF, OTF, WOFF and WOFF2 files are now their own type (`font`)
+  with a specimen preview showing the family name and "Aa Bb Cc 0123 The
+  quick brown fox". Fonts you added before are queued for a specimen when
+  you upgrade.
+- **Captions (optional, off by default).** A sentence describing an image,
+  written by a local Ollama vision model (e.g. `qwen2.5vl:3b`), or by OpenAI,
+  Anthropic or Gemini with your own key. **The cloud providers receive every
+  image you caption.** Caption one item (`POST /api/items/{id}/caption`), a
+  backlog (`kist ai-backfill --kind caption`) or every new item
+  (`KIST_CAPTION_AUTO=true`). Captions are searchable, editable
+  (`PATCH /api/items/{id} {"caption": …}`), in the item's history and
+  undoable, and kept in `ai/caption.json` next to the item. A Mac running
+  Ollama can do them for the NAS: `kist helper --kinds caption`.
+- **Faster embedding.** The worker now runs two AI jobs at once and sends
+  embeddings 16 at a time (`KIST_AI_CONCURRENCY=2`, `KIST_AI_EMBED_BATCH=16`),
+  writing results side by side. On a fast disk that measured 53 → 84–99
+  items/s; with slow disk syncs like a busy NAS, 3.9 → 44 items/s.
+- **For agents (MCP):** `search_items` takes `semantic`, `similar_to`,
+  `color`, `color_tol`, `text` and `has_text`; new `search_by_image`
+  (a URL or a file in the import folder) and `item_palette`;
+  `update_item(caption=…)`. Agents are told to pass descriptions as
+  `semantic`.
+
+#### Organising
+- **Tag vocabulary.** Aliases (`POST /api/vocabulary/aliases`) rewrite the
+  items carrying the variant, as tag events in one batch, and every later
+  use on every path; implied tags (`POST /api/vocabulary/implies`) are
+  matched at search time and shown as `implied_tags`, never written to items,
+  and loops are refused; `namespace:value` tags are grouped
+  (`GET /api/tags?namespace=`, `tags=brand:*`). Kept in
+  `library/vocabulary.json`. MCP `get_vocabulary`; `set_tags` resolves aliases.
+- **Tag cleanup.** `GET /api/tags/cleanup` (one-offs, case/spacing clashes,
+  near-misspellings and plurals, unused since a date, smart folders naming
+  missing tags or folders), `POST /api/tags/merge` with a dry run and
+  `POST /api/tags/rename`, each one undoable batch. MCP `tag_cleanup`,
+  `merge_tags`.
+- **Tag suggestions.** `GET /api/items/{id}/tag-suggestions`: the tags of the
+  item's nearest look-alikes ("similar items") and CLIP zero-shot over the
+  tag names ("matches the image"), with feedback that keeps a rejected tag
+  away from that item. MCP `suggest_tags`.
+- **Duplicate groups.** `GET /api/duplicates/groups?kind=same_image|similar|exact`
+  with a suggested keeper; `POST /api/duplicates/resolve` merges tags,
+  folders, notes, the best rating and the source URL into it and trashes the
+  rest, in one batch. MCP `duplicate_groups`, `resolve_duplicates`.
+- **Stacks.** `POST/GET/PATCH/DELETE /api/stacks`, `GET /api/items?stacks=collapse`
+  (covers only, with `stack_count`), suggestions for RAW+JPEG pairs, bursts
+  and `version_of` links. Membership is a `stack` event and lives in
+  `meta.json`. MCP `suggest_stacks`, `stack_items`.
+- **Suggested collections.** `GET /api/collections/suggested`: clusters of 8+
+  look-alike items not already in one folder, labelled from their tags or
+  zero-shot, recomputed daily by the worker; accept one as a folder or a
+  tag plus smart folder. MCP `suggested_collections`.
+- **Faces and people (opt-in).** YuNet + SFace (OpenCV zoo, Apache-2.0) in the
+  ml service with numpy pre/post-processing; a `faces` job per image; people
+  formed automatically, named, merged and searched
+  (`GET /api/people`, `PATCH /api/people/{id}`, `POST /api/people/merge`,
+  `GET /api/items?person=`, face crops). MCP `list_people`.
+- A folder-limited read token sees people, stacks and faces only for its
+  own items.
+
+### Milestone 3: creative workflows (backend)
+
+Boards, culling and pinned notes: the backend for the boards canvas,
+compare, triage, quick look and the Cmd+K palette (the web screens follow).
+
+- **Boards.** `library/boards/{id}/board.json` holds nodes (items, notes,
+  text, shapes, groups, links, colour swatches) and arrows; `thumb.webp` is
+  a rendered snapshot. `GET/POST /api/boards`, `GET/PUT/PATCH/DELETE
+  /api/boards/{id}` (PUT/PATCH with `base_version`, 409 when stale),
+  duplicate, restore, a boards trash purged with the item trash's retention,
+  `GET /api/items/{id}/boards`, and export to PNG or PDF at a chosen scale
+  or to one self-contained HTML file. A deleted item stays on its boards as
+  a missing-item node. Board edits are in the batch history and undo.
+- **Pick/reject flags and colour labels** on items: in `ItemOut` and
+  `meta.json`, filterable (`flag=`, `label=`), editable with PATCH and MCP
+  `update_item`, recorded as edits.
+- **Annotations:** notes pinned to a point, a box or a video time range
+  (`/api/items/{id}/annotations`), kept in `items/{id}/annotations.json`,
+  found by `q`, recorded in the item history.
+- **Versions and compare:** `GET/POST /api/items/{id}/versions` (the
+  `version_of` chain; uploading a new version links it to the newest) and
+  `GET /api/items?ids=a,b,c`.
+- **Metadata templates** (`/api/templates`, applied as one batch) and
+  **bulk rename** with a pattern (`POST /api/items/rename`, dry run first).
+- **Triage queue** (`GET /api/triage/next`) and the **command palette**
+  (`GET /api/palette?q=`).
+- MCP: `list_boards`, `get_board`, `create_board`, `add_to_board`,
+  `annotate`, `list_annotations`; flags and labels in `update_item` and
+  `search_items`.
+- `kist rebuild-index` restores boards, board history, annotations, flags
+  and labels from their files; `kist verify` checks them (and
+  `templates.json`); `kist rewrite-meta` rewrites them.
+
+### Milestones 2 and 3 together
+- Every search mode takes every filter: the vocabulary's aliases, implied
+  tags and `ns:*` namespaces, `person`, `flag`, `label` and annotation text
+  (through `q`) work with `semantic`, `similar`, `color`, `text`, hybrid
+  and search by image as well as with the plain list, and so does a
+  folder-limited token's scope.
+- `stacks=collapse` in a ranked search collapses after ranking: a stack
+  shows once, as its best-ranked member (the one that matched, with its
+  `match` and snippet, plus `stack_count`). The plain list keeps showing
+  each stack's cover.
+- Smart folders save any of the new fields (`semantic`, `color`,
+  `color_tol`, `text`, `has_text`, `stacks`, `person`, `flag`, `label`).
+- Uploading a new version of an item that's in a stack puts the new
+  version in that stack as its cover.
+- The command palette also finds named people when faces are on.
+- MCP is one set of tools: `search_items` takes every new parameter
+  (`semantic`, `similar_to`, `color`, `color_tol`, `text`, `has_text`,
+  `collapse_stacks`, `person`, `flag`, `label`) and `update_item` takes
+  `caption`, `flag` and `label`.
+- `kist rebuild-index` puts stacked items back in their stacks without
+  touching their `modified_at` (verify used to report them afterwards).
 
 
 ## [1.5.0] - 2026-11-09

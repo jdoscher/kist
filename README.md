@@ -156,12 +156,13 @@ for a minute.
 ### Searching
 
 All of these are parameters of `GET /api/items` (and of the MCP tool
-`search_items`), and every other filter (tags, folder, type, rating, dates,
-trash) still applies:
+`search_items`), and every other filter (tags with their aliases, implied
+tags and namespaces, folder, type, rating, dates, trash, `person`, `flag`,
+`label`) still applies:
 
 | parameter | finds | ranked by |
 |---|---|---|
-| `q=orvis` | filename, notes, and now the text in screenshots, PDFs and captions | the chosen `order` |
+| `q=orvis` | filename, notes, annotation text, and now the text in screenshots, PDFs and captions | the chosen `order` |
 | `semantic=brown suede boots` | everything, best matches first | meaning (what the image shows) |
 | `q=…&semantic=…` | both at once ("hybrid") | reciprocal rank fusion of the word and meaning ranks |
 | `similar=<item id>` | more like that item (not itself) | visual similarity |
@@ -180,7 +181,10 @@ way), and `snippet` is the text around the hit with the words marked
 `<<like this>>`. A plain `q` search keeps its order but also says
 `keyword` and gives a snippet when the words were found inside the item.
 Paging works as everywhere (pass `next_cursor` back; `total` on the first
-page only). `GET /api/items/{id}/palette` gives an item's colours as
+page only). `stacks=collapse` shows each stack once: as its cover in a plain
+list, and as its best-ranked member in a ranked one (the member that
+matched, so its `match` is true; `stack_count` says there are more).
+`GET /api/items/{id}/palette` gives an item's colours as
 `[{hex, pct, name}]`, largest share first.
 
 Palettes come from each thumbnail (octree into 16 colours, merged within
@@ -340,6 +344,38 @@ Model files for faces (Apache-2.0; opencv_zoo commit `48b10fa`):
 
 For existing items: `docker compose exec worker kist ai-backfill --kind faces`.
 
+## Creative workflows: boards, culling, annotations, versions
+
+The backend for the boards canvas, compare, triage, quick look and the ⌘K
+palette (the web screens follow):
+
+- **Boards** are moodboards: items, notes, text, shapes, groups and arrows on
+  a canvas, kept as `library/boards/<id>/board.json` with a rendered
+  `thumb.webp`, exported as PNG, PDF or one self-contained HTML file. Saves
+  carry the version they started from, so two editors never overwrite each
+  other (409). A deleted board goes to its own trash; a deleted item stays
+  on its boards as a "missing item".
+- **Flags and labels:** pick / reject and six colour labels, for culling.
+  Filter with `flag=` and `label=`, in every kind of search.
+- **Annotations** pin a note to a point, a box or a stretch of video; their
+  text is found by `q`.
+- **Versions:** upload a new version of an item (`POST
+  /api/items/{id}/versions`); it is linked `version_of` the newest, takes its
+  folders and tags, and becomes the cover when the old one is in a stack.
+  `GET /api/items?ids=a,b,c` fetches items to compare side by side.
+- **Templates** apply a set of tags, folders, notes, rating, flag, label,
+  credit and licence (credit and licence become `credit:` and `license:`
+  tags) to many items as one batch; **bulk rename** takes a pattern
+  (`{name}`, `{n:3}`, `{date:%Y%m%d}`, `{w}x{h}`, `{folder}`, `{tag:ns}`) with a
+  dry run first.
+- **Triage** walks a view one item at a time; the **command palette**
+  searches folders, smart folders, tags, boards, people (when faces are on)
+  and items at once.
+
+Everything is in the item history and undoes as a batch (board edits too),
+and `kist rebuild-index` restores boards, annotations, flags, labels and
+templates from their files.
+
 ## Storage layout
 
 ```
@@ -352,7 +388,7 @@ library/
 ├── .kist/                  # worker heartbeat, last verify result, failed-write notes,
 │                           # tokens.json (hashed tokens), events-purged.jsonl,
 │                           # backup.json, db.sql.gz, checklist.json, retention.json,
-│                           # people.json (names + faces), collections.json (a cache)
+│                           # people.json (names + faces), collections.json (a cache),
 │                           # templates.json (metadata templates),
 │                           # board-events-purged.jsonl
 ├── boards/
@@ -377,7 +413,7 @@ library/
             ├── embed-ViT-B-32__openai.f16   # raw little-endian float16 vector
             ├── embed-ViT-B-32__openai.json  # {model, dim, created_at, kist_version}
             ├── ocr.json                     # {model, lang, text, boxes, source, created_at}
-            └── caption.json                 # {text, model, provider, created_at, edited}
+            ├── caption.json                 # {text, model, provider, created_at, edited}
             ├── faces.json                   # KIST_FACES: {model, faces: [{box, landmarks,
             │                                #   score, embedding}]} (boxes as fractions)
             └── tag-feedback.json            # accepted/rejected tag suggestions
@@ -405,9 +441,13 @@ docker compose exec app kist rebuild-index        # re-import from meta.json fil
 `rebuild-index` restores folders (with descriptions) and smart folders from
 `folders.json`, named tokens from `.kist/tokens.json`, then every item from
 its `meta.json`, including tags, folder memberships, dates, trashed state,
-protection, links, ThumbHash and preview versions, each item's history from
-its `events.jsonl` (and purged items' from `.kist/events-purged.jsonl`), and
-fixity dates from `fixity.jsonl`. `--wipe` clears the tables first, and
+protection, links, stacks, flags, labels, ThumbHash and preview versions,
+each item's history from its `events.jsonl` (and purged items' from
+`.kist/events-purged.jsonl`), fixity dates from `fixity.jsonl`, AI results
+(embeddings, OCR text, captions, faces, tag feedback) from `ai/`,
+annotations from `annotations.json`, the vocabulary from `vocabulary.json`,
+people from `.kist/people.json`, templates from `.kist/templates.json`, and
+boards with their history from `boards/`. Nothing is recomputed. `--wipe` clears the tables first, and
 refuses to start if `folders.json` can't be read. Nothing on disk is skipped
 silently: an item folder with no `meta.json` is restored from its original
 file (name, tags and notes were only in `meta.json`, so it comes back as
@@ -416,12 +456,14 @@ parent loop is restored at the top level, and each of these is printed with
 `!` and makes the exit code 2. Other maintenance commands:
 
 - `kist rewrite-meta`: rewrites every `meta.json`, `events.jsonl`,
-  `folders.json` and `tokens.json` from the database. Safe while Kist is
-  running: it re-reads each item as it writes it.
+  `folders.json`, `tokens.json`, `vocabulary.json`, `.kist/people.json`,
+  tag feedback, `annotations.json` and the board files from the database.
+  Safe while Kist is running: it re-reads each item as it writes it.
 - `kist regen-previews [--all]`: generates missing or failed previews, or all of them.
   It also adds the 2048 px full-screen copy to older images that lack one,
   without touching their other previews. `--thumbhash-only` just adds missing
-  ThumbHash placeholders (the worker also does this in the background).
+  ThumbHash placeholders (the worker also does this in the background);
+  `--colors-only` just recomputes palettes (after upgrading to 2.0).
 - `kist backup`: dumps the database to `library/.kist/db.sql.gz`, then runs
   `restic backup` of the library to `KIST_BACKUP_REPO` (creating the
   repository on first use) and records the result in `library/.kist/backup.json`.
@@ -459,13 +501,13 @@ claude mcp add --transport http kist http://<host>:8080/mcp \
 
 | tool | |
 |---|---|
-| `search_items` | filename, tags (all / any / none), folder, type, rating, `view="unfiled"` (the inbox), `state="trashed"`, `preview_status`; ranked by `semantic` (a description: what the images show), `similar_to` (an item id), `color` (+ `color_tol`), `text` (words inside screenshots and PDFs); `has_text`. Ranked items carry `match {kind, score, snippet}` |
-| `search_by_image` | items that look like an image given by URL or a file under `library/import/` (nothing is saved); same filters |
+| `search_items` | `query` (filename, notes, annotation text, text in images and captions), tags (all / any / none; aliases, implied tags and `brand:*` namespaces match), folder, type, rating, `view="unfiled"` (the inbox), `state="trashed"`, `preview_status`, `flag`, `label`, `person`, `collapse_stacks`; ranked by `semantic` (a description: what the images show), `similar_to` (an item id), `color` (+ `color_tol`), `text` (words inside screenshots and PDFs); `has_text`. Every filter works with every ranking. Ranked items carry `match {kind, score, snippet}` |
+| `search_by_image` | items that look like an image given by URL or a file under `library/import/` (nothing is saved); the main filters (query, tags, folder, type, rating, color, flag, label) |
 | `item_palette` | an item's colours `[{hex, pct, name}]` |
 | `get_item` | full metadata |
 | `view_item` | returns the image itself so the model can see it |
 | `add_item` | from a URL, or a file under `library/import/` or `library/inbox/` |
-| `update_item`, `set_tags`, `set_folders` | organize. `update_item(caption=…)` sets the caption; `update_item(folder_id=…)` adds a folder and keeps the others; `set_folders` adds and removes; `update_item(protected=true)` protects an item (only a write or admin token can unprotect) |
+| `update_item`, `set_tags`, `set_folders` | organize. `update_item(caption=…)` sets the caption, `flag` (`pick`, `reject`) and `label` (`red`, `orange`, `yellow`, `green`, `blue`, `purple`; `none` clears either) cull; `update_item(folder_id=…)` adds a folder and keeps the others; `set_folders` adds and removes; `update_item(protected=true)` protects an item (only a write or admin token can unprotect) |
 | `list_folders`, `create_folder`, `list_tags`, `list_smart_folders` | browse. Folders carry a `description` saying what belongs in them |
 | `link_items` | `derived_from`, `alternate`, `related`, `not_duplicate`, `version_of` links between items |
 | `recent_batches`, `undo_batch` | what was changed lately, by whom, and undo a batch (e.g. "undo the filing you just did") |
@@ -479,14 +521,10 @@ claude mcp add --transport http kist http://<host>:8080/mcp \
 | `tag_cleanup`, `merge_tags` | cleanup suggestions, and merging tags as one undoable batch (`dry_run` first) |
 | `duplicate_groups`, `resolve_duplicates` | duplicate groups with a suggested keeper; keep one, merge the rest into it and trash them |
 | `suggest_stacks`, `stack_items` | RAW+JPEG, burst and version stacks to propose, and stacking (or `unstack`) |
-| `suggested_collections`, `list_people` | "you seem to collect…" clusters; people found by faces (when on). `search_items` takes `collapse_stacks` and `person` |
+| `suggested_collections`, `list_people` | "you seem to collect…" clusters; people found by faces (when on) |
 | `list_boards`, `get_board` | boards (moodboards) and their nodes |
 | `create_board(name, item_ids, layout)`, `add_to_board(id, item_ids, layout, notes)` | lay items out as a `grid` or `masonry` board, add more items and notes |
 | `annotate(item_id, text, box?, point?, time?)`, `list_annotations` | pin a note to an area (`box=[x, y, w, h]`, fractions 0–1), a spot or a video time (`time=[start, end]` seconds) |
-
-`update_item` also sets `flag` (`pick`, `reject`) and `label` (`red`,
-`orange`, `yellow`, `green`, `blue`, `purple`; `none` clears either), and
-`search_items` filters by both; its `query` also matches annotation text.
 
 Every item carries `state` (`active` or `trashed`), `preview_status`
 (`ready`, `pending`, `failed` or `none`) and a `web_url` that opens it in the
@@ -543,7 +581,9 @@ POST   /api/items                multipart upload, or JSON {"url": …}. Both ac
 GET    /api/items                q, tags (csv, all; a tag also matches through aliases and
                                  implied tags, brand:* a whole namespace), tags_any (csv, any),
                                  untagged, stacks=collapse (one item per stack, with
-                                 stack_count), person (a person id),
+                                 stack_count: the cover; in a ranked search the
+                                 stack's best-ranked member), person (a person id),
+                                 flag (pick | reject | none), label (a colour | none),
                                  view (unfiled: no folder and no tags),
                                  folder (id, subfolders included; or "none"), type, rating, order,
                                  state (active | trashed; deleted=true still works),
@@ -553,10 +593,15 @@ GET    /api/items                q, tags (csv, all; a tag also matches through a
                                  exist, 503 if it's down), similar (item id), color
                                  (hex) + color_tol (0-100, default 30), text (words
                                  inside images/PDFs); q with semantic or similar is
-                                 hybrid. Ranked items carry match {kind, score,
-                                 snippet?} and the cursor is an offset. total is
-                                 counted on the first page only (no cursor); later
-                                 pages say null
+                                 hybrid. Every filter applies to every mode. q matches
+                                 filename, notes, annotation text and the text in
+                                 images, PDFs and captions. Ranked items carry match
+                                 {kind, score, snippet?} and the cursor is an offset.
+                                 total is counted on the first page only (no cursor);
+                                 later pages say null.
+                                 ids=a,b,c instead: those items in that order (compare);
+                                 unknown or invisible ids are left out, other
+                                 parameters ignored
 POST   /api/search/image         read scope: multipart file (not stored) + the same
                                  filters as query params -> the same page shape
 GET    /api/items/{id}/palette   [{hex, pct, name}], largest share first
@@ -564,7 +609,9 @@ POST   /api/items/{id}/caption   queue a caption now -> 202 {job_id, status, pro
                                  warning}; 422 when captions are off
 GET    /api/items/{id}
 PATCH  /api/items/{id}           filename, rating, notes, source_url, created_at, protected,
-                                 caption ("" removes it; a caption event),
+                                 caption ("" removes it; a caption event), flag (pick |
+                                 reject | null), label (red, orange, yellow, green,
+                                 blue, purple | null),
                                  folder_ids (replaces every membership; use
                                  PATCH .../folders to add or remove one).
                                  base_modified_at: the modified_at you last saw;
@@ -638,6 +685,46 @@ POST   /api/people/merge         {"from": [...], "into"}
 GET    /api/items/{id}/faces     [{id, box (fractions), person_id, person_name, thumb_url}]
 GET    /api/faces/{id}/thumb     ?size=160: a square crop (webp)
 PATCH  /api/faces/{id}           {"person_id": id | null}
+GET    /api/items/{id}/annotations        [{id, kind: point|box|range, x, y, w, h,
+POST   /api/items/{id}/annotations         t_start, t_end, text, author, created_at,
+PATCH  /api/items/{id}/annotations/{aid}   resolved}]. x/y/w/h are fractions 0-1 of the
+DELETE /api/items/{id}/annotations/{aid}   image, t_* seconds; every change is an event
+GET    /api/items/{id}/versions  {items (the version_of chain, oldest first), current_id}
+POST   /api/items/{id}/versions  multipart 'file': a new version, linked version_of the
+                                 chain's newest, with its folders and tags (and the
+                                 cover of the stack the old one is in)
+GET    /api/items/{id}/boards    boards the item is on
+POST   /api/items/rename         {item_ids, pattern, dry_run (default true), start}:
+                                 {name} {ext} {n:3} {date:%Y%m%d} {w} {h} {folder}
+                                 {tag:ns}; collisions get " (2)"; one batch
+                                 -> {items: [{id, before, after, changed}], batch_id}
+GET/POST /api/templates          {name, fields: {tags_add, folder_add, notes_append,
+PUT/DELETE /api/templates/{id}    source_url, rating, label, flag, credit, license}}
+POST   /api/templates/{id}/apply {item_ids}: one batch -> {items, batch_id}
+GET    /api/triage/next          ?view=unfiled|all&after=<id>&prefetch=5&order=
+                                 -> {item, prefetch_ids, remaining}
+GET    /api/palette?q=           [{kind: folder|smart_folder|tag|board|person|item|action,
+                                 id, title, subtitle}], top 5 of each kind (person: named
+                                 people, when faces are on)
+GET    /api/boards               ?state=active|trashed&q= -> [{id, name, version,
+                                 item_count, created_at, modified_at, thumb_url}]
+POST   /api/boards               {name, canvas?, nodes?, edges?, item_ids?, layout:
+                                 grid|masonry} -> the board
+GET    /api/boards/{id}          board.json plus state, item_count, missing_item_ids
+PUT    /api/boards/{id}          {base_version, name, canvas, nodes, edges}: 409
+                                 {"detail": {"message", "board"}} if base_version is stale
+PATCH  /api/boards/{id}          {base_version?, name?, canvas?, add, update (JSON merge,
+                                 null removes a key), remove, edges_add, edges_update,
+                                 edges_remove}; without base_version: apply to the latest
+POST   /api/boards/{id}/items    {item_ids, layout}: lay them out below the rest
+DELETE /api/boards/{id}          to the boards trash (purged after the trash retention);
+                                 ?hard=true deletes a trashed board for good
+POST   /api/boards/{id}/restore
+POST   /api/boards/{id}/duplicate
+GET    /api/boards/{id}/thumb    the rendered snapshot (webp)
+GET    /api/boards/{id}/export   ?format=png|pdf|html&scale=1&max_pixels=: PNG/PDF drawn
+                                 from the items' previews (at most 40 MP); HTML is one
+                                 self-contained file with the images inlined
 DELETE /api/tags/unused          delete tags no item uses (trashed items count)
 GET/POST/PATCH/DELETE /api/folders  folders have a description (up to 5,000 characters)
 GET/POST/PATCH/DELETE /api/smart-folders
@@ -665,54 +752,6 @@ POST   /api/client-errors        the web UI reports its crashes here (logged, 30
 GET    /api/health               no auth; the database answers
 ```
 
-Milestone 3 (creative workflows):
-
-```
-GET    /api/items?ids=a,b,c      those items in that order (compare); unknown or
-                                 invisible ids are left out, other filters ignored
-GET    /api/items                also flag=pick|reject|none, label=<colour>|none;
-                                 q also matches annotation text
-PATCH  /api/items/{id}           also flag (pick | reject | null), label (red, orange,
-                                 yellow, green, blue, purple | null); recorded as edits
-GET    /api/items/{id}/annotations        [{id, kind: point|box|range, x, y, w, h,
-POST   /api/items/{id}/annotations         t_start, t_end, text, author, created_at,
-PATCH  /api/items/{id}/annotations/{aid}   resolved}]. x/y/w/h are fractions 0-1 of the
-DELETE /api/items/{id}/annotations/{aid}   image, t_* seconds; every change is an event
-GET    /api/items/{id}/versions  {items (the version_of chain, oldest first), current_id}
-POST   /api/items/{id}/versions  multipart 'file': a new version, linked version_of the
-                                 chain's newest, with its folders and tags
-GET    /api/items/{id}/boards    boards the item is on
-POST   /api/items/rename         {item_ids, pattern, dry_run (default true), start}:
-                                 {name} {ext} {n:3} {date:%Y%m%d} {w} {h} {folder}
-                                 {tag:ns}; collisions get " (2)"; one batch
-                                 -> {items: [{id, before, after, changed}], batch_id}
-GET/POST /api/templates          {name, fields: {tags_add, folder_add, notes_append,
-PUT/DELETE /api/templates/{id}    source_url, rating, label, flag, credit, license}}
-POST   /api/templates/{id}/apply {item_ids}: one batch -> {items, batch_id}
-GET    /api/triage/next          ?view=unfiled|all&after=<id>&prefetch=5&order=
-                                 -> {item, prefetch_ids, remaining}
-GET    /api/palette?q=           [{kind: folder|smart_folder|tag|board|item|action, id,
-                                 title, subtitle}], top 5 of each kind
-GET    /api/boards               ?state=active|trashed&q= -> [{id, name, version,
-                                 item_count, created_at, modified_at, thumb_url}]
-POST   /api/boards               {name, canvas?, nodes?, edges?, item_ids?, layout:
-                                 grid|masonry} -> the board
-GET    /api/boards/{id}          board.json plus state, item_count, missing_item_ids
-PUT    /api/boards/{id}          {base_version, name, canvas, nodes, edges}: 409
-                                 {"detail": {"message", "board"}} if base_version is stale
-PATCH  /api/boards/{id}          {base_version?, name?, canvas?, add, update (JSON merge,
-                                 null removes a key), remove, edges_add, edges_update,
-                                 edges_remove}; without base_version: apply to the latest
-POST   /api/boards/{id}/items    {item_ids, layout}: lay them out below the rest
-DELETE /api/boards/{id}          to the boards trash (purged after the trash retention);
-                                 ?hard=true deletes a trashed board for good
-POST   /api/boards/{id}/restore
-POST   /api/boards/{id}/duplicate
-GET    /api/boards/{id}/thumb    the rendered snapshot (webp)
-GET    /api/boards/{id}/export   ?format=png|pdf|html&scale=1&max_pixels=: PNG/PDF drawn
-                                 from the items' previews (at most 40 MP); HTML is one
-                                 self-contained file with the images inlined
-```
 
 Lists use cursor pagination: pass `next_cursor` back as `cursor` until it is
 `null` (a cursor the server didn't make is a 400).

@@ -514,7 +514,7 @@ def rewrite_meta() -> int:
     if not failed and folders_ok:
         meta_svc.clear_pending()
     print(f"rewrote meta.json for {written} items (+ folders.json, tokens.json, "
-          "vocabulary.json, people.json)"
+          "vocabulary.json, people.json, tag feedback, annotations, boards)"
           + (f"; {failed} failed (see the log)" if failed else ""))
     return 0 if not failed and folders_ok else 2
 

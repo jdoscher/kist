@@ -8,7 +8,8 @@ docker compose
 ├── app      FastAPI: REST API, MCP endpoint (/mcp), and the built web UI
 ├── worker   same image: inbox watcher + Postgres-backed job queue,
 │            AI jobs on their own threads
-├── ml       kist-ml image (internal only): CLIP embeddings + OCR on ONNX Runtime
+├── ml       kist-ml image (internal only): CLIP embeddings, OCR and (opt-in)
+│            faces on ONNX Runtime
 └── db       Postgres 16 + pgvector (search index only)
 
 library/     bind mount: the durable copy of everything
@@ -47,9 +48,10 @@ kist/
 ├── schemas.py       API request/response models; ItemOut.for_agent (MCP shape)
 ├── api/             REST routers: items, folders, smart folders, tags, jobs,
 │                    tokens, history (batches, undo), misc (health, archive health),
-│                    ai (status, helper jobs), search (search by image)
+│                    ai (status, helper jobs), search (search by image),
 │                    organise (vocabulary, cleanup, duplicates, stacks,
-│                    collections, people)
+│                    collections, people), boards, creative (annotations,
+│                    versions, templates, rename, triage, palette)
 ├── services/        all business logic, shared by REST, MCP, CLI, and worker
 │   ├── validation.py input rules every path shares (422 / MCP ToolError)
 │   ├── ingest.py    hash → dedupe → sniff → store → previews → meta.json;
@@ -105,9 +107,10 @@ kist/
 │   ├── board_render.py  PNG/PDF (Pillow) and self-contained HTML export
 │   ├── annotations.py   point/box/range notes on items (annotations.json)
 │   ├── templates.py metadata templates (.kist/templates.json) and bulk rename
-│   ├── versions.py  the version_of chain and new-version uploads
+│   ├── versions.py  the version_of chain and new-version uploads (a new
+│   │                version becomes the cover of the old one's stack)
 │   ├── triage.py    the triage cursor over a view
-│   └── palette.py   Cmd+K search across folders, tags, boards, items
+│   └── palette.py   Cmd+K search across folders, tags, boards, people, items
 ├── mcp_server.py    MCP tools (thin wrappers over services/; no queries)
 ├── worker.py        job loop, inbox scanner, staging sweep, daily verify,
 │                    trash retention, fixity, scheduled backups (thread),
@@ -135,7 +138,8 @@ items         id (ULID), filename, ext, mime, size_bytes, width, height,
               rating (0-5, checked), notes, source_url, created_at,
               modified_at, deleted_at, preview_status, preview_error,
               preview_rev, thumbhash, protected, fixity_checked_at,
-              fixity_failed_at
+              fixity_failed_at, stack_id, flag (pick | reject | null),
+              label (red ... purple | null)
 folders       id, name, parent_id, position, description
 item_folders  item_id, folder_id               (an item can be in many folders)
 tags          id, name (citext unique)
@@ -161,12 +165,10 @@ tag_aliases   alias (citext), tag (citext)        variant -> preferred tag
 tag_implies   tag, implied (citext)               boots -> shoes (virtual)
 tag_embeddings model, tag, vector (halfvec)       tag names as text vectors (cache)
 tag_feedback  item_id, tag, accepted, at          suggestion feedback per item
-stacks        id, cover_item_id                   + items.stack_id
+stacks        id, cover_item_id                   (members: items.stack_id)
 faces         id, item_id, idx, box (jsonb: x, y, w, h fractions + landmarks),
               score, model, embedding (halfvec(128), HNSW cosine), person_id
 people        id, name (null = unnamed), cover_face_id
--- Milestone 3 (migration 0401)
-items         + flag (pick | reject | null), label (red ... purple | null), checked
 boards        id, name, created_at, modified_at, version, item_count, deleted_at,
               doc (jsonb: the board.json document)
 board_items   board_id, item_id          ("used in boards"; a purged item's row goes,
@@ -239,7 +241,9 @@ by `rebuild-index`:
 `kist verify` also checks that `tokens.json` matches the database and that
 every item's `events.jsonl` has all of its events; `kist rewrite-meta`
 rewrites both. `kist rebuild-index` reconstructs the
-whole database from those files, so Postgres can always be discarded.
+whole database from those files, so Postgres can always be discarded
+(`tests/test_m23_integration.py` writes a bit of every kind of state above,
+wipes, rebuilds without the ml service and compares).
 `meta.json` carries a `version` field so older libraries stay readable.
 
 How the files stay right with several writers (API threads, MCP, worker,
@@ -332,7 +336,8 @@ nodes it can't see instead would still leak the board's notes and layout.
 
 ## AI jobs
 
-`embed`, `ocr` and `caption` are job kinds like `ingest`, in the same table,
+`embed`, `ocr`, `caption` and `faces` (see Organise) are job kinds like
+`ingest`, in the same table,
 with the same lease, retry and failure rules, but claimed separately
 (`services/ai.claim`) under a budget:
 
@@ -405,6 +410,25 @@ round. Vector distances are exact (no HNSW in the ranked path): with
 filters in play that keeps every page right, and at 100k items it is one
 pass over 100k halfvecs.
 
+Every filter `search.build_filters` knows is in the `base` CTE, so all three
+milestones' filters work in every mode alike: the tag filter with the
+vocabulary's aliases, implied tags and `ns:*` namespaces
+(`search.tag_condition`), `person`, `flag`, `label`, and a folder-limited
+reader's scope. The keyword condition and score (`ranking.keyword_condition`,
+used by the plain `q` filter and by the hybrid keyword signal alike) cover
+filename, notes, annotation text (ILIKE on the annotations trigram index)
+and `item_text`.
+
+`stacks=collapse` with a ranking collapses **after** ranking: the fused
+score is computed per item, then `row_number() OVER (PARTITION BY
+coalesce(stack_id, id) ORDER BY fused DESC, id)` keeps each stack's
+best-ranked visible member, at its place, and `total` and the offset
+cursor count the collapsed rows. That member, not the cover, stands for the
+stack, because it is what matched: its `match` and snippet are true, and
+`stack_id`/`stack_count` let the client expand the stack. (Collapsing to
+covers first, as the plain list does, would hide a stack whose only match is
+not its cover.) The trash is never collapsed.
+
 Colour: `kist_hex_lab` and `kist_ciede2000` (plpgsql, IMMUTABLE) mirror
 `services/colour.py`; tests compare them on random colours and the Sharma
 reference pairs. The tolerance maps to a CIEDE2000 limit of
@@ -462,7 +486,12 @@ are `stack` events (`{stack_id, cover}`), undone by
 `?stacks=collapse` keeps an item when it has no stack, is its stack's cover,
 or (cover trashed or not visible to the caller) is the lowest-id member the
 caller can see: correlated subqueries, so it composes with every filter and
-with keyset paging. A stack left with one member dissolves.
+with keyset paging. Ranked searches collapse differently, after ranking (see
+Ranked search). A stack left with one member dissolves. Uploading a new
+version (`versions.add_version`) of a stacked item adds the new version to
+that stack as its cover (`versions.on_new_version`); a version chain
+outside any stack stays unstacked. `rebuild-index` puts membership back
+with a core UPDATE that keeps `modified_at`, so `meta.json` still matches.
 
 **Suggested collections** cluster the active items' embeddings with
 spherical k-means (k-means++ seeding, best of 4), k chosen by mean silhouette
@@ -487,7 +516,11 @@ folder-limited reader reaches `/api/people`, `/api/stacks/{id}`,
 it can see (a stack shows only visible members, people count only visible
 faces); the curation endpoints (vocabulary, cleanup, duplicates,
 collections, tag suggestions, stack suggestions) are 404 for it, like
-`/api/tags`.
+`/api/tags`. Milestone 3 adds `/api/items/{id}/annotations|versions|boards`
+and the boards routes (a board only when every item on it is visible); the
+palette, triage and templates are 404 for it. `access.RESTRICTED_PATHS` is
+the one list of what such a reader may reach;
+`tests/test_m23_integration.py` walks every family.
 
 ## Ingest
 
