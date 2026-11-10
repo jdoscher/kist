@@ -1086,6 +1086,71 @@ def make_clip(item_id: str, start: float, end: float, format: str = "mp4",
         return jobs_svc.job_out(job).model_dump(mode="json")
 
 
+# ---------- Milestone 6: date buckets (services/buckets.py) ----------
+
+
+@tool(
+    "How many items fall in each month (UTC), for the date scrubber or a "
+    "quick 'when is this from' overview. sort is created, modified or taken "
+    "(date taken, else added); order asc or desc. Takes search_items' "
+    "filters (query, tags, folder, view='unfiled', type, flag, label, the "
+    "provenance and media filters ...). Each bucket {key 'YYYY-MM', count, "
+    "cursor}: pass cursor to search_items with order=<item_order> to start "
+    "at that month's first item.",
+    restricted_ok=True,
+)
+def item_buckets(
+    sort: str = "created",
+    order: str = "desc",
+    query: str | None = None,
+    text: str | None = None,
+    has_text: bool | None = None,
+    tags: list[str] | None = None,
+    tags_any: list[str] | None = None,
+    untagged: bool = False,
+    view: str | None = None,
+    state: str | None = None,
+    preview_status: str | None = None,
+    folder: str | None = None,
+    type: str | None = None,
+    rating_min: int | None = None,
+    collapse_stacks: bool = False,
+    person: str | None = None,
+    flag: str | None = None,
+    label: str | None = None,
+    ai_generated: bool | str | None = None,
+    license: str | None = None,
+    source_status: str | None = None,
+    taken_after: str | None = None,
+    taken_before: str | None = None,
+    camera: str | None = None,
+    lens: str | None = None,
+    has_gps: bool | None = None,
+    place: str | None = None,
+    vertical: bool | None = None,
+    has_audio: bool | None = None,
+    duration_min: float | None = None,
+    duration_max: float | None = None,
+) -> dict[str, Any]:
+    from .services import buckets
+
+    extra = _m45_filters(
+        ai_generated=ai_generated, license=license, source_status=source_status,
+        taken_after=taken_after, taken_before=taken_before, camera=camera, lens=lens,
+        has_gps=has_gps, place=place, vertical=vertical, has_audio=has_audio,
+        duration_min=duration_min, duration_max=duration_max,
+    )
+    with SessionLocal() as session:
+        filters = search_svc.filters_from_params(dict(
+            q=query, text=text, has_text=has_text, tags=tags, tags_any=tags_any,
+            untagged=untagged, view=view, state=state, preview_status=preview_status,
+            folder=folder, kind=type, rating_min=rating_min,
+            stacks="collapse" if collapse_stacks else None, person=person,
+            flag=flag, label=label, **extra,
+        ))
+        return buckets.buckets(session, filters, sort=sort, order=order)
+
+
 # Mounted by kist.app at /mcp; streamable_http_path="/" so the endpoint is
 # exactly /mcp. host="0.0.0.0" disables the SDK's localhost-only DNS-rebinding
 # allowlist (the app is reached over the LAN; our bearer middleware guards it).
