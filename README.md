@@ -919,7 +919,7 @@ PATCH  /api/items/{id}           filename, rating, notes, source_url, created_at
                                  folder_ids (replaces every membership; use
                                  PATCH .../folders to add or remove one).
                                  base_modified_at: the modified_at you last saw;
-                                 if the item changed since, 409 with
+                                 if a field you send was changed since, 409 with
                                  {"detail": {"message", "item"}} instead of a write
 DELETE /api/items/{id}           to trash; ?hard=true deletes permanently (trashed items
                                  only: 409 otherwise). A protected item answers 409

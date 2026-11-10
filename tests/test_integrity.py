@@ -153,6 +153,31 @@ def test_stale_edit_gets_409_with_the_current_item(client, upload):
     assert client.patch(f"/api/items/{item['id']}", json={"rating": 3}).status_code == 200
 
 
+def test_unrelated_changes_since_are_not_a_409(client, upload):
+    """A link, tags, a stack or a rating moved modified_at on, but nothing
+    the notes save overwrites: no 409 (the Add-link dialog case)."""
+    item = upload()["item"]
+    other = upload()["item"]
+    seen = item["modified_at"]
+    client.patch(f"/api/items/{item['id']}/tags", json={"add": ["blue"]})
+    client.post(f"/api/items/{item['id']}/links", json={"dst_id": other["id"], "kind": "related"})
+    client.post("/api/stacks", json={"item_ids": [item["id"], other["id"]]})
+    client.patch(f"/api/items/{item['id']}", json={"rating": 4})
+    moved = client.get(f"/api/items/{item['id']}").json()["modified_at"]
+    assert moved != seen
+    ok = client.patch(f"/api/items/{item['id']}", json={"notes": "mine", "base_modified_at": seen})
+    assert ok.status_code == 200, ok.text
+    assert ok.json()["notes"] == "mine" and ok.json()["rating"] == 4
+    # ...but a rating save from that old view would overwrite the 4: 409
+    stale = client.patch(f"/api/items/{item['id']}", json={"rating": 2, "base_modified_at": seen})
+    assert stale.status_code == 409
+    # and the notes just saved conflict with an older notes save
+    stale = client.patch(f"/api/items/{item['id']}",
+                         json={"notes": "old", "base_modified_at": seen})
+    assert stale.status_code == 409
+    assert client.get(f"/api/items/{item['id']}").json()["notes"] == "mine"
+
+
 def test_concurrent_new_tag_does_not_fail(clean):
     from kist.db import SessionLocal
     from kist.services import tags as tags_svc

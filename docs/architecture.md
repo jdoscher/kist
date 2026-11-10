@@ -306,8 +306,9 @@ CLI), in `services/meta.py`:
   item's folder.
 
 Edits that can race in Postgres are guarded there: `PATCH` with
-`base_modified_at` locks the row and answers 409 if the item changed since the
-client loaded it; folder moves take a tree-wide lock and re-check for loops;
+`base_modified_at` locks the row and answers 409 if a field it writes was
+changed since the client loaded it (an item event after that time: other
+changes such as tags, links or stacks move `modified_at` but don't conflict); folder moves take a tree-wide lock and re-check for loops;
 new tags are an upsert.
 
 ## Share links (the public surface)

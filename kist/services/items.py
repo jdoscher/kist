@@ -100,6 +100,32 @@ def _same_instant(a: datetime | None, b: datetime | None) -> bool:
     return a == b
 
 
+# which item events change what a PATCH field writes
+_FIELD_EVENTS = {"protected": events.Kind.PROTECT, "caption": events.Kind.CAPTION,
+                 "folder_id": events.Kind.FOLDERS, "folder_ids": events.Kind.FOLDERS}
+
+
+def _conflicting_change(session: Session, item_id: str, base: datetime, fields: dict) -> bool:
+    """Whether an event since `base` changed a field this PATCH writes (an
+    edit of the same field, say notes in another tab). Without such an
+    event the item moved on in ways the PATCH doesn't touch."""
+    from ..models import ItemEvent
+
+    if base.tzinfo is None:
+        base = base.replace(tzinfo=UTC)
+    edits = {f for f in fields if f in events.EDIT_FIELDS}
+    kinds = {_FIELD_EVENTS[f] for f in fields if f in _FIELD_EVENTS}
+    rows = session.execute(
+        sa.select(ItemEvent.kind, ItemEvent.after).where(
+            ItemEvent.item_id == item_id, ItemEvent.at > base,
+            ItemEvent.kind.in_([events.Kind.EDIT, *kinds]))
+    ).all()
+    for kind, after in rows:
+        if kind != events.Kind.EDIT or edits & set(after or {}):
+            return True
+    return False
+
+
 def update_item(
     session: Session,
     item_id: str,
@@ -110,14 +136,19 @@ def update_item(
     """Apply a partial update. `fields` only contains keys that were sent.
 
     With base_modified_at (the modified_at the caller last saw), the edit is
-    refused with Conflict when someone else changed the item since. The row
-    is locked while checking, so two such edits can't both pass.
+    refused with Conflict when someone else changed one of the fields it
+    writes since (_conflicting_change). The row is locked while checking, so
+    two such edits can't both pass. Other changes since (tags, a link, a
+    stack, a new preview) don't refuse a notes or name save: they move
+    modified_at but overwrite nothing.
 
     folder_id / folder_ids REPLACE every membership (REST PATCH semantics,
     kept for API clients); use set_folders(add=, remove=) to change one.
     """
     item = get_item(session, item_id, for_update=True)
-    if base_modified_at is not None and not _same_instant(base_modified_at, item.modified_at):
+    if (base_modified_at is not None
+            and not _same_instant(base_modified_at, item.modified_at)
+            and _conflicting_change(session, item_id, base_modified_at, fields)):
         session.rollback()
         current = get_item(session, item_id)
         session.refresh(current)  # tags and folders too, for the 409 body
