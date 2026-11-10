@@ -168,6 +168,36 @@ def test_cleanup_suggestions(client, upload):
     assert not [s for s in found if s["kind"] == "unused"]  # all used just now
 
 
+def test_cleanup_lists_a_stale_one_off_tag_once(client, upload):
+    """A tag on one item that nobody has used for a year showed under both
+    'Used once' and 'Unused' (seen on Jay's library). It goes under unused
+    only; a recent one-off stays a one-off."""
+    old = upload("old.png", tags="Bags,Coffee")["item"]
+    upload("new.png", tags="Coffee,Fresh")
+    from datetime import UTC, datetime
+
+    import sqlalchemy as sa
+
+    from kist.db import SessionLocal
+    from kist.models import Item, ItemEvent
+
+    long_ago = datetime(2020, 1, 1, tzinfo=UTC)
+    with SessionLocal() as s:
+        s.execute(sa.update(Item).where(Item.id == old["id"]).values(created_at=long_ago))
+        s.execute(sa.update(ItemEvent).where(ItemEvent.item_id == old["id"]).values(at=long_ago))
+        s.commit()
+    found = client.get("/api/tags/cleanup").json()
+    kinds: dict[str, list[str]] = {}
+    for s in found:
+        for t in s["tags"]:
+            kinds.setdefault(t, []).append(s["kind"])
+    assert kinds["Bags"] == ["unused"]  # used once, years ago: listed once
+    assert kinds["Fresh"] == ["one_off"]  # used once, today
+    assert "Coffee" not in kinds  # two items, one of them recent
+    for t, ks in kinds.items():
+        assert not {"one_off", "unused"} <= set(ks), t
+
+
 def test_cleanup_on_real_vocabulary(client, upload):
     """Jay's real tags: Interiors/Exteriors and Shoes/Skies are different
     words, not misspellings; credit:/license:/source: tags on one item are
