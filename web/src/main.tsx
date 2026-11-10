@@ -15,7 +15,7 @@ import './creative.css'
 import './m45.css'
 import './phone.css'
 import { readPrefs } from './settings'
-import { reloadRequested, setBrowserOnline, shouldRegisterSW, swUpdate } from './shell'
+import { onReconnect, reloadRequested, setBrowserOnline, shouldRegisterSW, swUpdate } from './shell'
 import { applyAppearance, watchSystemTheme } from './theme'
 
 installErrorReporting(window)
@@ -88,6 +88,11 @@ const queryClient = new QueryClient({
     queries: { staleTime: 30_000, retry: 1 },
   },
 })
+
+// the server answers again after an outage: load what failed meanwhile
+// (the grid's "Failed to load", the counts) instead of leaving it until
+// the next navigation (shell.ts onReconnect)
+onReconnect(() => void queryClient.refetchQueries({ type: 'active', predicate: (q) => q.state.status === 'error' }))
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

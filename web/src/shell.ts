@@ -100,6 +100,23 @@ export function setBrowserOnline(online: boolean, store = netState) {
   store.set({ browserOnline: online, networkFailed: online ? false : s.networkFailed })
 }
 
+/**
+ * Call `fn` each time the state goes from offline to online. The server
+ * coming back after an outage (a restart, a redeploy, the proxy) clears
+ * the banner without the browser ever going offline, so React Query's own
+ * refetch-on-reconnect never fires: whatever failed meanwhile (the grid,
+ * the stats) would keep showing "Failed to load" until you navigate.
+ * main.tsx refetches the failed queries here. Returns the unsubscribe.
+ */
+export function onReconnect(fn: () => void, store = netState): () => void {
+  let was = isOffline(store.get())
+  return store.subscribe(() => {
+    const now = isOffline(store.get())
+    if (was && !now) fn()
+    was = now
+  })
+}
+
 export const OFFLINE_TEXT = 'Offline. You can look at what’s already loaded; changes can’t be saved until the connection is back.'
 export const UNREACHABLE_TEXT = 'Offline: Kist’s server isn’t answering. Changes can’t be saved until it does. Retrying…'
 
