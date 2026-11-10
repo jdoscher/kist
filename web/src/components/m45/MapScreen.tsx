@@ -27,11 +27,13 @@ function cssVar(name: string, fallback: string): string {
 /** A small style for a Protomaps basemap without labels (labels would need
  * glyph files from elsewhere): land, water, parks, roads, borders. */
 function styleFor(tiles: string | null, attribution: string | null): maplibregl.StyleSpecification {
+  const light = document.documentElement.getAttribute('data-theme') === 'light'
   const bg = cssVar('--bg-hover', '#272725')
-  const land = cssVar('--bg-raised', '#1c1c1a')
-  const water = cssVar('--bg-active', '#31302d')
+  // land a step lighter than the sea, which is tinted blue
+  const land = light ? '#f4f2ec' : '#34332f'
+  const water = light ? '#cddce6' : '#1b2630'
   const line = cssVar('--field-border', '#6e6c66')
-  const dim = cssVar('--border', '#34332f')
+  const dim = light ? '#d8d4ca' : '#46443f'
   const layers: maplibregl.LayerSpecification[] = [{ id: 'bg', type: 'background', paint: { 'background-color': tiles ? water : bg } }]
   const sources: maplibregl.StyleSpecification['sources'] = {}
   if (tiles && /\.pmtiles(\?|$)/.test(tiles)) {

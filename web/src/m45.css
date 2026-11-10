@@ -565,7 +565,7 @@ a.button.primary {
 .model-viewer {
   display: block;
   width: 100%;
-  height: calc(100vh - 160px);
+  height: calc(100vh - 220px);
   background: var(--bg-raised);
   border-radius: 10px;
   --poster-color: transparent;

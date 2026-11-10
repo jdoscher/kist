@@ -256,7 +256,7 @@ function FontView({ item }: { item: Item }) {
   const variation = Object.entries(axes)
     .map(([k, v]) => `"${k}" ${v}`)
     .join(', ')
-  const style = { fontFamily: `"${family}", var(--font-sans)`, fontVariationSettings: variation || undefined }
+  const style = { fontFamily: `"${family}", var(--font-ui)`, fontVariationSettings: variation || undefined }
   const fi = info.data
   return (
     <div className="media-stage font-stage">
