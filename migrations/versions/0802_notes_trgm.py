@@ -20,7 +20,8 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.execute("CREATE INDEX IF NOT EXISTS ix_items_notes_trgm ON items USING gin (notes gin_trgm_ops)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_items_notes_trgm "
+               "ON items USING gin (notes gin_trgm_ops)")
 
 
 def downgrade() -> None:

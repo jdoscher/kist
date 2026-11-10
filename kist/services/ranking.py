@@ -198,7 +198,7 @@ def _keyword_score(q: str, tsq: str | None):
     if tsq:
         text_rank = (
             sa.select(sa.func.coalesce(
-                sa.func.max(sa.func.ts_rank_cd(_tsv(ItemText.text), _tsq(tsq))), 0.0))
+                sa.func.max(sa.func.ts_rank_cd(ItemText.tsv, _tsq(tsq))), 0.0))
             .where(ItemText.item_id == Item.id, _tsv(ItemText.text).op("@@")(_tsq(tsq)))
             .scalar_subquery()
         )
@@ -274,7 +274,8 @@ def _text_scores(tsq: str):
     """(id, score) of the items whose OCR / PDF text has every word."""
     return (
         sa.select(ItemText.item_id.label("id"),
-                  sa.func.max(sa.func.ts_rank_cd(_tsv(ItemText.text), _tsq(tsq))).label("score"))
+                  # the stored tsvector (migration 0803), equal to _tsv(text)
+                  sa.func.max(sa.func.ts_rank_cd(ItemText.tsv, _tsq(tsq))).label("score"))
         .where(ItemText.source.in_(READ_SOURCES), _tsv(ItemText.text).op("@@")(_tsq(tsq)))
         .group_by(ItemText.item_id)
         .subquery("text_raw")

@@ -17,7 +17,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy import inspect as sa_inspect
-from sqlalchemy.dialects.postgresql import ARRAY, CITEXT, JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, CITEXT, JSONB, TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.types import UserDefinedType
 
@@ -366,6 +366,12 @@ class ItemText(Base):
     model: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
+    )
+    # migration 0803: the text's tsvector, stored so ranking (ts_rank_cd)
+    # doesn't parse every matching text again; deferred, never loaded with rows
+    tsv: Mapped[Any] = mapped_column(
+        TSVECTOR, Computed("to_tsvector('simple'::regconfig, text)", persisted=True),
+        deferred=True,
     )
 
 
