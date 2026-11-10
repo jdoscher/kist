@@ -40,22 +40,31 @@ kist/
 ├── config.py        KIST_* settings
 ├── db.py            engine and session factory
 ├── ids.py           ULIDs
-├── filetypes.py     kind (image/video/pdf/other) from the sniffed MIME type,
+├── filetypes.py     kind (image/video/pdf/font/other) from the sniffed MIME type,
 │                    and which originals may be shown inline
 ├── lifecycle.py     every state machine: names and allowed transitions
 ├── models.py        SQLAlchemy models
 ├── schemas.py       API request/response models; ItemOut.for_agent (MCP shape)
 ├── api/             REST routers: items, folders, smart folders, tags, jobs,
-│                    tokens, history (batches, undo), misc (health, archive health)
+│                    tokens, history (batches, undo), misc (health, archive health),
+│                    ai (status, helper jobs), search (search by image)
 ├── services/        all business logic, shared by REST, MCP, CLI, and worker
 │   ├── validation.py input rules every path shares (422 / MCP ToolError)
 │   ├── ingest.py    hash → dedupe → sniff → store → previews → meta.json;
 │   │                inbox scan; the MCP import-dir rule
 │   ├── netguard.py  URL downloads: public addresses only, pinned IPs, deadlines
-│   ├── thumbs.py    probing, thumbnails, perceptual hash, dominant colors
+│   ├── thumbs.py    probing, thumbnails, font specimens, perceptual hash,
+│   │                dominant colors
 │   ├── thumbhash.py ThumbHash encoder (port of the reference, byte-exact)
 │   ├── preview_child.py  the child process previews run in (time limit)
-│   ├── search.py    filters + cursor pagination; KIND_FILTERS = kind in SQL
+│   ├── search.py    filters + cursor pagination; KIND_FILTERS = kind in SQL;
+│   │                search() picks the plain or the ranked path
+│   ├── ranking.py   ranked search: meaning, similar, colour, text, keyword
+│   │                signals, reciprocal rank fusion, match + snippets
+│   ├── colour.py    sRGB -> Lab, CIEDE2000, the Lab prefilter box, palettes
+│   │                with colour names (the SQL twin is in migration 0201)
+│   ├── captions.py  caption providers (ollama/openai/anthropic/gemini), the
+│   │                caption job, edits as events, caption.json
 │   ├── items.py     edits (with the 409 version check), tags, folder
 │   │                membership, protection, trash, purge; every change
 │   │                records events
@@ -75,8 +84,8 @@ kist/
 │   ├── previews.py  preview status, retries, reclassify
 │   ├── meta.py      the durable copy: atomic meta.json / folders.json writes
 │   ├── verify.py    compare Postgres with the disk (CLI + daily worker run)
-│   ├── ai.py        ml client, embed/ocr jobs and their budget, sidecars,
-│   │                helper claim/report, status
+│   ├── ai.py        ml client, embed/ocr/caption jobs and their budget,
+│   │                embed batches, sidecars, helper claim/report, status
 │   ├── pdftext.py   a PDF's text layer / page renders (child process)
 │   └── health.py    /api/health/deep checks, worker heartbeat file
 ├── mcp_server.py    MCP tools (thin wrappers over services/; no queries)
@@ -121,8 +130,11 @@ api_tokens    id, name, token_sha256, scopes, folder_ids, created_at,
               expires_at, last_used_at, revoked_at
 item_embeddings item_id, model, dim, vector (halfvec), created_at
               (one partial HNSW cosine index per model, on vector::halfvec(dim))
-item_text     item_id, source (ocr | pdf), text, lang, model, created_at
-              (GIN index on to_tsvector('simple', text))
+item_text     item_id, source (ocr | pdf | caption), text, lang, model, created_at
+              (GIN index on to_tsvector('simple', text)); one ocr-or-pdf row
+              and at most one caption row per item
+item_colors   item_id, idx, l, a, b, pct   (CIE Lab of each dominant colour;
+              kept by a trigger on items.dominant_colors; index on (a, b, l))
 ai_helpers    name, last_seen, jobs_done, info
 ```
 
@@ -131,7 +143,7 @@ keyset pages stay index scans; `total` is counted only for the first page.
 
 `deleted_at` is the trash. `sha256` uniqueness makes exact-duplicate uploads
 return the existing item. `phash` and `dominant_colors` are captured at ingest
-for near-duplicate detection and future color search.
+for near-duplicate detection and colour search.
 
 ## State machines
 
@@ -171,6 +183,8 @@ by `rebuild-index`:
 | fixity dates | the last line of `items/{id}/fixity.jsonl` |
 | named tokens (hashed) | `library/.kist/tokens.json` |
 | backups, checklist, retention start | `library/.kist/backup.json`, `checklist.json`, `retention.json` |
+| embeddings, OCR/PDF text, captions | `items/{id}/ai/embed-<model>.f16` + `.json`, `ai/ocr.json`, `ai/caption.json` |
+| palettes (`item_colors`) | `dominant_colors` in each `meta.json`; the trigger refills the table as rows come back |
 
 `kist verify` also checks that `tokens.json` matches the database and that
 every item's `events.jsonl` has all of its events; `kist rewrite-meta`
@@ -234,13 +248,27 @@ overwrites newer work.
 
 ## AI jobs
 
-`embed` and `ocr` are job kinds like `ingest`, in the same table, with the
-same lease, retry and failure rules, but claimed separately
+`embed`, `ocr` and `caption` are job kinds like `ingest`, in the same table,
+with the same lease, retry and failure rules, but claimed separately
 (`services/ai.claim`) under a budget:
 
 - `jobs.claim_next` (the worker's main loop) never takes AI kinds. The
-  worker's `AiLane` claims them for its `KIST_AI_CONCURRENCY` threads, so a
-  slow OCR never holds up an import.
+  worker's `AiLane` claims them for its `KIST_AI_CONCURRENCY` threads (2), so
+  a slow OCR never holds up an import. A thread takes the oldest job it may
+  run and, if that is an embed job, up to `KIST_AI_EMBED_BATCH - 1` more
+  (`ai.claim_batch`), so the queue keeps its order.
+- An embed batch is one `POST /embed/images` (multipart, at most 32). The
+  ONNX exports take one image per run (their batch dimension is fixed at
+  1), so the ml service still loops; what a batch saves is per-item
+  overhead. Its sidecars are written on parallel threads (their fsyncs
+  overlap), then all rows go in one commit and all successes finish in one
+  more. A picture the ml service can't read fails only its own job; an
+  older ml service without `/embed/images` gets one request per image. The
+  ml service decodes and resizes images before a request waits for its
+  inference gate, so with two worker threads decoding overlaps inference.
+- The worker runs `embed`/`ocr` when `KIST_ML_URL` is set and `caption` when
+  the caption provider is usable from the server (`ai.worker_kinds`).
+  `ai-backfill` and helpers take `embed` and `ocr` unless `caption` is named.
 - Nothing AI is claimed while a light job (ingest, preview) is pending.
 - Jobs queued by `kist ai-backfill` carry `backfill: true` and are only
   claimed inside `KIST_AI_WINDOW`; jobs for new items run at once.
@@ -257,10 +285,46 @@ AI results are not edits: they write only `item_embeddings`/`item_text`
 and the `ai/` sidecars, never the `items` row, so they add no `item_events`
 and can't be undone or conflict with an undo. A purge removes them with the
 item (foreign keys cascade; the item folder, `ai/` included, is deleted).
-`?semantic=` runs through the same `build_filters` as every search, so a
-folder-limited reader only ever ranks its own items; its cursor is an
-offset tagged as semantic, which a keyword search refuses (and vice versa),
-and `total` comes with the first page only, as for any search.
+Captions are the exception, because a person can edit them: writing one
+(the worker's, a helper's or an edit) records a `caption` event with the
+old and new text, which undo reverts through the same service.
+
+## Ranked search
+
+`search.search()` builds the filters exactly as before (so a folder-limited
+reader only ever ranks its own items), adds `has_text`, `text` (an EXISTS
+on `item_text` with the `to_tsvector('simple', text)` expression the GIN
+index is built on) and `color` (an EXISTS on `item_colors`), and, when a
+ranking parameter is present, hands them to `ranking.ranked_page`:
+
+```
+base CTE = SELECT id FROM items WHERE <filters>
+signal   = (id, score, row_number() OVER (ORDER BY score DESC, id)) per kind:
+           meaning/similar  1 - cosine distance (exact, over base)
+           keyword          trigram similarity + ILIKE + ts_rank of the text
+           color            sum(pct * (1 - dE/maxDE)) over palette rows in the
+                            Lab box with kist_ciede2000(...) <= maxDE
+           text             max ts_rank_cd over ocr/pdf rows
+order    = one signal: its score; several: sum(1 / (60 + rank)) (RRF)
+```
+
+Items a meaning signal can't score (no embedding yet) sort last. `q` is a
+signal instead of a filter only next to a meaning signal ("hybrid");
+otherwise it stays a filter and the page keeps its `order`, with a
+`keyword` match and snippet attached. Snippets come from `ts_headline` for
+the page's rows only. The cursor is an offset tagged `~ranked` (M1's
+`~semantic` cursors still work), refused by the plain path and the other way
+round. Vector distances are exact (no HNSW in the ranked path): with
+filters in play that keeps every page right, and at 100k items it is one
+pass over 100k halfvecs.
+
+Colour: `kist_hex_lab` and `kist_ciede2000` (plpgsql, IMMUTABLE) mirror
+`services/colour.py`; tests compare them on random colours and the Sharma
+reference pairs. The tolerance maps to a CIEDE2000 limit of
+2 + 0.48 * tol (default 30 -> 16.4). The Lab box widens with the query's
+chroma so it never drops a real match (a randomized test checks that).
+
+## AI results on disk
 
 Results are written to `items/<id>/ai/` first, then upserted: the f16
 sidecar is the vector itself (little-endian float16, 1 KB at 512-d), and
@@ -364,12 +428,14 @@ instead.
 - Tools check the token's scope (`agent`, `write`, `admin`, or `read` for
   the reading tools; a folder-limited reader only gets search, get, view
   and folder listing).
-- `add_item(file_path=…)` only reads from `library/import/` and `library/inbox/`.
+- `add_item(file_path=…)` and `search_by_image(file_path=…)` only read from
+  `library/import/` and `library/inbox/`.
+- The search tools are the REST search: `search_items` passes `semantic`,
+  `similar_to`, `color`, `text` straight to `search.search()`, and the
+  instructions tell agents to put a descriptive request in `semantic`.
 
 ## Ideas beyond 1.0
 
-- Color search (palettes are already stored).
-- Semantic search: CLIP embeddings with pgvector, `search_semantic` / `find_similar` tools.
 - Restore-test for backups (`restic check --read-data` on a schedule).
 - A near-duplicate review UI; LSH bucketing for very large libraries.
 - Share links (named, scoped tokens exist; no per-user accounts).
