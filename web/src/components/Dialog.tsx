@@ -58,6 +58,31 @@ export function Modal({
     }
   }, [])
 
+  // focus can fall out to <body> when the focused button inside is disabled
+  // or replaced (Undo in Recent changes turns into Redo): the next key
+  // would then miss the dialog and Escape stopped closing it. Pull focus
+  // back into the topmost dialog and handle that key as if it were inside.
+  useEffect(() => {
+    const onDocKey = (e: KeyboardEvent) => {
+      const box = ref.current
+      if (!box || e.defaultPrevented) return
+      const active = document.activeElement
+      if (active && active !== document.body && active !== document.documentElement) return
+      const dialogs = document.querySelectorAll('.modal[role="dialog"]')
+      if (dialogs[dialogs.length - 1] !== box) return
+      box.focus()
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        closeRef.current()
+      } else if (e.key === 'Tab') {
+        e.preventDefault()
+        box.querySelector<HTMLElement>(FOCUSABLE)?.focus()
+      }
+    }
+    document.addEventListener('keydown', onDocKey)
+    return () => document.removeEventListener('keydown', onDocKey)
+  }, [])
+
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       e.stopPropagation()
