@@ -65,12 +65,91 @@ def legacy_representative_filter():
     return sa.or_(Item.stack_id.is_(None), Item.id == sa.func.coalesce(cover_id, first_id))
 
 
+def legacy_keyset_page(session, filters, order, limit, cursor):
+    from kist.models import Item
+    from kist.services.ranking import RANKED_CURSOR
+    from kist.services.search import (
+        ORDERS,
+        SEMANTIC_CURSOR,
+        BadCursor,
+        decode_cursor,
+        encode_cursor,
+    )
+
+    col, desc = ORDERS[order]
+    stmt = sa.select(Item).where(*filters)
+    if desc:
+        stmt = stmt.order_by(col.desc(), Item.id.desc())
+    else:
+        stmt = stmt.order_by(col.asc(), Item.id.asc())
+    if cursor:
+        value, last_id = decode_cursor(cursor)
+        if last_id in (SEMANTIC_CURSOR, RANKED_CURSOR):
+            raise BadCursor("that cursor belongs to a ranked search; start again without one")
+        if desc:
+            stmt = stmt.where(sa.or_(col < value, sa.and_(col == value, Item.id < last_id)))
+        else:
+            stmt = stmt.where(sa.or_(col > value, sa.and_(col == value, Item.id > last_id)))
+    rows = list(session.execute(stmt.limit(limit + 1)).scalars())
+    next_cursor = None
+    if len(rows) > limit:
+        rows = rows[:limit]
+        last = rows[-1]
+        next_cursor = encode_cursor(getattr(last, col.key), last.id)
+    return rows, next_cursor
+
+
+def legacy_list_with_counts(session, namespace=None):
+    from kist.models import Item, ItemTag, Tag
+    from kist.services.tags import tag_dict
+
+    rows = session.execute(
+        sa.select(Tag.id, Tag.name, sa.func.count(Item.id).label("count"))
+        .outerjoin(ItemTag, ItemTag.tag_id == Tag.id)
+        .outerjoin(Item, sa.and_(Item.id == ItemTag.item_id, Item.deleted_at.is_(None)))
+        .group_by(Tag.id, Tag.name)
+        .order_by(sa.text("count DESC"), Tag.name)
+    ).all()
+    out = [tag_dict(r.id, r.name, r.count) for r in rows]
+    if namespace is not None:
+        want = None if namespace.lower() in ("", "none") else namespace.lower()
+        out = [t for t in out if t["namespace"] == want]
+    return out
+
+
+def legacy_list_folders(session):
+    from kist import access
+    from kist.models import Folder, Item, ItemFolder
+    from kist.services.folders import folder_dict, subtree_counts
+
+    folders = session.execute(
+        sa.select(Folder).order_by(Folder.position, Folder.name)
+    ).scalars().all()
+    memberships = session.execute(
+        sa.select(ItemFolder.item_id, ItemFolder.folder_id)
+        .join(Item, Item.id == ItemFolder.item_id)
+        .where(Item.deleted_at.is_(None))
+    ).all()
+    counts = subtree_counts(list(folders), [tuple(m) for m in memberships])
+    reader = access.restricted()
+    if reader is not None:
+        return [
+            {**folder_dict(f, counts.get(f.id, 0)),
+             "parent_id": f.parent_id if f.parent_id in reader.visible_folders else None}
+            for f in folders if f.id in reader.visible_folders
+        ]
+    return [folder_dict(f, counts.get(f.id, 0)) for f in folders]
+
+
 def _legacy_patches():
-    from kist.services import search, stacks
+    from kist.services import folders, search, stacks, tags
 
     return [
         (search, "tag_condition", legacy_tag_condition),
         (stacks, "representative_filter", legacy_representative_filter),
+        (search, "_keyset_page", legacy_keyset_page),
+        (tags, "list_with_counts", legacy_list_with_counts),
+        (folders, "list_folders", legacy_list_folders),
     ]
 
 
@@ -211,7 +290,10 @@ def _cases(lib):
     return cases
 
 
-ORDER_SAMPLE = ("-created", "taken", "-rating", "filename")
+# every list order; the small page sizes walk many cursors (ties in rating
+# and size included)
+ORDER_PAGES = {"-created": 97, "created": 400, "-modified": 400, "modified": 400,
+               "-taken": 211, "taken": 400, "filename": 97, "-size": 400, "-rating": 97}
 
 
 def test_results_match_the_old_queries(seeded, monkeypatch):
@@ -228,9 +310,8 @@ def test_results_match_the_old_queries(seeded, monkeypatch):
             with access.acting_as(who):
                 for case in _cases(seeded):
                     for stacks in (None, "collapse"):
-                        for n, order in enumerate(ORDER_SAMPLE):
+                        for order, limit in ORDER_PAGES.items():
                             params = dict(case, stacks=stacks, order=order)
-                            limit = 10_000 if n else 97
                             new = _pages(s, params, limit)
                             with legacy(monkeypatch):
                                 old = _pages(s, params, limit)
@@ -238,7 +319,7 @@ def test_results_match_the_old_queries(seeded, monkeypatch):
                             checked += 1
                             if who is None and case == {} and stacks:
                                 assert new[0][1] > 0
-    assert checked == 2 * len(_cases(seeded)) * 2 * len(ORDER_SAMPLE)
+    assert checked == 2 * len(_cases(seeded)) * 2 * len(ORDER_PAGES)
 
 
 def test_stack_reps_function_matches_migration():
@@ -274,3 +355,39 @@ def test_collapse_corner_cases_are_seeded(seeded):
         with access.acting_as(_reader(s, seeded["reader_root"])):
             seen = {i.id for i in search.search(s, stacks="collapse", limit=100_000).items}
         assert seen & set(members[st[5]])
+
+
+def _sidebar_urls(lib):
+    tags = lib["tags"]
+    ns = tags[0].split(":")[0] if ":" in tags[0] else "none"
+    return [
+        "/api/tags", "/api/tags?namespace=none", f"/api/tags?namespace={ns}",
+        "/api/folders", "/api/stats",
+        "/api/items/buckets?sort=taken&order=desc&stacks=collapse",
+        f"/api/items/buckets?sort=created&order=asc&stacks=collapse&tags={tags[1]}",
+        "/api/timeline?group=day", f"/api/timeline?group=month&tags={lib['implied']}",
+        f"/api/timeline?group=day&tags_any={tags[3]},{lib['alias']}&stacks=collapse",
+        "/api/map?zoom=2", f"/api/map?zoom=3&tags={tags[0]}",
+    ]
+
+
+def test_sidebar_and_listing_reads_match_the_old_queries(seeded, client, monkeypatch):
+    """Tags list, sidebar folders (owner and a folder-limited reader),
+    stats, month buckets, timeline and map: the same JSON as before."""
+    from kist import access
+    from kist.db import SessionLocal
+    from kist.services import folders
+
+    for url in _sidebar_urls(seeded):
+        new = client.get(url)
+        with legacy(monkeypatch):
+            old = client.get(url)
+        assert new.status_code == old.status_code == 200, url
+        assert new.json() == old.json(), url
+    with SessionLocal() as s, access.acting_as(_reader(s, seeded["reader_root"])):
+        new = folders.list_folders(s)
+        with legacy(monkeypatch):
+            old = folders.list_folders(s)
+        assert new == old and new
+    counts = {f["id"]: f["item_count"] for f in client.get("/api/folders").json()}
+    assert counts[seeded["reader_root"]] > 0
