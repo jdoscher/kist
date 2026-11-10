@@ -3,8 +3,9 @@
 The board's nodes are composited from the items' existing preview copies
 (thumb_256/512/1024, display_2048, display), never the originals, so an
 export is quick and needs no decoders. Notes, text, shapes, colour swatches,
-links and group frames are drawn simply; edges are straight arrows between
-node centres. An item node whose item is gone (purged) is drawn as a grey
+links and group frames are drawn simply; edges are straight arrows along
+the line between node centres, from one node's edge to the other's (as the
+editor draws them). An item node whose item is gone (purged) is drawn as a grey
 "missing item" box.
 
 The HTML export is a single file with every image inlined as base64 and
@@ -111,6 +112,30 @@ def _wrap(draw: ImageDraw.ImageDraw, text: str, font, width: float) -> list[str]
     return lines
 
 
+def edge_points(a: dict, b: dict) -> tuple[float, float, float, float]:
+    """Where an arrow from node a to node b starts and ends, in board
+    coordinates: on the line between their centres, where it leaves a's box
+    and enters b's (centre to centre drew the line over both pictures and
+    hid the arrowhead inside the target)."""
+    ax, ay = a["x"] + a["w"] / 2, a["y"] + a["h"] / 2
+    bx, by = b["x"] + b["w"] / 2, b["y"] + b["h"] / 2
+
+    def exit_t(n: dict, dx: float, dy: float) -> float:
+        # fraction of (dx, dy) from a node's centre to its border
+        ts = []
+        if dx:
+            ts.append(n["w"] / 2 / abs(dx))
+        if dy:
+            ts.append(n["h"] / 2 / abs(dy))
+        return min(ts) if ts else 0.0
+
+    dx, dy = bx - ax, by - ay
+    t0, t1 = exit_t(a, dx, dy), 1.0 - exit_t(b, dx, dy)
+    if t0 >= t1:  # overlapping boxes: centre to centre
+        return ax, ay, bx, by
+    return ax + dx * t0, ay + dy * t0, ax + dx * t1, ay + dy * t1
+
+
 def ordered(doc: dict) -> list[dict]:
     """Nodes back to front: groups first (frames sit behind), then by z."""
     nodes = list(doc.get("nodes") or [])
@@ -210,8 +235,9 @@ def render(doc: dict, scale: float, exists: Resolver,
         a, b = by_id.get(e["from"]), by_id.get(e["to"])
         if not a or not b:
             continue
-        ax, ay = (a["x"] + a["w"] / 2 - x0) * scale, (a["y"] + a["h"] / 2 - y0) * scale
-        bx, by = (b["x"] + b["w"] / 2 - x0) * scale, (b["y"] + b["h"] / 2 - y0) * scale
+        pax, pay, pbx, pby = edge_points(a, b)
+        ax, ay = (pax - x0) * scale, (pay - y0) * scale
+        bx, by = (pbx - x0) * scale, (pby - y0) * scale
         color = _color((e.get("style") or {}).get("stroke"), INK)
         width = max(1, int(2 * scale))
         draw.line((ax, ay, bx, by), fill=color, width=width)
@@ -321,8 +347,8 @@ def render_html(doc: dict, exists: Resolver, title: str) -> str:
         a, b = by_id.get(e["from"]), by_id.get(e["to"])
         if not a or not b:
             continue
-        ax, ay = a["x"] + a["w"] / 2 - x0, a["y"] + a["h"] / 2 - y0
-        bx, by = b["x"] + b["w"] / 2 - x0, b["y"] + b["h"] / 2 - y0
+        pax, pay, pbx, pby = edge_points(a, b)
+        ax, ay, bx, by = pax - x0, pay - y0, pbx - x0, pby - y0
         lines.append(f'<line x1="{ax:.1f}" y1="{ay:.1f}" x2="{bx:.1f}" y2="{by:.1f}" '
                      'marker-end="url(#a)"/>')
         if e.get("label"):

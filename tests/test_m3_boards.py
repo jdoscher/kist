@@ -359,3 +359,22 @@ def test_mcp_board_tools(client, upload):
     assert json.loads(listed["content"][0]["text"])["id"] == board["id"]
     err = mcp_result(client, "get_board", {"id": "01NOPE"})
     assert err["isError"] and "not found" in err["content"][0]["text"]
+
+
+def test_arrows_run_between_node_edges_not_centres():
+    from kist.services.board_render import edge_points
+
+    a = {"x": 0, "y": 0, "w": 100, "h": 100}
+    b = {"x": 300, "y": 0, "w": 100, "h": 50}
+    # side by side: from a's right edge to b's left edge, at the centres' height line
+    ax, ay, bx, by = edge_points(a, b)
+    assert (round(ax), round(bx)) == (100, 300)
+    # on the line between the centres (50,50) -> (350,25)
+    assert abs(ay - (50 - 25 * 50 / 300)) < 1e-9 and abs(by - (50 - 25 * 250 / 300)) < 1e-9
+    # diagonal: stays inside the gap between the boxes
+    c = {"x": 400, "y": 400, "w": 100, "h": 100}
+    ax, ay, bx, by = edge_points(a, c)
+    assert (ax, ay) == (100, 100) and (bx, by) == (400, 400)
+    # overlapping boxes: centre to centre
+    d = {"x": 50, "y": 50, "w": 100, "h": 100}
+    assert edge_points(a, d) == (50, 50, 100, 100)
