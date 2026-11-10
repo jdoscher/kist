@@ -9,6 +9,7 @@ import { useAppState } from '../state'
 import { useShortcut } from '../useShortcuts'
 import { useDialog } from './Dialog'
 import { useNotices } from './Notices'
+import { BulkCreative } from './m3/BulkCreative'
 
 // actions that take the items out of this view: clear the selection after
 const LEAVES_VIEW = new Set(['trash', 'restore', 'hardDelete'])
@@ -208,6 +209,7 @@ export function BulkBar() {
           <button className="danger" disabled={busy} onClick={() => run({ kind: 'trash' })}>
             Trash
           </button>
+          <BulkCreative ids={ids} busy={busy} />
         </>
       )}
 

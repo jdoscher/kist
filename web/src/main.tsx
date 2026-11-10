@@ -10,6 +10,7 @@ import '@fontsource/instrument-serif/400.css'
 import '@fontsource-variable/jetbrains-mono/wght.css'
 import './themes.css'
 import './styles.css'
+import './creative.css'
 import { readPrefs } from './settings'
 import { applyAppearance, watchSystemTheme } from './theme'
 

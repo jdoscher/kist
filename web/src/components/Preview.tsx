@@ -8,6 +8,7 @@ import { useAppState } from '../state'
 import { useFocusInOut, useFocusTrap, useInertBackground } from '../useInert'
 import { useLayer, useShortcut } from '../useShortcuts'
 import { tileDomId } from './Grid'
+import { Annotated } from './m3/Annotations'
 
 /** Show the 1024 thumb at once, then swap in the sharper copy the screen
  * actually needs (preview.ts: usually the 2048 WebP, not the original). */
@@ -139,6 +140,7 @@ export function Preview() {
       </button>
 
       <figure onClick={(e) => e.stopPropagation()}>
+        <Annotated key={item.id} item={item}>
         {item.kind === 'video' ? (
           <video src={fileUrl(item)} controls autoPlay />
         ) : item.kind === 'pdf' ? (
@@ -152,6 +154,7 @@ export function Preview() {
             <p>No preview for .{item.ext}</p>
           </div>
         )}
+        </Annotated>
         <figcaption aria-live="polite" aria-atomic="true">
           <span className="fname">{item.filename}</span>
           <span className="meta">

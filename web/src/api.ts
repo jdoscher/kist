@@ -47,6 +47,9 @@ export interface Item {
   created_at: string
   modified_at: string
   deleted_at: string | null
+  /** culling (Milestone 3): pick | reject, and a colour label */
+  flag?: 'pick' | 'reject' | null
+  label?: 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | null
 }
 
 export interface ItemPage {
@@ -100,6 +103,9 @@ export interface Query {
   deleted: boolean
   created_after: string | null
   created_before: string | null
+  /** culling filters (Milestone 3): pick | reject | none, a colour | none */
+  flag?: string | null
+  label?: string | null
 }
 
 export const emptyQuery: Query = {
@@ -117,6 +123,8 @@ export const emptyQuery: Query = {
   deleted: false,
   created_after: null,
   created_before: null,
+  flag: null,
+  label: null,
 }
 
 export interface SmartFolder {
@@ -309,7 +317,7 @@ function notifyUnauthorized() {
   onUnauthorized?.()
 }
 
-async function request<T>(
+export async function request<T>(
   path: string,
   init: RequestInit = {},
   timeoutMs = REQUEST_TIMEOUT_MS,
@@ -357,12 +365,12 @@ export function newBatchId(now = Date.now(), rand = Math.random): string {
   return `web-${now.toString(36)}-${Math.floor(rand() * 36 ** 6).toString(36).padStart(6, '0')}`
 }
 
-function withBatch(init: RequestInit, batch?: string): RequestInit {
+export function withBatch(init: RequestInit, batch?: string): RequestInit {
   if (!batch) return init
   return { ...init, headers: { ...((init.headers as Record<string, string>) ?? {}), 'X-Kist-Batch': batch } }
 }
 
-function json(body: unknown): RequestInit {
+export function json(body: unknown): RequestInit {
   return {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -385,6 +393,8 @@ function itemsUrl(query: Query, cursor?: string, limit = 120): string {
   if (query.deleted) p.set('state', 'trashed')
   if (query.created_after) p.set('created_after', query.created_after)
   if (query.created_before) p.set('created_before', query.created_before)
+  if (query.flag) p.set('flag', query.flag)
+  if (query.label) p.set('label', query.label)
   p.set('order', query.order)
   p.set('limit', String(limit))
   if (cursor) p.set('cursor', cursor)
@@ -400,7 +410,7 @@ export const api = {
    * answers 409 (conflictItem) if someone else changed it since */
   patchItem: (
     id: string,
-    patch: Partial<Pick<Item, 'filename' | 'rating' | 'notes' | 'folder_ids' | 'source_url' | 'protected'>> & {
+    patch: Partial<Pick<Item, 'filename' | 'rating' | 'notes' | 'folder_ids' | 'source_url' | 'protected' | 'flag' | 'label'>> & {
       base_modified_at?: string
     },
     batch?: string,

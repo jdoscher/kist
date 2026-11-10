@@ -22,6 +22,8 @@ import { useAppState } from '../state'
 import { useShortcut } from '../useShortcuts'
 import { describeError } from '../writes'
 import { BulkBar } from './BulkBar'
+import { CullBadges, cullText } from './m3/CullControls'
+import { FirstRun } from './m3/FirstRun'
 
 const KIND_ICONS: Record<string, LucideIcon> = {
   image: ImageIcon,
@@ -86,7 +88,7 @@ const Tile = memo(function Tile({
       aria-selected={selected}
       aria-setsize={total}
       aria-posinset={index + 1}
-      aria-label={tileLabel(item)}
+      aria-label={cullText(item) ? `${tileLabel(item)}, ${cullText(item)}` : tileLabel(item)}
       tabIndex={tabbable ? 0 : -1}
       className={`tile${selected ? ' selected' : ''}${thumb ? '' : ' no-thumb'}`}
       style={{ width, height, ...placeholder }}
@@ -128,6 +130,7 @@ const Tile = memo(function Tile({
           ))}
         </span>
       )}
+      <CullBadges item={item} />
       {item.protected && (
         <span className="badge lock" aria-hidden="true" title="Protected">
           <Lock size={11} strokeWidth={2.25} />
@@ -488,7 +491,11 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
           ))}
         </div>
       </div>
-      {empty && (
+      {empty && stats?.total_items === 0 && !query.deleted ? (
+        <div className="grid-empty first">
+          <FirstRun />
+        </div>
+      ) : empty && (
         <div className="grid-empty">
           <p>{empty.text}</p>
           {empty.action === 'everywhere' && (

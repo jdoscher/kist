@@ -16,7 +16,7 @@ import type { Query } from './api'
 import type { GridLayout } from './layout'
 import type { MobileCols } from './mobile'
 import { mergeQuery, normalizeSaved } from './query'
-import { fromUrl, type Place, type SettingsSection } from './url'
+import { fromUrl, type Place, type Screen, type SettingsSection } from './url'
 import { usePrefs } from './usePrefs'
 import { inMenuLayer, pushMenuLayer, useUrlSync } from './urlSync'
 import type { Density, ThemePref } from './theme'
@@ -69,6 +69,9 @@ interface AppState {
   /** the Recent changes panel (batch undo) */
   recentOpen: boolean
   setRecentOpen: (open: boolean) => void
+  /** a full screen over the library: boards, a board, triage (Milestone 3) */
+  screen: Screen | null
+  openScreen: (screen: Screen | null) => void
 }
 
 const Ctx = createContext<AppState | null>(null)
@@ -96,6 +99,7 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
   // you were instead of adding a history entry
   const settingsFromApp = useRef(false)
   const [recentOpen, setRecentOpen] = useState(false)
+  const [screen, setScreen] = useState<Screen | null>(initial.screen ?? null)
   const [jobsOpen, setJobsOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const anchor = useRef<string | null>(null)
@@ -104,6 +108,7 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
   const setQuery = useCallback((patch: Partial<Query>) => {
     setQueryRaw((prev) => mergeQuery(prev, patch))
     setSettings(null)
+    setScreen(null)
     setSmartId(null)
     setSelection(new Set())
     setPreviewIdRaw(null)
@@ -112,6 +117,7 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
   const applySmartFolder = useCallback((id: string, q: Partial<Query>) => {
     setQueryRaw(normalizeSaved(q))
     setSettings(null)
+    setScreen(null)
     setSmartId(id)
     setSelection(new Set())
     setPreviewIdRaw(null)
@@ -121,11 +127,12 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
     () => ({
       query,
       smartId,
-      item: settings ? null : previewId ?? (selection.size === 1 ? [...selection][0] : null),
-      full: !settings && previewId !== null,
+      item: settings || screen ? null : previewId ?? (selection.size === 1 ? [...selection][0] : null),
+      full: !settings && !screen && previewId !== null,
       ...(settings ? { settings } : {}),
+      ...(screen && !settings ? { screen } : {}),
     }),
-    [query, smartId, selection, previewId, settings],
+    [query, smartId, selection, previewId, settings, screen],
   )
   useUrlSync({
     initial,
@@ -138,6 +145,8 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
         return
       }
       setSettings(null)
+      setScreen(p.screen ?? null)
+      if (p.screen) return
       settingsFromApp.current = false
       setQueryRaw(p.query)
       setSmartId(p.smartId)
@@ -202,6 +211,13 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
     })
   }, [])
 
+  const openScreen = useCallback((sc: Screen | null) => {
+    setSettings(null)
+    setScreen(sc)
+    setPreviewIdRaw(null)
+    setDrawerOpen(false)
+  }, [])
+
   const clearSelection = useCallback(() => setSelection(new Set()), [])
   const selectAll = useCallback((ids: string[]) => setSelection(new Set(ids)), [])
 
@@ -259,8 +275,10 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
       closeSettings,
       recentOpen,
       setRecentOpen,
+      screen,
+      openScreen,
     }),
-    [settings, openSettings, closeSettings, recentOpen, query, setQuery, smartId, applySmartFolder, selection, selectOnly, toggleSelect, rangeSelect, clearSelection, selectAll, previewId, setPreviewId, panelOpen, setPanelOpen, gridLayout, setGridLayout, tileSize, setTileSize, drawerOpen, openDrawer, closeDrawer, jobsOpen, mobile, mobileCols, setMobileCols, theme, setTheme, density, setDensity, chromeShown],
+    [screen, openScreen, settings, openSettings, closeSettings, recentOpen, query, setQuery, smartId, applySmartFolder, selection, selectOnly, toggleSelect, rangeSelect, clearSelection, selectAll, previewId, setPreviewId, panelOpen, setPanelOpen, gridLayout, setGridLayout, tileSize, setTileSize, drawerOpen, openDrawer, closeDrawer, jobsOpen, mobile, mobileCols, setMobileCols, theme, setTheme, density, setDensity, chromeShown],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

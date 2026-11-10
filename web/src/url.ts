@@ -9,19 +9,37 @@
 //   /tag/:name        one tag
 //   /smart/:id        a smart folder (its filters ride along as params)
 //   /settings/:section  Settings: tokens, archive (health) or ai
+//   /boards           the boards list (Milestone 3)
+//   /board/:id        a board's canvas
+//   /triage           triage mode (?view=unfiled|all, ?folder=)
 //   ?item=:id         the item shown in the info panel / item sheet
 //   &full=1           ...opened full screen
 //
 // Other filters are params: q, tags, any, untagged, folder (none), preview,
 // type, rating, order, after, before, trash (a smart folder over the trash),
-// fixity (failed). Unknown params (say ?semantic=, which milestone 2 uses)
+// fixity (failed), flag (pick, reject, none), label (a colour, none). Unknown params (say ?semantic=, which milestone 2 uses)
 // are ignored, never an error.
 // Pure functions, tested in tests/url.test.ts.
 
 import { emptyQuery, type PreviewStatus, type Query } from './api.ts'
 
-export type SettingsSection = 'tokens' | 'archive' | 'ai'
-export const SETTINGS_SECTIONS: SettingsSection[] = ['tokens', 'archive', 'ai']
+export type SettingsSection = 'tokens' | 'archive' | 'ai' | 'templates'
+export const SETTINGS_SECTIONS: SettingsSection[] = ['tokens', 'archive', 'ai', 'templates']
+
+/** Full screens that replace the library (Milestone 3). */
+export type Screen =
+  | { kind: 'boards'; trash?: boolean }
+  | { kind: 'board'; id: string }
+  | { kind: 'triage'; view: 'unfiled' | 'all'; folder?: string | null }
+
+export function screenUrl(sc: Screen): string {
+  if (sc.kind === 'boards') return sc.trash ? '/boards?trash=1' : '/boards'
+  if (sc.kind === 'board') return `/board/${encodeURIComponent(sc.id)}`
+  const s = new URLSearchParams()
+  s.set('view', sc.view)
+  if (sc.folder) s.set('folder', sc.folder)
+  return `/triage?${s}`
+}
 
 export interface Place {
   query: Query
@@ -30,6 +48,8 @@ export interface Place {
   full: boolean
   /** the Settings screen is shown (over the library, which keeps its place) */
   settings?: SettingsSection | null
+  /** a full screen (boards, a board, triage) is shown */
+  screen?: Screen | null
 }
 
 export type Layer = 'view' | 'sheet' | 'full'
@@ -37,10 +57,12 @@ export type Layer = 'view' | 'sheet' | 'full'
 const RANK: Record<Layer, number> = { view: 0, sheet: 1, full: 2 }
 
 const PREVIEWS: PreviewStatus[] = ['pending', 'ready', 'failed', 'none']
+const LABEL_PARAMS = ['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'none']
 
 /** The view part of the path (no item). */
 function placePath(p: Place): string {
   if (p.settings) return `/settings/${p.settings}`
+  if (p.screen) return screenUrl(p.screen)
   const q = p.query
   // a smart folder keeps its path even when it searches the trash
   if (p.smartId) return `/smart/${encodeURIComponent(p.smartId)}`
@@ -54,7 +76,7 @@ function placePath(p: Place): string {
 export function toUrl(p: Place): string {
   const q = p.query
   const path = placePath(p)
-  if (p.settings) return path
+  if (p.settings || p.screen) return path
   const s = new URLSearchParams()
   const tagInPath = path.startsWith('/tag/')
   if (q.q) s.set('q', q.q)
@@ -72,6 +94,8 @@ export function toUrl(p: Place): string {
   if (q.order !== emptyQuery.order) s.set('order', q.order)
   if (q.created_after) s.set('after', q.created_after)
   if (q.created_before) s.set('before', q.created_before)
+  if (q.flag) s.set('flag', q.flag)
+  if (q.label) s.set('label', q.label)
   if (p.item) s.set('item', p.item)
   if (p.item && p.full) s.set('full', '1')
   const qs = s.toString()
@@ -103,6 +127,8 @@ export function fromUrl(pathname: string, search: string): Place {
     created_after: s.get('after') || null,
     created_before: s.get('before') || null,
     deleted: s.get('trash') === '1',
+    flag: ['pick', 'reject', 'none'].includes(s.get('flag') ?? '') ? s.get('flag') : null,
+    label: LABEL_PARAMS.includes(s.get('label') ?? '') ? s.get('label') : null,
   }
   let smartId: string | null = null
   const [head, arg] = parts
@@ -115,6 +141,15 @@ export function fromUrl(pathname: string, search: string): Place {
     // the library behind Settings is All items (closing Settings shows it)
     const section = SETTINGS_SECTIONS.includes(arg as SettingsSection) ? (arg as SettingsSection) : 'tokens'
     return { query: { ...emptyQuery }, smartId: null, item: null, full: false, settings: section }
+  }
+  else if (head === 'boards' || (head === 'board' && arg) || head === 'triage') {
+    const screen: Screen =
+      head === 'boards'
+        ? { kind: 'boards', ...(s.get('trash') === '1' ? { trash: true } : {}) }
+        : head === 'board'
+          ? { kind: 'board', id: arg }
+          : { kind: 'triage', view: s.get('view') === 'all' ? 'all' : 'unfiled', folder: s.get('folder') || null }
+    return { query: { ...emptyQuery }, smartId: null, item: null, full: false, screen }
   }
   // anything else (including /all) is the whole library
   const item = s.get('item') || null

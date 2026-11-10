@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState } from 'react'
 import { api, getToken, setToken, setUnauthorizedHandler } from './api'
 import { DetailPanel } from './components/DetailPanel'
 import { DetailSheet } from './components/DetailSheet'
@@ -22,6 +22,12 @@ import { useCaps } from './data'
 import { Mark, Wordmark } from './components/Brand'
 import { useAppState } from './state'
 import { bannerText, describeError, hasDrafts } from './writes'
+import { CreativeProvider } from './components/m3/Creative'
+import { BoardsScreen } from './components/m3/Boards'
+
+// Milestone 3 full screens load on first use
+const BoardEditor = lazy(() => import('./components/m3/board/BoardEditor'))
+const Triage = lazy(() => import('./components/m3/Triage'))
 
 function TokenGate({ onDone, overlay = false }: { onDone: () => void; overlay?: boolean }) {
   const [value, setValue] = useState('')
@@ -135,8 +141,16 @@ function UndoShortcut() {
 
 /** The library (top bar, sidebar, grid, info panel) or Settings. */
 function Screens({ mobile }: { mobile: boolean }) {
-  const { settings } = useAppState()
+  const { settings, screen } = useAppState()
   if (settings) return <SettingsScreen />
+  if (screen)
+    return (
+      <Suspense fallback={<main className="center">Loading…</main>}>
+        {screen.kind === 'boards' && <BoardsScreen trash={!!screen.trash} />}
+        {screen.kind === 'board' && <BoardEditor key={screen.id} id={screen.id} />}
+        {screen.kind === 'triage' && <Triage key={`${screen.view}:${screen.folder ?? ''}`} screen={screen} />}
+      </Suspense>
+    )
   return (
     <>
       <TopBar mobile={mobile} />
@@ -215,15 +229,17 @@ export default function App() {
       <DialogProvider>
         <AppStateProvider mobile={mobile}>
           <UploadManager>
-            <div className={`app-shell${mobile ? ' mobile' : ''}`}>
-              <ServerBanner />
-              <Screens mobile={mobile} />
-              <Preview />
-              <JobsPanel />
-              <RecentChanges />
-              <UndoShortcut />
-              {!authed && <TokenGate onDone={recheck} overlay />}
-            </div>
+            <CreativeProvider>
+              <div className={`app-shell${mobile ? ' mobile' : ''}`}>
+                <ServerBanner />
+                <Screens mobile={mobile} />
+                <Preview />
+                <JobsPanel />
+                <RecentChanges />
+                <UndoShortcut />
+                {!authed && <TokenGate onDone={recheck} overlay />}
+              </div>
+            </CreativeProvider>
           </UploadManager>
         </AppStateProvider>
       </DialogProvider>

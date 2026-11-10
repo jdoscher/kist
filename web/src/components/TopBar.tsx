@@ -1,4 +1,4 @@
-import { History, Info, Menu, PanelsLeftRight, RectangleHorizontal, Settings, Square, Upload, X } from 'lucide-react'
+import { Command, History, Info, Menu, PanelsLeftRight, RectangleHorizontal, Settings, Square, Upload, X } from 'lucide-react'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { TILE_SIZE_MAX, TILE_SIZE_MIN } from '../layout'
 import { useCaps, useTags } from '../data'
@@ -8,6 +8,8 @@ import { AppearanceMenu } from './Appearance'
 import { Mark, Wordmark } from './Brand'
 import { PasteButton } from './PasteButton'
 import { useUploads } from './UploadManager'
+import { useCreative } from './m3/Creative'
+import { labelName } from '../cull'
 
 const TYPES = ['image', 'video', 'pdf', 'other'] as const
 const ORDERS: [string, string][] = [
@@ -42,6 +44,7 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
   const caps = useCaps()
   const { data: tags } = useTags()
   const uploads = useUploads()
+  const creative = useCreative()
   const [text, setText] = useState(query.q)
   const [open, setOpen] = useState(false)
   const [hilite, setHilite] = useState(0)
@@ -60,7 +63,9 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
     !!query.preview ||
     !!query.fixity ||
     !!query.created_after ||
-    !!query.created_before
+    !!query.created_before ||
+    !!query.flag ||
+    !!query.label
 
   // debounce free-text search
   useEffect(() => {
@@ -154,6 +159,12 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
             {query.fixity && (
               <Chip label="fixity check failed" clear="Clear fixity filter" onClear={() => setQuery({ fixity: null })} />
             )}
+            {query.flag && (
+              <Chip label={query.flag === 'pick' ? 'picks' : query.flag === 'reject' ? 'rejects' : 'unflagged'} clear="Clear flag filter" onClear={() => setQuery({ flag: null })} />
+            )}
+            {query.label && (
+              <Chip label={query.label === 'none' ? 'no label' : `${labelName(query.label).toLowerCase()} label`} clear="Clear label filter" onClear={() => setQuery({ label: null })} />
+            )}
             {query.untagged && (
               <Chip label="untagged" clear="Clear untagged filter" onClear={() => setQuery({ untagged: false })} />
             )}
@@ -210,6 +221,10 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
           {open && suggestions.length > 0 ? `${suggestions.length} tag suggestions, use up and down to pick` : ''}
         </span>
       </div>
+
+      <button className="icon-btn topbar-icon palette-btn" onClick={creative.openPalette} aria-label="Go to or do anything (⌘K)" title="Go to or do anything (⌘K)" aria-keyshortcuts="Meta+K Control+K">
+        <Command size={16} strokeWidth={1.75} aria-hidden="true" />
+      </button>
 
       {mobile && <div className="topbar-break" />}
 

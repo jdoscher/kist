@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Copy, Cpu, KeyRound, ShieldCheck, TriangleAlert, X } from 'lucide-react'
+import { Check, Copy, Cpu, KeyRound, ShieldCheck, Sparkles, TriangleAlert, X } from 'lucide-react'
 import { useId, useState } from 'react'
 import { api, emptyQuery, type ApiToken, type ArchiveHealth } from '../api'
 import { useCaps, useFolderNames, useFolders, useMe, useStats } from '../data'
@@ -12,11 +12,13 @@ import { useWrite } from '../useWrite'
 import { Mark, Wordmark } from './Brand'
 import { Modal, useDialog } from './Dialog'
 import { useNotices } from './Notices'
+import { TemplatesSection } from './m3/Templates'
 
 const SECTIONS: { id: SettingsSection; label: string; icon: typeof KeyRound }[] = [
   { id: 'tokens', label: 'Tokens', icon: KeyRound },
   { id: 'archive', label: 'Archive health', icon: ShieldCheck },
   { id: 'ai', label: 'AI', icon: Cpu },
+  { id: 'templates', label: 'Templates', icon: Sparkles },
 ]
 
 const dateText = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : '')
@@ -63,6 +65,7 @@ export function SettingsScreen() {
             {section === 'tokens' && <TokensSection />}
             {section === 'archive' && <ArchiveSection />}
             {section === 'ai' && <AiSection />}
+            {section === 'templates' && <TemplatesSection />}
           </main>
         </div>
       )}
