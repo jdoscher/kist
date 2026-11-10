@@ -128,6 +128,26 @@ def add_thumbhash(session: Session, item: Item) -> bool:
     return bool(value)
 
 
+def recompute_colors(session: Session, item: Item) -> bool:
+    """Dominant colours again from the existing preview (after the palette
+    method changed); item_colors follows by trigger. Not an edit: modified_at
+    stays. Returns whether they changed."""
+    small = get_settings().items_dir / item.id / "thumb_256.webp"
+    if not small.is_file():
+        return False
+    colors = thumbs.dominant_colors(small)
+    if colors == item.dominant_colors:
+        return False
+    session.execute(
+        sa.update(Item).where(Item.id == item.id).values(
+            dominant_colors=colors, modified_at=Item.modified_at
+        )
+    )
+    session.commit()
+    meta_svc.sync_item(session, item.id)
+    return True
+
+
 THUMBHASH_BATCH = 50
 
 

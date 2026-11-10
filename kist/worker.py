@@ -242,15 +242,12 @@ def run_ai_batch(job_ids: list[int]) -> str:
             s.rollback()
             log.exception("embed batch %s failed", job_ids)
             results = {i: str(exc) or type(exc).__name__ for i in job_ids}
-        failed = False
-        for job_id in job_ids:
-            error = results.get(job_id, "not run")
-            failed = failed or error is not None
-            try:
-                jobs.finish(s, job_id, error)
-            except Exception:
-                log.exception("could not record the end of job %s", job_id)
-        return "failed" if failed else "done"
+        results = {job_id: results.get(job_id, "not run") for job_id in job_ids}
+        try:
+            jobs.finish_many(s, results)
+        except Exception:
+            log.exception("could not record the end of jobs %s", job_ids)
+        return "failed" if any(e is not None for e in results.values()) else "done"
 
 
 def reap() -> None:

@@ -12,6 +12,7 @@ import os
 
 import httpx
 import pytest
+import sqlalchemy as sa
 from PIL import Image, ImageDraw, ImageFont
 
 from kist.config import get_settings
@@ -82,3 +83,27 @@ def test_real_models(client, upload, real_ml):
     with SessionLocal() as s:
         text = s.get(ItemText, (doc, "ocr")).text
     assert "INVOICE" in text.upper() and "4471" in text
+
+    # text in images, with the hit marked
+    page = client.get("/api/items", params={"text": "invoice"}).json()
+    assert [i["id"] for i in page["items"]] == [doc]
+    assert "<<INVOICE>>" in page["items"][0]["match"]["snippet"].upper()
+
+
+def test_real_batched_embeddings_match_single_ones(client, upload, real_ml):
+    from kist import worker
+    from kist.models import ItemEmbedding
+
+    ids = [upload(f"{n}.png", data=png(Image.new("RGB", (300, 200), rgb)))["item"]["id"]
+           for n, rgb in (("a", (200, 30, 30)), ("b", (30, 200, 30)), ("c", (30, 30, 200)))]
+    with SessionLocal() as s:
+        jobs = ai.claim_batch(s, runner="worker", kinds=("embed",), batch=8)
+    assert len(jobs) == 3
+    assert worker.run_ai_batch([j.id for j in jobs]) == "done"
+    thumbs = get_settings().items_dir
+    for item_id in ids:
+        single = ai.ml_embed_image((thumbs / item_id / "thumb_512.webp").read_bytes())
+        with SessionLocal() as s:
+            stored = s.execute(sa.select(ItemEmbedding.vector).where(
+                ItemEmbedding.item_id == item_id)).scalar_one()
+        assert sum(a * b for a, b in zip(single, stored, strict=True)) > 0.999

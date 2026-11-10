@@ -778,21 +778,61 @@ def run_embed_batch(session: Session, jobs: list[Job]) -> dict[int, str | None]:
             todo.append((job, item, src.read_bytes()))
         except OSError as exc:
             results[job.id] = f"can't read {src.name}: {exc}"
-    if todo:
-        model = active_model()
-        vectors = ml_embed_images([data for _, _, data in todo])
-        for (job, item, _), vec in zip(todo, vectors, strict=True):
-            if isinstance(vec, str):
-                results[job.id] = vec
-                continue
-            try:
-                store_embedding(session, item.id, model, vec)
-                results[job.id] = None
-            except Exception as exc:  # one bad result fails only its job
-                session.rollback()
-                log.exception("job %s: storing the embedding failed", job.id)
-                results[job.id] = str(exc) or type(exc).__name__
+    if not todo:
+        return results
+    model = active_model()
+    vectors = ml_embed_images([data for _, _, data in todo])
+    dim = model_dim(model)
+    now = datetime.now(UTC)
+    ready: list[tuple[Job, Item, list[float]]] = []
+    for (job, item, _), vec in zip(todo, vectors, strict=True):
+        if isinstance(vec, str):
+            results[job.id] = vec
+            continue
+        try:
+            ready.append((job, item, clean_vector(vec, dim)))
+        except ResultRejected as exc:
+            results[job.id] = str(exc)
+
+    # sidecars first, written side by side: each waits for its fsync, and
+    # on a NAS disk those waits overlap instead of adding up
+    def write(entry):
+        _job, item, vec = entry
+        write_embedding_sidecar(item.id, model, vec, now)
+
+    from concurrent.futures import ThreadPoolExecutor
+
+    with ThreadPoolExecutor(max_workers=min(8, len(ready)) or 1,
+                            thread_name_prefix="sidecar") as pool:
+        written = list(zip(ready, pool.map(_capture(write), ready), strict=True))
+    stored = 0
+    for (job, item, vec), error in written:
+        if error is not None:
+            log.warning("job %s: writing the sidecar failed: %s", job.id, error)
+            results[job.id] = error
+            continue
+        try:  # then the rows, one commit for the batch
+            with session.begin_nested():
+                _upsert_embedding(session, item.id, model, vec, now)
+            results[job.id] = None
+            stored += 1
+        except Exception as exc:  # e.g. the item was purged meanwhile
+            log.exception("job %s: storing the embedding failed", job.id)
+            results[job.id] = str(exc) or type(exc).__name__
+    if stored:
+        session.commit()
     return results
+
+
+def _capture(fn):
+    """fn(x) -> None, or the error message it raised."""
+    def run(x) -> str | None:
+        try:
+            fn(x)
+            return None
+        except Exception as exc:
+            return f"{type(exc).__name__}: {exc}"
+    return run
 
 
 def run_job(session: Session, job: Job) -> None:

@@ -458,11 +458,39 @@ def regen_thumbhashes() -> int:
     return 0 if not failed else 2
 
 
-def regen_previews(do_all: bool, thumbhash_only: bool = False) -> int:
+def regen_colors() -> int:
+    """Recompute every previewed item's dominant colours from its thumbnail
+    (Kist 2.0 finds small saturated areas the older palettes averaged away)."""
+    from .services import previews
+
+    changed = failed = 0
+    with SessionLocal() as session:
+        ids = session.execute(
+            sa.select(Item.id).where(Item.preview_status == PreviewStatus.READY)
+            .order_by(Item.id)
+        ).scalars().all()
+        for item_id in ids:
+            item = session.get(Item, item_id, populate_existing=True)
+            if item is None:
+                continue
+            try:
+                changed += previews.recompute_colors(session, item)
+            except Exception as exc:
+                session.rollback()
+                failed += 1
+                print(f"  ! {item.id} {item.filename}: {str(exc)[:200]}", file=sys.stderr)
+    print(f"colours: {changed} palettes updated of {len(ids)}, {failed} failed")
+    return 0 if not failed else 2
+
+
+def regen_previews(do_all: bool, thumbhash_only: bool = False,
+                   colors_only: bool = False) -> int:
     from .services import previews
 
     if thumbhash_only:
         return regen_thumbhashes()
+    if colors_only:
+        return regen_colors()
     settings = get_settings()
     done = skipped = failed = screen = 0
     with SessionLocal() as session:
@@ -737,6 +765,10 @@ def main() -> None:
         "--thumbhash-only", action="store_true",
         help="only compute missing ThumbHash placeholders from existing previews",
     )
+    p_regen.add_argument(
+        "--colors-only", action="store_true",
+        help="only recompute dominant colours (palettes) from existing previews",
+    )
     sub.add_parser("verify", help="report drift between Postgres and the library on disk")
     p_reclass = sub.add_parser(
         "reclassify", help="mark items Kist can't preview (e.g. HTML named .pdf) as such"
@@ -766,7 +798,7 @@ def main() -> None:
     if args.cmd == "rewrite-meta":
         sys.exit(rewrite_meta())
     if args.cmd == "regen-previews":
-        sys.exit(regen_previews(args.all, args.thumbhash_only))
+        sys.exit(regen_previews(args.all, args.thumbhash_only, args.colors_only))
     if args.cmd == "verify":
         sys.exit(verify())
     if args.cmd == "reclassify":

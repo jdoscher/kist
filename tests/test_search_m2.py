@@ -619,3 +619,34 @@ def test_ai_status_reports_batching(client, ml):  # noqa: F811
     data = client.get("/api/ai/status").json()
     assert data["concurrency"] == 2 and data["embed_batch"] == 16
     assert data["captions"]["provider"] is None and data["captioned"] == 0
+
+
+def test_small_saturated_areas_survive_the_palette(client, upload):
+    im = Image.new("RGB", (800, 600), (120, 120, 125))
+    im.paste((200, 16, 22), (300, 220, 520, 400))  # a red car's share of a street
+    buf = io.BytesIO()
+    im.save(buf, "PNG")
+    item = upload("street.png", data=buf.getvalue())["item"]
+    reds = [c for c in item["dominant_colors"]
+            if colour.ciede2000(colour.hex_to_lab(c["hex"]), colour.hex_to_lab("#c8101e")) < 10]
+    assert reds and 0.05 < reds[0]["pct"] < 0.2
+    assert ids(client.get("/api/items", params={"color": "#c8102e"}).json()) == [item["id"]]
+
+
+def test_regen_colors_and_old_font_items(client, upload, capsys):
+    item = upload("a.png", data=solid_png((10, 120, 200)))["item"]
+    font = upload("Aileron.otf", data=otf_bytes(), mime="font/otf")["item"]
+    with SessionLocal() as s:  # how M1 left them: a muddy palette, fonts as "other"
+        s.execute(sa.text("UPDATE items SET dominant_colors = "
+                          "'[{\"hex\": \"#808080\", \"pct\": 1.0}]' WHERE id = :i"),
+                  {"i": item["id"]})
+        s.execute(sa.text("UPDATE items SET preview_status = 'none', width = NULL "
+                          "WHERE id = :i"), {"i": font["id"]})
+        s.commit()
+    assert cli.regen_previews(False, colors_only=True) == 0
+    got = client.get(f"/api/items/{item['id']}").json()
+    assert got["dominant_colors"][0]["hex"] != "#808080"
+    assert got["modified_at"] == item["modified_at"]  # not an edit
+    assert ids(client.get("/api/items", params={"color": "#0a78c8"}).json()) == [item["id"]]
+    assert cli.regen_previews(False) == 0
+    assert client.get(f"/api/items/{font['id']}").json()["preview_status"] == "ready"

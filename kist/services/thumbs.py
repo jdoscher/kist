@@ -210,20 +210,47 @@ def compute_phash(image_path: Path) -> int | None:
     return value
 
 
+PALETTE_CLUSTERS = 16
+PALETTE_MERGE_DE = 10.0  # clusters closer than this (CIEDE2000) are one colour
+
+
 def dominant_colors(image_path: Path, count: int = 5) -> list[dict]:
+    """The image's main colours, largest share first: {hex, pct}.
+
+    Octree quantisation into 16 clusters keeps small saturated areas (a red
+    car in a grey street) that a 5-colour median cut averages into mud; the
+    clusters within CIEDE2000 10 of each other are then merged (weighted by
+    their share) and the `count` largest kept. pct is the share of the whole
+    image, so the kept ones may sum to less than 1."""
     from PIL import Image
+
+    from .colour import ciede2000, rgb_to_lab
 
     with Image.open(image_path) as img:
         small = img.convert("RGB").resize((100, 100))
-        quantized = small.quantize(count)
+        quantized = small.quantize(PALETTE_CLUSTERS, method=Image.Quantize.FASTOCTREE)
         palette = quantized.getpalette()
         counts = sorted(quantized.getcolors(), reverse=True)
-        total = sum(n for n, _ in counts)
-        out = []
-        for n, idx in counts[:count]:
-            r, g, b = palette[idx * 3 : idx * 3 + 3]
-            out.append({"hex": f"#{r:02x}{g:02x}{b:02x}", "pct": round(n / total, 3)})
-        return out
+    total = sum(n for n, _ in counts)
+    groups: list[dict] = []
+    for n, idx in counts:
+        rgb = tuple(palette[idx * 3 : idx * 3 + 3])
+        lab = rgb_to_lab(rgb)
+        for g in groups:
+            if ciede2000(lab, g["lab"]) < PALETTE_MERGE_DE:
+                w = g["n"] + n
+                g["rgb"] = tuple((a * g["n"] + b * n) / w for a, b in zip(g["rgb"], rgb,
+                                                                          strict=True))
+                g["n"] = w
+                break
+        else:
+            groups.append({"rgb": rgb, "lab": lab, "n": n})
+    groups.sort(key=lambda g: -g["n"])
+    out = []
+    for g in groups[:count]:
+        r, gr, b = (round(c) for c in g["rgb"])
+        out.append({"hex": f"#{r:02x}{gr:02x}{b:02x}", "pct": round(g["n"] / total, 3)})
+    return out
 
 
 SPECIMEN_SIZE = (1600, 1000)
