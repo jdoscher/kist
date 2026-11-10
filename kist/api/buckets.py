@@ -28,5 +28,5 @@ def item_buckets(session: Annotated[Session, Depends(get_session)],
     the list's own order=-taken). Each bucket's cursor, passed to GET
     /api/items with order=<item_order>, starts at that month's first item."""
     order = params.get("order")
-    filters = search.filters_from_params(params)
+    filters = search.filters_from_params(params, session)
     return buckets_svc.buckets(session, filters, sort=sort, order=order)

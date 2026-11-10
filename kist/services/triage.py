@@ -46,7 +46,7 @@ def next_item(session: Session, *, view: str | None = "unfiled", after: str | No
                   state=state, extra=undecided_filter() if undecided else None)
     rows, _, _ = search.search_items(session, order=order, limit=1 + prefetch,
                                      cursor=cursor, **params)
-    filters = search.build_filters(**params)
+    filters = search.build_filters(**params, session=session)
     remaining = session.execute(
         sa.select(sa.func.count()).select_from(Item).where(*filters)
     ).scalar_one()

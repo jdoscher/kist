@@ -288,11 +288,12 @@ def bundle_file(item_id: str, path: str, session: Annotated[Session, Depends(get
 # ---------- timeline and map ----------
 
 
-def common_filters(params: Annotated[dict, Depends(search_filters)]) -> list:
+def common_filters(params: Annotated[dict, Depends(search_filters)],
+                   session: Annotated[Session, Depends(get_session)]) -> list:
     """Every GET /api/items filter (M2 organise, M3 flags/labels, M4
     provenance, M5 media, person, text= ...), through search.build_filters
     like every listing; ranking parameters are ignored."""
-    return search.filters_from_params(params)
+    return search.filters_from_params(params, session)  # the request's session
 
 
 @router.get("/timeline")
