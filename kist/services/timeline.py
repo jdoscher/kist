@@ -116,6 +116,10 @@ def clusters(session: Session, filters: list, bbox: tuple | None, zoom: int) -> 
             sa.func.min(Item.lat).label("s"), sa.func.max(Item.lat).label("n"),
             sa.func.min(Item.lon).label("w"), sa.func.max(Item.lon).label("e"),
             sample.label("item_id"),
+            # the place name most items in the cell share, and how many
+            # different ones there are (the map list names groups by place)
+            sa.func.mode().within_group(Item.place).label("place"),
+            sa.func.count(sa.distinct(Item.place)).label("places"),
         )
         .where(*where)
         .group_by(gx, gy)
@@ -129,6 +133,7 @@ def clusters(session: Session, filters: list, bbox: tuple | None, zoom: int) -> 
         out.append({
             "lat": round(float(r.lat), 6), "lon": round(float(r.lon), 6), "count": r.count,
             "item_id": r.item_id,
+            "place": r.place, "places": r.places,
             "bbox": [round(float(r.w), 6), round(float(r.s), 6),
                      round(float(r.e), 6), round(float(r.n), 6)],
         })

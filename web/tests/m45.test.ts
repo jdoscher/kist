@@ -7,7 +7,7 @@ import { test } from 'node:test'
 import { emptyQuery, itemsParams } from '../src/api.ts'
 import { addErrorText, addPayload, BOOKMARKLET_SRC, bookmarkletFor, hostOf, normalizeKistBase, parseAddParams, plainText, safeHttpUrl } from '../src/m45/add.ts'
 import { bboxString, cleanFilter, clearedM45, filterChipLabel, m45Filters, parseBbox } from '../src/m45/filters.ts'
-import { clipErrors, fmtLatLon, fmtTime, mediaGps, mediaRows, parseTime, scrubFrameIndex, scrubFrameStyle, scrubFrameTime, scrubOf, shutterText, svgColors, takenText, waveformBars } from '../src/m45/media.ts'
+import { clipErrors, clusterPlaceText, fmtLatLon, fmtTime, mediaGps, mediaRows, parseTime, scrubFrameIndex, scrubFrameStyle, scrubFrameTime, scrubOf, shutterText, svgColors, takenText, waveformBars } from '../src/m45/media.ts'
 import { formToPreset, presetErrors, presetSummary, presetToForm } from '../src/m45/presets.ts'
 import { aiChoice, aiValue, digitalSourceText, provenanceDiff, provenanceErrors, sourceStatusText } from '../src/m45/provenance.ts'
 import { defaultShareForm, shareFormErrors, shareLink, sharePayload, shareStatusText } from '../src/m45/share.ts'
@@ -358,6 +358,14 @@ test('a photo\'s Taken is its wall clock, whatever zone the browser is in', () =
   assert.equal(takenText('2024-05-01T12:00:00Z', false, 'en-US'), local)
   assert.equal(Object.fromEntries(mediaRows({ video: { duration: 2 } }, '2024-05-01T12:00:00Z')).Taken, new Date('2024-05-01T12:00:00Z').toLocaleString())
   assert.equal(takenText('nonsense', true), 'nonsense')
+})
+
+test('map groups are named by place, coordinates only when none is known', () => {
+  assert.equal(clusterPlaceText({ lat: 33.99, lon: -118.47, place: 'Venice, United States', places: 1 }), 'Venice, United States')
+  assert.equal(clusterPlaceText({ lat: 34.01, lon: -118.43, place: 'Venice, United States', places: 2 }), 'Venice, United States and 1 more place')
+  assert.equal(clusterPlaceText({ lat: 34.01, lon: -118.43, place: 'Venice, United States', places: 4 }), 'Venice, United States and 3 more places')
+  assert.equal(clusterPlaceText({ lat: 38.9129, lon: -76.6141, place: null, places: 0 }), '38.91, -76.61')
+  assert.equal(clusterPlaceText({ lat: 38.9129, lon: -76.6141 }), '38.91, -76.61') // an older server
 })
 
 test('waveform peaks become bar heights', () => {

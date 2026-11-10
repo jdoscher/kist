@@ -202,3 +202,11 @@ export function waveformBars(data: number[], bits: number, bars: number): number
   return out
 }
 
+
+/** A map group's name in the list: its place ("Venice, United States", or
+ * "Venice, United States and 1 more place"), else its coordinates. */
+export function clusterPlaceText(c: { lat: number; lon: number; place?: string | null; places?: number }): string {
+  if (!c.place) return `${c.lat.toFixed(2)}, ${c.lon.toFixed(2)}`
+  const more = (c.places ?? 1) - 1
+  return more > 0 ? `${c.place} and ${more} more place${more === 1 ? '' : 's'}` : c.place
+}
