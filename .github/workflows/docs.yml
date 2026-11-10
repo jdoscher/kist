@@ -1,0 +1,48 @@
+name: Docs site
+
+# Builds the docs site (site/mkdocs.yml, pages from docs/) and, only when run
+# by hand with "deploy" ticked, publishes it to GitHub Pages.
+#
+# Deliberately manual: there is no push or schedule trigger. Before the first
+# deploy, Settings -> Pages -> Source must be set to "GitHub Actions".
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: "Publish to GitHub Pages (otherwise build only)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Build (strict: a broken link fails the build)
+        run: uvx --with-requirements site/requirements.txt mkdocs build --strict -f site/mkdocs.yml
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/_build
+
+  deploy:
+    if: ${{ inputs.deploy }}
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

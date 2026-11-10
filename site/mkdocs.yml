@@ -1,0 +1,109 @@
+# Kist's documentation site (MkDocs + Material for MkDocs).
+#
+# The pages are the Markdown files in docs/ (the same files GitHub shows), so
+# there is one copy of every page. Build or preview from the repository root:
+#
+#   uvx --with-requirements site/requirements.txt mkdocs build --strict -f site/mkdocs.yml
+#   uvx --with-requirements site/requirements.txt mkdocs serve -f site/mkdocs.yml
+#
+# The output goes to site/_build/ (ignored). Publishing is manual: see
+# .github/workflows/docs.yml (workflow_dispatch only).
+
+site_name: Kist
+site_description: A self-hosted visual library for people and their AI agents. Keep what catches your eye.
+site_url: https://jdoscher.github.io/kist/
+repo_url: https://github.com/jdoscher/kist
+repo_name: jdoscher/kist
+edit_uri: edit/main/docs/
+copyright: Kist is MIT licensed. Demo images are public domain or CC0 (Wikimedia Commons).
+
+docs_dir: ../docs
+site_dir: _build
+
+# docs/ also holds the brand and demo build scripts and their inputs
+exclude_docs: |
+  *.py
+  demo/library.json
+  brand/social-src/
+  assets/fonts/OFL.txt
+
+not_in_nav: |
+  brand/*
+
+theme:
+  name: material
+  custom_dir: overrides
+  language: en
+  # fonts are self-hosted (assets/fonts); no request to Google Fonts
+  font: false
+  logo: brand/icon-tile.svg  # the bright brass needs the dark tile on a light header
+  favicon: brand/icon-tab.svg
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Light theme
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Dark theme
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - content.code.copy
+    - search.suggest
+    - search.highlight
+  icon:
+    repo: fontawesome/brands/github
+
+extra_css:
+  - assets/site.css
+
+extra:
+  generator: false
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/jdoscher/kist
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+nav:
+  - Home: index.md
+  - Get started:
+      - Install: install.md
+      - Upgrade: upgrade.md
+      - Coming from Eagle: coming-from-eagle.md
+  - Use:
+      - Settings: settings.md
+      - AI search and captions: ai.md
+      - Agents (MCP): mcp.md
+      - Phone and PWA: phone.md
+      - iPhone Shortcut: ios-shortcut.md
+      - Maps: maps.md
+  - Keep it safe:
+      - Backup and verify: backup.md
+      - Privacy: privacy.md
+  - Project:
+      - Architecture: architecture.md
+      - Brand: brand.md
+      - Demo library: demo/README.md
+      - Demo image credits: demo/CREDITS.md
+      - Releasing: releasing.md

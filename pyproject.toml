@@ -76,3 +76,5 @@ ignore = ["B008"]  # FastAPI's Depends()/Query() defaults
 [tool.ruff.lint.per-file-ignores]
 # the brand generator builds long SVG strings (docs/brand.md)
 "docs/brand/*.py" = ["E501"]
+# the demo scripts drive Playwright/ffmpeg with long argument lists
+"docs/demo/*.py" = ["E501"]

@@ -903,6 +903,41 @@ Kist now looks inside video, audio, photos, RAW files, design sources, SVG,
   (`KIST_CAPTION_URL` on a private address) no longer warn that images go to
   OpenAI; another host is named in the warning.
 
+### Milestone 7: presence and launch (docs and brand only)
+- **README:** a new top: the lockup, the tagline, a hero screenshot (dark or
+  light with the reader's GitHub theme), a one-paragraph pitch, what's new in
+  2.0, the demo loop, a factual comparison with Eagle, PureRef and Immich,
+  the quick start with the `library/` ownership step, and connecting an
+  agent. The reference sections below are unchanged. A broken link to the AI
+  section is fixed.
+- **Docs site:** `site/mkdocs.yml` (MkDocs + Material) builds the pages in
+  `docs/` into a static site: a landing page, Install (with a reverse
+  proxy), Upgrade (1.5 to 2.0 in order, with the backfills as one detached
+  chain), Coming from Eagle, Settings, AI, Agents (MCP), Phone and PWA,
+  Backup and verify, Privacy (every outside contact Kist makes, and how to
+  turn it off), plus the existing architecture, maps, Shortcut, brand and
+  releasing pages. Fonts are self-hosted; `mkdocs build --strict` passes.
+  `.github/workflows/docs.yml` builds it, and publishes to GitHub Pages only
+  when run by hand with "deploy" ticked.
+- **Demo library:** `docs/demo/library.json` lists 43 public-domain and CC0
+  Wikimedia Commons images (chip dies, patent drawings, architecture, prints,
+  posters, textiles, cars, maps, aircraft, space); `docs/demo/seed.py` adds
+  them to a throwaway instance under short names with tags and provenance
+  (creator, licence, Commons page), with a descriptive User-Agent and a pause
+  between downloads, and `docs/demo/dress.py` adds folders, ratings, stacks,
+  a board and a smart folder. `docs/demo/CREDITS.md` credits every image.
+- **Screenshots and demo loop:** every README and docs picture is taken on a
+  throwaway instance holding only the demo library. `docs/demo/capture.py`
+  takes them in three themes, desktop 1440x900 and phone 390x844 (grid,
+  colour search, the phone item sheet), and `docs/demo/record.py` records a
+  ~19 s silent loop (the grid, an item, full screen, search by colour, a
+  board) as a GIF under 5 MB, read-only with Playwright. The loop's MP4 is
+  not in the repository: `record.py` writes it outside, to attach to the
+  GitHub release.
+- **Social preview:** `docs/brand/build_social.py` makes the 1280x640 card
+  (lockup, tagline, a collage of demo-library images) for GitHub's social
+  preview and the docs site.
+
 ## [1.5.0] - 2026-11-09
 
 A hardening release. Kist was reviewed for security, data integrity,

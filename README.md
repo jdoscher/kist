@@ -1,23 +1,89 @@
-# Kist
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/lockup-dark.svg">
+    <img src="docs/brand/lockup-light.svg" alt="Kist" width="260">
+  </picture>
+</p>
 
-A self-hosted visual asset library for images, screenshots, SVGs, video,
-and PDFs, with a fast web grid and an **MCP interface built in**, so Claude and
-other AI agents can search your library, *see* what's in it, add to it, and
-organize it.
+<p align="center"><strong>Keep what catches your eye.</strong><br>
+A self-hosted visual library for people and their AI agents.</p>
 
-- **Plain files on disk.** Every item is a folder holding the untouched
-  original, its previews, and a `meta.json`. Back it up with `rsync`; rebuild
-  the database from it at any time.
-- **One small stack.** A single `docker compose up`: the app, a background
-  worker, and Postgres. Runs fine on a home server or NAS.
-- **Organize your way.** Nested folders (an item can live in several; a folder
-  shows its subfolders' items too), tags, ratings, notes, source URLs, smart
-  folders (saved searches), and a trash.
-- **Agents as first-class users.** A streamable-HTTP MCP endpoint exposes
-  search, viewing (the model receives the image itself), adding, tagging, and
-  filing. Nothing an agent does can permanently delete anything.
+<p align="center">
+  <a href="https://github.com/jdoscher/kist/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/jdoscher/kist?color=8C5A00&label=release"></a>
+  <a href="LICENSE"><img alt="MIT licence" src="https://img.shields.io/badge/licence-MIT-1C1B19"></a>
+  <a href="https://github.com/jdoscher/kist/pkgs/container/kist"><img alt="Docker image" src="https://img.shields.io/badge/docker-ghcr.io%2Fjdoscher%2Fkist-1C1B19"></a>
+</p>
 
-Single user, one shared token. MIT licensed.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/grid-dark.webp">
+  <img src="docs/assets/screenshots/grid-light.webp" alt="Kist's grid: Hokusai's Great Wave, an Olivetti poster, chip dies, Fallingwater, a Porsche 356 and other public-domain images, with folders and boards on the left">
+</picture>
+
+Kist keeps the images, screenshots, PDFs, video and design files you collect
+in one fast grid on your own server. Every item is a plain folder on disk (the
+untouched original, its previews and a `meta.json`), so `rsync` is a backup and
+the database can be rebuilt from the files at any time. Search finds things by
+meaning, colour and the text inside them, all on your own hardware. And an
+**MCP endpoint is built in**: Claude and other agents can search your library,
+*see* what's in it, add to it and file it, and every change they make undoes in
+one step.
+
+- **Plain files on disk.** Back it up with `rsync`; `kist rebuild-index`
+  restores everything (tags, history, AI results, boards) from the files.
+- **One small stack.** `docker compose up`: the app, a worker, Postgres and a
+  CPU-only AI service. Runs fine on a home server or NAS.
+- **Agents as first-class users.** Search, view (the model receives the image
+  itself), add, tag and file over MCP. Nothing an agent does can permanently
+  delete anything.
+
+Single user, named tokens for phones, family and agents. MIT licensed.
+Documentation: [docs/](docs/index.md) (also builds into a site:
+[site/mkdocs.yml](site/mkdocs.yml)).
+
+## What's new in 2.0
+
+- **Find anything.** Search by meaning ("moody dark interiors"), by a colour,
+  by the words inside screenshots and PDFs, by an image, or "more like this":
+  OpenCLIP and RapidOCR on ONNX Runtime, on the CPU, no cloud. Optional
+  captions (Ollama at home, or your own key) and opt-in faces.
+- **Stay tidy.** Tag aliases and implied tags, duplicates with a suggested
+  keeper, RAW+JPEG and version stacks, suggested collections, tag suggestions
+  with reasons. Every change is in the item history and undoes as a batch.
+- **Creative workflows.** Moodboards, pick/reject culling, colour labels,
+  annotations pinned to a spot or a video time, versions and compare, triage,
+  a ⌘K palette.
+- **More than images.** Video scrubbing, clips and frames; audio waveforms;
+  RAW and HEIC with camera data; SVG, fonts, 3D models, design files and zip
+  bundles; a timeline and a self-hosted map.
+- **In and out.** Importers for Eagle, Pinterest, Are.na, Raindrop, Google
+  Takeout and Apple Photos; share links; BagIt exports that browse offline;
+  export presets; provenance and licences; XMP sidecars; a link-rot watch.
+- **On your phone.** Install it to the Home Screen; edit stars, tags and
+  folders with your thumb; it opens offline and badges what's left in Unfiled.
+- **Light, dark and gallery grey** (images on an 18 % grey, for judging
+  colour).
+
+<p align="center">
+  <img src="docs/assets/demo/demo.gif" alt="A 19-second loop: the tiles grow and the grid scrolls, the Great Wave opens in the info panel and full screen, a blue from its palette finds matching items, then a board opens" width="720">
+</p>
+
+## How it compares
+
+Kist sits between a desktop asset manager and a photo server. Facts as of
+November 2026, from each project's own site:
+
+| | Kist | Eagle | PureRef | Immich |
+|---|---|---|---|---|
+| What it is | self-hosted visual library | desktop asset library | desktop reference board | self-hosted photo and video backup |
+| Runs on | your server (Docker); any browser, installable on a phone | macOS, Windows | Windows, macOS, Linux | your server (Docker); iOS and Android apps, browser |
+| Price, licence | free, MIT | one-time US$34.95 (two devices), proprietary | personal: pay what you want; commercial: paid; proprietary | free, AGPL-3.0 |
+| Built for | references, screenshots, design files, saved web images | references and design assets | arranging images on a canvas while you work | your camera roll: phone backup, albums, sharing |
+| Storage | plain files + `meta.json` per item | a `.library` folder + JSON per item | one `.pur` scene file | originals on disk, metadata in Postgres |
+| Search by meaning / text in images | yes / yes, built in and local | with its AI Search plugin (offline) / with plugins | no | yes (CLIP) / yes (OCR, since 2.2) |
+| Agents (MCP) | built into the server | an MCP plugin (beta) beside the desktop app | no | community MCP servers |
+
+Coming from Eagle: `kist import eagle <path>` brings folders, tags, ratings,
+notes, source URLs and the trash across ([docs/coming-from-eagle.md](docs/coming-from-eagle.md)).
 
 ## Quick start
 
@@ -33,14 +99,28 @@ Kist runs as uid/gid 1000 (`KIST_UID`/`KIST_GID` in `.env` change that). If
 Docker creates `./library` itself it belongs to root, and the app and worker
 stop at start with one line saying which `chown` to run.
 
-Open `http://<host>:8080`, paste your token, and drop files in.
+Open `http://<host>:8080`, paste your token, and drop files in. Upgrading
+from 1.5: read [docs/upgrade.md](docs/upgrade.md) first (the database image
+changes to `pgvector/pgvector:pg16`).
 
 | service | role |
 |---|---|
 | `app` | REST API, MCP endpoint at `/mcp`, and the web UI |
 | `worker` | same image: ingests inbox drops and retries queued jobs |
 | `db` | Postgres 16 with pgvector (`pgvector/pgvector:pg16`): the search index (the library on disk is the durable copy) |
-| `ml` | internal only: image embeddings (OpenCLIP ViT-B-32) and OCR (RapidOCR) on ONNX Runtime; see [AI](#ai-search-by-meaning-and-ocr) |
+| `ml` | internal only: image embeddings (OpenCLIP ViT-B-32) and OCR (RapidOCR) on ONNX Runtime; see [AI](#ai-search-by-meaning-colour-and-the-text-in-images) |
+
+### Connect an agent
+
+```bash
+claude mcp add --transport http kist http://<host>:8080/mcp \
+  --header "Authorization: Bearer <token>"
+```
+
+Then ask things like "find the navy blazer photos I saved and file them into
+Menswear" or "undo the filing you just did". Give agents their own `agent`
+token (Settings → Tokens): it can edit but never delete for good, and the
+history shows its name. All tools: [MCP](#mcp-claude-and-other-agents).
 
 ### Configuration (`.env`)
 

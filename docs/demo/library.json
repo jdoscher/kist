@@ -1,0 +1,555 @@
+{
+ "about": "Demo library for Kist's screenshots, demo loop and social card. Every file is public domain or CC0 on Wikimedia Commons; the licence is as stated on each file page when this list was made (2026-11-10). Check the page again before relying on it: 'Public domain' on Commons can mean public domain in the US only.",
+ "items": [
+  {
+   "file": "Fujitsu MB87J4030 die shot - top metal.jpg",
+   "name": "Fujitsu MB87J4030 die",
+   "page": "https://commons.wikimedia.org/wiki/File:Fujitsu_MB87J4030_die_shot_-_top_metal.jpg",
+   "license": "Public domain",
+   "creator": "Martijn Boer",
+   "tags": [
+    "Chip dies",
+    "Hardware"
+   ],
+   "w": 6000,
+   "h": 4000
+  },
+  {
+   "file": "Hitachi HD61700 microprocessor top metal die shot.jpg",
+   "name": "Hitachi HD61700 die",
+   "page": "https://commons.wikimedia.org/wiki/File:Hitachi_HD61700_microprocessor_top_metal_die_shot.jpg",
+   "license": "CC0",
+   "creator": "Piotr433",
+   "tags": [
+    "Chip dies",
+    "Hardware"
+   ],
+   "w": 8080,
+   "h": 8080
+  },
+  {
+   "file": "Hitachi HD61700 microprocessor top metal die shot - code ROM close-up.jpg",
+   "name": "Hitachi HD61700 die, code ROM",
+   "page": "https://commons.wikimedia.org/wiki/File:Hitachi_HD61700_microprocessor_top_metal_die_shot_-_code_ROM_close-up.jpg",
+   "license": "CC0",
+   "creator": "Piotr433",
+   "tags": [
+    "Chip dies",
+    "Hardware"
+   ],
+   "w": 1600,
+   "h": 1200
+  },
+  {
+   "file": "Chip layout from the development phase of the Intel 4004 from 1971, the first microprocessor of the world (cropped and edited image).jpg",
+   "name": "Intel 4004 chip layout, 1971",
+   "page": "https://commons.wikimedia.org/wiki/File:Chip_layout_from_the_development_phase_of_the_Intel_4004_from_1971,_the_first_microprocessor_of_the_world_(cropped_and_edited_image).jpg",
+   "license": "CC0",
+   "creator": "Wolfgang Stief (derivative by Pittigrilli)",
+   "tags": [
+    "Chip dies",
+    "Hardware"
+   ],
+   "w": 2782,
+   "h": 2071
+  },
+  {
+   "file": "A. Wood's Patent Drawing for an Easy Chair - DPLA - ec39e740837685e8ec74bc9a82b402b2.jpg",
+   "name": "Patent drawing, easy chair (A. Wood)",
+   "page": "https://commons.wikimedia.org/wiki/File:A._Wood%27s_Patent_Drawing_for_an_Easy_Chair_-_DPLA_-_ec39e740837685e8ec74bc9a82b402b2.jpg",
+   "license": "Public domain",
+   "creator": "Department of State. Patent Office. (1836 - 1849)",
+   "tags": [
+    "Patent drawings",
+    "Furniture"
+   ],
+   "w": 5259,
+   "h": 3601
+  },
+  {
+   "file": "Benjamin F. Hays' Patent Drawing for an Easy Chair - DPLA - c5deccfb37a7289718d5e5cb6c4d73a6.jpg",
+   "name": "Patent drawing, easy chair (B. F. Hays)",
+   "page": "https://commons.wikimedia.org/wiki/File:Benjamin_F._Hays%27_Patent_Drawing_for_an_Easy_Chair_-_DPLA_-_c5deccfb37a7289718d5e5cb6c4d73a6.jpg",
+   "license": "Public domain",
+   "creator": "Department of State. Patent Office. (1836 - 1849)",
+   "tags": [
+    "Patent drawings",
+    "Furniture"
+   ],
+   "w": 3424,
+   "h": 5092
+  },
+  {
+   "file": "C. Adams' Patent Drawing for Couches, Sofas, Settees, and Chairs - DPLA - 035aab3641f45dc2fabe44ed495a7bc1.jpg",
+   "name": "Patent drawing, couches and chairs (C. Adams)",
+   "page": "https://commons.wikimedia.org/wiki/File:C._Adams%27_Patent_Drawing_for_Couches,_Sofas,_Settees,_and_Chairs_-_DPLA_-_035aab3641f45dc2fabe44ed495a7bc1.jpg",
+   "license": "Public domain",
+   "creator": "Department of State. Patent Office. (1836 - 1849)",
+   "tags": [
+    "Patent drawings",
+    "Furniture"
+   ],
+   "w": 5376,
+   "h": 4618
+  },
+  {
+   "file": "Bauhaus-Dessau Werkstätten.jpg",
+   "name": "Bauhaus Dessau, workshop wing",
+   "page": "https://commons.wikimedia.org/wiki/File:Bauhaus-Dessau_Werkst%C3%A4tten.jpg",
+   "license": "Public domain",
+   "creator": "Cethegus",
+   "tags": [
+    "Architecture",
+    "Bauhaus"
+   ],
+   "w": 924,
+   "h": 1530
+  },
+  {
+   "file": "Bauhaus-Dessau main building.jpg",
+   "name": "Bauhaus Dessau, main building",
+   "page": "https://commons.wikimedia.org/wiki/File:Bauhaus-Dessau_main_building.jpg",
+   "license": "Public domain",
+   "creator": "Cethegus",
+   "tags": [
+    "Architecture",
+    "Bauhaus"
+   ],
+   "w": 2048,
+   "h": 1536
+  },
+  {
+   "file": "Schlemmer-Bauhaus Werbeblatt DSC8965.jpg",
+   "name": "Schlemmer, Bauhaus poster",
+   "page": "https://commons.wikimedia.org/wiki/File:Schlemmer-Bauhaus_Werbeblatt_DSC8965.jpg",
+   "license": "CC0",
+   "creator": "Oskar Schlemmer",
+   "tags": [
+    "Bauhaus",
+    "Posters"
+   ],
+   "w": 1653,
+   "h": 1641
+  },
+  {
+   "file": "Chrysler Building (NBY 2828).jpg",
+   "name": "Chrysler Building",
+   "page": "https://commons.wikimedia.org/wiki/File:Chrysler_Building_(NBY_2828).jpg",
+   "license": "Public domain",
+   "creator": "Unknown author",
+   "tags": [
+    "Architecture",
+    "Art Deco"
+   ],
+   "w": 1044,
+   "h": 1664
+  },
+  {
+   "file": "Chrysler Building top.jpg",
+   "name": "Chrysler Building, crown",
+   "page": "https://commons.wikimedia.org/wiki/File:Chrysler_Building_top.jpg",
+   "license": "Public domain",
+   "creator": "Detroit Publishing Co.",
+   "tags": [
+    "Architecture",
+    "Art Deco"
+   ],
+   "w": 1962,
+   "h": 4122
+  },
+  {
+   "file": "Fallingwater 2007.jpg",
+   "name": "Fallingwater",
+   "page": "https://commons.wikimedia.org/wiki/File:Fallingwater_2007.jpg",
+   "license": "Public domain",
+   "creator": "Carol M. Highsmith",
+   "tags": [
+    "Architecture"
+   ],
+   "w": 2957,
+   "h": 1940
+  },
+  {
+   "file": "1958 Porsche 356 1600 Super coupe (2010-07-05) 01.jpg",
+   "name": "Porsche 356 Super coupe, 1958",
+   "page": "https://commons.wikimedia.org/wiki/File:1958_Porsche_356_1600_Super_coupe_(2010-07-05)_01.jpg",
+   "license": "Public domain",
+   "creator": "OSX",
+   "tags": [
+    "Cars"
+   ],
+   "w": 3516,
+   "h": 1716
+  },
+  {
+   "file": "1958 Porsche 356 1600 Super coupe (2010-07-05) 03.jpg",
+   "name": "Porsche 356 Super coupe, 1958, rear",
+   "page": "https://commons.wikimedia.org/wiki/File:1958_Porsche_356_1600_Super_coupe_(2010-07-05)_03.jpg",
+   "license": "Public domain",
+   "creator": "OSX",
+   "tags": [
+    "Cars"
+   ],
+   "w": 3654,
+   "h": 1830
+  },
+  {
+   "file": "New Haven Thin Model Pocket Watch, Nickel Movement.png",
+   "name": "New Haven pocket watch movement",
+   "page": "https://commons.wikimedia.org/wiki/File:New_Haven_Thin_Model_Pocket_Watch,_Nickel_Movement.png",
+   "license": "Public domain",
+   "creator": "Anonymous illustrator",
+   "tags": [
+    "Watches"
+   ],
+   "w": 886,
+   "h": 1200
+  },
+  {
+   "file": "Anemone simple. Redouté, P.J., Choix des plus belles fleurs et des plus beaux fruits t. 107 (1827).tiff",
+   "name": "Redouté, Anemone (1827)",
+   "page": "https://commons.wikimedia.org/wiki/File:Anemone_simple._Redout%C3%A9,_P.J.,_Choix_des_plus_belles_fleurs_et_des_plus_beaux_fruits_t._107_(1827).tiff",
+   "license": "Public domain",
+   "creator": "Redouté, P.J.",
+   "tags": [
+    "Botanical",
+    "Illustration"
+   ],
+   "w": 2478,
+   "h": 3457
+  },
+  {
+   "file": "Choix des plus belles fleurs (Plate 100) (7851487576).jpg",
+   "name": "Redouté, plate 100",
+   "page": "https://commons.wikimedia.org/wiki/File:Choix_des_plus_belles_fleurs_(Plate_100)_(7851487576).jpg",
+   "license": "Public domain",
+   "creator": "Pierre-Joseph Redouté",
+   "tags": [
+    "Botanical",
+    "Illustration"
+   ],
+   "w": 1251,
+   "h": 1753
+  },
+  {
+   "file": "Choix des plus belles fleurs (Plate 101) (7851488402).jpg",
+   "name": "Redouté, plate 101",
+   "page": "https://commons.wikimedia.org/wiki/File:Choix_des_plus_belles_fleurs_(Plate_101)_(7851488402).jpg",
+   "license": "Public domain",
+   "creator": "Pierre-Joseph Redouté",
+   "tags": [
+    "Botanical",
+    "Illustration"
+   ],
+   "w": 1251,
+   "h": 1741
+  },
+  {
+   "file": "'South Wind, Clear Sky' by Hokusai, Honolulu Museum of Art.jpg",
+   "name": "Hokusai, South Wind, Clear Sky",
+   "page": "https://commons.wikimedia.org/wiki/File:%27South_Wind,_Clear_Sky%27_by_Hokusai,_Honolulu_Museum_of_Art.jpg",
+   "license": "Public domain",
+   "creator": "Katsushika Hokusai",
+   "tags": [
+    "Prints",
+    "Japan"
+   ],
+   "w": 2172,
+   "h": 1491
+  },
+  {
+   "file": "Fine Wind, Clear Morning by Hokusai (Shimane Art Museum).jpg",
+   "name": "Hokusai, Fine Wind, Clear Morning",
+   "page": "https://commons.wikimedia.org/wiki/File:Fine_Wind,_Clear_Morning_by_Hokusai_(Shimane_Art_Museum).jpg",
+   "license": "Public domain",
+   "creator": "Katsushika Hokusai",
+   "tags": [
+    "Prints",
+    "Japan"
+   ],
+   "w": 3697,
+   "h": 2494
+  },
+  {
+   "file": "Great Wave off Kanagawa2.jpg",
+   "name": "Hokusai, The Great Wave",
+   "page": "https://commons.wikimedia.org/wiki/File:Great_Wave_off_Kanagawa2.jpg",
+   "license": "Public domain",
+   "creator": "After Katsushika Hokusai",
+   "tags": [
+    "Prints",
+    "Japan"
+   ],
+   "w": 8242,
+   "h": 5640
+  },
+  {
+   "file": "1930s Japan Travel Poster - 01.jpg",
+   "name": "Japan travel poster, 1930s (1)",
+   "page": "https://commons.wikimedia.org/wiki/File:1930s_Japan_Travel_Poster_-_01.jpg",
+   "license": "Public domain",
+   "creator": "Japanese Government Railways",
+   "tags": [
+    "Posters",
+    "Travel",
+    "Japan"
+   ],
+   "w": 2056,
+   "h": 3000
+  },
+  {
+   "file": "1930s Japan Travel Poster - 02.jpg",
+   "name": "Japan travel poster, 1930s (2)",
+   "page": "https://commons.wikimedia.org/wiki/File:1930s_Japan_Travel_Poster_-_02.jpg",
+   "license": "Public domain",
+   "creator": "Japanese Government Railways",
+   "tags": [
+    "Posters",
+    "Travel",
+    "Japan"
+   ],
+   "w": 2140,
+   "h": 3000
+  },
+  {
+   "file": "1930s Japan Travel Poster - 03.jpg",
+   "name": "Japan travel poster, 1930s (3)",
+   "page": "https://commons.wikimedia.org/wiki/File:1930s_Japan_Travel_Poster_-_03.jpg",
+   "license": "Public domain",
+   "creator": "Japanese Government Railways",
+   "tags": [
+    "Posters",
+    "Travel",
+    "Japan"
+   ],
+   "w": 2053,
+   "h": 3000
+  },
+  {
+   "file": "LCW (Lounge Chair Wood) Chair by Charles and Ray Eames, Honolulu Museum of Art 4410.1.JPG",
+   "name": "Eames LCW chair",
+   "page": "https://commons.wikimedia.org/wiki/File:LCW_(Lounge_Chair_Wood)_Chair_by_Charles_and_Ray_Eames,_Honolulu_Museum_of_Art_4410.1.JPG",
+   "license": "CC0",
+   "creator": "Hiart",
+   "tags": [
+    "Furniture",
+    "Mid-century"
+   ],
+   "w": 2424,
+   "h": 3192
+  },
+  {
+   "file": "Arundel Street area Ordnance Survey map 1910s.jpg",
+   "name": "Ordnance Survey, Arundel Street, 1910s",
+   "page": "https://commons.wikimedia.org/wiki/File:Arundel_Street_area_Ordnance_Survey_map_1910s.jpg",
+   "license": "Public domain",
+   "creator": "Ordnance Survey",
+   "tags": [
+    "Maps"
+   ],
+   "w": 4220,
+   "h": 6090
+  },
+  {
+   "file": "Barnsbury, Ordnance Survey map, 1870s.png",
+   "name": "Ordnance Survey, Barnsbury, 1870s",
+   "page": "https://commons.wikimedia.org/wiki/File:Barnsbury,_Ordnance_Survey_map,_1870s.png",
+   "license": "Public domain",
+   "creator": "Ordnance Survey",
+   "tags": [
+    "Maps"
+   ],
+   "w": 9430,
+   "h": 5850
+  },
+  {
+   "file": "Apollo 11 Lunar Module (48286345716).jpg",
+   "name": "Apollo 11 Lunar Module",
+   "page": "https://commons.wikimedia.org/wiki/File:Apollo_11_Lunar_Module_(48286345716).jpg",
+   "license": "Public domain",
+   "creator": "NASA",
+   "tags": [
+    "Space"
+   ],
+   "w": 2993,
+   "h": 3763
+  },
+  {
+   "file": "Apollo Saturn 500F and VAB.jpg",
+   "name": "Saturn V 500F at the VAB",
+   "page": "https://commons.wikimedia.org/wiki/File:Apollo_Saturn_500F_and_VAB.jpg",
+   "license": "Public domain",
+   "creator": "NASA/unknown photographer",
+   "tags": [
+    "Space"
+   ],
+   "w": 3000,
+   "h": 2400
+  },
+  {
+   "file": "Diagram of Saturn V Launch Vehicle.jpg",
+   "name": "Saturn V diagram",
+   "page": "https://commons.wikimedia.org/wiki/File:Diagram_of_Saturn_V_Launch_Vehicle.jpg",
+   "license": "Public domain",
+   "creator": "NASA/MSFC",
+   "tags": [
+    "Space"
+   ],
+   "w": 3000,
+   "h": 2338
+  },
+  {
+   "file": "Teodoro Wolf Ferrari - Affiche Olivetti M1 (1912).jpg",
+   "name": "Olivetti M1 poster, 1912",
+   "page": "https://commons.wikimedia.org/wiki/File:Teodoro_Wolf_Ferrari_-_Affiche_Olivetti_M1_(1912).jpg",
+   "license": "Public domain",
+   "creator": "Teodoro Wolf Ferrari",
+   "tags": [
+    "Posters",
+    "Typography"
+   ],
+   "w": 1969,
+   "h": 3009
+  },
+  {
+   "file": "Construction of the Golden Gate Bridge 3c22793u.jpg",
+   "name": "Golden Gate Bridge, construction (1)",
+   "page": "https://commons.wikimedia.org/wiki/File:Construction_of_the_Golden_Gate_Bridge_3c22793u.jpg",
+   "license": "Public domain",
+   "creator": "Associated Oil Company / Chas. M. Hiller",
+   "tags": [
+    "Architecture",
+    "Construction"
+   ],
+   "w": 3745,
+   "h": 2995
+  },
+  {
+   "file": "Golden Gate Bridge under construction 3c00678u.jpg",
+   "name": "Golden Gate Bridge, construction (2)",
+   "page": "https://commons.wikimedia.org/wiki/File:Golden_Gate_Bridge_under_construction_3c00678u.jpg",
+   "license": "Public domain",
+   "creator": "Associated Oil Company / Chas. M. Hiller",
+   "tags": [
+    "Architecture",
+    "Construction"
+   ],
+   "w": 2960,
+   "h": 3697
+  },
+  {
+   "file": "A Leica M9 Camera on June 29, 2019.jpg",
+   "name": "Leica M9",
+   "page": "https://commons.wikimedia.org/wiki/File:A_Leica_M9_Camera_on_June_29,_2019.jpg",
+   "license": "CC0",
+   "creator": "George E. Koronaios",
+   "tags": [
+    "Cameras",
+    "Hardware"
+   ],
+   "w": 6000,
+   "h": 4000
+  },
+  {
+   "file": "Constellation-N422NA.jpg",
+   "name": "Lockheed Constellation N422NA",
+   "page": "https://commons.wikimedia.org/wiki/File:Constellation-N422NA.jpg",
+   "license": "CC0",
+   "creator": "Cchhey0",
+   "tags": [
+    "Aircraft"
+   ],
+   "w": 3240,
+   "h": 2160
+  },
+  {
+   "file": "Lockheed Model 049 Constellation 3-view line drawing.png",
+   "name": "Lockheed Constellation, three-view",
+   "page": "https://commons.wikimedia.org/wiki/File:Lockheed_Model_049_Constellation_3-view_line_drawing.png",
+   "license": "Public domain",
+   "creator": "U.S. Military",
+   "tags": [
+    "Aircraft"
+   ],
+   "w": 1862,
+   "h": 2583
+  },
+  {
+   "file": "Designed by William Morris, British - Printed Textile- Brer Rabbit - Google Art Project.jpg",
+   "name": "William Morris, Brer Rabbit",
+   "page": "https://commons.wikimedia.org/wiki/File:Designed_by_William_Morris,_British_-_Printed_Textile-_Brer_Rabbit_-_Google_Art_Project.jpg",
+   "license": "Public domain",
+   "creator": "William Morris",
+   "tags": [
+    "Textiles",
+    "Patterns"
+   ],
+   "w": 5071,
+   "h": 4769
+  },
+  {
+   "file": "Designed by William Morris - Panel Entitled \"Peacock and Dragon\" - Google Art Project.jpg",
+   "name": "William Morris, Peacock and Dragon",
+   "page": "https://commons.wikimedia.org/wiki/File:Designed_by_William_Morris_-_Panel_Entitled_%22Peacock_and_Dragon%22_-_Google_Art_Project.jpg",
+   "license": "Public domain",
+   "creator": "William Morris",
+   "tags": [
+    "Textiles",
+    "Patterns"
+   ],
+   "w": 4816,
+   "h": 6106
+  },
+  {
+   "file": "Morris African Marigold textile drawing 1876.jpg",
+   "name": "William Morris, African Marigold, 1876",
+   "page": "https://commons.wikimedia.org/wiki/File:Morris_African_Marigold_textile_drawing_1876.jpg",
+   "license": "Public domain",
+   "creator": "William Morris",
+   "tags": [
+    "Textiles",
+    "Patterns"
+   ],
+   "w": 965,
+   "h": 1458
+  },
+  {
+   "file": "Manuale-Tipografico1.jpg",
+   "name": "Bodoni, Manuale Tipografico",
+   "page": "https://commons.wikimedia.org/wiki/File:Manuale-Tipografico1.jpg",
+   "license": "Public domain",
+   "creator": "Giambattista Bodoni",
+   "tags": [
+    "Typography"
+   ],
+   "w": 1398,
+   "h": 1053
+  },
+  {
+   "file": "Case Study House No. 10 construction.JPG",
+   "name": "Case Study House No. 10, construction",
+   "page": "https://commons.wikimedia.org/wiki/File:Case_Study_House_No._10_construction.JPG",
+   "license": "CC0",
+   "creator": "TheCatalyst31",
+   "tags": [
+    "Architecture",
+    "Mid-century"
+   ],
+   "w": 4000,
+   "h": 3000
+  },
+  {
+   "file": "Eames House, Case Study House -8, Chautauqua Drive, Pacific Palisades, California LCCN2011631330.tif",
+   "name": "Eames House, Case Study House 8",
+   "page": "https://commons.wikimedia.org/wiki/File:Eames_House,_Case_Study_House_-8,_Chautauqua_Drive,_Pacific_Palisades,_California_LCCN2011631330.tif",
+   "license": "Public domain",
+   "creator": "Carol M. Highsmith",
+   "tags": [
+    "Architecture",
+    "Mid-century"
+   ],
+   "w": 8928,
+   "h": 7328
+  }
+ ]
+}

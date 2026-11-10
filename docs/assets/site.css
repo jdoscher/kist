@@ -1,0 +1,71 @@
+/* Kist's docs site: the app's palette (docs/brand.md) on Material for MkDocs.
+   Neutral chrome, one brass accent; Instrument Serif for headings, as in the
+   wordmark. Fonts are self-hosted, so the site makes no third-party request. */
+
+@font-face {
+  font-family: "Instrument Serif";
+  src: url("fonts/instrument-serif-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --md-text-font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --md-code-font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+[data-md-color-scheme="default"] {
+  --kist-on-accent: #FFFFFF;
+  --md-default-bg-color: #FAF9F6;
+  --md-default-fg-color: #1C1B19;
+  --md-default-fg-color--light: #5F5D57;
+  --md-primary-fg-color: #FAF9F6;
+  --md-primary-bg-color: #1C1B19;
+  --md-primary-bg-color--light: #5F5D57;
+  --md-accent-fg-color: #8C5A00;
+  --md-typeset-a-color: #8C5A00;
+  --md-footer-bg-color: #1C1C1A;
+}
+
+[data-md-color-scheme="slate"] {
+  --kist-on-accent: #1A1408;
+  --md-hue: 40;
+  --md-default-bg-color: #131312;
+  --md-default-fg-color: #ECEAE4;
+  --md-default-fg-color--light: #9C9A93;
+  --md-primary-fg-color: #1C1C1A;
+  --md-primary-bg-color: #ECEAE4;
+  --md-primary-bg-color--light: #9C9A93;
+  --md-accent-fg-color: #E8B04B;
+  --md-typeset-a-color: #E8B04B;
+  --md-code-bg-color: #1C1C1A;
+  --md-footer-bg-color: #0D0D0C;
+}
+
+.md-header { border-bottom: 1px solid color-mix(in srgb, var(--md-default-fg-color) 12%, transparent); box-shadow: none; }
+.md-typeset h1, .md-typeset h2, .md-header__topic, .kist-hero__line {
+  font-family: "Instrument Serif", Georgia, serif;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+.md-typeset h1 { font-size: 2.6em; color: var(--md-default-fg-color); }
+.md-typeset h2 { font-size: 1.8em; }
+
+/* landing page */
+.kist-hero { text-align: center; margin: 1.5rem 0 2rem; }
+.kist-hero__line { font-size: 3.2rem; line-height: 1.05; margin: .5rem 0; }
+.kist-hero__sub { color: var(--md-default-fg-color--light); font-size: 1.05rem; max-width: 40rem; margin: 0 auto 1.2rem; }
+.kist-hero img, .kist-shot { border-radius: 10px; border: 1px solid color-mix(in srgb, var(--md-default-fg-color) 14%, transparent); }
+.kist-proof { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 1rem; margin: 1.5rem 0; }
+.kist-proof > div { padding: 1rem 1.1rem; border-radius: 10px; background: color-mix(in srgb, var(--md-default-fg-color) 5%, transparent); }
+.kist-proof strong { display: block; font-family: "Instrument Serif", Georgia, serif; font-weight: 400; font-size: 1.4rem; margin-bottom: .2rem; }
+.kist-phones { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+.kist-phones img { width: 30%; min-width: 9rem; border-radius: 14px; }
+
+/* buttons: brass, never the header colour */
+.md-typeset .md-button { color: var(--md-typeset-a-color); border-color: currentColor; }
+.md-typeset .md-button--primary,
+.md-typeset .md-button--primary:hover,
+.md-typeset .md-button:hover { background: var(--md-accent-fg-color); border-color: var(--md-accent-fg-color); color: var(--kist-on-accent); }
+.md-typeset h1.kist-hero__line { font-size: 3.2rem; line-height: 1.05; margin: .5rem 0; }

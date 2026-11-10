@@ -1,0 +1,3 @@
+# The docs site's build tools (site/mkdocs.yml). Pinned so a rebuild looks the same.
+mkdocs==1.6.1
+mkdocs-material==9.6.14
