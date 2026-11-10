@@ -307,3 +307,39 @@ def test_faces_backfill_and_people_scope(client, upload, ml, monkeypatch):
     assert fam.patch(f"/api/people/{seen[0]['id']}", json={"name": "x"}).status_code == 404
     page = fam.get("/api/items", params={"person": hidden["person_id"]}).json()
     assert page["items"] == []
+
+
+def test_worker_upkeep_clusters_faces_and_collections(client, upload, faces_on):
+    from kist import worker
+
+    for i in range(9):
+        upload(f"r{i}.png", data=solid((200 + i, 10, 10)), tags="red")
+    for i in range(9):
+        upload(f"b{i}.png", data=solid((10, 10, 200 + i)))
+    drain()
+    assert collections.due(24) is True
+    worker.run_organise()
+    assert collections.due(24) is False
+    assert len(collections.read_cache()["clusters"]) == 2
+    assert len(client.get("/api/people").json()) == 2
+    # faces of a picture added later join the right person
+    upload("r9.png", data=solid((240, 10, 10)))
+    drain()
+    counts = sorted(p["face_count"] for p in client.get("/api/people").json())
+    assert counts == [9, 10]
+
+
+def test_similar_duplicates_by_embedding(client, upload, ml):
+    a = upload("a.png", data=solid((200, 30, 30)))["item"]
+    b = upload("b.png", data=solid((201, 30, 30)))["item"]
+    upload("c.png", data=solid((30, 30, 200)))
+    drain()
+    groups = client.get("/api/duplicates/groups", params={"kind": "similar"}).json()
+    assert len(groups) == 1
+    assert {i["id"] for i in groups[0]["items"]} == {a["id"], b["id"]}
+    assert groups[0]["pairs"][0]["score"] >= 0.92
+    # stacked together: not duplicates of each other any more
+    client.post("/api/stacks", json={"item_ids": [a["id"], b["id"]]})
+    assert client.get("/api/duplicates/groups", params={"kind": "similar"}).json() == []
+    out = mcp_result(client, "duplicate_groups", {"kind": "similar"})
+    assert not out.get("isError")

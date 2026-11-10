@@ -75,6 +75,8 @@ services:
       KIST_ML_MODEL: ${KIST_ML_MODEL:-ViT-B-32__openai}
       KIST_ML_TIMEOUT_SECONDS: ${KIST_ML_TIMEOUT_SECONDS:-120}
       KIST_AI_WINDOW: ${KIST_AI_WINDOW:-}
+      # faces and people (opt-in; also set for the worker and ml service)
+      KIST_FACES: ${KIST_FACES:-0}
       # KIST_AI_WINDOW is in this time zone (/api/ai/status reports window_open)
       TZ: ${TZ:-UTC}
     # KIST_BIND is the host address to listen on. 0.0.0.0 (the default) is
@@ -138,6 +140,8 @@ services:
       KIST_AI_WINDOW: ${KIST_AI_WINDOW:-}
       KIST_AI_CONCURRENCY: ${KIST_AI_CONCURRENCY:-1}
       KIST_AI_OCR_PDF_PAGES: ${KIST_AI_OCR_PDF_PAGES:-5}
+      KIST_FACES: ${KIST_FACES:-0}
+      KIST_COLLECTIONS_INTERVAL_HOURS: ${KIST_COLLECTIONS_INTERVAL_HOURS:-24}
       # KIST_AI_WINDOW is in this time zone
       TZ: ${TZ:-UTC}
     volumes:
@@ -196,6 +200,9 @@ services:
       # unload a model after this long unused (seconds; 0 = never)
       KIST_ML_IDLE_SECONDS: ${KIST_ML_IDLE_SECONDS:-300}
       KIST_ML_BASE_URL: ${KIST_ML_BASE_URL:-https://huggingface.co}
+      # faces (opt-in): only then are YuNet + SFace downloaded and loaded
+      KIST_FACES: ${KIST_FACES:-0}
+      KIST_FACE_MODELS_URL: ${KIST_FACE_MODELS_URL:-}
       KIST_LOG_LEVEL: ${KIST_LOG_LEVEL:-INFO}
     volumes:
       - ml-models:/models

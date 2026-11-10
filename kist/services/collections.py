@@ -42,6 +42,8 @@ MAX_ITEMS = 50_000
 SAMPLE_IDS = 6
 SEED = 20261109
 MAX_K = 80
+N_INIT = 4
+SELECT_SAMPLE = 5000
 
 
 class NotFound(Exception):
@@ -118,28 +120,45 @@ def silhouette(x, labels, sample: int = SAMPLE, rng=None) -> float:
 
 
 def candidate_ks(n: int) -> list[int]:
+    """Every k up to 12, then steps of about 25% up to MAX_K (and n/4)."""
     hi = max(2, min(MAX_K, n // 4))
-    ks, k = [], 2
-    while k <= hi:
+    ks = list(range(2, min(hi, 12) + 1))
+    k = 12
+    while k < hi:
+        k = min(hi, max(k + 1, round(k * 1.25)))
         ks.append(k)
-        k = max(k + 1, round(k * 1.4))
-    if hi not in ks:
-        ks.append(hi)
     return ks
 
 
-def cluster(x) -> tuple:
-    """(labels, centres, k, silhouette) with k picked by silhouette."""
+def best_of(x, k: int, n_init: int = N_INIT, seed: int = SEED):
+    """k-means from several seedings; the one whose points sit closest to
+    their centres wins."""
     import numpy as np
 
     best = None
-    for k in candidate_ks(len(x)):
-        rng = np.random.default_rng(SEED + k)
-        labels, centres = kmeans(x, k, rng=rng)
-        s = silhouette(x, labels, rng=np.random.default_rng(SEED))
-        if best is None or s > best[3]:
-            best = (labels, centres, k, s)
-    return best
+    for i in range(n_init):
+        labels, centres = kmeans(x, k, rng=np.random.default_rng(seed + 1000 * i + k))
+        fit = float(np.take_along_axis(x @ centres.T, labels[:, None], 1).sum())
+        if best is None or fit > best[2]:
+            best = (labels, centres, fit)
+    return best[0], best[1]
+
+
+def cluster(x) -> tuple:
+    """(labels, centres, k, silhouette). k is picked by silhouette on a
+    sample (SELECT_SAMPLE points), then the whole set is clustered with it."""
+    import numpy as np
+
+    rng = np.random.default_rng(SEED)
+    sample = x if len(x) <= SELECT_SAMPLE else x[rng.choice(len(x), SELECT_SAMPLE, replace=False)]
+    best_k, best_s = 2, -2.0
+    for k in candidate_ks(len(sample)):
+        labels, _ = best_of(sample, k)
+        s = silhouette(sample, labels, rng=np.random.default_rng(SEED))
+        if s > best_s:
+            best_k, best_s = k, s
+    labels, centres = best_of(x, best_k) if len(sample) < len(x) else best_of(sample, best_k)
+    return labels, centres, best_k, best_s
 
 
 # ---------- suggestions ----------

@@ -287,6 +287,12 @@ def test_unstack_and_dissolve(client, upload):
     assert client.get(f"/api/stacks/{s1['id']}").status_code == 404
     assert client.get(f"/api/items/{a['id']}").json()["stack_id"] is None
     assert client.delete(f"/api/stacks/{s2['id']}").json() == {"unstacked": 2}
+    s3 = client.post("/api/stacks", json={"item_ids": [a["id"], b["id"], c["id"]]}).json()
+    left = client.patch(f"/api/stacks/{s3['id']}", json={"remove": [a["id"]]}).json()
+    assert left["cover_item_id"] in (b["id"], c["id"]) and left["count"] == 2
+    gone = client.patch(f"/api/stacks/{s3['id']}", json={"remove": [b["id"]]}).json()
+    assert gone == {"id": s3["id"], "dissolved": True}
+    assert client.get(f"/api/items/{c['id']}").json()["stack_id"] is None
     assert client.post("/api/stacks", json={"item_ids": [a["id"], a["id"]]}).status_code == 422
     assert client.post("/api/stacks", json={"item_ids": [a["id"], b["id"]],
                                             "cover": c["id"]}).status_code == 422

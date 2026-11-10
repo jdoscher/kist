@@ -26,7 +26,10 @@ log = logging.getLogger("kist.ml.faces")
 
 DET_SIZE = 640
 STRIDES = (8, 16, 32)
-SCORE_THRESHOLD = 0.75
+# OpenCV's demo uses 0.9. Measured on public-domain photos: frontal human
+# faces score 0.92-0.94, while cat and dog faces (which YuNet also finds)
+# score 0.79-0.86, so 0.88 keeps the people and drops the pets
+SCORE_THRESHOLD = 0.88
 NMS_IOU = 0.3
 MIN_FACE_PX = 16  # in the original image; smaller detections are noise
 MAX_FACES = 64
