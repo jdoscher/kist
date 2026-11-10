@@ -458,11 +458,39 @@ def regen_thumbhashes() -> int:
     return 0 if not failed else 2
 
 
-def regen_previews(do_all: bool, thumbhash_only: bool = False) -> int:
+def regen_colors() -> int:
+    """Recompute every previewed item's dominant colours from its thumbnail
+    (Kist 2.0 finds small saturated areas the older palettes averaged away)."""
+    from .services import previews
+
+    changed = failed = 0
+    with SessionLocal() as session:
+        ids = session.execute(
+            sa.select(Item.id).where(Item.preview_status == PreviewStatus.READY)
+            .order_by(Item.id)
+        ).scalars().all()
+        for item_id in ids:
+            item = session.get(Item, item_id, populate_existing=True)
+            if item is None:
+                continue
+            try:
+                changed += previews.recompute_colors(session, item)
+            except Exception as exc:
+                session.rollback()
+                failed += 1
+                print(f"  ! {item.id} {item.filename}: {str(exc)[:200]}", file=sys.stderr)
+    print(f"colours: {changed} palettes updated of {len(ids)}, {failed} failed")
+    return 0 if not failed else 2
+
+
+def regen_previews(do_all: bool, thumbhash_only: bool = False,
+                   colors_only: bool = False) -> int:
     from .services import previews
 
     if thumbhash_only:
         return regen_thumbhashes()
+    if colors_only:
+        return regen_colors()
     settings = get_settings()
     done = skipped = failed = screen = 0
     with SessionLocal() as session:
@@ -616,12 +644,18 @@ def ai_sidecars() -> int:
 
 
 def ai_backfill(kind: str | None, limit: int | None) -> int:
-    from .lifecycle import AI_KINDS
-    from .services import ai
+    from .lifecycle import DEFAULT_AI_KINDS
+    from .services import ai, captions
 
-    kinds = (kind,) if kind else AI_KINDS
+    kinds = (kind,) if kind else DEFAULT_AI_KINDS
     with SessionLocal() as session:
-        counts = ai.backfill(session, kinds, limit)
+        try:
+            counts = ai.backfill(session, kinds, limit)
+        except captions.CaptionsOff as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+    if "caption" in kinds and captions.warning():
+        print(f"note: {captions.warning()}")
     settings = get_settings()
     print("queued: " + ", ".join(f"{n} {k}" for k, n in counts.items()))
     print(f"they run {'inside ' + settings.ai_window if settings.ai_window else 'now'}"
@@ -660,6 +694,14 @@ def _samples(work: Path) -> list[tuple[str, Path]]:
     pdf.save(str(p))
     pdf.close()
     out.append(("pdf", p))
+    from PIL import ImageFont
+
+    try:  # Pillow's own copy of Aileron Regular (SIL OFL)
+        p = work / "sample.otf"
+        p.write_bytes(ImageFont.load_default(size=20).font_bytes)  # type: ignore[union-attr]
+        out.append(("font", p))
+    except Exception as exc:  # a Pillow without FreeType
+        print(f"  - font: skipped (no sample font here: {type(exc).__name__})")
     if shutil.which("ffmpeg") and shutil.which("ffprobe"):
         p = work / "sample.mp4"
         made = subprocess.run(
@@ -731,6 +773,10 @@ def main() -> None:
         "--thumbhash-only", action="store_true",
         help="only compute missing ThumbHash placeholders from existing previews",
     )
+    p_regen.add_argument(
+        "--colors-only", action="store_true",
+        help="only recompute dominant colours (palettes) from existing previews",
+    )
     sub.add_parser("verify", help="report drift between Postgres and the library on disk")
     p_reclass = sub.add_parser(
         "reclassify", help="mark items Kist can't preview (e.g. HTML named .pdf) as such"
@@ -742,7 +788,8 @@ def main() -> None:
     p_fix.add_argument("--limit", type=int, default=100,
                        help="how many originals to check (default 100)")
     p_backfill = sub.add_parser("ai-backfill", help="queue AI jobs for items without results")
-    p_backfill.add_argument("--kind", choices=["embed", "ocr"], default=None)
+    p_backfill.add_argument("--kind", choices=["embed", "ocr", "caption"], default=None,
+                            help="embed and ocr when not given; caption only when named")
     p_backfill.add_argument("--limit", type=int, default=None,
                             help="at most this many jobs per kind")
     sub.add_parser("ai-sidecars", help="write missing AI sidecar files from the database")
@@ -759,7 +806,7 @@ def main() -> None:
     if args.cmd == "rewrite-meta":
         sys.exit(rewrite_meta())
     if args.cmd == "regen-previews":
-        sys.exit(regen_previews(args.all, args.thumbhash_only))
+        sys.exit(regen_previews(args.all, args.thumbhash_only, args.colors_only))
     if args.cmd == "verify":
         sys.exit(verify())
     if args.cmd == "reclassify":

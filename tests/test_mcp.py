@@ -102,7 +102,7 @@ def test_rest_and_mcp_agree_on_stats_and_duplicates(client, upload):
     mcp = json.loads(call(client, "library_stats", {})["content"][0]["text"])
     assert rest == mcp
     assert rest["total_items"] == 3 and rest["trashed_items"] == 1
-    assert rest["by_kind"] == {"pdf": 0, "video": 0, "image": 2, "other": 1}
+    assert rest["by_kind"] == {"pdf": 0, "video": 0, "image": 2, "font": 0, "other": 1}
 
     pairs = client.get("/api/duplicates?threshold=20").json()
     res = call(client, "find_duplicates", {"threshold": 20}, 12)

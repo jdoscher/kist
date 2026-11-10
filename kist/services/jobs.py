@@ -137,6 +137,23 @@ def finish(session: Session, job_id: int, error: str | None) -> Job:
     return job
 
 
+def finish_many(session: Session, results: dict[int, str | None]) -> None:
+    """finish() for a batch: the successes in one commit, failures one by
+    one (they may move files or give up)."""
+    done = [job_id for job_id, error in results.items() if error is None]
+    if done:
+        now = datetime.now(UTC)
+        session.execute(
+            sa.update(Job).where(Job.id.in_(done))
+            .values(status=JobStatus.DONE, last_error=None, finished_at=now)
+            .execution_options(synchronize_session=False)
+        )
+        session.commit()
+    for job_id, error in results.items():
+        if error is not None:
+            finish(session, job_id, error)
+
+
 def release(session: Session, job_id: int, error: str, delay_seconds: float) -> Job:
     """running -> pending without using up an attempt: the job couldn't run
     for a reason that isn't its own (the ml service is down or still

@@ -23,6 +23,8 @@ from .config import get_settings
 from .db import SessionLocal
 from .lifecycle import PreviewStatus, TransitionError
 from .schemas import ItemOut
+from .services import ai as ai_svc
+from .services import captions as captions_svc
 from .services import events as events_svc
 from .services import folders as folders_svc
 from .services import ingest, library
@@ -36,7 +38,7 @@ from .services import tags as tags_svc
 mcp = MCPServer(
     name="kist",
     instructions=(
-        "Kist is a self-hosted visual asset library (images, video, PDFs). "
+        "Kist is a self-hosted visual asset library (images, video, PDFs, fonts). "
         "Use search_items to find assets, view_item to actually see one, "
         "set_tags/set_folders/update_item to organize. Every item has a state (active or "
         "trashed) and a preview_status (ready, pending, failed or none). "
@@ -48,7 +50,14 @@ mcp = MCPServer(
         "before filing. Every tool call is recorded as one batch in the item "
         "history: recent_batches lists them and undo_batch reverts one, so "
         "offer to undo when the user says you got something wrong. Protected "
-        "items can't be trashed."
+        "items can't be trashed. When the user describes what something looks "
+        "like ('a red car on a beach', 'moody dark interiors'), pass that "
+        "description as search_items(semantic=...): it ranks by what the images "
+        "show, not by their names. similar_to finds more like an item, color "
+        "finds a colour (item_palette shows an item's), text finds words inside "
+        "screenshots and PDFs, and search_by_image finds items like an image "
+        "that isn't in the library. Ranked results carry match {kind, score, "
+        "snippet} saying why each matched."
     ),
     version=__version__,
 )
@@ -63,6 +72,8 @@ EXPECTED_ERRORS = (
     TransitionError,
     ValueError,  # validation.ValidationError, BadCursor, NotMediaError, ...
     access.Forbidden,
+    ai_svc.AiUnavailable,  # the ml service isn't there (semantic, search_by_image)
+    captions_svc.CaptionError,
     ToolError,
 )
 
@@ -122,11 +133,26 @@ item_out = ItemOut.for_agent
     "to search the trash. preview_status ('failed', 'pending', 'ready', "
     "'none') finds items by preview state. type is one of image|video|pdf|other. "
     "order is -created (default), created, filename, -size, -rating or -modified. "
-    "Pass the returned next_cursor to fetch the following page.",
+    "Pass the returned next_cursor to fetch the following page. "
+    "Ranking (order is then ignored; combine freely with the filters): "
+    "semantic='a describing phrase' ranks by what the images show (use it for "
+    "any descriptive request); query plus semantic is a hybrid of words and "
+    "meaning; similar_to=<item id> finds more like that item; color='#2f4f3a' "
+    "(color_tol 0-100, default 30) keeps items with that colour in their "
+    "palette; text='words' keeps items whose screenshot/PDF text has those "
+    "words (snippet shows where); has_text=true keeps items with any text. "
+    "query also matches text inside images and captions. type 'font' finds "
+    "font files.",
     restricted_ok=True,
 )
 def search_items(
     query: str | None = None,
+    semantic: str | None = None,
+    similar_to: str | None = None,
+    color: str | None = None,
+    color_tol: int | None = None,
+    text: str | None = None,
+    has_text: bool | None = None,
     tags: list[str] | None = None,
     tags_any: list[str] | None = None,
     untagged: bool = False,
@@ -142,14 +168,73 @@ def search_items(
 ) -> dict[str, Any]:
     limit = max(1, min(limit, 100))
     with SessionLocal() as session:
-        rows, next_cursor, total = search_svc.search_items(
+        result = search_svc.search(
             session,
             q=query, tags=tags, tags_any=tags_any, untagged=untagged,
             view=view, state=state, preview_status=preview_status,
             folder=folder, kind=type, order=order,
             rating_min=rating_min, limit=limit, cursor=cursor,
+            semantic=semantic, similar=similar_to, color=color, color_tol=color_tol,
+            text=text, has_text=has_text,
         )
-        return {"items": [item_out(i) for i in rows], "next_cursor": next_cursor, "total": total}
+        return _page(result)
+
+
+def _page(result) -> dict[str, Any]:
+    return {
+        "items": [item_out(i, result.matches.get(i.id)) for i in result.items],
+        "next_cursor": result.next_cursor,
+        "total": result.total,
+    }
+
+
+@tool(
+    "Find items that look like an image that isn't in the library: a file "
+    "path inside the import directories, or an image URL (a page link uses "
+    "its preview image). Nothing is saved. Takes the same filters as "
+    "search_items (query, tags, folder, type, color, ...). Results are ranked "
+    "by visual similarity (match.kind 'similar').",
+    restricted_ok=True,
+)
+def search_by_image(
+    file_path: str | None = None,
+    url: str | None = None,
+    query: str | None = None,
+    tags: list[str] | None = None,
+    folder: str | None = None,
+    type: str | None = None,
+    rating_min: int | None = None,
+    color: str | None = None,
+    limit: int = 25,
+    cursor: str | None = None,
+) -> dict[str, Any]:
+    from .services import ai
+
+    if bool(url) == bool(file_path):
+        raise ToolError("provide exactly one of file_path or url")
+    if url:
+        data = ingest.fetch_image(url)
+    else:
+        data = ingest.resolve_import_path(file_path).read_bytes()  # type: ignore[arg-type]
+    vec = ai.ml_embed_image(data)
+    with SessionLocal() as session:
+        return _page(search_svc.search(
+            session, image_vector=vec, q=query, tags=tags, folder=folder, kind=type,
+            rating_min=rating_min, color=color, limit=max(1, min(limit, 100)), cursor=cursor,
+        ))
+
+
+@tool(
+    "An item's colour palette: its dominant colours, largest share first, as "
+    "{hex, pct, name} (name is the nearest everyday colour). Pass a hex to "
+    "search_items(color=...) to find items in that colour.",
+    restricted_ok=True,
+)
+def item_palette(id: str) -> list[dict[str, Any]]:
+    from .services import colour
+
+    with SessionLocal() as session:
+        return colour.palette(items_svc.get_item(session, id).dominant_colors)
 
 
 @tool("Get full metadata for one item by id.", restricted_ok=True)
@@ -219,7 +304,8 @@ def add_item(
 
 
 @tool(
-    "Update an item's rating (0-5), notes, filename, or source_url (an "
+    "Update an item's rating (0-5), notes, filename, caption (a sentence "
+    "describing the image; empty string removes it), or source_url (an "
     "http(s) URL; empty string clears it). folder_id ADDS the item to that "
     "folder and keeps its other folders; use set_folders to remove one. "
     "protected=true stops the item being trashed or deleted (only a write "
@@ -235,8 +321,11 @@ def update_item(
     folder_id: str | None = None,
     source_url: str | None = None,
     protected: bool | None = None,
+    caption: str | None = None,
 ) -> dict[str, Any]:
     fields: dict[str, Any] = {}
+    if caption is not None:
+        fields["caption"] = caption
     if protected is not None:
         fields["protected"] = protected
     if rating is not None:
@@ -467,7 +556,7 @@ def undo_batch(batch_id: str) -> dict[str, Any]:
 @tool(
     "AI status: the embedding model, whether the ml service answers, how many "
     "items have an embedding and OCR/PDF text, AI jobs waiting, the backfill "
-    "window and the Mac helpers seen. (Searching by meaning comes later.)"
+    "window, the caption provider and the Mac helpers seen."
 )
 def ai_status() -> dict[str, Any]:
     import json

@@ -210,20 +210,91 @@ def compute_phash(image_path: Path) -> int | None:
     return value
 
 
+PALETTE_CLUSTERS = 16
+PALETTE_MERGE_DE = 10.0  # clusters closer than this (CIEDE2000) are one colour
+
+
 def dominant_colors(image_path: Path, count: int = 5) -> list[dict]:
+    """The image's main colours, largest share first: {hex, pct}.
+
+    Octree quantisation into 16 clusters keeps small saturated areas (a red
+    car in a grey street) that a 5-colour median cut averages into mud; the
+    clusters within CIEDE2000 10 of each other are then merged (weighted by
+    their share) and the `count` largest kept. pct is the share of the whole
+    image, so the kept ones may sum to less than 1."""
     from PIL import Image
+
+    from .colour import ciede2000, rgb_to_lab
 
     with Image.open(image_path) as img:
         small = img.convert("RGB").resize((100, 100))
-        quantized = small.quantize(count)
+        quantized = small.quantize(PALETTE_CLUSTERS, method=Image.Quantize.FASTOCTREE)
         palette = quantized.getpalette()
         counts = sorted(quantized.getcolors(), reverse=True)
-        total = sum(n for n, _ in counts)
-        out = []
-        for n, idx in counts[:count]:
-            r, g, b = palette[idx * 3 : idx * 3 + 3]
-            out.append({"hex": f"#{r:02x}{g:02x}{b:02x}", "pct": round(n / total, 3)})
-        return out
+    total = sum(n for n, _ in counts)
+    groups: list[dict] = []
+    for n, idx in counts:
+        rgb = tuple(palette[idx * 3 : idx * 3 + 3])
+        lab = rgb_to_lab(rgb)
+        for g in groups:
+            if ciede2000(lab, g["lab"]) < PALETTE_MERGE_DE:
+                w = g["n"] + n
+                g["rgb"] = tuple((a * g["n"] + b * n) / w for a, b in zip(g["rgb"], rgb,
+                                                                          strict=True))
+                g["n"] = w
+                break
+        else:
+            groups.append({"rgb": rgb, "lab": lab, "n": n})
+    groups.sort(key=lambda g: -g["n"])
+    out = []
+    for g in groups[:count]:
+        r, gr, b = (round(c) for c in g["rgb"])
+        out.append({"hex": f"#{r:02x}{gr:02x}{b:02x}", "pct": round(g["n"] / total, 3)})
+    return out
+
+
+SPECIMEN_SIZE = (1600, 1000)
+SPECIMEN_SAMPLE = "Aa Bb Cc 0123 The quick brown fox"
+
+
+def font_specimen(path: Path, out_png: Path) -> str:
+    """Render a font file's specimen (its family name and a sample) with
+    Pillow/FreeType. Returns "Family Style". Raises if it isn't a font
+    FreeType can read."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    def font(size: int):
+        return ImageFont.truetype(str(path), size, index=0)
+
+    family, style = font(48).getname()
+    name = " ".join(p for p in (family, style) if p and p.lower() != "regular") or path.stem
+    w, h = SPECIMEN_SIZE
+    im = Image.new("RGB", (w, h), (250, 250, 247))
+    d = ImageDraw.Draw(im)
+    ink, muted = (24, 24, 27), (110, 110, 118)
+    margin = 80
+
+    def fit(text: str, size: int):
+        """The largest size up to `size` at which `text` fits the width."""
+        while size > 12:
+            f = font(size)
+            if d.textlength(text, font=f) <= w - 2 * margin:
+                return f
+            size = int(size * 0.9)
+        return font(12)
+
+    d.text((margin, 70), name, font=fit(name, 64), fill=muted)
+    # the sample, in two sizes: "Aa Bb Cc" big, the rest below it
+    big, rest = SPECIMEN_SAMPLE[:8], SPECIMEN_SAMPLE[9:]
+    d.text((margin, 190), big, font=fit(big, 300), fill=ink)
+    d.text((margin, 560), rest, font=fit(rest, 110), fill=ink)
+    lines = ("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz 0123456789 &?!")
+    y = 760
+    for line in lines:
+        d.text((margin, y), line, font=fit(line, 56), fill=ink)
+        y += 90
+    im.save(out_png)
+    return name
 
 
 def generate_previews(original: Path, item_dir: Path, mime: str, ext: str) -> Probe:
@@ -245,6 +316,11 @@ def generate_previews(original: Path, item_dir: Path, mime: str, ext: str) -> Pr
         with tempfile.TemporaryDirectory() as td:
             poster = Path(td) / "page1.png"
             pdf_poster(original, poster)
+            probe.width, probe.height = make_thumbs_from(poster, item_dir)
+    elif kind == "font":
+        with tempfile.TemporaryDirectory() as td:
+            poster = Path(td) / "specimen.png"
+            font_specimen(original, poster)
             probe.width, probe.height = make_thumbs_from(poster, item_dir)
     elif kind == "image":
         is_heif = ext.lower() in HEIF_EXTS and ext.lower() != "avif"

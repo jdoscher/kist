@@ -55,6 +55,7 @@ class Kind:
     LINK = "link"
     UNLINK = "unlink"
     PROTECT = "protect"
+    CAPTION = "caption"  # services/captions.py: generated or edited
 
 
 class NotFound(Exception):
@@ -357,6 +358,8 @@ def event_keys(kind: str, before, after) -> set[str]:
         return {f"field:{f}" for f in set(before) | set(after)}
     if kind == Kind.PROTECT:
         return {"protected"}
+    if kind == Kind.CAPTION:
+        return {"caption"}
     if kind == Kind.TAGS:
         a = {t.lower() for t in before.get("tags", [])}
         b = {t.lower() for t in after.get("tags", [])}
@@ -429,6 +432,10 @@ def _apply_inverse(session: Session, ev: ItemEvent) -> str | None:
                 links_svc.unlink(session, src, dst, link["kind"])
             else:
                 links_svc.link(session, src, dst, link["kind"])
+        elif ev.kind == Kind.CAPTION:
+            from . import captions
+
+            captions.set_caption(session, ev.item_id, before.get("caption") or "")
         elif ev.kind == Kind.PURGE:
             return "it was permanently deleted; only a backup can bring it back"
         else:

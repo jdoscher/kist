@@ -131,20 +131,23 @@ def run_one() -> bool:
 class AiLane:
     """AI jobs on threads of their own (KIST_AI_CONCURRENCY at once), so an
     import or a preview never waits behind an embedding or an OCR run.
-    Claims only when no light job is waiting (services/ai.claim)."""
+    Claims only when no light job is waiting (services/ai.claim). A thread
+    takes embed jobs in batches of KIST_AI_EMBED_BATCH (one ml request)."""
 
-    def __init__(self, concurrency: int):
+    def __init__(self, concurrency: int, batch: int = 1):
         from concurrent.futures import ThreadPoolExecutor
 
         self.size = max(1, concurrency)
+        self.batch = max(1, min(batch, 32))
         self.pool = ThreadPoolExecutor(max_workers=self.size, thread_name_prefix="ai")
         self.running: set = set()
         # set by a job that found the ml service down: claim nothing until then
         self.paused_until = 0.0
 
-    def enabled(self) -> bool:
-        settings = get_settings()
-        return bool(settings.ml_url)
+    def kinds(self) -> tuple[str, ...]:
+        from .services import ai
+
+        return ai.worker_kinds()
 
     def fill(self) -> int:
         """Claim jobs for every free slot. Returns how many started."""
@@ -155,14 +158,22 @@ class AiLane:
                 self.paused_until = time.monotonic() + ML_DOWN_PAUSE_SECONDS
         self.running = {f for f in self.running if not f.done()}
         free = self.size - len(self.running)
-        if free <= 0 or not self.enabled() or time.monotonic() < self.paused_until:
+        kinds = self.kinds() if free > 0 else ()
+        if free <= 0 or not kinds or time.monotonic() < self.paused_until:
             return 0
-        with SessionLocal() as s:
-            jobs = ai.claim(s, runner="worker", limit=free)
-            ids = [(j.id, j.kind) for j in jobs]
-        for job_id, kind in ids:
-            self.running.add(self.pool.submit(run_ai_job, job_id, kind))
-        return len(ids)
+        started = 0
+        for _ in range(free):
+            with SessionLocal() as s:
+                jobs = ai.claim_batch(s, runner="worker", kinds=kinds, batch=self.batch)
+                ids = [(j.id, j.kind) for j in jobs]
+            if not ids:
+                break
+            if len(ids) == 1:
+                self.running.add(self.pool.submit(run_ai_job, *ids[0]))
+            else:
+                self.running.add(self.pool.submit(run_ai_batch, [i for i, _ in ids]))
+            started += len(ids)
+        return started
 
     def wait(self, timeout: float) -> bool:
         """Instead of the idle sleep while AI jobs run: wake as soon as one
@@ -207,6 +218,36 @@ def run_ai_job(job_id: int, kind: str) -> str:
         except Exception:
             log.exception("could not record the end of job %s", job_id)
         return "done" if error is None else "failed"
+
+
+def run_ai_batch(job_ids: list[int]) -> str:
+    """Run a batch of embed jobs in one ml request; like run_ai_job, but
+    each job ends with its own result."""
+    from .services import ai, jobs
+
+    with SessionLocal() as s:
+        batch = [j for j in (s.get(Job, i) for i in job_ids) if j is not None]
+        try:
+            results = ai.run_embed_batch(s, batch)
+        except ai.AiUnavailable as exc:
+            s.rollback()
+            log.warning("%d embed jobs put back: %s", len(job_ids), exc)
+            for job_id in job_ids:
+                try:
+                    jobs.release(s, job_id, str(exc), ML_DOWN_PAUSE_SECONDS)
+                except Exception:
+                    log.exception("could not put job %s back", job_id)
+            return "unavailable"
+        except Exception as exc:
+            s.rollback()
+            log.exception("embed batch %s failed", job_ids)
+            results = {i: str(exc) or type(exc).__name__ for i in job_ids}
+        results = {job_id: results.get(job_id, "not run") for job_id in job_ids}
+        try:
+            jobs.finish_many(s, results)
+        except Exception:
+            log.exception("could not record the end of jobs %s", job_ids)
+        return "failed" if any(e is not None for e in results.values()) else "done"
 
 
 def reap() -> None:
@@ -313,7 +354,11 @@ def main() -> None:
     log.info("worker started (library=%s)", settings.library_dir)
     heartbeat = Heartbeat(stuck_after=settings.job_lease_seconds)
     heartbeat.start()
-    ai_lane = AiLane(settings.ai_concurrency)
+    ai_lane = AiLane(settings.ai_concurrency, settings.ai_embed_batch)
+    from .services import captions
+
+    if captions.warning():
+        log.warning(captions.warning())
     if settings.ml_url:
         from .services import ai
 
@@ -322,8 +367,9 @@ def main() -> None:
                 ai.ensure_vector_index(s, ai.active_model())
         except Exception:
             log.exception("could not make the vector index for %s", settings.ml_model)
-        log.info("AI jobs: ml service %s, model %s, %d at once, window %s",
-                 settings.ml_url, settings.ml_model, ai_lane.size, settings.ai_window or "any time")
+        log.info("AI jobs: ml service %s, model %s, %d at once, embed batches of %d, "
+                 "window %s", settings.ml_url, settings.ml_model, ai_lane.size, ai_lane.batch,
+                 settings.ai_window or "any time")
 
     last_inbox_scan = last_reap = last_recover = last_verify_check = 0.0
     last_backfill = last_retention = last_backup_check = 0.0

@@ -6,6 +6,63 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Milestone 2: finding things (search)
+
+Search by what images show, by colour, by the words inside them, or by
+another image, and "more like this" on any item. Everything still runs on
+your own hardware unless you choose a cloud caption provider.
+
+- **One search box, several ways to search.** `GET /api/items` (and the MCP
+  tool `search_items`) gains `semantic` (describe it: "brown suede boots on
+  cobblestones"), `similar` (more like this item), `color` with `color_tol`
+  (0–100), `text` (only words inside screenshots and PDFs) and `has_text`.
+  They combine with every filter you already use (tags, folders, type,
+  rating, dates). Words plus a description (`q` + `semantic`) blend both
+  rankings. Keyword search (`q`) now also finds the text inside screenshots,
+  PDFs and captions.
+- **Why it matched.** Ranked results carry `match` with the way they matched
+  (meaning, similar, colour, text, keyword, or several: hybrid), a score, and
+  for text hits a snippet with the words marked `<<like this>>`.
+- **Search by image:** `POST /api/search/image` with a picture (it isn't
+  saved) finds items that look like it. Read-only tokens may use it.
+- **Colour.** Every item's palette is at `GET /api/items/{id}/palette` with
+  everyday colour names; colour search uses perceptual distance (CIEDE2000),
+  not RGB. New palettes keep small saturated areas (a red car in a grey
+  street now counts as red); `kist regen-previews --colors-only` refreshes
+  older items' palettes in seconds.
+- **Fonts.** TTF, OTF, WOFF and WOFF2 files are now their own type (`font`)
+  with a specimen preview showing the family name and "Aa Bb Cc 0123 The
+  quick brown fox". Fonts you added before are queued for a specimen when
+  you upgrade.
+- **Captions (optional, off by default).** A sentence describing an image,
+  written by a local Ollama vision model (e.g. `qwen2.5vl:3b`), or by OpenAI,
+  Anthropic or Gemini with your own key. **The cloud providers receive every
+  image you caption.** Caption one item (`POST /api/items/{id}/caption`), a
+  backlog (`kist ai-backfill --kind caption`) or every new item
+  (`KIST_CAPTION_AUTO=true`). Captions are searchable, editable
+  (`PATCH /api/items/{id} {"caption": …}`), in the item's history and
+  undoable, and kept in `ai/caption.json` next to the item. A Mac running
+  Ollama can do them for the NAS: `kist helper --kinds caption`.
+- **Faster embedding.** The worker now runs two AI jobs at once and sends
+  embeddings 16 at a time (`KIST_AI_CONCURRENCY=2`, `KIST_AI_EMBED_BATCH=16`),
+  writing results side by side. On a fast disk that measured 53 → 84–99
+  items/s; with slow disk syncs like a busy NAS, 3.9 → 44 items/s.
+- **For agents (MCP):** `search_items` takes `semantic`, `similar_to`,
+  `color`, `color_tol`, `text` and `has_text`; new `search_by_image`
+  (a URL or a file in the import folder) and `item_palette`;
+  `update_item(caption=…)`. Agents are told to pass descriptions as
+  `semantic`.
+- **Upgrade notes:** migration 0201 runs on start (palette table, colour
+  functions, caption rows). Rebuild the `ml` image (`docker compose build
+  ml`): it gained a batch endpoint. New settings, all optional and in
+  `.env.example`: `KIST_AI_EMBED_BATCH`, `KIST_CAPTION_PROVIDER`,
+  `KIST_CAPTION_URL`, `KIST_CAPTION_MODEL`, `KIST_CAPTION_API_KEY`,
+  `KIST_CAPTION_AUTO`, `KIST_CAPTION_PROMPT`, `KIST_CAPTION_TIMEOUT_SECONDS`;
+  `KIST_AI_CONCURRENCY` now defaults to 2. Then optionally
+  `docker compose exec worker kist regen-previews --colors-only`.
+
+### Milestone 1: the platform
+
 Kist 2.0, milestone 1: the platform and AI infrastructure. Named tokens
 with scopes, history and undo for every item, links, protection, trash
 retention, fixity checks, backups and archive health; and every image is

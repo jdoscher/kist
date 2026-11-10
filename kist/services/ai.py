@@ -4,7 +4,9 @@ Who computes what
 -----------------
 The worker sends `embed` and `ocr` jobs to the ml service (KIST_ML_URL), a
 few at a time on threads of their own, so an import never waits behind
-them. A `kist helper` on another machine can claim the same jobs over HTTP
+them. Embed jobs go in batches (KIST_AI_EMBED_BATCH per request to POST
+/embed/images). `caption` jobs go to the caption provider
+(services/captions.py). A `kist helper` on another machine can claim the same jobs over HTTP
 (POST /api/ai/jobs/claim) and report results back; the server checks and
 stores them exactly as if the worker had computed them.
 
@@ -51,7 +53,7 @@ from sqlalchemy.orm import Session
 from .. import __version__
 from ..config import get_settings
 from ..filetypes import kind_for
-from ..lifecycle import AI_KINDS, JobKind, JobStatus, PreviewStatus
+from ..lifecycle import AI_KINDS, DEFAULT_AI_KINDS, JobKind, JobStatus, PreviewStatus
 from ..ml.models import MODELS
 from ..models import AiHelper, HalfVec, Item, ItemEmbedding, ItemText, Job
 from . import meta as meta_svc
@@ -65,6 +67,9 @@ EMBED_SOURCES = ("thumb_512.webp", "thumb_1024.webp", "thumb_256.webp")
 # EXIF Make / Model: an image a camera took isn't OCR'd
 EXIF_MAKE, EXIF_MODEL = 0x010F, 0x0110
 MODEL_NAME = re.compile(r"^[A-Za-z0-9._-]{1,100}$")
+# item_text sources that are text read from the item itself (a caption is
+# the third source, written about it: services/captions.py)
+READ_SOURCES = ("ocr", "pdf")
 MAX_TEXT = 1_000_000
 
 
@@ -175,6 +180,40 @@ def ml_embed_image(data: bytes) -> list[float]:
     )
 
 
+def ml_embed_images(datas: list[bytes]) -> list[list[float] | str]:
+    """Vectors for several images in one request (POST /embed/images); an
+    image the ml service can't read gives its error message instead. An
+    older ml service without the batch endpoint gets one request each."""
+    if not datas:
+        return []
+    files = [("images", (f"{i}.img", d, "application/octet-stream"))
+             for i, d in enumerate(datas)]
+    try:
+        with _client() as c:
+            r = c.post("/embed/images", files=files)
+    except httpx.HTTPError as exc:
+        raise AiUnavailable(f"the ml service can't be reached: {type(exc).__name__}") from exc
+    if r.status_code in (404, 405):
+        out: list[list[float] | str] = []
+        for d in datas:
+            try:
+                out.append(ml_embed_image(d))
+            except ValueError as exc:
+                out.append(str(exc))
+        return out
+    if r.status_code >= 500:
+        raise AiUnavailable(f"the ml service answered {r.status_code}: {r.text[:300]}")
+    if r.status_code >= 400:
+        raise ValueError(f"the ml service refused this batch ({r.status_code}): {r.text[:300]}")
+    body = r.json()
+    _checked_vector({"model": body.get("model"), "vector": []})  # same model as ours?
+    results = body.get("results") or []
+    if len(results) != len(datas):
+        raise AiUnavailable("the ml service answered for a different number of images")
+    return [res["vector"] if "vector" in res else str(res.get("error") or "failed")
+            for res in results]
+
+
 def ml_embed_text(text: str) -> list[float]:
     return _checked_vector(_post("/embed/text", json={"text": text}))
 
@@ -209,6 +248,24 @@ def has_embeddings(session: Session) -> bool:
     return session.execute(
         sa.select(ItemEmbedding.item_id).where(ItemEmbedding.model == active_model()).limit(1)
     ).first() is not None
+
+
+def item_vector(session: Session, item_id: str, model: str) -> list[float]:
+    """The stored embedding of an item the caller may see (more like this).
+    ValidationError (422) when it has none yet."""
+    from . import items as items_svc
+    from .validation import ValidationError
+
+    items_svc.get_item(session, item_id)  # NotFound for items the caller can't see
+    vec = session.execute(
+        sa.select(ItemEmbedding.vector).where(ItemEmbedding.item_id == item_id,
+                                              ItemEmbedding.model == model)
+    ).scalar_one_or_none()
+    if vec is None:
+        raise ValidationError(
+            f"item {item_id} has no embedding yet, so there's nothing to compare it with"
+        )
+    return vec
 
 
 def query_vector(text: str) -> list[float]:
@@ -358,8 +415,10 @@ def _clean_text(text: str) -> str:
 
 def _upsert_text(session: Session, item_id: str, source: str, text: str, lang: str | None,
                  model: str, created_at: datetime) -> None:
-    # one text row per item: a PDF's OCR replaces nothing else
-    session.execute(sa.delete(ItemText).where(ItemText.item_id == item_id))
+    # one read-text row per item (a PDF's text layer or its OCR); a caption
+    # is kept
+    session.execute(sa.delete(ItemText).where(ItemText.item_id == item_id,
+                                              ItemText.source.in_(READ_SOURCES)))
     session.add(ItemText(item_id=item_id, source=source, text=text, lang=lang, model=model,
                          created_at=created_at))
 
@@ -413,6 +472,9 @@ def load_sidecars(session: Session, item_id: str) -> tuple[int, int]:
             txt += 1
     if emb or txt:
         session.commit()
+    from . import captions
+
+    txt += captions.load_sidecar(session, item_id)
     return emb, txt
 
 
@@ -430,7 +492,9 @@ def rewrite_missing_sidecars(session: Session) -> tuple[int, int]:
             continue
         write_embedding_sidecar(item_id, model, vec, created_at)
         emb += 1
-    for t in session.execute(sa.select(ItemText)).scalars():
+    for t in session.execute(
+        sa.select(ItemText).where(ItemText.source.in_(READ_SOURCES))
+    ).scalars():
         if (ai_dir(t.item_id) / OCR_FILE).is_file() or not _item_exists_on_disk(t.item_id):
             continue
         write_ocr_sidecar(t.item_id, {
@@ -438,6 +502,9 @@ def rewrite_missing_sidecars(session: Session) -> tuple[int, int]:
             "created_at": t.created_at.isoformat(), "kist_version": __version__,
         })
         txt += 1
+    from . import captions
+
+    txt += captions.rewrite_missing_sidecars(session)
     return emb, txt
 
 
@@ -528,7 +595,7 @@ def _open_jobs(session: Session, kind: str, item_ids: list[str]) -> set[str]:
 
 
 def enqueue_for_item(session: Session, item: Item, *, backfill: bool = False,
-                     kinds: tuple[str, ...] = AI_KINDS) -> list[str]:
+                     kinds: tuple[str, ...] = DEFAULT_AI_KINDS) -> list[str]:
     """Queue what an item still needs. Returns the kinds queued."""
     queued: list[str] = []
     model = active_model()
@@ -540,7 +607,8 @@ def enqueue_for_item(session: Session, item: Item, *, backfill: bool = False,
     if JobKind.OCR in kinds:
         which = ocr_kind(item)
         done = session.execute(
-            sa.select(ItemText.item_id).where(ItemText.item_id == item.id).limit(1)
+            sa.select(ItemText.item_id).where(ItemText.item_id == item.id,
+                                              ItemText.source.in_(READ_SOURCES)).limit(1)
         ).first() is not None
         if which and not done and not _open_jobs(session, JobKind.OCR, [item.id]):
             session.add(Job(kind=JobKind.OCR,
@@ -562,18 +630,26 @@ def on_new_item(session: Session, item: Item) -> None:
         return
     try:
         enqueue_for_item(session, item)
+        from . import captions
+
+        captions.on_new_item(session, item)  # only with KIST_CAPTION_AUTO
     except Exception:
         session.rollback()
         log.exception("could not queue AI jobs for %s", item.id)
 
 
-def backfill(session: Session, kinds: tuple[str, ...] = AI_KINDS,
+def backfill(session: Session, kinds: tuple[str, ...] = DEFAULT_AI_KINDS,
              limit: int | None = None) -> dict[str, int]:
     """Queue jobs for every active item without a result for the active
     model. They wait for KIST_AI_WINDOW."""
     counts = {k: 0 for k in kinds}
     model = active_model()
     for kind in kinds:
+        if kind == JobKind.CAPTION:
+            from . import captions
+
+            counts[kind] = captions.backfill(session, limit)
+            continue
         if kind == JobKind.EMBED:
             missing = sa.select(Item.id).where(
                 Item.deleted_at.is_(None),
@@ -587,7 +663,8 @@ def backfill(session: Session, kinds: tuple[str, ...] = AI_KINDS,
                 sa.or_(Item.mime == "application/pdf",
                        sa.and_(Item.mime.like("image/%"),
                                Item.preview_status == PreviewStatus.READY)),
-                ~sa.exists().where(ItemText.item_id == Item.id),
+                ~sa.exists().where(ItemText.item_id == Item.id,
+                                   ItemText.source.in_(READ_SOURCES)),
             )
         ids = list(session.execute(missing.order_by(Item.id)).scalars())
         for start in range(0, len(ids), 500):
@@ -660,8 +737,107 @@ def claim(session: Session, *, runner: str, kinds: tuple[str, ...] = AI_KINDS,
     return jobs
 
 
+def claim_batch(session: Session, *, runner: str, kinds: tuple[str, ...] = AI_KINDS,
+                batch: int = 1) -> list[Job]:
+    """What one worker thread takes: the oldest job it may run and, when
+    that is an embed job, up to batch-1 more embed jobs to send with it."""
+    jobs = claim(session, runner=runner, kinds=kinds, limit=1)
+    if jobs and jobs[0].kind == JobKind.EMBED and batch > 1:
+        jobs += claim(session, runner=runner, kinds=(JobKind.EMBED,), limit=batch - 1)
+    return jobs
+
+
+def worker_kinds() -> tuple[str, ...]:
+    """The AI job kinds this server's worker can run itself."""
+    from . import captions
+
+    kinds: list[str] = []
+    if get_settings().ml_url:
+        kinds += [JobKind.EMBED, JobKind.OCR]
+    if captions.worker_can_run():
+        kinds.append(JobKind.CAPTION)
+    return tuple(kinds)
+
+
+def run_embed_batch(session: Session, jobs: list[Job]) -> dict[int, str | None]:
+    """Embed several items in one ml request. Returns {job id: error or
+    None}. AiUnavailable (the ml service is down) is raised for the caller
+    to put every job back."""
+    results: dict[int, str | None] = {}
+    todo: list[tuple[Job, Item, bytes]] = []
+    for job in jobs:
+        item = session.get(Item, (job.payload or {}).get("item_id"))
+        if item is None or not _item_exists_on_disk(item.id):
+            results[job.id] = None  # purged meanwhile: nothing to do
+            continue
+        src = embed_source(item)
+        if src is None:
+            results[job.id] = "the item has no thumbnail to embed"
+            continue
+        try:
+            todo.append((job, item, src.read_bytes()))
+        except OSError as exc:
+            results[job.id] = f"can't read {src.name}: {exc}"
+    if not todo:
+        return results
+    model = active_model()
+    vectors = ml_embed_images([data for _, _, data in todo])
+    dim = model_dim(model)
+    now = datetime.now(UTC)
+    ready: list[tuple[Job, Item, list[float]]] = []
+    for (job, item, _), vec in zip(todo, vectors, strict=True):
+        if isinstance(vec, str):
+            results[job.id] = vec
+            continue
+        try:
+            ready.append((job, item, clean_vector(vec, dim)))
+        except ResultRejected as exc:
+            results[job.id] = str(exc)
+
+    # sidecars first, written side by side: each waits for its fsync, and
+    # on a NAS disk those waits overlap instead of adding up
+    def write(entry):
+        _job, item, vec = entry
+        write_embedding_sidecar(item.id, model, vec, now)
+
+    from concurrent.futures import ThreadPoolExecutor
+
+    with ThreadPoolExecutor(max_workers=min(8, len(ready)) or 1,
+                            thread_name_prefix="sidecar") as pool:
+        written = list(zip(ready, pool.map(_capture(write), ready), strict=True))
+    stored = 0
+    for (job, item, vec), error in written:
+        if error is not None:
+            log.warning("job %s: writing the sidecar failed: %s", job.id, error)
+            results[job.id] = error
+            continue
+        try:  # then the rows, one commit for the batch
+            with session.begin_nested():
+                _upsert_embedding(session, item.id, model, vec, now)
+            results[job.id] = None
+            stored += 1
+        except Exception as exc:  # e.g. the item was purged meanwhile
+            log.exception("job %s: storing the embedding failed", job.id)
+            results[job.id] = str(exc) or type(exc).__name__
+    if stored:
+        session.commit()
+    return results
+
+
+def _capture(fn):
+    """fn(x) -> None, or the error message it raised."""
+    def run(x) -> str | None:
+        try:
+            fn(x)
+            return None
+        except Exception as exc:
+            return f"{type(exc).__name__}: {exc}"
+    return run
+
+
 def run_job(session: Session, job: Job) -> None:
-    """Compute one AI job through the ml service (the worker's side)."""
+    """Compute one AI job through the ml service or the caption provider
+    (the worker's side)."""
     payload = job.payload or {}
     item = session.get(Item, payload.get("item_id"))
     if item is None or not _item_exists_on_disk(item.id):
@@ -683,6 +859,10 @@ def run_job(session: Session, job: Job) -> None:
             store_text(session, item.id, source="ocr", text=out.get("text") or "",
                        model=str(out.get("model") or "ocr"), lang=out.get("lang"),
                        boxes=out.get("boxes"))
+    elif job.kind == JobKind.CAPTION:
+        from . import captions
+
+        captions.run_job(session, item)
     else:
         raise ValueError(f"not an AI job: {job.kind}")
 
@@ -728,7 +908,7 @@ def touch_helper(session: Session, name: str, done: int = 0, info: dict | None =
 def job_for_helper(job: Job) -> dict:
     payload = job.payload or {}
     item_id = payload.get("item_id")
-    return {
+    out = {
         "id": job.id,
         "kind": job.kind,
         "item_id": item_id,
@@ -737,12 +917,20 @@ def job_for_helper(job: Job) -> dict:
         "image_url": f"/api/ai/jobs/{job.id}/image",
         "lease_seconds": get_settings().job_lease_seconds,
     }
+    if job.kind == JobKind.CAPTION:
+        from .captions import DEFAULT_PROMPT
+
+        settings = get_settings()
+        # what the server would use; the helper may run its own model
+        out["model"] = settings.caption_model or None
+        out["prompt"] = settings.caption_prompt or DEFAULT_PROMPT
+    return out
 
 
 def helper_claim(session: Session, name: str, kinds: list[str], limit: int,
                  info: dict | None = None) -> list[dict]:
     touch_helper(session, name, info=info)
-    wanted = tuple(k for k in kinds if k in AI_KINDS) or AI_KINDS
+    wanted = tuple(k for k in kinds if k in AI_KINDS) or DEFAULT_AI_KINDS
     # scanned PDFs are read by the server (it has the file and pdfium)
     jobs = claim(session, runner=f"helper:{name}", kinds=wanted, limit=limit,
                  include_pdf=False)
@@ -766,7 +954,8 @@ def _helper_job(session: Session, job_id: int, name: str) -> Job:
 def helper_job_image(session: Session, job_id: int, name: str) -> tuple[str, int]:
     """(item_id, thumbnail size) for a job this helper holds."""
     job = _helper_job(session, job_id, name)
-    return (job.payload or {}).get("item_id"), 512 if job.kind == JobKind.EMBED else 2048
+    size = {JobKind.EMBED: 512, JobKind.CAPTION: 1024}.get(job.kind, 2048)
+    return (job.payload or {}).get("item_id"), size
 
 
 def helper_result(session: Session, job_id: int, name: str, body: dict) -> Job:
@@ -785,6 +974,16 @@ def helper_result(session: Session, job_id: int, name: str, body: dict) -> Job:
                 f"the helper used {model!r} but this server's model is {active_model()!r}"
             )
         store_embedding(session, item_id, model, body.get("vector"))
+    elif job.kind == JobKind.CAPTION:
+        from . import captions, events
+
+        text = body.get("text")
+        if not isinstance(text, str) or not text.strip():
+            raise ResultRejected("a caption result needs text")
+        with events.acting(f"helper:{name}"[:100], "worker"):
+            captions.store_generated(session, item_id, text[:captions.CAPTION_MAX],
+                                     model=str(body.get("model") or "unknown")[:200],
+                                     provider=f"helper:{name}"[:100])
     else:
         text = body.get("text")
         if not isinstance(text, str):
@@ -808,7 +1007,9 @@ def status(session: Session) -> dict:
     embedded = session.execute(
         sa.select(sa.func.count()).select_from(ItemEmbedding).where(ItemEmbedding.model == model)
     ).scalar_one()
-    ocr_done = session.execute(sa.select(sa.func.count()).select_from(ItemText)).scalar_one()
+    ocr_done = session.execute(
+        sa.select(sa.func.count()).select_from(ItemText).where(ItemText.source.in_(READ_SOURCES))
+    ).scalar_one()
     rows = session.execute(
         sa.select(Job.kind, Job.status, sa.func.count())
         .where(Job.kind.in_(AI_KINDS))
@@ -820,6 +1021,11 @@ def status(session: Session) -> dict:
         win_open = window_open(settings.ai_window)
     except ValueError:
         win_open = False
+    from . import captions
+
+    captioned = session.execute(
+        sa.select(sa.func.count()).select_from(ItemText).where(ItemText.source == "caption")
+    ).scalar_one()
     return {
         "enabled": settings.ai_enabled,
         "model": model,
@@ -835,6 +1041,9 @@ def status(session: Session) -> dict:
         "window": settings.ai_window or None,
         "window_open": win_open,
         "concurrency": settings.ai_concurrency,
+        "embed_batch": settings.ai_embed_batch,
+        "captioned": captioned,
+        "captions": captions.status(),
         "helpers": [
             {"name": h.name, "last_seen": h.last_seen, "jobs_done": h.jobs_done, "info": h.info}
             for h in helpers

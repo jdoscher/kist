@@ -131,14 +131,17 @@ RESTRICTED_PATHS = [
         r"^/api/version$",
         r"^/api/items$",
         rf"^{_ITEM}$",
-        rf"^{_ITEM}/(file|thumb|history|links)$",
+        rf"^{_ITEM}/(file|thumb|history|links|palette)$",
         r"^/api/folders$",
+        r"^/api/search/image$",
     )
 ]
 HELPER_PREFIX = "/api/ai/jobs"
 TOKENS_PREFIX = "/api/tokens"
 # harmless for any caller: who am I, and the web UI's crash reports
 ANYONE = {"/api/me", "/api/client-errors"}
+# POSTs that only read (a search with an uploaded image): the read scope may
+READ_POSTS = {"/api/search/image"}
 
 
 def _under(path: str, prefix: str) -> bool:
@@ -158,7 +161,7 @@ def _scope_allows(scope: str, method: str, path: str, hard: bool) -> bool:
     if _under(path, "/mcp"):
         return scope in (Scope.WRITE, Scope.AGENT, Scope.READ)
     if scope == Scope.READ:
-        return reading
+        return reading or (method == "POST" and path in READ_POSTS)
     if scope == Scope.AGENT and method == "DELETE" and hard and re.match(rf"^{_ITEM}$", path):
         return False
     return scope in (Scope.WRITE, Scope.AGENT)

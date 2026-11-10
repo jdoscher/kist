@@ -289,6 +289,25 @@ def ingest_url(
     )
 
 
+def fetch_image(url: str) -> bytes:
+    """Download an image only to look at it (search by image): the same
+    guarded download as ingest_url, page links resolved to their preview
+    image, nothing kept."""
+    staging, _filename, content_type = _download(url)
+    try:
+        if content_type in ("text/html", "application/xhtml+xml"):
+            image_url = page_image_url(staging.read_text(errors="replace"), url)
+            staging.unlink(missing_ok=True)
+            if not image_url:
+                raise NotMediaError("that URL is a web page with no image to download")
+            staging, _filename, content_type = _download(image_url)
+        if not sniff_mime(staging).startswith("image/"):
+            raise NotMediaError("that URL isn't an image")
+        return staging.read_bytes()
+    finally:
+        staging.unlink(missing_ok=True)
+
+
 class NotMediaError(ValueError):
     pass
 
