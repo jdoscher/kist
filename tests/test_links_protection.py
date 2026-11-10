@@ -81,6 +81,16 @@ def test_not_duplicate_keeps_a_pair_out_of_duplicates(client, upload):
     assert client.get("/api/duplicates?threshold=20").json() == []
 
 
+def test_versions_are_not_offered_as_duplicates(client, upload):
+    a = upload("a.png", png_bytes((10, 10, 10)))["item"]
+    b = upload("b.png", png_bytes((12, 12, 12)))["item"]
+    assert client.get("/api/duplicates?threshold=20").json()
+    assert client.get("/api/duplicates/groups", params={"kind": "same_image"}).json()
+    client.post(f"/api/items/{b['id']}/links", json={"dst_id": a["id"], "kind": "version_of"})
+    assert client.get("/api/duplicates?threshold=20").json() == []
+    assert client.get("/api/duplicates/groups", params={"kind": "same_image"}).json() == []
+
+
 def test_purging_an_item_drops_its_links_everywhere(client, upload, clean):
     a, b = upload()["item"], upload()["item"]
     client.post(f"/api/items/{a['id']}/links", json={"dst_id": b["id"], "kind": "alternate"})

@@ -9,9 +9,10 @@ Kinds:
 - similar: image embeddings with cosine >= SIMILAR_COSINE (a near-identical
   shot, a crop, a re-edit).
 
-Pairs linked not_duplicate, and items in the same stack, are never put
-together. Groups are the connected components of the remaining pairs, so a
-group can hold more than two items. Each group carries a suggested keeper:
+Pairs linked not_duplicate or version_of (a new version is kept on
+purpose), and items in the same stack, are never put together. Groups
+are the connected components of the remaining pairs, so a group can hold
+more than two items. Each group carries a suggested keeper:
 the largest picture, then the oldest, then one with a source URL.
 
 Resolving runs in the caller's batch (one request, one MCP call), so
@@ -28,6 +29,9 @@ from ..models import Item, ItemEmbedding, ItemLink
 from . import events, validation
 
 KINDS = ("exact", "same_image", "similar")
+# links that say two items aren't duplicates: marked so, or one is a version
+# of the other (offering to trash the old version was wrong)
+KEPT_APART = ("not_duplicate", "version_of")
 SAME_IMAGE_DISTANCE = 4
 ASPECT_TOLERANCE = 0.03
 SIMILAR_COSINE = 0.92
@@ -38,7 +42,8 @@ BLOCK = 2048
 def _not_duplicate_pairs(session: Session) -> set[frozenset]:
     return {
         frozenset((a, b)) for a, b in session.execute(
-            sa.select(ItemLink.src_id, ItemLink.dst_id).where(ItemLink.kind == "not_duplicate")
+            sa.select(ItemLink.src_id, ItemLink.dst_id)
+            .where(ItemLink.kind.in_(KEPT_APART))
         ).all()
     }
 

@@ -73,10 +73,10 @@ def near_duplicates(
             a.deleted_at.is_(None),
             b.deleted_at.is_(None),
             distance <= threshold,
-            # a pair someone marked "not a duplicate" stays apart
+            # a pair someone marked "not a duplicate", or two versions, stay apart
             sa.not_(
                 sa.exists().where(
-                    ItemLink.kind == "not_duplicate",
+                    ItemLink.kind.in_(("not_duplicate", "version_of")),
                     sa.or_(
                         sa.and_(ItemLink.src_id == a.id, ItemLink.dst_id == b.id),
                         sa.and_(ItemLink.src_id == b.id, ItemLink.dst_id == a.id),
