@@ -136,7 +136,7 @@ RESTRICTED_PATHS = [
         # Milestone 5 reads (POSTs still need an edit scope)
         rf"^{_ITEM}/(scrub|scrub\.json|stream|waveform|svg|model|font-info|glyphs|bundle)$",
         rf"^{_ITEM}/bundle/.+$",
-        r"^/api/(timeline|on-this-day|map|map/config)$",
+        r"^/api/(timeline|on-this-day|map|map/config|map/basemap\.pmtiles)$",
     )
 ]
 HELPER_PREFIX = "/api/ai/jobs"

@@ -78,6 +78,21 @@ kist/
 │   ├── ai.py        ml client, embed/ocr jobs and their budget, sidecars,
 │   │                helper claim/report, status
 │   ├── pdftext.py   a PDF's text layer / page renders (child process)
+│   ├── media.py     Milestone 5: previews + metadata of the new kinds (in the
+│   │                preview child), items.media and its columns, cover/frame/
+│   │                clip/proxy/poster actions, filters, media-backfill
+│   ├── formats.py   content-checked MIME types (RAW, design, 3D, font, audio)
+│   ├── video.py     ffmpeg/ffprobe: demuxer by MIME, nice + thread cap,
+│   │                scrub sprites, frames, clips, proxies, QSV/VA-API
+│   ├── audio.py     waveform peaks + thumbnail
+│   ├── raw.py       embedded RAW previews (TIFF IFDs, CR3, RAF) and EXIF
+│   ├── design_thumbs.py  PSD/AI/EPS/Sketch/Procreate/Krita/ORA/Affinity/Blend
+│   ├── svg.py       sanitizer, exact colours, rendering
+│   ├── models3d.py  glTF/OBJ/STL/PLY stats, GLB conversion (trimesh)
+│   ├── fonts.py     font info and glyphs (fontTools or a built-in sfnt reader)
+│   ├── bundles.py   zip bundles: manifest, cover, single files, caps
+│   ├── timeline.py  timeline buckets, On this day, map clustering
+│   ├── geo.py       offline reverse geocoding (GeoNames cities500)
 │   └── health.py    /api/health/deep checks, worker heartbeat file
 ├── mcp_server.py    MCP tools (thin wrappers over services/; no queries)
 ├── worker.py        job loop, inbox scanner, staging sweep, daily verify,
@@ -86,6 +101,7 @@ kist/
 ├── cli.py           rebuild-index, rewrite-meta, regen-previews, verify,
 │                    reclassify, selftest, backup, fixity,
 │                    ai-backfill, ai-sidecars, helper
+├── media_cli.py     media-backfill, geo-download
 ├── helper.py        `kist helper`: claims AI jobs over HTTP, runs kist/ml locally
 ├── ml/              self-contained (imports nothing else from kist): the ml image
 │   ├── models.py    model files pinned by revision + sha256, download + verify
@@ -273,6 +289,76 @@ The `ml` service (`kist/ml/server.py`) loads each tower on first use and
 drops it after `KIST_ML_IDLE_SECONDS`; at most `KIST_ML_CONCURRENCY`
 inferences run at once. Model files come from a pinned Hugging Face revision
 and are refused unless their sha256 matches (`kist/ml/models.py`).
+
+## Media (Milestone 5)
+
+**Kinds.** `filetypes.kind_for` still decides by sniffed MIME type, never by
+name. Formats libmagic can't name (a `.sketch` is "a zip", a CR3 "data") get
+a precise type from `formats.refine_mime` at ingest, and only after their
+content is checked: the extension picks which signature to look for (a
+`.sketch` must be a zip holding `previews/preview.png`, a `.glb` must start
+with `glTF`, a `.cr2` must be a TIFF). New kinds: `audio` (audio/*),
+`model` (model/*), `font` (font/*; M2 builds specimens on it), `design`
+(PSD, AI, EPS, Sketch, Procreate, Affinity, Blend, Krita, ORA, Figma) and
+`bundle` (any other zip). RAW files stay `image`. `search.KIND_FILTERS` is
+the same rule in SQL.
+
+**Previews.** `thumbs.generate_previews` (in the preview child, with its
+time limit) asks `media.generate` first. It writes the usual thumbnails
+plus scrub sprites, waveforms, bundle manifests and sanitized SVG, and
+returns a `media` block. A design file, model or bundle without a picture
+gets a generic icon tile and a `preview_icon` marker, which keeps the icon
+out of the perceptual hash and dominant colours. A font has no thumbnail
+here (`preview_status: none`) until M2's specimens land.
+
+**Metadata.** `items.media` (JSONB) holds what was read: `video`/`audio`
+(ffprobe), `exif` (Pillow for photos; exiftool, else the built-in TIFF/CR3
+reader, for RAW), `svg`, `model`, `font`, `design`, `raw`, `bundle`,
+`scrub`, `playable`, `proxy`, `place`, plus the user's `cover_time` and
+`poster`, and `source_item`/`source_time`/`source_range` on frames and clips.
+meta.json carries the block; `media.apply` derives the indexed columns from
+it (`taken_at`, `has_gps`, `lat`, `lon`, `camera`, `lens`, `vertical`,
+`has_audio`, `place`, `raw_pair_key`; `taken_sort` is a generated column,
+`taken_at` else `created_at`). rebuild-index restores everything from the
+block, `kist verify` compares it, and a preview retry keeps the user keys.
+EXIF dates are wall-clock times stored as if UTC, so the timeline groups a
+photo on the day it was taken where it was taken.
+
+**ffmpeg.** Inputs are always `-protocol_whitelist file -f <demuxer>`, the
+demuxer chosen from the sniffed MIME type (a type without one is refused),
+so playlists and concat scripts can't make ffmpeg read other files. Runs are
+niced by class (thumbnails 5, scrub sprites 10, clips and proxies 15, plus
+`ionice -c3` on Linux), capped at `KIST_FFMPEG_THREADS`, time-limited and
+size-limited (`-fs`). Clip and proxy jobs (`lifecycle.HEAVY_KINDS`) are
+claimed after every waiting ingest and preview job. With `KIST_HWACCEL`
+set, proxies and clips try QSV/VA-API and fall back to libx264.
+
+**Playable.** `playable` is `native` (H.264 8-bit 4:2:0 or AV1 in MP4/MOV,
+VP8/VP9/AV1 in WebM, with AAC/MP3/Opus/Vorbis/FLAC audio; browser-friendly
+audio), `proxy` or `none`. `GET /stream` serves the original or
+`proxy.mp4`/`proxy.m4a` with Range, and queues the proxy on first play.
+No HLS: one faststart MP4 is enough for a personal library.
+
+**Safety.** SVGs are parsed with expat after refusing DOCTYPE/ENTITY, and
+scripts, event handlers, foreignObject and every external reference are
+removed (`svg.py` lists the rules). Bundle entries are only ever looked up
+in the zip's directory, never extracted; traversal names are refused and
+entry, total and count caps make zip bombs harmless. Design-file zip
+entries are read with a size cap. Files served from a bundle are
+attachments with a sandbox CSP unless they're raster images.
+
+**Optional dependencies** (the `media` extra, installed in the image):
+fontTools (WOFF2; else the built-in reader covers TTF/OTF/WOFF), resvg-py
+(SVG rendering; else cairosvg if installed, else librsvg via libvips),
+trimesh (OBJ/STL/PLY to GLB; else no conversion). psd-tools is used for
+PSDs Pillow can't composite when it's installed. exiftool is in the image;
+without it RAW previews and EXIF come from the built-in readers.
+
+**Maps.** `kist geo-download` writes `library/.kist/geo/places.tsv` from
+GeoNames (cities500 + country and region names); lookups are in memory with
+a 1-degree grid, nearest place within 50 km. `/api/map` clusters on a grid
+of 64 px cells at the requested zoom. The web map's tiles: see
+[maps.md](maps.md).
 
 ## Ingest
 

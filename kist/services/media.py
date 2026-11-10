@@ -276,15 +276,18 @@ def _raw(original, item_dir, ext, probe) -> None:
     with tempfile.TemporaryDirectory() as td:
         jpg = Path(td) / "preview.jpg"
         jpg.write_bytes(data)
-        png = Path(td) / "preview.png"
+        png = jpg  # used as is unless it has to be turned
         with Image.open(jpg) as im:
-            im.load()
             orientation = (exif or {}).get("orientation")
-            if orientation and orientation != 1 and not im.getexif().get(0x112):
-                im = _orient(im, orientation)
-            else:
-                im = ImageOps.exif_transpose(im)
-            im.convert("RGB").save(png)
+            own = im.getexif().get(0x112)
+            if (orientation and orientation != 1 and not own) or (own and own != 1):
+                im.load()
+                if own and own != 1:
+                    im = ImageOps.exif_transpose(im)
+                else:
+                    im = _orient(im, orientation)
+                png = Path(td) / "preview.png"
+                im.convert("RGB").save(png)
         _thumbs_from(png, item_dir, probe)
         thumbs.make_display_copy(png, item_dir)
     media: dict = {"raw": {"format": ext.lower(), "preview": [probe.width, probe.height]}}

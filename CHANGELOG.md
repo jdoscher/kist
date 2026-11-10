@@ -232,6 +232,82 @@ each item. Plus a new look for the web app.
 - Every sort order has its own index, so deep pages stay fast.
 
 
+### Milestone 5: formats and media
+
+Kist now looks inside video, audio, photos, RAW files, design sources, SVG,
+3D models, fonts and zip bundles, and adds a timeline, On this day and a map.
+
+#### Upgrade notes
+- Migration 0601 adds `items.media` and the media columns (runs on start).
+- Run `docker compose exec worker kist media-backfill` once: it reads
+  camera and video metadata, makes scrub sprites and waveforms, and gives
+  older design files, RAWs, models and zips their new kinds and previews.
+  `--limit N` does it in parts.
+- Optional: `docker compose exec worker kist geo-download` (about 10 MB from
+  GeoNames, once) names the places of photos with GPS, offline.
+- The image now includes exiftool and the `media` extra (fontTools,
+  resvg-py, trimesh, numpy). Rebuild: `docker compose build`.
+- Hardware encoding on an Intel iGPU: `KIST_HWACCEL=vaapi` (or `qsv`) and
+  the commented `/dev/dri` lines under the worker in `docker-compose.yml`.
+
+#### Added
+- Video: a hover-scrub sprite per video (`scrub.webp` + `scrub.json`, 20
+  frames), and the same for animated GIF and WebP. ffprobe metadata:
+  duration, fps, codec, bitrate, audio, rotation, vertical.
+- Pick a video's cover frame (`POST /api/items/{id}/cover`; undoable), save
+  any frame as a new PNG item linked `derived_from` the video
+  (`POST .../frames`), and cut clips to MP4, GIF or animated WebP, or MP3/WAV
+  from audio (`POST .../clip`, a worker job; `GET /api/jobs/{id}` reports
+  `result_item_id`).
+- Play anything: `GET /api/items/{id}/stream` serves the original with HTTP
+  Range when browsers can play it, else a web-safe H.264 proxy made on first
+  play. Items say `playable: native | proxy | none`.
+- Audio items (mp3, wav, flac, aac, m4a, ogg, aiff): waveform thumbnail and
+  peaks (`GET .../waveform`, BBC audiowaveform JSON), duration, artist, title.
+- Camera metadata from EXIF (camera, lens, focal length, aperture, shutter,
+  ISO, date taken, GPS) with filters on `/api/items` (`taken_after`,
+  `taken_before`, `has_gps`, `camera`, `lens`, `place`, `duration_min`,
+  `duration_max`, `vertical`, `has_audio`) and `order=-taken`.
+- RAW files (CR2, CR3, NEF, ARW, RAF, ORF, RW2, DNG, PEF) preview from their
+  embedded JPEG; `raw_pair_key` (basename + date taken) pairs a RAW with its
+  camera JPEG for stacks.
+- Design-file thumbnails from the preview inside PSD/PSB, AI, EPS, Sketch,
+  Procreate, Krita, OpenRaster, Affinity and Blender files (new kind
+  `design`); Figma files show an icon until a poster is uploaded.
+- SVGs are sanitized for thumbnails and "Copy SVG" (`GET .../svg`), with
+  their exact fill and stroke colours in `media.svg.colors`.
+- 3D models (glb, gltf, obj, fbx, stl, usdz, ply; kind `model`): bounds and
+  triangle counts, OBJ/STL/PLY converted to GLB (`GET .../model`), and
+  posters from the web viewer (`POST .../poster`).
+- Fonts: `GET .../font-info` (family, style, glyphs, axes, scripts) and
+  `GET .../glyphs`; `/file` serves fonts as `font/*`, same-origin.
+- Zip files are kept whole as bundles (kind `bundle`): `GET .../bundle`
+  lists them, `GET .../bundle/{path}` serves one file, and the preview is the
+  best picture inside.
+- `GET /api/timeline` (day/month/year counts by date taken),
+  `GET /api/on-this-day`, `GET /api/map` (server-side clustering) and
+  `GET /api/map/config`; offline place names (`kist geo-download`), searchable.
+- MCP: `view_video` (a contact sheet with timestamps), `save_frame`,
+  `make_clip`.
+- CLI: `kist media-backfill`, `kist geo-download`.
+
+#### Changed
+- ffmpeg runs under `nice` (and `ionice` on Linux) with
+  `KIST_FFMPEG_THREADS` threads (default 2); clip and proxy jobs wait behind
+  imports and previews.
+- PSD files are kind `design`, not `image`; `type=` accepts audio, model,
+  font, design and bundle; `/api/stats` counts them.
+- Video `width`/`height` follow the rotation a phone recorded.
+
+#### Security
+- ffmpeg reads every input with the demuxer named by the sniffed MIME type
+  and refuses types without one, so a playlist named `.mp4` can't open other
+  files.
+- SVG sanitizing: no DOCTYPE/entities, scripts, event handlers,
+  foreignObject or external references.
+- Bundles are never extracted; traversal paths are refused and size, total
+  and entry-count caps stop zip bombs. Design-file zip entries are capped.
+
 ## [1.5.0] - 2026-11-09
 
 A hardening release. Kist was reviewed for security, data integrity,

@@ -623,3 +623,14 @@ def test_real_raw_samples():
         exif = media.exif_raw(path)
         assert exif.get("camera") and exif.get("taken_at"), path.name
     assert seen
+
+
+def test_raw_preview_follows_the_camera_orientation(tmp_path):
+    from kist.services import thumbs
+
+    nef = F.tiff_raw(tmp_path / "turned.nef", F.jpeg(size=(400, 300)), orientation=6)
+    out = tmp_path / "out"
+    out.mkdir()
+    probe = thumbs.generate_previews(nef, out, "image/x-nikon-nef", "nef")
+    assert (probe.width, probe.height) == (300, 400)
+    assert probe.media["exif"]["orientation"] == 6

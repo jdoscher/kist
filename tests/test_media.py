@@ -285,7 +285,15 @@ def test_exif_filters_place_timeline_and_map(client, upload, tmp_path):
     assert wrap["total"] == 1 and wrap["clusters"][0]["item_id"] == sydney["id"]
     assert client.get("/api/map?bbox=1,2,3").status_code == 422
     cfg = client.get("/api/map/config").json()
-    assert cfg["place_names"] is True
+    assert cfg["place_names"] is True and cfg["tiles_url"] is None
+    from kist.config import get_settings
+
+    maps = get_settings().library_dir / "maps"
+    maps.mkdir()
+    (maps / "basemap.pmtiles").write_bytes(b"PMTiles" + bytes(200))
+    assert client.get("/api/map/config").json()["tiles_url"] == "/api/map/basemap.pmtiles"
+    res = client.get("/api/map/basemap.pmtiles", headers={"Range": "bytes=0-6"})
+    assert res.status_code == 206 and res.content == b"PMTiles"
 
 
 def test_raw_files_preview_from_their_embedded_jpeg(client, upload, tmp_path):

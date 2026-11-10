@@ -346,11 +346,30 @@ def get_map(session: Annotated[Session, Depends(get_session)],
                              else timeline.zoom_for(box))
 
 
+def _basemap():
+    from ..config import get_settings
+
+    return get_settings().library_dir / "maps" / "basemap.pmtiles"
+
+
 @router.get("/map/config")
 def map_config():
-    """Tile source for the web map, and whether place names are available."""
+    """Tile source for the web map (KIST_MAP_TILES_URL, else the self-hosted
+    library/maps/basemap.pmtiles), and whether place names are available."""
     from ..config import get_settings
 
     s = get_settings()
-    return {"tiles_url": s.map_tiles_url or None, "attribution": s.map_attribution or None,
-            "place_names": geo.available()}
+    url = s.map_tiles_url or ("/api/map/basemap.pmtiles" if _basemap().is_file() else None)
+    return {"tiles_url": url, "attribution": s.map_attribution or (
+        "© OpenStreetMap contributors, Protomaps" if not s.map_tiles_url and url else None),
+        "place_names": geo.available()}
+
+
+@router.get("/map/basemap.pmtiles")
+def basemap():
+    """The self-hosted Protomaps file (docs/maps.md), with Range."""
+    path = _basemap()
+    if not path.is_file():
+        raise HTTPException(404, "no basemap: see docs/maps.md")
+    return FileResponse(path, media_type="application/vnd.pmtiles",
+                        headers={"Cache-Control": "private, max-age=86400", **SANDBOX})

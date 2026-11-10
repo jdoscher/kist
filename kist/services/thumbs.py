@@ -245,7 +245,7 @@ def generate_previews(
     kind = kind_for(mime, ext)
     probe = Probe()
 
-    if kind == "video":
+    if kind == "video":  # (since Milestone 5 media.generate handles video first)
         probe = probe_video(original)
         with tempfile.TemporaryDirectory() as td:
             poster = Path(td) / "poster.png"
