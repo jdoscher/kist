@@ -39,7 +39,7 @@ export function useNewBoard() {
 
 const ICON = { size: 15, strokeWidth: 1.75 } as const
 
-export function SidebarBoards() {
+export function SidebarBoards({ first = false }: { first?: boolean } = {}) {
   const { screen, openScreen } = useAppState()
   const caps = useCaps()
   const boards = useBoards()
@@ -63,7 +63,7 @@ export function SidebarBoards() {
 
   return (
     <>
-      <div className="section-head" style={{ marginTop: 16 }}>
+      <div className="section-head" style={first ? undefined : { marginTop: 16 }}>
         <h2>Boards</h2>
         {caps.canEdit && (
           <button className="icon-btn" onClick={() => void newBoard()} title="New board" aria-label="New board">

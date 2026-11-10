@@ -564,7 +564,9 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
 
       <div className="section grow">
         {!mobile && <SetupChecklist />}
-        <div className="section-head">
+        {/* boards sit above the long folder and tag lists so they don't get buried */}
+        <SidebarBoards first />
+        <div className="section-head" style={{ marginTop: 16 }}>
           <h2>Folders</h2>
           {caps.canEdit && (
             <button className="icon-btn" onClick={() => void newFolder()} title="New folder" aria-label="New folder">
@@ -618,7 +620,6 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
           </div>
         )}
 
-        <SidebarBoards />
         <SidebarCull />
 
         <div className="section-head" style={{ marginTop: 16 }}>
