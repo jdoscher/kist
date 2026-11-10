@@ -125,7 +125,9 @@ class ItemOut(BaseModel):
             stack_id=item.stack_id,
             stack_count=count_for(item),
             **_m4_fields(item),
-            media=item.media,
+            # without the media-backfill bookkeeping (M6: media.CHECKED_KEY)
+            media={k: v for k, v in item.media.items() if k != "checked_rev"} or None
+            if item.media else None,
             taken_at=item.taken_at,
             place=item.place,
         )

@@ -154,3 +154,151 @@ def test_stats_counts_unfiled(client, upload):
     assert stats["unfiled"] == client.get("/api/items", params={"view": "unfiled"}).json()["total"]
     client.patch(f"/api/items/{a['id']}/tags", json={"add": ["done"]})
     assert client.get("/api/stats").json()["unfiled"] == 0
+
+
+# ---------- B4: media-backfill only does missing work ----------
+
+
+def _media(item_id):
+    from kist.db import SessionLocal
+    from kist.models import Item
+
+    with SessionLocal() as s:
+        return s.get(Item, item_id).media
+
+
+def test_media_backfill_remembers_items_with_nothing_to_read(client, upload, capsys):
+    from unittest import mock
+
+    from kist import cli, media_cli
+    from kist.db import SessionLocal
+    from kist.models import Item
+    from kist.services import media, previews, thumbs
+
+    png = upload("screenshot.png")["item"]
+    txt = upload("notes.txt", b"plain words", "text/plain")["item"]
+    # new items are marked when they're read at ingest; the API doesn't show it
+    assert _media(png["id"]) == {"checked_rev": media.MEDIA_REV}
+    assert _media(txt["id"]) == {"checked_rev": media.MEDIA_REV}
+    assert png["media"] is None and txt["media"] is None
+
+    with SessionLocal() as s:  # as Kist 2.0 M5 left them: no media, no marker
+        s.execute(sa.update(Item).values(media=None))
+        s.commit()
+    calls = []
+    real = previews.regenerate
+
+    def counting(session, item):
+        calls.append(item.id)
+        return real(session, item)
+
+    with mock.patch.object(previews, "regenerate", counting):
+        assert media_cli.media_backfill(None, False) == 0
+        assert sorted(calls) == sorted([png["id"], txt["id"]])
+        assert _media(png["id"]) == {"checked_rev": media.MEDIA_REV}
+        assert _media(txt["id"]) == {"checked_rev": media.MEDIA_REV}
+        calls.clear()
+        capsys.readouterr()
+        assert media_cli.media_backfill(None, False) == 0
+        assert calls == [] and "nothing to do" in capsys.readouterr().out
+
+        # the marker is in meta.json: it survives rebuild-index, verify is clean
+        assert cli.rebuild_index(wipe=True) == 0
+        assert _media(png["id"]) == {"checked_rev": media.MEDIA_REV}
+        assert cli.verify() == 0
+        assert media_cli.media_backfill(None, False) == 0 and calls == []
+
+        # --all still does everything
+        assert media_cli.media_backfill(None, True) == 0
+        assert sorted(calls) == sorted([png["id"], txt["id"]])
+
+    # a read that fails leaves the item unmarked, so the next run retries it
+    with SessionLocal() as s:
+        s.execute(sa.update(Item).where(Item.id == png["id"]).values(media=None))
+        s.commit()
+    with mock.patch.object(thumbs, "generate_previews_isolated",
+                           side_effect=RuntimeError("preview generation failed (exit -11)")):
+        media_cli.media_backfill(None, False)
+    assert _media(png["id"]) is None
+    with SessionLocal() as s:
+        ids = s.execute(sa.select(Item.id).where(media.needs_backfill())).scalars().all()
+    assert ids == [png["id"]]
+    # a later reader version (MEDIA_REV bump) picks up items checked before it
+    with mock.patch.object(media, "MEDIA_REV", media.MEDIA_REV + 1):
+        with SessionLocal() as s:
+            ids = s.execute(sa.select(Item.id).where(media.needs_backfill())).scalars().all()
+        assert sorted(ids) == sorted([png["id"], txt["id"]])
+
+
+# ---------- B5: first-install library permissions ----------
+
+
+def test_library_problem_names_the_owner_and_the_fix(tmp_path, monkeypatch):
+    import os
+
+    from kist import preflight
+
+    lib = tmp_path / "library"
+    # missing but creatable, then present and writable: fine
+    assert preflight.library_problem(lib, (lib / "items",)) is None
+    lib.mkdir()
+    assert preflight.library_problem(lib, (lib / "items",)) is None
+    # owned by someone else / read-only (what a root-created ./library looks like)
+    lib.chmod(0o555)
+    try:
+        msg = preflight.library_problem(lib, host_path="/srv/kist/library", uid=1000, gid=1000)
+        assert msg == (f"Kist can't write to {lib} (owned by uid {os.stat(lib).st_uid}, "
+                       "Kist runs as uid 1000): run  sudo chown -R 1000:1000 /srv/kist/library"
+                       "  or set KIST_UID/KIST_GID")
+        # a missing subdirectory under it can't be created either
+        monkeypatch.setenv("KIST_LIBRARY", "./library")
+        msg = preflight.library_problem(tmp_path / "ok", (lib / "items",))
+        assert msg and f"write to {lib} " in msg and "chown -R" in msg and "./library" in msg
+    finally:
+        lib.chmod(0o755)
+    # a writable library with one root-owned subdirectory (an earlier root run)
+    items = lib / "items"
+    items.mkdir()
+    items.chmod(0o555)
+    try:
+        assert f"write to {items} " in preflight.library_problem(lib, (items,))
+    finally:
+        items.chmod(0o755)
+
+
+def test_preflight_exits_with_one_line(tmp_path, monkeypatch, capfd):
+    from kist import preflight, worker
+    from kist.config import get_settings
+
+    lib = tmp_path / "library"
+    lib.mkdir()
+    lib.chmod(0o555)
+    monkeypatch.setattr(get_settings(), "library_dir", lib)
+    try:
+        assert preflight.main() == 1
+        err = capfd.readouterr().err.strip().splitlines()
+        assert len(err) == 1 and err[0].startswith(f"Kist can't write to {lib} ")
+        # the worker stops before touching anything
+        import pytest
+
+        with pytest.raises(SystemExit) as stop:
+            worker.main()
+        assert stop.value.code == 1
+        logged = capfd.readouterr().err.strip().splitlines()
+        assert len(logged) == 1 and "ERROR kist.preflight" in logged[0]
+        assert logged[0].endswith("or set KIST_UID/KIST_GID")
+    finally:
+        lib.chmod(0o755)
+    assert preflight.main() == 0
+
+
+def test_app_csp_allows_a_same_origin_service_worker():
+    """W2's service worker (/sw.js): with no worker-src or child-src, CSP
+    falls back to script-src, which allows 'self'. Kept without an explicit
+    worker-src so web workers stay under the same script-src as pages."""
+    from kist.headers import app_csp
+
+    for csp in (app_csp(), app_csp(shell=True)):
+        rules = dict(r.strip().split(" ", 1) for r in csp.split(";"))
+        allowed = rules.get("worker-src") or rules.get("child-src") or rules["script-src"]
+        assert "'self'" in allowed.split()

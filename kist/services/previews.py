@@ -52,6 +52,9 @@ def regenerate(session: Session, item: Item) -> PreviewStatus:
     original = item_dir / f"original.{item.ext}"
     if kind_for(item.mime, item.ext) == "other":
         item.preview_status, item.preview_error = PreviewStatus.NONE, None
+        from . import media
+
+        media.mark_checked(item)  # nothing to read in it (M6: backfill skips it)
     elif not original.is_file():
         item.preview_status = PreviewStatus.FAILED
         item.preview_error = "original file missing on disk"
@@ -82,6 +85,8 @@ def regenerate(session: Session, item: Item) -> PreviewStatus:
                 None if item.preview_status is not PreviewStatus.FAILED
                 else "no thumbnail was produced"
             )
+            if item.preview_status is not PreviewStatus.FAILED:
+                media.mark_checked(item)  # M6: media-backfill needn't come back
         except Exception as exc:
             log.warning("preview retry failed for %s: %s", item.id, exc)
             # old thumbnails are kept on a failed retry: still viewable
