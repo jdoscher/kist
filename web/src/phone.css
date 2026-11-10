@@ -33,6 +33,17 @@
   min-width: 44px;
   min-height: 44px;
 }
+/* on a phone the notices sit at the top: the hint waits at the bottom,
+   under the item sheet when that's open */
+.mobile .install-hint {
+  position: fixed;
+  left: 8px;
+  right: 8px;
+  bottom: calc(8px + env(safe-area-inset-bottom));
+  margin: 0;
+  z-index: 65;
+  box-shadow: 0 6px 24px var(--shadow);
+}
 
 /* ---------- stars, actions, tags in the item sheet ---------- */
 .mobile .phone-stars {
