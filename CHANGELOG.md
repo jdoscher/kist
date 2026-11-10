@@ -13,6 +13,42 @@ embedded (OpenCLIP ViT-B-32) and the text in screenshots and PDFs read,
 entirely on your own hardware, with the results kept as plain files next to
 each item. Plus a new look for the web app.
 
+### Milestone 3: creative workflows (backend)
+
+Boards, culling and pinned notes: the backend for the boards canvas,
+compare, triage, quick look and the Cmd+K palette (the web screens follow).
+
+- **Boards.** `library/boards/{id}/board.json` holds nodes (items, notes,
+  text, shapes, groups, links, colour swatches) and arrows; `thumb.webp` is
+  a rendered snapshot. `GET/POST /api/boards`, `GET/PUT/PATCH/DELETE
+  /api/boards/{id}` (PUT/PATCH with `base_version`, 409 when stale),
+  duplicate, restore, a boards trash purged with the item trash's retention,
+  `GET /api/items/{id}/boards`, and export to PNG or PDF at a chosen scale
+  or to one self-contained HTML file. A deleted item stays on its boards as
+  a missing-item node. Board edits are in the batch history and undo.
+- **Pick/reject flags and colour labels** on items: in `ItemOut` and
+  `meta.json`, filterable (`flag=`, `label=`), editable with PATCH and MCP
+  `update_item`, recorded as edits.
+- **Annotations:** notes pinned to a point, a box or a video time range
+  (`/api/items/{id}/annotations`), kept in `items/{id}/annotations.json`,
+  found by `q`, recorded in the item history.
+- **Versions and compare:** `GET/POST /api/items/{id}/versions` (the
+  `version_of` chain; uploading a new version links it to the newest) and
+  `GET /api/items?ids=a,b,c`.
+- **Metadata templates** (`/api/templates`, applied as one batch) and
+  **bulk rename** with a pattern (`POST /api/items/rename`, dry run first).
+- **Triage queue** (`GET /api/triage/next`) and the **command palette**
+  (`GET /api/palette?q=`).
+- MCP: `list_boards`, `get_board`, `create_board`, `add_to_board`,
+  `annotate`, `list_annotations`; flags and labels in `update_item` and
+  `search_items`.
+- `kist rebuild-index` restores boards, board history, annotations, flags
+  and labels from their files; `kist verify` checks them (and
+  `templates.json`); `kist rewrite-meta` rewrites them.
+- Upgrade: migration 0401 runs on start; run `kist rewrite-meta` once to add
+  `flag`/`label` to every `meta.json`. Back up `library/boards/` with the
+  rest of the library.
+
 ### Upgrade notes
 - **Back up the database first:** `docker compose exec db pg_dump -U kist
   kist | gzip > kist-before-2.0.sql.gz`.

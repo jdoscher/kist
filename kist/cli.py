@@ -25,7 +25,8 @@
     kist helper --url URL         run AI jobs on this machine for a Kist
                                    server (token: $KIST_HELPER_TOKEN)
 
-The library on disk (items/*/meta.json + folders.json) is the durable copy;
+The library on disk (items/*/meta.json + folders.json, items/*/annotations.json,
+boards/*/board.json) is the durable copy;
 rebuild-index makes Postgres match it after a database loss or migration to
 new hardware.
 """
