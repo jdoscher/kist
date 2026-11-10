@@ -12,7 +12,13 @@ from .config import get_settings
 # ANALYZE on 250k items: "JIT: ... Total 776 ms" of a 1216 ms query).
 # Kist's queries are short index scans; none run long enough to win it back.
 # The official postgres image ships LLVM, so prod paid it too.
-DB_OPTIONS = "-c jit=off"
+#
+# pg_trgm.similarity_threshold = 0.25: the `%` operator then holds for every
+# filename whose similarity to q passes keyword search's exact test
+# (similarity > 0.25, ranking.TRGM_THRESHOLD), so the filename trigram
+# index can find them; the default 0.3 would miss some. Nothing else in
+# Kist uses `%`.
+DB_OPTIONS = "-c jit=off -c pg_trgm.similarity_threshold=0.25"
 
 engine = create_engine(get_settings().database_url, pool_pre_ping=True, pool_size=5,
                        connect_args={"options": DB_OPTIONS})

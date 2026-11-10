@@ -39,7 +39,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import sqlalchemy as sa
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from ..models import HalfVec, Item, ItemColor, ItemEmbedding, ItemText
 from . import colour
@@ -55,6 +55,9 @@ SNIPPET_MAX_CHARS = 200_000
 MAX_WORDS = 16
 WORD = re.compile(r"\w+", re.UNICODE)
 READ_SOURCES = ("ocr", "pdf")  # text found in the item (services/ai.READ_SOURCES)
+# a filename matches q by trigram similarity above this (keyword_condition);
+# db.DB_OPTIONS sets pg_trgm.similarity_threshold to it
+TRGM_THRESHOLD = 0.25
 
 KIND_KEYWORD = "keyword"
 KIND_MEANING = "meaning"
@@ -220,19 +223,41 @@ def _keyword_score(q: str, tsq: str | None):
 
 
 def keyword_condition(q: str):
-    """What q matches (the same as search.build_filters' q filter)."""
+    """What q matches (the same as search.build_filters' q filter): the
+    filename (as a substring or by trigram similarity over 0.25), notes,
+    place, annotation text, or text in the item.
+
+    Written as items.id IN (a UNION of index scans), not as an OR of
+    per-row tests: the OR made Postgres compute similarity() for every
+    item and run the annotation and text tests as subplans, so a keyword
+    count read the whole library (923 ms on dev0 at 250k items). Every arm
+    is now an index scan (trigram GIN on filename, notes, place and
+    annotations; the tsvector GIN on item_text). The similarity arm keeps
+    the exact `similarity() > 0.25` test and adds `filename % q`, which the
+    trigram index answers; db.DB_OPTIONS sets pg_trgm.similarity_threshold
+    to 0.25 for Kist's connections, so `%` holds for every row the exact
+    test can pass (tests/test_m6_perf.py checks both)."""
+    from ..models import Annotation
+
     pattern = f"%{q}%"
-    conds = [
-        Item.filename.ilike(pattern),
-        sa.func.similarity(Item.filename, q) > 0.25,
-        Item.notes.ilike(pattern),
-        Item.place.ilike(pattern),  # "City, Country" (Milestone 5)
-        annotation_match(pattern),
+    named = aliased(Item, name="keyword_item")
+    arms = [
+        sa.select(named.id).where(sa.or_(
+            named.filename.ilike(pattern),
+            sa.and_(named.filename.op("%")(q),
+                    sa.func.similarity(named.filename, q) > TRGM_THRESHOLD),
+            named.notes.ilike(pattern),
+            named.place.ilike(pattern),  # "City, Country" (Milestone 5)
+        )),
+        sa.select(Annotation.item_id).where(Annotation.text.ilike(pattern)),
     ]
     tsq = tsquery(q)
     if tsq:
-        conds.append(text_match(tsq))
-    return sa.or_(*conds)
+        arms.append(sa.select(ItemText.item_id).where(_tsv(ItemText.text).op("@@")(_tsq(tsq))))
+    # IS TRUE keeps Postgres from turning the IN into a semi-join: as a
+    # hashed subplan it stays a filter, so a newest-first page still walks
+    # the date index and stops after a page (dev0: 204 -> 62 ms)
+    return Item.id.in_(sa.union(*arms)).is_(True)
 
 
 def _keyword_signal(base, q: str):

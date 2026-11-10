@@ -141,8 +141,26 @@ def legacy_list_folders(session):
     return [folder_dict(f, counts.get(f.id, 0)) for f in folders]
 
 
+def legacy_keyword_condition(q):
+    from kist.models import Item
+    from kist.services.ranking import annotation_match, text_match, tsquery
+
+    pattern = f"%{q}%"
+    conds = [
+        Item.filename.ilike(pattern),
+        sa.func.similarity(Item.filename, q) > 0.25,
+        Item.notes.ilike(pattern),
+        Item.place.ilike(pattern),
+        annotation_match(pattern),
+    ]
+    tsq = tsquery(q)
+    if tsq:
+        conds.append(text_match(tsq))
+    return sa.or_(*conds)
+
+
 def _legacy_patches():
-    from kist.services import folders, search, stacks, tags
+    from kist.services import folders, ranking, search, stacks, tags
 
     return [
         (search, "tag_condition", legacy_tag_condition),
@@ -150,6 +168,7 @@ def _legacy_patches():
         (search, "_keyset_page", legacy_keyset_page),
         (tags, "list_with_counts", legacy_list_with_counts),
         (folders, "list_folders", legacy_list_folders),
+        (ranking, "keyword_condition", legacy_keyword_condition),
     ]
 
 
@@ -205,9 +224,9 @@ def seeded(clean):
               {"s": sid, "ids": free[n:n + 3]})
         stacks = [r[0] for r in x(sa.text("SELECT id FROM stacks ORDER BY id"))]
         assert len(stacks) >= 30
-        cover = sa.text("SELECT cover_item_id FROM stacks WHERE id = :s")
         # a trashed cover: the first live member stands in
-        x(sa.text("UPDATE items SET deleted_at = now() WHERE id = (%s)" % cover.text),
+        x(sa.text("UPDATE items SET deleted_at = now() "
+                  "WHERE id = (SELECT cover_item_id FROM stacks WHERE id = :s)"),
           {"s": stacks[0]})
         # no cover at all
         x(sa.text("UPDATE stacks SET cover_item_id = NULL WHERE id = :s"), {"s": stacks[1]})
@@ -229,6 +248,23 @@ def seeded(clean):
             for m in members[:-1] if sid != stacks[4] else members:
                 x(sa.text("INSERT INTO item_folders (item_id, folder_id) VALUES (:i, :f) "
                           "ON CONFLICT DO NOTHING"), {"i": m, "f": reader_root})
+        # keyword search fields: notes, annotations (place comes seeded)
+        some = [r[0] for r in x(sa.text(
+            "SELECT id FROM items WHERE deleted_at IS NULL ORDER BY id DESC LIMIT 40"))]
+        for n, item_id in enumerate(some[:20]):
+            x(sa.text("UPDATE items SET notes = :n WHERE id = :i"),
+              {"n": ["invoice from the hotel", "50% off", "Hotel Paris receipt",
+                     "a_b test"][n % 4], "i": item_id})
+        for n, item_id in enumerate(some[20:]):
+            x(sa.text("INSERT INTO annotations (id, item_id, kind, text) VALUES "
+                      "(:id, :i, 'point', :t)"),
+              {"id": f"PERFANN{n:019d}", "i": item_id,
+               "t": ["invoice total", "see the logo", "zebra"][n % 3]})
+        # filenames by trigram similarity to "hotels": 0.294 and 0.278 (only
+        # found when `%` uses a threshold <= 0.25), and exactly 0.25 (not > 0.25)
+        for item_id, name in zip(some[:3], ("hotel_bill.jpg", "hotel_lobby.jpg",
+                                            "hotel_receipt.jpg"), strict=True):
+            x(sa.text("UPDATE items SET filename = :f WHERE id = :i"), {"f": name, "i": item_id})
         x(sa.text("ANALYZE"))
         s.commit()
         yield {"tags": tags, "alias": "perf-alias", "implied": a, "chain": (a, b, c),
@@ -284,6 +320,20 @@ def _cases(lib):
         {"tags": [tags[2]], "folder": folders[0], "kind": "image"},
         {"deleted": True},
         {"state": "trashed"},
+        {"q": "invoice"},
+        {"q": "hotel"},
+        {"q": "paris"},
+        {"q": "IMG_40"},
+        {"q": "img 4029"},
+        {"q": "screenshot 2024"},
+        {"q": "50%"},
+        {"q": "a_b"},
+        {"q": "ab"},
+        {"q": "zebra"},
+        {"q": "hotels"},
+        {"q": "zzzzqqq"},
+        {"q": "logo", "tags": [tags[1]]},
+        {"q": "update", "folder": folders[0], "kind": "image"},
     ]
     if ns:
         cases.append({"tags": [ns]})
@@ -320,6 +370,21 @@ def test_results_match_the_old_queries(seeded, monkeypatch):
                             if who is None and case == {} and stacks:
                                 assert new[0][1] > 0
     assert checked == 2 * len(_cases(seeded)) * 2 * len(ORDER_PAGES)
+
+
+def test_keyword_similarity_uses_the_index_threshold(seeded):
+    """keyword_condition's `filename % q` arm needs pg_trgm's threshold at
+    0.25 (db.DB_OPTIONS): similarity 0.294 and 0.278 match, exactly 0.25
+    doesn't, as with the old `similarity() > 0.25` on every row."""
+    from kist.db import SessionLocal
+    from kist.services import search
+
+    with SessionLocal() as s:
+        s.execute(sa.text("SELECT similarity('a', 'b')"))  # loads pg_trgm
+        assert s.execute(sa.text("SHOW pg_trgm.similarity_threshold")).scalar_one() == "0.25"
+        names = {i.filename for i in search.search(s, q="hotels", limit=10_000).items}
+    assert {"hotel_bill.jpg", "hotel_lobby.jpg"} <= names
+    assert "hotel_receipt.jpg" not in names
 
 
 def test_stack_reps_function_matches_migration():
