@@ -248,6 +248,37 @@ def _stem(name: str) -> str:
     return s
 
 
+def edit_distance(a: str, b: str, limit: int = 2) -> int:
+    """Edit distance counting a swap of two neighbouring letters as one
+    edit (Staitionery, Jewlery), or limit + 1 as soon as it must be bigger."""
+    if abs(len(a) - len(b)) > limit:
+        return limit + 1
+    prev2: list[int] = []
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i] + [0] * len(b)
+        for j, cb in enumerate(b, 1):
+            cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ca != cb))
+            if i > 1 and j > 1 and ca == b[j - 2] and a[i - 2] == cb:
+                cur[j] = min(cur[j], prev2[j - 2] + 1)
+        if min(cur) > limit:
+            return limit + 1
+        prev2, prev = prev, cur
+    return prev[-1]
+
+
+def _near_spelling(a: str, b: str) -> bool:
+    """Whether two tag values look like one word misspelt: the same first
+    letter (typos rarely hit it; Interiors/Exteriors are different words),
+    and one edit apart, or two for words of 8+ letters (Shoes/Skies and
+    Bags/Bugs are real words two edits apart, not typos)."""
+    a, b = a.lower(), b.lower()
+    if not a or not b or a[0] != b[0]:
+        return False
+    limit = 1 if min(len(a), len(b)) < 8 else 2
+    return edit_distance(a, b, limit) <= limit
+
+
 def levenshtein(a: str, b: str, limit: int = 2) -> int:
     """Edit distance, or limit + 1 as soon as it must be bigger."""
     if abs(len(a) - len(b)) > limit:
@@ -296,10 +327,12 @@ def _merge_proposal(group: list[dict]) -> dict:
 
 def cleanup(session: Session, unused_since: datetime | None = None) -> list[dict]:
     """Suggestions for a tidier vocabulary, each {kind, tags, counts,
-    proposal}. Kinds: one_off (used by one item), clash (same name but for
-    case, spaces, hyphens or underscores), near (edit distance <= 2 for
-    names of 5+ characters, or the same stem), unused (no item tagged since
-    `unused_since`, default a year ago; includes tags with no live items),
+    proposal}. Kinds: one_off (used by one item; not bookkeeping tags like
+    credit:), clash (same name but for case, spaces, hyphens or
+    underscores), near (the same stem, or a likely misspelling within a
+    namespace: same first letter, one edit apart, two for 8+ letters),
+    unused (no item tagged since `unused_since`, default a year ago;
+    includes tags with no live items; old bookkeeping tags stay),
     smart_folder (a smart folder names a tag or folder that doesn't exist)."""
     from . import vocabulary
 
@@ -339,21 +372,26 @@ def cleanup(session: Session, unused_since: datetime | None = None) -> list[dict
     for group in stems.values():
         for t in group[1:]:
             parent[find(t["name"].lower())] = find(group[0]["name"].lower())
-    long = sorted((t for t in tags if len(t["name"]) >= CLEANUP_MIN_LEN),
-                  key=lambda t: len(t["name"]))
+    # misspellings compare values within a namespace (format:reel and
+    # format:gif share a prefix, not a spelling)
+    split = {t["name"]: vocabulary.split_namespace(t["name"]) for t in tags}
+    long = sorted((t for t in tags if len(split[t["name"]][1]) >= CLEANUP_MIN_LEN),
+                  key=lambda t: len(split[t["name"]][1]))
     for i, a in enumerate(long):
         al = a["name"].lower()
+        a_ns, av = split[a["name"]]
         for b in long[i + 1:]:
             bl = b["name"].lower()
-            if len(bl) - len(al) > 2:
+            b_ns, bv = split[b["name"]]
+            if len(bv) - len(av) > 2:
                 break
-            if vocabulary.split_namespace(a["name"])[0] != vocabulary.split_namespace(b["name"])[0]:
+            if a_ns != b_ns:
                 continue
             if _clash_key(al) == _clash_key(bl):
                 continue
             if any(c.isdigit() for c in al + bl) and re.sub(r"\d", "", al) == re.sub(r"\d", "", bl):
                 continue  # demo1 / demo2, v1 / v2: numbered on purpose
-            if levenshtein(al, bl) <= 2:
+            if _near_spelling(av, bv):
                 parent[find(al)] = find(bl)
     groups: dict[str, list[dict]] = {}
     for t in tags:
@@ -364,9 +402,16 @@ def cleanup(session: Session, unused_since: datetime | None = None) -> list[dict
             paired.add(names)
             out.append(suggestion("near", group, _merge_proposal(group)))
 
-    # one-offs: a tag on a single item
+    # one-offs: a tag on a single item. Bookkeeping tags (credit:,
+    # license:, source: ...) record where one item came from, so one use is
+    # normal for them, not clutter
+    from .suggestions import BOOKKEEPING_NAMESPACES
+
+    def bookkeeping(t: dict) -> bool:
+        return (vocabulary.split_namespace(t["name"])[0] or "") in BOOKKEEPING_NAMESPACES
+
     for t in tags:
-        if t["count"] == 1:
+        if t["count"] == 1 and not bookkeeping(t):
             out.append(suggestion("one_off", [t], {"action": "review"}))
 
     # unused since a date (no live items counts as unused)
@@ -376,7 +421,7 @@ def cleanup(session: Session, unused_since: datetime | None = None) -> list[dict
     used = last_used(session)
     for t in tags:
         at = used.get(t["name"].lower())
-        if t["count"] == 0 or at is None or at < since:
+        if t["count"] == 0 or ((at is None or at < since) and not bookkeeping(t)):
             s = suggestion("unused", [t], {"action": "delete" if t["count"] == 0 else "review"})
             s["last_used"] = at.isoformat() if at else None
             out.append(s)

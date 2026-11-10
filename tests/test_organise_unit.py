@@ -115,3 +115,20 @@ def test_cleanup_helpers():
     assert tags_svc._stem("Accessories") == "accessory"
     assert tags_svc._clash_key("Dark-Mode") == tags_svc._clash_key("dark mode")
     assert vocabulary.is_wildcard("brand:*") == "brand" and vocabulary.is_wildcard("x") is None
+
+
+@pytest.mark.parametrize("a, b, near", [
+    ("Stationery", "Staitionery", True),   # one letter in
+    ("Accessories", "Accesories", True),   # one letter out
+    ("Restaurants", "Resturants", True),
+    ("Jewelry", "Jewlery", True),          # two letters swapped: one edit
+    ("Architecture", "Archtecure", True),  # two edits, long word
+    ("Interiors", "Exteriors", False),     # Jay's real tags: different words
+    ("Shoes", "Skies", False),             # real words two edits apart
+    ("Watches", "Matches", False),
+    ("Clothing", "Clothes", False),        # three edits
+])
+def test_near_spelling_keeps_real_words_apart(a, b, near):
+    assert tags_svc._near_spelling(a, b) is near
+    assert tags_svc.edit_distance("jewelry", "jewlery") == 1
+

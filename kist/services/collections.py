@@ -267,7 +267,7 @@ def _usual_spelling(label: str, member_tags: dict[str, int], uses: dict[str, int
     carry ("archtecture" next to "architecture", "dogs" next to "dog") gives
     way to the one more items in the library use."""
     from . import suggestions as sugg
-    from .tags import _stem, levenshtein
+    from .tags import _near_spelling, _stem
 
     low = label.lower()
     best = label
@@ -275,7 +275,7 @@ def _usual_spelling(label: str, member_tags: dict[str, int], uses: dict[str, int
         tl = t.lower()
         if tl == low or not sugg.candidate_tag(t) or uses.get(t, 0) <= uses.get(best, 0):
             continue
-        if _stem(tl) == _stem(low) or (min(len(tl), len(low)) >= 5 and levenshtein(tl, low) <= 2):
+        if _stem(tl) == _stem(low) or (min(len(tl), len(low)) >= 5 and _near_spelling(tl, low)):
             best = t
     return best
 

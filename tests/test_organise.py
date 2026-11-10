@@ -167,6 +167,29 @@ def test_cleanup_suggestions(client, upload):
     assert not [s for s in found if s["kind"] == "unused"]  # all used just now
 
 
+def test_cleanup_on_real_vocabulary(client, upload):
+    """Jay's real tags: Interiors/Exteriors and Shoes/Skies are different
+    words, not misspellings; credit:/license:/source: tags on one item are
+    normal provenance, not one-offs; format: values aren't compared across
+    the prefix."""
+    upload("1.png", tags="Interiors,Shoes,format:reel,credit:Unsplash")
+    upload("2.png", tags="Interiors,Exteriors,Skies,format:gif,license:CC-BY-4.0")
+    upload("3.png", tags="Watches,Accessories,source:instagram")
+    upload("4.png", tags="Watch,Accesories")
+    found = client.get("/api/tags/cleanup").json()
+    nears = [set(s["tags"]) for s in found if s["kind"] == "near"]
+    assert {"Interiors", "Exteriors"} not in nears
+    assert {"Shoes", "Skies"} not in nears
+    assert {"Watches", "Watch"} in nears and {"Accessories", "Accesories"} in nears
+    assert not any(n & {"format:reel", "format:gif"} for n in nears)
+    one_offs = {s["tags"][0] for s in found if s["kind"] == "one_off"}
+    assert not one_offs & {"credit:Unsplash", "license:CC-BY-4.0", "source:instagram"}
+    assert {"Exteriors", "Skies", "format:reel"} <= one_offs
+    later = client.get("/api/tags/cleanup", params={"unused_since": "2999-01-01T00:00:00Z"}).json()
+    unused = {s["tags"][0] for s in later if s["kind"] == "unused"}
+    assert "Interiors" in unused and "credit:Unsplash" not in unused
+
+
 def test_merge_is_one_batch_with_a_dry_run(client, upload):
     a = upload("a.png", tags="Restaurants")["item"]
     b = upload("b.png", tags="Restaurant,Food")["item"]
