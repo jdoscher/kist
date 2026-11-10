@@ -586,7 +586,7 @@ class TriageOut(BaseModel):
 
 
 class PaletteResult(BaseModel):
-    kind: Literal["folder", "smart_folder", "tag", "board", "item", "action"]
+    kind: Literal["folder", "smart_folder", "tag", "board", "person", "item", "action"]
     id: str
     title: str
     subtitle: str = ""

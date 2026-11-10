@@ -1,14 +1,16 @@
 """Command palette (Milestone 3, the web's Cmd+K): one query, mixed results.
 
-GET /api/palette?q= answers folders, smart folders, tags, boards and items
-(by filename, top 5 each), best matches first (exact, then prefix, then
-contains), plus the static actions below matched by title. The web may add
-its own actions; these are the ones it can always count on.
+GET /api/palette?q= answers folders, smart folders, tags, boards, people
+(named ones, when KIST_FACES is on; Milestone 2) and items (by filename,
+top 5 each), best matches first (exact, then prefix, then contains), plus
+the static actions below matched by title. The web may add its own
+actions; these are the ones it can always count on.
 """
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
+from ..config import get_settings
 from ..models import Folder, Item, SmartFolder, Tag
 from . import boards as boards_svc
 from . import search
@@ -69,6 +71,15 @@ def palette(session: Session, q: str, limit: int = PER_KIND) -> list[dict]:
     out += [{"kind": "board", "id": b.id, "title": b.name,
              "subtitle": f"Board · {b.item_count} items"}
             for b in sorted(boards, key=lambda b: _rank(b.name, q))[:limit]]
+
+    if get_settings().faces:
+        from . import faces as faces_svc
+
+        people = [p for p in faces_svc.list_people(session)
+                  if p["name"] and q.lower() in p["name"].lower()]
+        out += [{"kind": "person", "id": p["id"], "title": p["name"],
+                 "subtitle": f"Person · {p['item_count']} items"}
+                for p in sorted(people, key=lambda p: _rank(p["name"], q))[:limit]]
 
     filters = search.build_filters()
     items = session.execute(

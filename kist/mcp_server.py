@@ -425,8 +425,9 @@ def set_folders(
 @tool(
     "List smart folders (saved searches). To run one, pass its query to "
     "search_items: q -> query, rating -> rating_min, preview -> "
-    "preview_status, deleted=true -> state='trashed'; the other fields have "
-    "the same names."
+    "preview_status, deleted=true -> state='trashed', stacks='collapse' -> "
+    "collapse_stacks=true; the other fields (semantic, color, color_tol, "
+    "text, has_text, person, flag, label, ...) have the same names."
 )
 def list_smart_folders() -> list[dict[str, Any]]:
     with SessionLocal() as session:

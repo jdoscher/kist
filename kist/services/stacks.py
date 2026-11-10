@@ -353,7 +353,14 @@ def restore_from_meta(session: Session, item_id: str, block) -> bool:
         stack = Stack(id=block["id"], cover_item_id=None)
         session.add(stack)
         session.flush()
-    item.stack_id = stack.id
+    # a core UPDATE that keeps modified_at: putting the item back in its
+    # stack isn't an edit, and meta.json's modified_at must still match
+    session.execute(
+        sa.update(Item).where(Item.id == item.id)
+        .values(stack_id=stack.id, modified_at=Item.modified_at)
+        .execution_options(synchronize_session=False)
+    )
+    session.expire(item, ["stack_id", "modified_at"])
     if block.get("cover"):
         stack.cover_item_id = item.id
     session.flush()
