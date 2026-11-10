@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, ExternalLink, X } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fileUrl, thumbUrl, type Item } from '../api'
 import { swipeDirection } from '../mobile'
 import { fullPreviewUrl, pdfFrameProps, previewBoxPx } from '../preview'
@@ -9,7 +9,11 @@ import { useFocusInOut, useFocusTrap, useInertBackground } from '../useInert'
 import { useLayer, useShortcut } from '../useShortcuts'
 import { tileDomId } from './Grid'
 import { MoreLikeThisButton } from './ItemAI'
-import { Annotated } from './m3/Annotations'
+
+// notes on the image (Milestone 3) load apart from the first page, and are
+// fetched once the app is idle so opening a preview doesn't wait for them
+const loadAnnotations = () => import('./m3/Annotations')
+const Annotated = lazy(() => loadAnnotations().then((m) => ({ default: m.Annotated })))
 
 /** Show the 1024 thumb at once, then swap in the sharper copy the screen
  * actually needs (preview.ts: usually the 2048 WebP, not the original). */
@@ -57,6 +61,11 @@ export function Preview() {
     },
     [idx, items, setPreviewId, selectOnly, result],
   )
+
+  useEffect(() => {
+    const idle = window.requestIdleCallback ?? ((fn: () => void) => window.setTimeout(fn, 2000))
+    idle(() => void loadAnnotations())
+  }, [])
 
   // while open, the preview is the keyboard's top layer: grid keys
   // (including Delete) stand down until it closes
@@ -113,6 +122,25 @@ export function Preview() {
     else if (dir === 'down') setPreviewId(null)
   }
 
+  // the item itself; notes (Annotated) wrap it once their code is here
+  const media = (
+    <>
+      {item.kind === 'video' ? (
+        <video src={fileUrl(item)} controls autoPlay />
+      ) : item.kind === 'pdf' ? (
+        <PdfFrame item={item} />
+      ) : item.has_thumb && item.kind === 'image' && item.ext !== 'svg' ? (
+        <ProgressiveImage key={item.id} item={item} mobile={mobile} />
+      ) : item.kind === 'image' ? (
+        <img src={fileUrl(item)} alt={item.filename} />
+      ) : (
+        <div className="preview-fallback">
+          <p>No preview for .{item.ext}</p>
+        </div>
+      )}
+    </>
+  )
+
   return (
     <div
       ref={overlayRef}
@@ -141,21 +169,11 @@ export function Preview() {
       </button>
 
       <figure onClick={(e) => e.stopPropagation()}>
-        <Annotated key={item.id} item={item}>
-        {item.kind === 'video' ? (
-          <video src={fileUrl(item)} controls autoPlay />
-        ) : item.kind === 'pdf' ? (
-          <PdfFrame item={item} />
-        ) : item.has_thumb && item.kind === 'image' && item.ext !== 'svg' ? (
-          <ProgressiveImage key={item.id} item={item} mobile={mobile} />
-        ) : item.kind === 'image' ? (
-          <img src={fileUrl(item)} alt={item.filename} />
-        ) : (
-          <div className="preview-fallback">
-            <p>No preview for .{item.ext}</p>
-          </div>
-        )}
-        </Annotated>
+        <Suspense fallback={media}>
+          <Annotated key={item.id} item={item}>
+            {media}
+          </Annotated>
+        </Suspense>
         <figcaption aria-live="polite" aria-atomic="true">
           <span className="fname">{item.filename}</span>
           <span className="meta">

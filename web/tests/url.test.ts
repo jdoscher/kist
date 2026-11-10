@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { emptyQuery, type Query } from '../src/api.ts'
 import { fromUrl, historyAction, layerOf, toUrl, type Place } from '../src/url.ts'
+import { ITEM_KINDS } from '../src/api.ts'
 
 const place = (query: Partial<Query>, extra: Partial<Place> = {}): Place => ({
   query: { ...emptyQuery, ...query },
@@ -153,4 +154,55 @@ test('Organise and the new Settings sections have their own paths', () => {
   assert.equal(historyAction(place({ similar: 'I9' }), place({}), { mobile: false, curPushed: false }), 'replace')
   // leaving it for a person's items is a new place (Back returns)
   assert.equal(historyAction(people, place({ person: 'P1' }), { mobile: false, curPushed: false }), 'push')
+})
+
+test('M2 searches, M3 culling filters and the M1 filters round-trip together', () => {
+  const all = place({
+    q: 'boots',
+    tags: ['shoes'],
+    tags_any: ['red', 'brown'],
+    folder: 'F1',
+    type: 'image',
+    rating: 3,
+    order: 'filename',
+    preview: 'ready',
+    created_after: '2026-01-01',
+    created_before: '2026-02-01',
+    semantic: 'leather boots',
+    color: '#2f4f3a',
+    color_tol: 45,
+    text: 'size 10',
+    person: 'P1',
+    flag: 'pick',
+    label: 'green',
+  })
+  assert.deepEqual(roundTrip(all), all, toUrl(all))
+  for (const q of [{ similar: 'I9', flag: 'reject' }, { image: 'img1', label: 'none' }, { flag: 'none', person: 'P2' }])
+    assert.deepEqual(roundTrip(place(q)), place(q), toUrl(place(q)))
+  // bad culling values are dropped
+  assert.equal(fromUrl('/all', '?flag=maybe').query.flag, null)
+  assert.equal(fromUrl('/all', '?label=pink').query.label, null)
+})
+
+test('every server kind is a type filter; unknown types are ignored', () => {
+  for (const type of ITEM_KINDS) assert.deepEqual(roundTrip(place({ type })), place({ type }))
+  assert.equal(fromUrl('/all', '?type=hologram').query.type, null)
+})
+
+test('boards, a board and triage have paths; Settings, Organise and screens exclude each other', () => {
+  const cases: Place[] = [
+    place({}, { screen: { kind: 'boards' } }),
+    place({}, { screen: { kind: 'boards', trash: true } }),
+    place({}, { screen: { kind: 'board', id: 'B1' } }),
+    place({}, { screen: { kind: 'triage', view: 'all', folder: 'F1' } }),
+    place({}, { screen: { kind: 'triage', view: 'unfiled', folder: null } }),
+    place({}, { settings: 'templates' }),
+    place({}, { settings: 'vocabulary' }),
+    place({}, { organise: 'people' }),
+  ]
+  for (const p of cases) assert.deepEqual(roundTrip(p), p, toUrl(p))
+  assert.equal(toUrl(place({}, { screen: { kind: 'board', id: 'a b' } })), '/board/a%20b')
+  // a path is one thing: Settings wins, then Organise, then a screen
+  assert.equal(toUrl(place({}, { settings: 'ai', organise: 'people', screen: { kind: 'boards' } })), '/settings/ai')
+  assert.equal(toUrl(place({}, { organise: 'people', screen: { kind: 'boards' } })), '/organise/people')
 })

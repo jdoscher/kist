@@ -531,7 +531,7 @@ compare, triage, quick look and the Cmd+K palette (the web screens follow).
 ### Milestone 3: creative workflows (web app)
 
 - **Boards.** A canvas of library items, notes, text, shapes, colour swatches and labelled arrows. Drag items in from a library panel or from the grid (or use Add buttons). Pan, zoom, marquee-select, align and distribute, group (⌘G), duplicate (⌘D), crop and snap. Saves automatically; if an agent or another tab changed the board, a banner offers to combine, keep theirs or overwrite. Export to PNG, PDF or a self-contained HTML file. A list view gives keyboard and screen-reader users every editing action without dragging. Phones can view, pan and zoom.
-- **Compare and survey.** Select 2–4 items and compare them side by side with synced zoom, a wipe slider and a difference overlay, or survey a selection and pick or reject with P/X and auto-advance.
+- **Compare and survey.** Select 2–4 items and compare them side by side with synced zoom, a wipe slider and a difference overlay, or survey a selection and pick or reject with P/X and auto-advance (from the grid: C compares, N surveys).
 - **Triage.** Go through Unfiled one item at a time: P/X/U, 1–5 stars, 6–9 colour labels, T to tag, F to file, arrows to move, Undo. On a phone, swipe: left/right moves, up keeps, down rejects.
 - **Quick look.** Hold Space on a tile to peek; Z shows a 100% loupe from the original, also in the full-screen view.
 - **Pinned notes.** Pins and boxes on images; time-range notes on videos, shown as marks on the scrubber (M adds one at the current time).
@@ -561,6 +561,27 @@ compare, triage, quick look and the Cmd+K palette (the web screens follow).
   `caption`, `flag` and `label`.
 - `kist rebuild-index` puts stacked items back in their stacks without
   touching their `modified_at` (verify used to report them afterwards).
+
+### The web app with milestones 2 and 3 together
+- **One keyboard map.** Every shortcut is in one table per screen
+  (`web/src/keymap.ts`, shown in the README's Keyboard section) and a test
+  fails if a key does two things on one screen, if a handler checks a key
+  the table doesn't list, or if the README drifts. S in the grid opens and
+  closes a stack; survey moved to N (Lightroom's key; C still compares). On
+  a board, ⌘Z is the board's own undo only (it no longer also opens Recent
+  changes when focus is on the board's toolbar).
+- Search modes, flag and label filters, the type filter and every view
+  round-trip through the URL together, and a smart folder saves the search
+  mode, colour, text, person, flag and label filters.
+- The type filter offers every kind the server knows (audio, 3D models,
+  fonts, design files and bundles as well as images, videos and PDFs), and
+  the sort menu has Date taken. The milestone 4 and 5 item fields
+  (provenance, link status, media, taken, place) are typed in the client;
+  their screens come later.
+- Faster first load: Settings, the boards list, a board, triage, Organise,
+  compare, the command palette and preview notes load when first used, and
+  React and TanStack are their own long-cached files. The app's own script
+  went from 579 kB (179 kB gzipped) to 238 kB (75 kB gzipped).
 
 ### Milestone 4: in, out and sharing
 

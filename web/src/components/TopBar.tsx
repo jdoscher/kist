@@ -3,6 +3,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { TILE_SIZE_MAX, TILE_SIZE_MIN } from '../layout'
 import { useCaps, useTags } from '../data'
 import { useAppState } from '../state'
+import type { ItemKind } from '../api'
 import type { MobileCols } from '../mobile'
 import { AppearanceMenu } from './Appearance'
 import { Mark, Wordmark } from './Brand'
@@ -22,7 +23,19 @@ const PLACEHOLDER: Record<SearchMode, string> = {
   image: 'Narrow with words…',
 }
 
-const TYPES = ['image', 'video', 'pdf', 'font', 'other'] as const
+// every kind the server has (Milestone 5 added audio, 3D models, design
+// files and bundles)
+const TYPES: [ItemKind, string][] = [
+  ['image', 'Images'],
+  ['video', 'Videos'],
+  ['pdf', 'PDFs'],
+  ['audio', 'Audio'],
+  ['model', '3D models'],
+  ['font', 'Fonts'],
+  ['design', 'Design files'],
+  ['bundle', 'Bundles'],
+  ['other', 'Other'],
+]
 const ORDERS: [string, string][] = [
   ['-created', 'Newest'],
   ['created', 'Oldest'],
@@ -30,6 +43,7 @@ const ORDERS: [string, string][] = [
   ['-size', 'Largest'],
   ['-rating', 'Top rated'],
   ['-modified', 'Recently edited'],
+  ['-taken', 'Date taken'],
 ]
 
 export function TopBar({ mobile = false }: { mobile?: boolean }) {
@@ -343,9 +357,9 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
         aria-label="Type"
       >
         <option value="">{mobile ? 'Type' : 'All types'}</option>
-        {TYPES.map((t) => (
+        {TYPES.map(([t, label]) => (
           <option key={t} value={t}>
-            {t}
+            {label}
           </option>
         ))}
       </select>

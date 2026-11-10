@@ -1,5 +1,6 @@
 // The web side of the Kist 1.5 API contract. Run with `npm test`.
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import { api, ApiError, CLIENT_HEADERS, conflictItem, detailText, emptyQuery, type Item } from '../src/api.ts'
 import { normalizeSaved, smartFolderQuery } from '../src/query.ts'
@@ -129,4 +130,30 @@ test('API requests say they come from the web app', async () => {
   } finally {
     globalThis.fetch = realFetch
   }
+})
+
+test('a smart folder saves every filter the server keeps (M1-M3), and nothing it would refuse', () => {
+  const py = readFileSync(new URL('../../kist/schemas.py', import.meta.url), 'utf8')
+  const body = py.slice(py.indexOf('class SmartFolderQuery'), py.indexOf('\nclass ', py.indexOf('class SmartFolderQuery') + 10))
+  const serverFields = new Set([...body.matchAll(/^ {4}([a-z_]+): /gm)].map((m) => m[1]))
+  const q = {
+    ...emptyQuery,
+    q: 'boots',
+    semantic: 'leather',
+    color: '#aabbcc',
+    color_tol: 20,
+    text: 'size',
+    person: 'P1',
+    flag: 'pick',
+    label: 'red',
+    type: 'audio',
+  }
+  const saved = smartFolderQuery(q)
+  for (const k of Object.keys(saved)) assert.ok(serverFields.has(k), `smartFolderQuery sends ${k}, SmartFolderQuery has no such field`)
+  for (const k of ['semantic', 'color', 'color_tol', 'text', 'person', 'flag', 'label', 'type'] as const)
+    assert.equal(saved[k], q[k], k)
+  // what the server sends back (unset fields as null) restores the same query
+  const back = normalizeSaved({ ...saved, view: null } as Partial<typeof q>)
+  for (const k of ['semantic', 'color', 'color_tol', 'text', 'person', 'flag', 'label', 'type'] as const) assert.equal(back[k], q[k], k)
+  assert.equal(normalizeSaved({ flag: null, label: null } as Partial<typeof q>).flag, null)
 })

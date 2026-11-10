@@ -18,12 +18,21 @@ export interface Job {
   finished_at: string | null
 }
 
+/** What the server calls an item's type (kist/filetypes.py KINDS; the
+ * Milestone 5 kinds are audio, model, font, design and bundle). */
+export const ITEM_KINDS = ['image', 'video', 'pdf', 'audio', 'model', 'font', 'design', 'bundle', 'other'] as const
+export type ItemKind = (typeof ITEM_KINDS)[number]
+
+export function isItemKind(v: unknown): v is ItemKind {
+  return (ITEM_KINDS as readonly unknown[]).includes(v)
+}
+
 export interface Item {
   id: string
   filename: string
   ext: string
   mime: string
-  kind: 'image' | 'video' | 'pdf' | 'other'
+  kind: ItemKind
   size_bytes: number
   width: number | null
   height: number | null
@@ -61,6 +70,18 @@ export interface Item {
   /** culling (Milestone 3): pick | reject, and a colour label */
   flag?: 'pick' | 'reject' | null
   label?: 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | null
+  // Milestone 4 (typed here; its screens come later): where it came from
+  // (method, page_url, page_title, author, license, ai_generated ...)
+  provenance?: Record<string, unknown>
+  /** the link-rot watch: ok | gone | moved | error, or null (never checked) */
+  source_status?: 'ok' | 'gone' | 'moved' | 'error' | null
+  source_checked_at?: string | null
+  source_wayback_url?: string | null
+  // Milestone 5: what Kist read from the file (video, audio, exif, svg,
+  // model, font, bundle, design, raw blocks; scrub, playable, cover_time)
+  media?: Record<string, unknown> | null
+  taken_at?: string | null
+  place?: string | null
 }
 
 /** Why an item is in a ranked (or keyword) search. The snippet marks the

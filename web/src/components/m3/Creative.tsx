@@ -65,13 +65,14 @@ export function CreativeProvider({ children }: { children: ReactNode }) {
   useShortcut('grid', paletteKey)
   useShortcut('preview', paletteKey)
 
-  // C compares the selection, S surveys it (the library grid only)
+  // C compares the selection, N surveys it (Lightroom's keys; the library
+  // grid only: S is the grid's stack key)
   useShortcut(
     'grid',
     (e) => {
       if (e.metaKey || e.ctrlKey || e.altKey || screen || settings) return false
       const k = e.key.toLowerCase()
-      if (k !== 'c' && k !== 's') return false
+      if (k !== 'c' && k !== 'n') return false
       const t = e.target as HTMLElement | null
       if (t && t !== document.body && !t.closest?.('.grid-scroll')) return false
       if (selection.size < 2) return false

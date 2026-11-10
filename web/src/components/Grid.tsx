@@ -509,7 +509,7 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
       </div>
       <span id={hintId} className="sr-only">
         Arrow keys move and select, Space adds or removes one item, Shift with arrows extends the selection,
-        Control with arrows moves without selecting, Enter opens full screen, S opens or closes a stack
+        Control with arrows moves without selecting, Enter opens full screen, S opens or closes a stack, C compares and N surveys the selection
         {mobile ? '' : ', Delete moves to Trash, the context menu key shows More like this'}.
       </span>
       <div

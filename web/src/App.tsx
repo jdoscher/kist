@@ -9,7 +9,6 @@ import { JobsPanel } from './components/JobsPanel'
 import { NoticesProvider } from './components/Notices'
 import { Preview } from './components/Preview'
 import { RecentChanges } from './components/RecentChanges'
-import { SettingsScreen } from './components/Settings'
 import { Drawer, Sidebar } from './components/Sidebar'
 import { TopBar } from './components/TopBar'
 import { UploadManager } from './components/UploadManager'
@@ -23,9 +22,12 @@ import { Mark, Wordmark } from './components/Brand'
 import { useAppState } from './state'
 import { bannerText, describeError, hasDrafts } from './writes'
 import { CreativeProvider } from './components/m3/Creative'
-import { BoardsScreen } from './components/m3/Boards'
 
-// Milestone 3 full screens load on first use
+// Screens past the library load on first use, so the first load is the
+// library alone (Settings, the boards list, a board, triage, Organise;
+// compare, the command palette and the dialogs load in Creative.tsx)
+const SettingsScreen = lazy(() => import('./components/Settings').then((m) => ({ default: m.SettingsScreen })))
+const BoardsScreen = lazy(() => import('./components/m3/BoardsScreen').then((m) => ({ default: m.BoardsScreen })))
 const BoardEditor = lazy(() => import('./components/m3/board/BoardEditor'))
 const Triage = lazy(() => import('./components/m3/Triage'))
 
@@ -122,9 +124,10 @@ function TokenGate({ onDone, overlay = false }: { onDone: () => void; overlay?: 
 }
 
 /** ⌘Z / Ctrl+Z (outside text fields, which keep their own undo) opens
- * Recent changes with focus on the newest Undo. */
+ * Recent changes with focus on the newest Undo. A board has its own undo
+ * (keymap.ts: one binding per key on each screen). */
 function UndoShortcut() {
-  const { setRecentOpen } = useAppState()
+  const { setRecentOpen, screen } = useAppState()
   const { canEdit } = useCaps()
   useShortcut(
     'grid',
@@ -134,7 +137,7 @@ function UndoShortcut() {
       setRecentOpen(true)
       return true
     },
-    canEdit,
+    canEdit && screen?.kind !== 'board',
   )
   return null
 }
@@ -145,7 +148,12 @@ const OrganiseScreen = lazy(() => import('./components/Organise').then((m) => ({
 /** The library (top bar, sidebar, grid, info panel), Settings or Organise. */
 function Screens({ mobile }: { mobile: boolean }) {
   const { settings, organise, screen } = useAppState()
-  if (settings) return <SettingsScreen />
+  if (settings)
+    return (
+      <Suspense fallback={<main className="grid-area center" role="status">Loading…</main>}>
+        <SettingsScreen />
+      </Suspense>
+    )
   if (organise)
     return (
       <Suspense fallback={<main className="grid-area center" role="status">Loading…</main>}>
@@ -167,7 +175,9 @@ function Screens({ mobile }: { mobile: boolean }) {
       <div className="app-body">
         {mobile ? <Drawer /> : <DesktopSidebar />}
         {screen?.kind === 'boards' ? (
-          <BoardsScreen trash={!!screen.trash} />
+          <Suspense fallback={<main className="grid-area center" role="status">Loading…</main>}>
+            <BoardsScreen trash={!!screen.trash} />
+          </Suspense>
         ) : (
           <>
             <Grid mobile={mobile} />

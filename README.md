@@ -426,6 +426,121 @@ clips and proxies wait behind imports and previews. An Intel iGPU can encode
 proxies and clips: set `KIST_HWACCEL=vaapi` (or `qsv`) and pass `/dev/dri`
 to the worker (see `docker-compose.yml`).
 
+## Keyboard
+
+The web app's shortcuts, one table per screen. No key does two things on
+the same screen; keys typed into a text field (or a select) never trigger
+them, and an open dialog or preview stops the keys of what's behind it. The
+table is `web/src/keymap.ts`; `web/tests/keymap.test.ts` keeps this section,
+the handlers and the table in step.
+
+<!-- keymap:start -->
+**Library grid**
+
+| Keys | Does |
+| --- | --- |
+| `←` `→` `↑` `↓` | move and select |
+| `⇧ ←` `⇧ →` `⇧ ↑` `⇧ ↓` | extend the selection |
+| `⌘/Ctrl ←` `⌘/Ctrl →` `⌘/Ctrl ↑` `⌘/Ctrl ↓` | move without selecting |
+| `Home` `End` | first, last item |
+| `Space` | tap: add or remove the item; hold: quick look |
+| `Enter` | open full screen |
+| `Escape` | clear the selection |
+| `⌘/Ctrl A` | select all |
+| `Delete` `Backspace` | move the selection to the Trash (in the Trash: delete forever) |
+| `S` | open or close the focused stack |
+| `C` | compare the selection (2–4 items) |
+| `N` | survey the selection: pick and reject one by one |
+| `ContextMenu` | the item menu (More like this, colour, stack) |
+| `⌘/Ctrl Z` | Recent changes, focused on the newest Undo |
+| `⌘/Ctrl K` | command palette |
+
+**Quick look (holding Space over a tile)**
+
+| Keys | Does |
+| --- | --- |
+| `Space` | release: close (once latched, press again) |
+| `Z` | loupe (100%) on or off; latches the peek open |
+| `Escape` | close |
+
+**Full-screen preview**
+
+| Keys | Does |
+| --- | --- |
+| `→` `↓` | next item |
+| `←` `↑` | previous item |
+| `Escape` | cancel a note, tool or loupe; else close |
+| `A` | show or hide notes (annotations) |
+| `Z` | loupe on or off (images) |
+| `M` | note at the current time (video) |
+| `I` | mark in (video) |
+| `O` | mark out: a note over the range (video) |
+| `⌘/Ctrl K` | command palette |
+
+**Triage (/triage)**
+
+| Keys | Does |
+| --- | --- |
+| `P` | pick |
+| `X` | reject |
+| `U` | unflag |
+| `0` `1` `2` `3` `4` `5` | rating (0 clears) |
+| `6` `7` `8` `9` | red, orange, yellow, green label (again: clear) |
+| `T` | tag |
+| `F` | file in a folder |
+| `→` `J` | next |
+| `←` `K` | previous |
+| `⌘/Ctrl Z` | undo the last change |
+| `Delete` `Backspace` | move to the Trash |
+| `Escape` | leave triage |
+| `⌘/Ctrl K` | command palette |
+
+**Compare and survey**
+
+| Keys | Does |
+| --- | --- |
+| `P` | pick the current item |
+| `X` | reject it |
+| `U` | unflag it |
+| `1` `2` `3` `4` `5` | rating (survey) |
+| `6` `7` `8` `9` | red, orange, yellow, green label |
+| `→` `J` | next item |
+| `←` `K` | previous item |
+| `+` `=` | zoom in (all panes) |
+| `-` | zoom out |
+| `0` | fit |
+| `Escape` | close |
+| `⌘/Ctrl K` | command palette |
+
+**Board canvas (/board/…)**
+
+| Keys | Does |
+| --- | --- |
+| `V` | select tool |
+| `H` | hand (pan) tool |
+| `C` | connect (arrow) tool |
+| `N` | add a note |
+| `T` | add text |
+| `R` | add a shape |
+| `Space (hold)` | pan while held |
+| `←` `→` `↑` `↓` | nudge 1px |
+| `⇧ ←` `⇧ →` `⇧ ↑` `⇧ ↓` | nudge a grid step |
+| `Tab` `⇧ Tab` | next, previous thing on the canvas |
+| `Delete` `Backspace` | delete the selection or arrow |
+| `⌘/Ctrl D` | duplicate |
+| `⌘/Ctrl G` | group |
+| `⇧ ⌘/Ctrl G` | ungroup |
+| `⌘/Ctrl A` | select all |
+| `⌘/Ctrl Z` | undo |
+| `⇧ ⌘/Ctrl Z` `⌘/Ctrl Y` | redo |
+| `+` `=` | zoom in |
+| `-` | zoom out |
+| `0` | zoom to fit |
+| `1` | zoom to 100% |
+| `Escape` | clear the selection, back to the select tool |
+| `⌘/Ctrl K` | command palette |
+<!-- keymap:end -->
+
 ## Storage layout
 
 ```

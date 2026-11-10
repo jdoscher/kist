@@ -25,7 +25,7 @@
 // imageSearch.ts). Unknown params are ignored, never an error.
 // Pure functions, tested in tests/url.test.ts.
 
-import { emptyQuery, type PreviewStatus, type Query } from './api.ts'
+import { emptyQuery, isItemKind, type PreviewStatus, type Query } from './api.ts'
 
 export type SettingsSection = 'tokens' | 'archive' | 'ai' | 'vocabulary' | 'cleanup' | 'templates'
 export const SETTINGS_SECTIONS: SettingsSection[] = ['tokens', 'archive', 'ai', 'vocabulary', 'cleanup', 'templates']
@@ -145,7 +145,8 @@ export function fromUrl(pathname: string, search: string): Place {
       ? (s.get('preview') as PreviewStatus)
       : null,
     fixity: s.get('fixity') === 'failed' ? 'failed' : null,
-    type: s.get('type') || null,
+    // an unknown type is ignored (the server would refuse it)
+    type: isItemKind(s.get('type')) ? s.get('type') : null,
     rating: Math.max(0, Math.min(5, Number(s.get('rating')) || 0)),
     order: s.get('order') || emptyQuery.order,
     created_after: s.get('after') || null,

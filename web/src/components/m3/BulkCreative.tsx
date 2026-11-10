@@ -87,7 +87,7 @@ export function BulkCreative({ ids, busy }: { ids: string[]; busy: boolean }) {
           <button className="btn-icon" disabled={ids.length > COMPARE_MAX} onClick={() => creative.openCompare(ids, 'compare')} title={ids.length > COMPARE_MAX ? `Compare takes 2 to ${COMPARE_MAX}; Survey takes more` : 'Side by side, wipe or overlay (C)'}>
             <Columns2 size={14} aria-hidden="true" /> Compare
           </button>
-          <button className="btn-icon" onClick={() => creative.openCompare(ids, 'survey')} title="Pick and reject one by one (S)">
+          <button className="btn-icon" onClick={() => creative.openCompare(ids, 'survey')} title="Pick and reject one by one (N)">
             <Grid2x2 size={14} aria-hidden="true" /> Survey
           </button>
         </>
