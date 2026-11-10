@@ -33,12 +33,17 @@ def subtree_counts(folders: list[Folder], memberships: list[tuple[str, str]]) ->
 
     An item filed in two folders of the same subtree counts once.
     """
-    children: dict[str | None, list[str]] = {}
-    for f in folders:
-        children.setdefault(f.parent_id, []).append(f.id)
     direct: dict[str, set[str]] = {}
     for item_id, folder_id in memberships:
         direct.setdefault(folder_id, set()).add(item_id)
+    return _subtree_counts(folders, direct)
+
+
+def _subtree_counts(folders: list[Folder], direct: dict[str, set[str]]) -> dict[str, int]:
+    """subtree_counts from each folder's set of directly filed item ids."""
+    children: dict[str | None, list[str]] = {}
+    for f in folders:
+        children.setdefault(f.parent_id, []).append(f.id)
 
     cache: dict[str, set[str]] = {}
 
@@ -71,12 +76,21 @@ def list_folders(session: Session) -> list[dict]:
     folders = session.execute(
         sa.select(Folder).order_by(Folder.position, Folder.name)
     ).scalars().all()
-    memberships = session.execute(
-        sa.select(ItemFolder.item_id, ItemFolder.folder_id)
-        .join(Item, Item.id == ItemFolder.item_id)
-        .where(Item.deleted_at.is_(None))
-    ).all()
-    counts = subtree_counts(list(folders), [tuple(m) for m in memberships])
+    # live items filed in each folder, one array per folder: the trashed
+    # few drop out through a hashed NOT IN on the trash's partial index, so
+    # there is no join of every membership to items and no 200k result
+    # rows to build in Python (dev0, 250k items: 600-700 ms -> see
+    # tests/test_m6_perf.py for the equivalence check)
+    trashed = sa.select(Item.id).where(Item.deleted_at.isnot(None))
+    direct = {
+        folder_id: set(item_ids)
+        for folder_id, item_ids in session.execute(
+            sa.select(ItemFolder.folder_id, sa.func.array_agg(ItemFolder.item_id))
+            .where(ItemFolder.item_id.not_in(trashed))
+            .group_by(ItemFolder.folder_id)
+        )
+    }
+    counts = _subtree_counts(list(folders), direct)
     reader = access.restricted()
     if reader is not None:
         # a folder-limited token sees its folders as the top of the tree
