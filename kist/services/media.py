@@ -679,7 +679,22 @@ def update_media(session: Session, item_id: str, changes: dict, *, touch: bool =
 # =====================================================================
 
 MEDIA_FILTERS = ("taken_after", "taken_before", "has_gps", "camera", "lens", "duration_min",
-                 "duration_max", "vertical", "has_audio", "place")
+                 "duration_max", "vertical", "has_audio", "place", "date_after", "date_before",
+                 "bbox")
+
+
+def _bbox(raw) -> tuple[float, float, float, float]:
+    """west,south,east,north (a string or a 4-sequence) -> floats, checked."""
+    from .validation import ValidationError
+
+    try:
+        parts = raw.split(",") if isinstance(raw, str) else list(raw)
+        w, s, e, n = (float(x) for x in parts)
+    except (TypeError, ValueError):
+        raise ValidationError("bbox must be west,south,east,north in degrees") from None
+    if not (-180 <= w <= 180 and -180 <= e <= 180 and -90 <= s <= n <= 90):
+        raise ValidationError("bbox is out of range (west,south,east,north)")
+    return w, s, e, n
 
 
 def filters(params: dict | None) -> list:
@@ -707,6 +722,16 @@ def filters(params: dict | None) -> list:
         out.append(Item.has_audio.is_(bool(p["has_audio"])))
     if "place" in p:
         out.append(Item.place.ilike(f"%{p['place']}%"))
+    # the timeline's date: taken, else added (what /api/timeline groups by)
+    if "date_after" in p:
+        out.append(Item.taken_sort >= p["date_after"])
+    if "date_before" in p:
+        out.append(Item.taken_sort <= p["date_before"])
+    # a map area (the web map's clusters), west,south,east,north
+    if "bbox" in p:
+        w, s, e, n = _bbox(p["bbox"])
+        out += [Item.has_gps.is_(True), Item.lat.between(s, n)]
+        out.append(Item.lon.between(w, e) if w <= e else sa.or_(Item.lon >= w, Item.lon <= e))
     return out
 
 

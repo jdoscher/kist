@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { BookOpen, Check, Copy, Cpu, FileText, KeyRound, ShieldCheck, Sparkles, TriangleAlert, X } from 'lucide-react'
+import { BookOpen, Check, Copy, Cpu, FileText, FolderInput, KeyRound, Share2, ShieldCheck, Smartphone, Sparkles, TriangleAlert, X } from 'lucide-react'
 import { lazy, Suspense, useId, useState } from 'react'
 import { api, emptyQuery, type ApiToken, type ArchiveHealth } from '../api'
 import { useCaps, useFolderNames, useFolders, useMe, useStats } from '../data'
@@ -17,6 +17,9 @@ import { AiExtras } from './AiExtras'
 const VocabularySection = lazy(() => import('./TagSettings').then((m) => ({ default: m.VocabularySection })))
 const CleanupSection = lazy(() => import('./TagSettings').then((m) => ({ default: m.CleanupSection })))
 const TemplatesSection = lazy(() => import('./m3/Templates').then((m) => ({ default: m.TemplatesSection })))
+const SharingSection = lazy(() => import('./m45/SettingsSections').then((m) => ({ default: m.SharingSection })))
+const ImportSection = lazy(() => import('./m45/SettingsSections').then((m) => ({ default: m.ImportSection })))
+const PhoneSection = lazy(() => import('./m45/SettingsSections').then((m) => ({ default: m.PhoneSection })))
 
 const SECTIONS: { id: SettingsSection; label: string; icon: typeof KeyRound }[] = [
   { id: 'tokens', label: 'Tokens', icon: KeyRound },
@@ -25,6 +28,9 @@ const SECTIONS: { id: SettingsSection; label: string; icon: typeof KeyRound }[] 
   { id: 'vocabulary', label: 'Vocabulary', icon: BookOpen },
   { id: 'cleanup', label: 'Tag cleanup', icon: Sparkles },
   { id: 'templates', label: 'Templates', icon: FileText },
+  { id: 'sharing', label: 'Sharing', icon: Share2 },
+  { id: 'import', label: 'Import', icon: FolderInput },
+  { id: 'phone', label: 'Phone & browser', icon: Smartphone },
 ]
 
 const dateText = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : '')
@@ -75,6 +81,9 @@ export function SettingsScreen() {
               {section === 'vocabulary' && <VocabularySection />}
               {section === 'cleanup' && <CleanupSection />}
               {section === 'templates' && <TemplatesSection />}
+              {section === 'sharing' && <SharingSection />}
+              {section === 'import' && <ImportSection />}
+              {section === 'phone' && <PhoneSection />}
             </Suspense>
           </main>
         </div>

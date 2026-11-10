@@ -739,6 +739,88 @@ Kist now looks inside video, audio, photos, RAW files, design sources, SVG,
   (shares, provenance, snapshots, XMP, link-rot results, media blocks and
   their sidecars, alongside M2/M3's data).
 
+### Milestones 4 and 5: the web app
+- **Share links.** Share a folder or smart folder (the top bar's share
+  button), the selection (the selection bar) or a board (its toolbar): a
+  title, an optional password, an expiry (30 days by default, a date, or
+  never) and download / original switches (originals need downloads on).
+  The link is copied with one press. Settings → Sharing lists every link
+  with its views and last view, and revokes or removes them.
+- **Export.** A BagIt zip of a folder, smart folder, the selection or the
+  whole library (originals, sidecars, history), with progress and the
+  download when it's ready. **Export images** makes resized copies (size,
+  JPEG/WebP/PNG/AVIF, quality, metadata, a text watermark) or a PDF contact
+  sheet, from saved presets you can add to and delete; GPS is always removed.
+- **Where it came from.** The info panel shows an item's provenance (page,
+  image URL, title, creator, credit, licence, rights URL, how and when it
+  came in), the source page's link status with the Wayback Machine copy,
+  and the AI-generated flag with what the file's C2PA/IPTC data said. Edits
+  send only the fields that changed and are undoable. **Saved page** opens
+  the page snapshot in a fully sandboxed frame, or its text.
+- **Import.** Settings → Import picks the kind (Eagle, Pinterest, Are.na,
+  Raindrop, Google Takeout, Apple Photos, files with sidecars), uploads the
+  export or takes a server path (or an Are.na URL), runs a dry run with its
+  counts, duplicates and errors, then the import with progress. It explains
+  the XMP sidecars too.
+- **Phone and browser.** Settings → Phone & browser shows this server's
+  iPhone Shortcut steps (`GET /api/shortcut`) and links to `/bookmarklet`,
+  the bookmarklet generator (no token needed). The bookmarklet's **/add**
+  card previews the image (no referrer), lets you pick another image from
+  the page, add tags, a folder (recent first) and a note, and saves only on
+  Save (Enter saves, Esc cancels) with `method: bookmarklet` provenance;
+  "Already in Kist" for a repeat, plain words for a failed download, and
+  Back to the page when the pop-up was blocked. Parameters are checked:
+  only http(s) URLs, length caps, text never HTML.
+- **Needs attention** also lists items whose source page is gone.
+- **Video and GIFs.** Tiles scrub through the 20-frame sprite as the
+  pointer moves across them (desktop only; the sprite loads on first
+  hover). The full-screen view plays from `/stream` (with Range; a web copy
+  is made on first play for files browsers can't play), and has Set cover
+  (the frame on screen), Save frame (a new item) and **Clip…** (in and out
+  from the player or typed, MP4/GIF/WebP, size; the job's result opens in
+  one press).
+- **Audio** plays under its waveform (click to seek) and clips to MP3 or WAV.
+  **SVG** shows the sanitized drawing with Copy SVG and its colours (press
+  one to copy it). **Fonts** show an editable specimen in the font itself,
+  size and variable-axis sliders, and the glyphs page by page. **3D models**
+  turn in `<model-viewer>` (loaded only when a model is opened); Set poster
+  renders the current view as the item's thumbnail. **Bundles** list their
+  files (preview the images, view a model inside, download one file).
+  **Design files** show their embedded preview with a note about the source.
+- **Media details** in the info panel: camera, lens, exposure, date taken,
+  place and location (with a privacy note and "Items near here"), or
+  duration, frame rate, codecs, bit rate and sound; triangles and size for
+  models.
+- **Filters**: date taken, camera, lens, place, has a location, vertical,
+  has sound, length, AI-generated, licence and source page status, each a
+  chip in the search box; they round-trip through the URL and smart
+  folders save them.
+- **Timeline** (`/timeline`): days, months or years with counts and a bar,
+  jump links by section; picking one shows those items in the grid sorted
+  by date taken. **On this day** sits on top of it and in the info panel
+  when nothing is selected.
+- **Map** (`/map`): MapLibre GL with the self-hosted Protomaps basemap
+  through the PMTiles protocol (or a hosted XYZ/PMTiles URL), server-side
+  clusters as buttons, and a list of the groups beside it for the keyboard;
+  picking a group (or "Show these in the grid") filters the grid to that
+  area. Without a basemap the points still show on a plain map.
+- Phone layout for every new screen; axe-core finds nothing in the dark,
+  light and gallery themes. MapLibre (with its worker as a same-origin file)
+  and model-viewer are separate chunks loaded on first use; the first page
+  grew from 238 kB to 258 kB (81 kB gzipped).
+- Server: `GET /api/items` (and every listing, smart folders, shares and
+  exports) takes `date_after`/`date_before` (the timeline's date: taken,
+  else added) and `bbox=w,s,e,n` (items with GPS in a map area);
+  `POST /api/imports/upload` keeps an export sent from the browser in
+  `library/import/uploads/`; the app shell sends `frame-ancestors 'none'`
+  and `X-Frame-Options: DENY` (the /add card can't be framed), the /add
+  page may load images from the web for its preview, a hosted
+  `KIST_MAP_TILES_URL`'s origin is allowed for images and fetches, and
+  `script-src` allows `'wasm-unsafe-eval'` (WebAssembly only, never JS
+  eval) for the 3D viewer's mesh decoder.
+- Fixed: the video notes scrubber had a label without a role, and the
+  Notes button pointed `aria-controls` at a panel that wasn't there.
+
 ## [1.5.0] - 2026-11-09
 
 A hardening release. Kist was reviewed for security, data integrity,

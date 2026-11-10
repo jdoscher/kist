@@ -213,7 +213,7 @@ export function Annotated({ item, children }: { item: Item; children: ReactNode 
           </div>
         )}
         {isVideo && duration > 0 && (
-          <div className="ann-scrub" aria-label="Notes on the timeline">
+          <div className="ann-scrub" role="group" aria-label="Notes on the timeline">
             {all
               .filter((a) => a.t_start != null && (showResolved || !a.resolved))
               .map((a) => (
@@ -238,7 +238,7 @@ export function Annotated({ item, children }: { item: Item; children: ReactNode 
       <button
         className={`ann-toggle btn-icon${open ? ' on' : ''}`}
         aria-pressed={open}
-        aria-controls={`${uid}-panel`}
+        aria-controls={open ? `${uid}-panel` : undefined}
         onClick={() => setOpen(!open)}
         title="Notes on the image (A)"
         aria-keyshortcuts="A"

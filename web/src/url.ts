@@ -26,9 +26,10 @@
 // Pure functions, tested in tests/url.test.ts.
 
 import { emptyQuery, isItemKind, type PreviewStatus, type Query } from './api.ts'
+import { addM45Params, m45FromSearch } from './m45/filters.ts'
 
-export type SettingsSection = 'tokens' | 'archive' | 'ai' | 'vocabulary' | 'cleanup' | 'templates'
-export const SETTINGS_SECTIONS: SettingsSection[] = ['tokens', 'archive', 'ai', 'vocabulary', 'cleanup', 'templates']
+export type SettingsSection = 'tokens' | 'archive' | 'ai' | 'vocabulary' | 'cleanup' | 'templates' | 'sharing' | 'import' | 'phone'
+export const SETTINGS_SECTIONS: SettingsSection[] = ['tokens', 'archive', 'ai', 'vocabulary', 'cleanup', 'templates', 'sharing', 'import', 'phone']
 
 export type OrganiseSection = 'duplicates' | 'stacks' | 'collections' | 'people'
 export const ORGANISE_SECTIONS: OrganiseSection[] = ['duplicates', 'stacks', 'collections', 'people']
@@ -38,8 +39,21 @@ export type Screen =
   | { kind: 'boards'; trash?: boolean }
   | { kind: 'board'; id: string }
   | { kind: 'triage'; view: 'unfiled' | 'all'; folder?: string | null }
+  // Milestones 4 and 5: the timeline and the map (in the library's frame,
+  // with the library's filters), and the bookmarklet's /add card
+  | { kind: 'timeline'; group: 'day' | 'month' | 'year' }
+  | { kind: 'map' }
+  | { kind: 'add'; search: string }
+
+/** Screens shown in the library's frame (top bar, sidebar) instead of the grid. */
+export function inLibraryFrame(sc: Screen | null | undefined): boolean {
+  return !!sc && (sc.kind === 'boards' || sc.kind === 'timeline' || sc.kind === 'map')
+}
 
 export function screenUrl(sc: Screen): string {
+  if (sc.kind === 'add') return `/add${sc.search}`
+  if (sc.kind === 'timeline') return sc.group === 'month' ? '/timeline' : `/timeline?group=${sc.group}`
+  if (sc.kind === 'map') return '/map'
   if (sc.kind === 'boards') return sc.trash ? '/boards?trash=1' : '/boards'
   if (sc.kind === 'board') return `/board/${encodeURIComponent(sc.id)}`
   const s = new URLSearchParams()
@@ -86,6 +100,13 @@ function placePath(p: Place): string {
 export function toUrl(p: Place): string {
   const q = p.query
   const path = placePath(p)
+  // the timeline and the map keep the library's filters in their URL
+  if (p.screen && (p.screen.kind === 'timeline' || p.screen.kind === 'map')) {
+    const s = filterParams(q)
+    if (p.screen.kind === 'timeline' && p.screen.group !== 'month') s.set('group', p.screen.group)
+    const qs = s.toString()
+    return qs ? `${path.split('?')[0]}?${qs}` : path.split('?')[0]
+  }
   if (p.settings || p.organise || p.screen) return path
   const s = new URLSearchParams()
   const tagInPath = path.startsWith('/tag/')
@@ -115,10 +136,26 @@ export function toUrl(p: Place): string {
   if (q.image) s.set('image', q.image)
   if (q.flag) s.set('flag', q.flag)
   if (q.label) s.set('label', q.label)
+  addM45Params(q, s)
   if (p.item) s.set('item', p.item)
   if (p.item && p.full) s.set('full', '1')
   const qs = s.toString()
   return qs ? `${path}?${qs}` : path
+}
+
+/** The library filters as URL params (no view, item or ranking). */
+function filterParams(q: Query): URLSearchParams {
+  const s = new URLSearchParams()
+  if (q.q) s.set('q', q.q)
+  if (q.tags.length) s.set('tags', q.tags.join(','))
+  if (q.folder) s.set('folder', q.folder)
+  if (q.type) s.set('type', q.type)
+  if (q.rating) s.set('rating', String(q.rating))
+  if (q.person) s.set('person', q.person)
+  if (q.flag) s.set('flag', q.flag)
+  if (q.label) s.set('label', q.label)
+  addM45Params(q, s)
+  return s
 }
 
 function tolerance(v: string | null): number {
@@ -161,6 +198,7 @@ export function fromUrl(pathname: string, search: string): Place {
     image: s.get('image') || null,
     flag: ['pick', 'reject', 'none'].includes(s.get('flag') ?? '') ? s.get('flag') : null,
     label: LABEL_PARAMS.includes(s.get('label') ?? '') ? s.get('label') : null,
+    ...m45FromSearch(s),
   }
   let smartId: string | null = null
   const [head, arg] = parts
@@ -176,6 +214,26 @@ export function fromUrl(pathname: string, search: string): Place {
   } else if (head === 'organise') {
     const section = ORGANISE_SECTIONS.includes(arg as OrganiseSection) ? (arg as OrganiseSection) : 'duplicates'
     return { query: { ...emptyQuery }, smartId: null, item: null, full: false, organise: section }
+  }
+  else if (head === 'timeline' || head === 'map') {
+    const g = s.get('group')
+    const screen: Screen =
+      head === 'map' ? { kind: 'map' } : { kind: 'timeline', group: g === 'day' || g === 'year' ? g : 'month' }
+    const filters: Query = {
+      ...emptyQuery,
+      q: query.q,
+      tags: query.tags,
+      folder: query.folder,
+      type: query.type,
+      rating: query.rating,
+      person: query.person,
+      flag: query.flag,
+      label: query.label,
+      ...m45FromSearch(s),
+    }
+    return { query: filters, smartId: null, item: null, full: false, screen }
+  } else if (head === 'add') {
+    return { query: { ...emptyQuery }, smartId: null, item: null, full: false, screen: { kind: 'add', search: search && search !== '?' ? (search.startsWith('?') ? search : `?${search}`) : '' } }
   }
   else if (head === 'boards' || (head === 'board' && arg) || head === 'triage') {
     const screen: Screen =

@@ -93,7 +93,8 @@ def filters(session: Session, kind: str, target_id: str | None,
 
 
 MEDIA_KEYS = ("taken_after", "taken_before", "has_gps", "camera", "lens", "duration_min",
-              "duration_max", "vertical", "has_audio", "place")
+              "duration_max", "vertical", "has_audio", "place", "date_after", "date_before",
+              "bbox")
 
 
 def smart_filters(q: dict) -> list:
@@ -117,7 +118,7 @@ def smart_filters(q: dict) -> list:
         flag=q.get("flag") or None, label=q.get("label") or None,
         ai_generated=q.get("ai_generated"), license=q.get("license") or None,
         source_status=q.get("source_status") or None,
-        media={k: (_dt(q[k]) if k.startswith("taken_") else q[k])
+        media={k: (_dt(q[k]) if k.startswith(("taken_", "date_")) else q[k])
                for k in MEDIA_KEYS if q.get(k) is not None},
     )
     if q.get("has_text") is not None:

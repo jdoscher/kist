@@ -13,6 +13,8 @@ import { buildSearch, isRanked, modeOf, searchText, tagTokens, type SearchMode }
 import { ColourPicker, hasSearchChips, SearchChips, SearchModeMenu, useImageSearch, useSearchMode } from './SearchModes'
 import { useCreative } from './m3/Creative'
 import { labelName } from '../cull'
+import { hasM45Filters } from '../m45/filters'
+import { FiltersButton, M45Chips, ViewShareMenu } from './m45/TopBarExtras'
 
 const PLACEHOLDER: Record<SearchMode, string> = {
   auto: 'Search, or describe it…',
@@ -97,7 +99,8 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
     !!query.created_after ||
     !!query.created_before ||
     !!query.flag ||
-    !!query.label
+    !!query.label ||
+    hasM45Filters(query)
 
   // debounce free-text search; what it sends depends on the mode
   useEffect(() => {
@@ -246,6 +249,7 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
                 onClear={() => setQuery({ created_before: null })}
               />
             )}
+            <M45Chips query={query} setQuery={setQuery} />
           </div>
         )}
         <input
@@ -310,6 +314,8 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
       <button className="icon-btn topbar-icon palette-btn" onClick={creative.openPalette} aria-label="Go to or do anything (⌘K)" title="Go to or do anything (⌘K)" aria-keyshortcuts="Meta+K Control+K">
         <Command size={16} strokeWidth={1.75} aria-hidden="true" />
       </button>
+      {/* a phone's second row is full: share/export sits beside the palette */}
+      {mobile && <ViewShareMenu />}
 
       {mobile && <div className="topbar-break" />}
 
@@ -378,6 +384,8 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
           </option>
         ))}
       </select>
+
+      <FiltersButton mobile={mobile} />
 
       <select
         value={query.rating}
@@ -463,6 +471,7 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
           <History size={17} strokeWidth={1.75} aria-hidden="true" />
         </button>
       )}
+      <ViewShareMenu />
       <AppearanceMenu />
       {caps.isAdmin && (
         <button className="icon-btn topbar-icon" onClick={() => openSettings()} aria-label="Settings" title="Settings: tokens, archive health, AI">

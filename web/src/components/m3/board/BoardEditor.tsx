@@ -62,6 +62,7 @@ import { BoardInspector } from './BoardInspector'
 import { BoardLibrary } from './BoardLibrary'
 import { BoardList } from './BoardList'
 import { useBoardKeys } from './keys'
+import { useM45 } from '../../m45/M45'
 
 export type Tool = 'select' | 'hand' | 'connect'
 type SaveState = 'saved' | 'unsaved' | 'saving' | 'error' | 'conflict'
@@ -109,6 +110,7 @@ export default function BoardEditor({ id }: { id: string }) {
   const { mobile, openScreen } = useAppState()
   const caps = useCaps()
   const qc = useQueryClient()
+  const m45 = useM45()
   const canEdit = caps.canEdit && !mobile
   // re-read now and then: an agent or another tab may have changed it (adopted only while nothing here is unsaved)
   const board = useQuery({ queryKey: ['board', id], queryFn: () => api3.getBoard(id), refetchOnWindowFocus: true, refetchInterval: 15_000, retry: 1 })
@@ -533,8 +535,13 @@ export default function BoardEditor({ id }: { id: string }) {
         </button>
         {canEdit && <BackgroundMenu ed={ed} />}
         <ExportMenu id={id} name={content.name} />
-        {!mobile && (
-          <button className="icon-btn" disabled aria-label="Share (coming in Milestone 4)" title="Share links arrive in Milestone 4">
+        {caps.canEdit && (
+          <button
+            className="icon-btn"
+            aria-label="Share a link to this board"
+            title="Share a read-only link to this board"
+            onClick={() => m45.openShare({ kind: 'board', id, itemIds: [], name: content.name })}
+          >
             <Share2 size={15} aria-hidden="true" />
           </button>
         )}

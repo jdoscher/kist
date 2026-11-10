@@ -384,7 +384,16 @@ and `kist rebuild-index` restores boards, annotations, flags, labels and
 templates from their files.
 ## Video, audio, photos, design files, 3D and fonts
 
-Kist 2.0 looks inside more than images:
+Kist 2.0 looks inside more than images. In the web app: video and animated
+GIF tiles scrub as you move the pointer across them (desktop); the
+full-screen view plays video and audio (Set cover, Save frame, Clip…),
+copies an SVG or its colours, shows a font's specimen, axes and glyphs,
+turns a 3D model (Set poster renders the thumbnail) and lists what's inside
+a bundle. The info panel shows camera and media details, **Filters** in the
+top bar narrows by date taken, camera, lens, place, location, length and
+licence, and the sidebar has **Timeline** (with On this day) and **Map**
+(MapLibre with the self-hosted PMTiles basemap; picking a group shows its
+items).
 
 - **Video**: hover-scrub sprites (20 frames, one WebP), duration, fps,
   codec, bitrate, rotation and audio from ffprobe. Pick any frame as the
@@ -669,6 +678,19 @@ anything.
 
 ## Sharing, exporting and importing
 
+In the web app: **Share** (the top bar's share button for a folder or
+smart folder, the selection bar, a board's toolbar) makes a link with an
+optional password, an expiry and download switches; Settings → Sharing
+lists every link with its views and revokes them. **Export** packs a
+folder, selection or the whole library; **Export images** makes resized,
+watermarked copies or a contact sheet from saved presets. Settings → Import
+runs the importers below (upload the export or name a server path; dry run
+first), and Settings → Phone & browser has the iPhone Shortcut steps and
+the `/bookmarklet` page (its `/add` confirm card saves with your signed-in
+session; it never holds a token). The info panel shows and edits where an
+item came from, its licence and whether it's AI-generated, and opens the
+saved copy of its page.
+
 **Share links.** `POST /api/shares {target_kind: folder|smart|board|items,
 target_id | item_ids, title?, password?, expires_in_days? (30; 0 = never) |
 expires_at?, allow_download?, allow_original?}` (admin or write token) makes
@@ -877,7 +899,9 @@ GET    /api/items                q, tags (csv, all; a tag also matches through a
                                  (substrings), duration_min/_max (seconds), vertical,
                                  has_audio; order=-taken|taken sorts by date taken
                                  (else date added). type also takes audio, model,
-                                 design, bundle (and font)
+                                 design, bundle (and font). date_after/date_before:
+                                 the timeline's date (taken, else added); bbox=w,s,e,n:
+                                 items with GPS inside a map area (the web map)
                                  ids=a,b,c instead: those items in that order (compare);
                                  unknown or invisible ids are left out, other
                                  parameters ignored
@@ -1086,6 +1110,8 @@ GET    /api/exports              and /api/exports/{id} (status; ?download=1 = th
 GET    /api/exports/{id}/download  DELETE /api/exports/{id}
 GET/POST /api/shares             (write/admin) share links; GET/PATCH/DELETE
                                  /api/shares/{id}, POST /api/shares/{id}/revoke
+POST   /api/imports/upload       (write/admin) multipart 'file': an export sent from the
+                                 browser, kept in library/import/uploads/ -> {source}
 POST   /api/imports              (write/admin) {kind, source, dry_run?, folder?} -> 202;
 GET    /api/imports/{id}         status and report
 GET    /api/shortcut             (admin) the iOS Shortcut's steps for this server
