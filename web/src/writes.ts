@@ -91,9 +91,19 @@ export function describeError(e: unknown): string {
   return String((e as Error)?.message ?? e)
 }
 
+/** Whether trying the same request again could go differently: no answer,
+ * a server error, a timeout or rate limit. A 4xx (a protected item, an edit
+ * conflict, a bad value, a deleted folder) fails the same way every time,
+ * so its notice says why without a Retry. */
+export function isRetryable(e: unknown): boolean {
+  if (!(e instanceof ApiError)) return true
+  return e.status >= 500 || e.status === 408 || e.status === 429
+}
+
 export interface EachResult<T> {
   done: T[]
-  failed: { id: string; error: string }[]
+  /** retryable: isRetryable() of the error */
+  failed: { id: string; error: string; retryable?: boolean }[]
 }
 
 /** Run fn for every id, one at a time, carrying on past failures. */
@@ -103,11 +113,11 @@ export async function runEach<T>(ids: string[], fn: (id: string) => Promise<T>):
     try {
       out.done.push(await fn(id))
     } catch (e) {
-      out.failed.push({ id, error: describeError(e) })
+      out.failed.push({ id, error: describeError(e), retryable: isRetryable(e) })
       // signed out: every remaining request would fail the same way
       if (e instanceof ApiError && e.status === 401) {
         const rest = ids.slice(ids.indexOf(id) + 1)
-        out.failed.push(...rest.map((r) => ({ id: r, error: describeError(e) })))
+        out.failed.push(...rest.map((r) => ({ id: r, error: describeError(e), retryable: false })))
         break
       }
     }

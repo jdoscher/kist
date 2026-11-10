@@ -14,7 +14,9 @@ import {
   FOLDER_GONE,
   getDraft,
   isFolderGone,
+  isRetryable,
   laterStamp,
+  runEach,
   onDiscard,
   setDraft,
 } from '../src/writes.ts'
@@ -156,4 +158,21 @@ test('a smart folder saves every filter the server keeps (M1-M3), and nothing it
   const back = normalizeSaved({ ...saved, view: null } as Partial<typeof q>)
   for (const k of ['semantic', 'color', 'color_tol', 'text', 'person', 'flag', 'label', 'type'] as const) assert.equal(back[k], q[k], k)
   assert.equal(normalizeSaved({ flag: null, label: null } as Partial<typeof q>).flag, null)
+})
+
+test('only failures that could go differently offer Retry', async () => {
+  // a protected item (409), a bad value (422), a missing item: the same every time
+  assert.ok(!isRetryable(new ApiError(409, 'Protected: unprotect it first')))
+  assert.ok(!isRetryable(new ApiError(422, 'Unknown folder: x')))
+  assert.ok(!isRetryable(new ApiError(404, 'Not found')))
+  // no answer, the server failing, a timeout or rate limit: try again
+  assert.ok(isRetryable(new TypeError('Failed to fetch')))
+  assert.ok(isRetryable(new ApiError(503, 'Unavailable')))
+  assert.ok(isRetryable(new ApiError(429, 'Slow down')))
+  const r = await runEach(['a', 'b'], async (id) => {
+    if (id === 'a') throw new ApiError(409, 'Protected: unprotect it first')
+    throw new TypeError('Failed to fetch')
+  })
+  assert.deepEqual(r.failed.map((f) => [f.id, f.retryable]), [['a', false], ['b', true]])
+  assert.equal(r.failed[0].error, 'Protected: unprotect it first')
 })

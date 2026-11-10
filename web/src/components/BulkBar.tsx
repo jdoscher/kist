@@ -39,15 +39,17 @@ export function BulkBar() {
       {
         onSuccess: (r) => {
           if (r.failed.length) {
-            // keep only what failed selected; the notice says why, with Retry
+            // keep only what failed selected; the notice says why, with
+            // Retry when trying again could help (not for protected items)
             const failedIds = r.failed.map((f) => f.id)
+            const retryIds = r.failed.filter((f) => f.retryable !== false).map((f) => f.id)
             selectAll(failedIds)
             const done = targets.filter((id) => !failedIds.includes(id))
             notify({
               key: 'bulk',
               tone: 'error',
               message: bulkReport(r),
-              action: { label: 'Retry', run: () => run(action, failedIds) },
+              action: retryIds.length ? { label: 'Retry', run: () => run(action, retryIds) } : undefined,
               // the ones that did go to the Trash can still come back
               actions: action.kind === 'trash' && done.length ? [{ label: 'Undo', run: () => undoTrash(done, r.batch) }] : [],
             })
@@ -124,7 +126,9 @@ export function BulkBar() {
               key: 'trash',
               tone: 'error',
               message: bulkReport(r),
-              action: { label: 'Retry', run: () => restoreEach(r.failed.map((f) => f.id)) },
+              action: r.failed.some((f) => f.retryable !== false)
+                ? { label: 'Retry', run: () => restoreEach(r.failed.filter((f) => f.retryable !== false).map((f) => f.id)) }
+                : undefined,
             })
           else selectAll(trashed)
         },

@@ -24,6 +24,7 @@ import {
   getDraft,
   idleWrites,
   isFolderGone,
+  isRetryable,
   isSignedOut,
   laterStamp,
   onDiscard,
@@ -69,8 +70,9 @@ export function useWrite() {
             key: noticeKey(key),
             tone: 'error',
             message: failureText(opts.what ?? 'save that', message),
-            // retrying a write to a deleted folder can't help
-            action: isFolderGone(e) ? undefined : { label: 'Retry', run: () => void run(key, fn, opts) },
+            // retrying can't help with a 4xx (a protected item, a deleted
+            // folder, a conflict): the message alone says what to do
+            action: isRetryable(e) ? { label: 'Retry', run: () => void run(key, fn, opts) } : undefined,
           })
         }
         return false

@@ -30,7 +30,7 @@ export interface BulkInput {
 export interface BulkResult {
   input: BulkInput
   ok: number
-  failed: { id: string; error: string }[]
+  failed: { id: string; error: string; retryable?: boolean }[]
   /** the X-Kist-Batch the action was sent as: POST /api/batches/{id}/undo */
   batch: string
 }

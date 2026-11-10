@@ -72,7 +72,7 @@ test('bulk runs carry on past failures and stop at sign-out', async () => {
     return id
   })
   assert.deepEqual(r.done, ['a', 'c'])
-  assert.deepEqual(r.failed, [{ id: 'b', error: 'Server error (500)' }])
+  assert.deepEqual(r.failed, [{ id: 'b', error: 'Server error (500)', retryable: true }])
 
   let calls = 0
   const s = await runEach(['a', 'b', 'c', 'd'], async (id) => {

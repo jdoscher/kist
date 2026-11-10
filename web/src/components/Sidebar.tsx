@@ -391,7 +391,9 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
             key: 'bulk',
             tone: 'error',
             message: bulkReport(r),
-            action: { label: 'Retry', run: () => onDropItems(folderId, r.failed.map((f) => f.id)) },
+            action: r.failed.some((f) => f.retryable !== false)
+              ? { label: 'Retry', run: () => onDropItems(folderId, r.failed.filter((f) => f.retryable !== false).map((f) => f.id)) }
+              : undefined,
           })
         },
       },
