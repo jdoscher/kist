@@ -34,6 +34,8 @@ class ItemOut(BaseModel):
     source_url: str | None
     tags: list[str]
     protected: bool = False  # can't be trashed or purged until unprotected
+    flag: str | None = None  # pick | reject (Milestone 3)
+    label: str | None = None  # red | orange | yellow | green | blue | purple
     state: str  # lifecycle.ItemState: active | trashed
     preview_status: str  # lifecycle.PreviewStatus: pending | ready | failed | none
     preview_error: str | None
@@ -71,6 +73,8 @@ class ItemOut(BaseModel):
             source_url=item.source_url,
             tags=sorted(t.name for t in item.tags),
             protected=bool(item.protected),
+            flag=item.flag,
+            label=item.label,
             state=item_state(item).value,
             preview_status=str(status),
             preview_error=item.preview_error,
@@ -136,6 +140,9 @@ class ItemPatch(BaseModel):
     # protected items can't be trashed or purged; unprotecting needs the
     # write or admin scope
     protected: bool | None = None
+    # Milestone 3: null clears
+    flag: Literal["pick", "reject"] | None = None
+    label: Literal["red", "orange", "yellow", "green", "blue", "purple"] | None = None
     # the modified_at the client last saw; a mismatch answers 409
     base_modified_at: datetime | None = None
 
@@ -229,6 +236,9 @@ class SmartFolderQuery(BaseModel):
     deleted: bool = False
     created_after: datetime | None = None
     created_before: datetime | None = None
+    # Milestone 3: "none" matches items without one
+    flag: Literal["pick", "reject", "none"] | None = None
+    label: Literal["red", "orange", "yellow", "green", "blue", "purple", "none"] | None = None
 
 
 class SmartFolderOut(BaseModel):
@@ -343,9 +353,10 @@ class BatchOut(BaseModel):
 
 
 class UndoSkip(BaseModel):
-    item_id: str
+    item_id: str  # the board id when target is "board"
     event_id: int
     reason: str
+    target: Literal["item", "board"] = "item"
 
 
 class UndoOut(BaseModel):
@@ -357,3 +368,170 @@ class UndoOut(BaseModel):
 class VersionOut(BaseModel):
     version: str
     commit: str
+
+
+
+# ---------- Milestone 3: creative workflows ----------
+
+
+class BoardSummary(BaseModel):
+    id: str
+    name: str
+    version: int
+    item_count: int
+    created_at: datetime
+    modified_at: datetime
+    deleted_at: datetime | None = None
+    thumb_url: str
+
+
+class BoardCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    canvas: dict[str, Any] | None = None
+    nodes: list[dict[str, Any]] = []
+    edges: list[dict[str, Any]] = []
+    # convenience: lay these items out as nodes (grid or masonry)
+    item_ids: list[str] = []
+    layout: Literal["grid", "masonry"] = "grid"
+
+
+class BoardPut(BaseModel):
+    """The whole document. base_version is the version you last saw."""
+
+    base_version: int
+    name: str = Field(min_length=1, max_length=200)
+    canvas: dict[str, Any] | None = None
+    nodes: list[dict[str, Any]] = []
+    edges: list[dict[str, Any]] = []
+
+
+class BoardPatch(BaseModel):
+    """Incremental save. add: new nodes; update: [{id, ...fields}] merged
+    into the node (a null value removes the key); remove: node ids (their
+    edges and group memberships go too). edges_* work the same on edges.
+    base_version: refused with 409 if the board has moved on; leave it out
+    to apply the ops to whatever is current (agents adding items)."""
+
+    base_version: int | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    canvas: dict[str, Any] | None = None
+    add: list[dict[str, Any]] = []
+    update: list[dict[str, Any]] = []
+    remove: list[str] = []
+    edges_add: list[dict[str, Any]] = []
+    edges_update: list[dict[str, Any]] = []
+    edges_remove: list[str] = []
+
+
+class BoardAddItems(BaseModel):
+    item_ids: list[str] = Field(min_length=1, max_length=500)
+    layout: Literal["grid", "masonry"] = "grid"
+    base_version: int | None = None
+
+
+class AnnotationIn(BaseModel):
+    kind: Literal["point", "box", "range"]
+    x: float | None = None
+    y: float | None = None
+    w: float | None = None
+    h: float | None = None
+    t_start: float | None = None
+    t_end: float | None = None
+    text: str = Field(default="", max_length=4000)
+    resolved: bool = False
+
+
+class AnnotationPatch(BaseModel):
+    x: float | None = None
+    y: float | None = None
+    w: float | None = None
+    h: float | None = None
+    t_start: float | None = None
+    t_end: float | None = None
+    text: str | None = Field(default=None, max_length=4000)
+    resolved: bool | None = None
+
+
+class AnnotationOut(BaseModel):
+    id: str
+    item_id: str
+    kind: str
+    x: float | None
+    y: float | None
+    w: float | None
+    h: float | None
+    t_start: float | None
+    t_end: float | None
+    text: str
+    author: str
+    created_at: datetime
+    resolved: bool
+
+
+class TemplateFields(BaseModel):
+    tags_add: list[str] = []
+    folder_add: list[str] = []
+    notes_append: str = Field(default="", max_length=validation.NOTES_MAX)
+    source_url: str | None = None
+    rating: int | None = Field(default=None, ge=0, le=5)
+    label: Literal["red", "orange", "yellow", "green", "blue", "purple", "none"] | None = None
+    flag: Literal["pick", "reject", "none"] | None = None
+    credit: str | None = Field(default=None, max_length=200)
+    license: str | None = Field(default=None, max_length=200)
+
+    _source_url = field_validator("source_url")(_check_source_url)
+
+
+class TemplateIn(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    fields: TemplateFields = TemplateFields()
+
+
+class TemplateOut(BaseModel):
+    id: str
+    name: str
+    fields: TemplateFields
+
+
+class TemplateApply(BaseModel):
+    item_ids: list[str] = Field(min_length=1, max_length=1000)
+
+
+class RenameIn(BaseModel):
+    item_ids: list[str] = Field(min_length=1, max_length=1000)
+    pattern: str = Field(min_length=1, max_length=400)
+    dry_run: bool = True
+    start: int = Field(default=1, ge=0)  # first value of {n}
+
+
+class RenameRow(BaseModel):
+    id: str
+    before: str
+    after: str
+    changed: bool
+
+
+class RenameOut(BaseModel):
+    dry_run: bool
+    items: list[RenameRow]
+    batch_id: str | None = None  # undo it with POST /api/batches/{id}/undo
+
+
+class TriageOut(BaseModel):
+    item: ItemOut | None
+    prefetch_ids: list[str]
+    remaining: int  # items in the view (what's left to triage)
+
+
+class PaletteResult(BaseModel):
+    kind: Literal["folder", "smart_folder", "tag", "board", "item", "action"]
+    id: str
+    title: str
+    subtitle: str = ""
+
+
+class VersionsOut(BaseModel):
+    """The version_of chain, oldest first; current_id is the newest."""
+
+    items: list[ItemOut]
+    current_id: str

@@ -65,7 +65,14 @@ def list_items(
     cursor: str | None = None,
     # order by meaning: nearest to this text first (needs the ml service)
     semantic: Annotated[str | None, Query(max_length=1000)] = None,
+    # Milestone 3: pick | reject | none ; a colour | none
+    flag: str | None = None,
+    label: str | None = None,
+    # Milestone 3 (compare): these items, in this order; other filters ignored
+    ids: Annotated[str | None, Query(max_length=3000)] = None,
 ):
+    if ids is not None:
+        return _items_by_ids(session, ids)
     tag_names = list(tags or [])
     semantic_vec, semantic_model = None, None
     if semantic and semantic.strip() and ai.has_embeddings(session):
@@ -83,12 +90,28 @@ def list_items(
         created_after=created_after, created_before=created_before, fixity=fixity,
         limit=limit, cursor=cursor,
         semantic=semantic_vec, semantic_model=semantic_model,
+        flag=flag, label=label,
     )
     return ItemPage(
         items=[ItemOut.from_item(i) for i in rows],
         next_cursor=next_cursor,
         total=total,
     )
+
+
+def _items_by_ids(session: Session, raw: str) -> ItemPage:
+    """GET /api/items?ids=a,b,c: those items in that order (any state);
+    ids that don't exist or the caller can't see are left out."""
+    wanted = list(dict.fromkeys(i.strip() for i in raw.split(",") if i.strip()))
+    if len(wanted) > 100:
+        raise HTTPException(422, "at most 100 ids")
+    out = []
+    for item_id in wanted:
+        try:
+            out.append(ItemOut.from_item(items_svc.get_item(session, item_id)))
+        except items_svc.NotFound:
+            continue
+    return ItemPage(items=out, next_cursor=None, total=len(out))
 
 
 @router.post("", response_model=ItemCreateResponse, status_code=201)

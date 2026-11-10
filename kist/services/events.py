@@ -41,7 +41,10 @@ BATCH_MAX = 64
 _BATCH_RE = re.compile(r"^[A-Za-z0-9._:-]{1,64}$")
 
 # fields an "edit" event carries; protected has its own kind
-EDIT_FIELDS = ("filename", "rating", "notes", "source_url", "created_at")
+EDIT_FIELDS = (
+    "filename", "rating", "notes", "source_url", "created_at",
+    "flag", "label",  # Milestone 3
+)
 
 
 class Kind:
@@ -55,6 +58,7 @@ class Kind:
     LINK = "link"
     UNLINK = "unlink"
     PROTECT = "protect"
+    ANNOTATION = "annotation"  # Milestone 3 (services/annotations.py)
 
 
 class NotFound(Exception):
@@ -131,6 +135,8 @@ def state(item: Item) -> dict:
         "source_url": item.source_url,
         "created_at": _iso(item.created_at),
         "protected": bool(item.protected),
+        "flag": item.flag,
+        "label": item.label,
         "tags": sorted(t.name for t in item.tags),
         "folder_ids": sorted(f.id for f in item.folders),
         "state": "trashed" if item.deleted_at is not None else "active",
@@ -324,22 +330,28 @@ def history(session: Session, item_id: str, limit: int = 200) -> list[ItemEvent]
 
 
 def recent_batches(session: Session, limit: int = 50, actor: str | None = None) -> list[dict]:
+    _register()
+    # item events plus other batched tables (board events, kinds prefixed
+    # "board_"); ordered by time, since the tables' ids are separate
+    parts = [sa.select(ItemEvent.batch_id, ItemEvent.actor, ItemEvent.source,
+                       ItemEvent.at, ItemEvent.kind)]
+    parts += [src.batches_select() for src in UNDO_SOURCES]
+    ev = sa.union_all(*parts).subquery() if len(parts) > 1 else parts[0].subquery()
     stmt = (
         sa.select(
-            ItemEvent.batch_id,
-            sa.func.min(ItemEvent.actor).label("actor"),
-            sa.func.min(ItemEvent.source).label("source"),
-            sa.func.max(ItemEvent.at).label("at"),
+            ev.c.batch_id,
+            sa.func.min(ev.c.actor).label("actor"),
+            sa.func.min(ev.c.source).label("source"),
+            sa.func.max(ev.c.at).label("at"),
             sa.func.count().label("count"),
-            sa.func.array_agg(sa.distinct(ItemEvent.kind)).label("kinds"),
-            sa.func.max(ItemEvent.id).label("last_id"),
+            sa.func.array_agg(sa.distinct(ev.c.kind)).label("kinds"),
         )
-        .group_by(ItemEvent.batch_id)
-        .order_by(sa.text("last_id DESC"))
+        .group_by(ev.c.batch_id)
+        .order_by(sa.text("at DESC"))
         .limit(limit)
     )
     if actor:
-        stmt = stmt.where(ItemEvent.actor == actor)
+        stmt = stmt.where(ev.c.actor == actor)
     return [
         {"batch_id": r.batch_id, "actor": r.actor, "source": r.source, "at": r.at,
          "count": r.count, "kinds": sorted(r.kinds)}
@@ -348,6 +360,42 @@ def recent_batches(session: Session, limit: int = 50, actor: str | None = None) 
 
 
 # ---------- undo ----------
+
+
+class ExtraKind:
+    """An item event kind defined outside this module (annotations): what it
+    touched (for conflict checks) and how to revert it (returns why it was
+    skipped, or None). Registered in EXTRA_KINDS by its service."""
+
+    def keys(self, before, after) -> set[str]:  # pragma: no cover - interface
+        raise NotImplementedError
+
+    def inverse(self, session: Session, ev: ItemEvent) -> str | None:  # pragma: no cover
+        raise NotImplementedError
+
+
+class UndoSource:
+    """Another event table batched with item events (board_events): undo of
+    a batch reverts its events too, in the same new batch."""
+
+    def find(self, session: Session, batch_id: str) -> list:  # pragma: no cover
+        raise NotImplementedError
+
+    def revert(self, session: Session, events: list, exclude: set[str]) -> tuple[int, list[dict]]:
+        raise NotImplementedError  # pragma: no cover
+
+    def batches_select(self):  # pragma: no cover - interface
+        """A select of (batch_id, actor, source, at, kind, id) rows."""
+        raise NotImplementedError
+
+
+EXTRA_KINDS: dict[str, ExtraKind] = {}
+UNDO_SOURCES: list[UndoSource] = []
+
+
+def _register() -> None:
+    """Import the modules that register extra kinds and undo sources."""
+    from . import annotations, boards  # noqa: F401
 
 
 def event_keys(kind: str, before, after) -> set[str]:
@@ -367,6 +415,8 @@ def event_keys(kind: str, before, after) -> set[str]:
     if kind in (Kind.LINK, Kind.UNLINK):
         link = after.get("link") or before.get("link") or {}
         return {f"link:{link.get('item_id')}:{link.get('kind')}"}
+    if kind in EXTRA_KINDS:
+        return EXTRA_KINDS[kind].keys(before, after)
     return {"state"}  # create, trash, restore, purge
 
 
@@ -429,6 +479,8 @@ def _apply_inverse(session: Session, ev: ItemEvent) -> str | None:
                 links_svc.unlink(session, src, dst, link["kind"])
             else:
                 links_svc.link(session, src, dst, link["kind"])
+        elif ev.kind in EXTRA_KINDS:
+            return EXTRA_KINDS[ev.kind].inverse(session, ev)
         elif ev.kind == Kind.PURGE:
             return "it was permanently deleted; only a backup can bring it back"
         else:
@@ -445,13 +497,22 @@ def _apply_inverse(session: Session, ev: ItemEvent) -> str | None:
     return None
 
 
-def revert(session: Session, events: list[ItemEvent], exclude_batches: set[str]) -> dict:
+def revert(
+    session: Session, events: list[ItemEvent], exclude_batches: set[str],
+    extra: list[tuple["UndoSource", list]] | None = None,
+) -> dict:
     """Revert `events` newest first in a new batch. An event is skipped when
     a later event on the same item, outside `exclude_batches` and the new
-    batch, touched the same thing."""
+    batch, touched the same thing. `extra` holds other event tables' events
+    of the same batch (board events), reverted in the same new batch."""
+    _register()
     undone = 0
     skipped: list[dict] = []
     with new_batch() as ctx:
+        for source, found in extra or []:
+            n, skips = source.revert(session, found, set(exclude_batches) | {ctx.batch_id})
+            undone += n
+            skipped.extend(skips)
         exclude = set(exclude_batches) | {ctx.batch_id}
         for ev in sorted(events, key=lambda e: e.id, reverse=True):
             keys = event_keys(ev.kind, ev.before, ev.after)
@@ -479,9 +540,12 @@ def undo_batch(session: Session, batch_id: str) -> dict:
     events = session.execute(
         sa.select(ItemEvent).where(ItemEvent.batch_id == batch_id)
     ).scalars().all()
-    if not events:
+    _register()
+    extra = [(src, src.find(session, batch_id)) for src in UNDO_SOURCES]
+    extra = [(src, found) for src, found in extra if found]
+    if not events and not extra:
         raise NotFound(f"batch {batch_id} not found")
-    return revert(session, list(events), {batch_id})
+    return revert(session, list(events), {batch_id}, extra)
 
 
 def revert_event(session: Session, event_id: int) -> dict:

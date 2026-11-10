@@ -158,6 +158,10 @@ class Item(Base):
     )
     # base64 ThumbHash of the preview (services/thumbhash.py); "" = can't be made
     thumbhash: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Milestone 3: culling flag (pick | reject) and colour label (red, orange,
+    # yellow, green, blue, purple); null = none. services/validation-checked.
+    flag: Mapped[str | None] = mapped_column(Text, nullable=True)
+    label: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     tags: Mapped[list[Tag]] = relationship(secondary="item_tags", lazy="selectin")
     folders: Mapped[list[Folder]] = relationship(
@@ -293,3 +297,87 @@ class Job(Base):
     finished_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+
+
+# ---------- Milestone 3: creative workflows ----------
+
+
+class Board(Base):
+    """A board (services/boards.py). library/boards/<id>/board.json is the
+    durable copy; `doc` is the same document, kept here so a save can be
+    checked against base_version and written under one lock."""
+
+    __tablename__ = "boards"
+
+    id: Mapped[str] = mapped_column(String(26), primary_key=True)
+    name: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    modified_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    item_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    doc: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+
+
+class BoardItem(Base):
+    """Which items a board shows ("used in boards"). A purged item's row
+    goes with it; the board keeps the node, shown as a missing item."""
+
+    __tablename__ = "board_items"
+
+    board_id: Mapped[str] = mapped_column(
+        String(26), ForeignKey("boards.id", ondelete="CASCADE"), primary_key=True
+    )
+    item_id: Mapped[str] = mapped_column(
+        String(26), ForeignKey("items.id", ondelete="CASCADE"), primary_key=True
+    )
+
+
+class BoardEvent(Base):
+    """One change to one board (services/boards.py), batched like item
+    events so POST /api/batches/{id}/undo reverts both. No foreign key: a
+    purged board's history is kept."""
+
+    __tablename__ = "board_events"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    board_id: Mapped[str] = mapped_column(String(26))
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    actor: Mapped[str] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(Text)
+    batch_id: Mapped[str] = mapped_column(Text)
+    kind: Mapped[str] = mapped_column(Text)
+    before: Mapped[Any] = mapped_column(JSONB, nullable=True)
+    after: Mapped[Any] = mapped_column(JSONB, nullable=True)
+
+
+class Annotation(Base):
+    """A note pinned to part of an item (services/annotations.py);
+    items/<id>/annotations.json is the durable copy. Coordinates are 0-1 of
+    the image, times are seconds into a video."""
+
+    __tablename__ = "annotations"
+
+    id: Mapped[str] = mapped_column(String(26), primary_key=True)
+    item_id: Mapped[str] = mapped_column(
+        String(26), ForeignKey("items.id", ondelete="CASCADE")
+    )
+    kind: Mapped[str] = mapped_column(Text)  # point | box | range
+    x: Mapped[float | None] = mapped_column(Float, nullable=True)
+    y: Mapped[float | None] = mapped_column(Float, nullable=True)
+    w: Mapped[float | None] = mapped_column(Float, nullable=True)
+    h: Mapped[float | None] = mapped_column(Float, nullable=True)
+    t_start: Mapped[float | None] = mapped_column(Float, nullable=True)
+    t_end: Mapped[float | None] = mapped_column(Float, nullable=True)
+    text: Mapped[str] = mapped_column(Text, default="", server_default="")
+    author: Mapped[str] = mapped_column(Text, default="", server_default="")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    resolved: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")

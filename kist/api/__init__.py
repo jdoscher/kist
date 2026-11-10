@@ -1,6 +1,18 @@
 from fastapi import APIRouter
 
-from . import ai, folders, history, items, jobs, misc, smart_folders, tags, tokens
+from . import (  # Milestone 3
+    ai,
+    boards,
+    creative,
+    folders,
+    history,
+    items,
+    jobs,
+    misc,
+    smart_folders,
+    tags,
+    tokens,
+)
 
 api_router = APIRouter()
 api_router.include_router(misc.router)
@@ -12,3 +24,5 @@ api_router.include_router(jobs.router)
 api_router.include_router(tokens.router)
 api_router.include_router(history.router)
 api_router.include_router(ai.router)
+api_router.include_router(boards.router)
+api_router.include_router(creative.router)

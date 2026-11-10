@@ -95,8 +95,11 @@ def build_filters(
     created_after: datetime | None = None,
     created_before: datetime | None = None,
     fixity: str | None = None,
+    flag: str | None = None,
+    label: str | None = None,
 ) -> list[Any]:
     filters: list[Any] = []
+    filters += _creative_filters(flag, label)
     if fixity is not None:
         if fixity != "failed":
             raise ValidationError(f"unknown fixity {fixity!r}; expected failed")
@@ -125,6 +128,7 @@ def build_filters(
                 Item.filename.ilike(pattern),
                 sa.func.similarity(Item.filename, q) > 0.25,
                 Item.notes.ilike(pattern),
+                _annotation_match(pattern),  # Milestone 3
             )
         )
     if tags:
@@ -183,6 +187,39 @@ def build_filters(
     return filters
 
 
+# ---------- Milestone 3: flags, labels, annotation text ----------
+
+
+def _creative_filters(flag: str | None, label: str | None) -> list[Any]:
+    """flag= pick | reject | none, label= a colour | none."""
+    from . import validation
+
+    out: list[Any] = []
+    if flag is not None:
+        if flag == "none":
+            out.append(Item.flag.is_(None))
+        elif flag not in validation.FLAGS:
+            raise ValidationError(f"unknown flag {flag!r}; expected pick, reject or none")
+        else:
+            out.append(Item.flag == flag)
+    if label is not None:
+        if label == "none":
+            out.append(Item.label.is_(None))
+        elif label not in validation.LABELS:
+            raise ValidationError(
+                f"unknown label {label!r}; expected one of {', '.join(validation.LABELS)} or none"
+            )
+        else:
+            out.append(Item.label == label)
+    return out
+
+
+def _annotation_match(pattern: str):
+    from ..models import Annotation
+
+    return sa.exists().where(Annotation.item_id == Item.id, Annotation.text.ilike(pattern))
+
+
 SEMANTIC_CURSOR = "~semantic"
 
 
@@ -234,6 +271,8 @@ def search_items(
     created_after: datetime | None = None,
     created_before: datetime | None = None,
     fixity: str | None = None,
+    flag: str | None = None,
+    label: str | None = None,
     order: str = "-created",
     limit: int = 100,
     cursor: str | None = None,
@@ -254,6 +293,7 @@ def search_items(
         rating_min=rating_min, deleted=deleted, state=state, view=view,
         preview_status=preview_status,
         created_after=created_after, created_before=created_before, fixity=fixity,
+        flag=flag, label=label,
     )
     if order not in ORDERS:
         raise ValidationError(f"unknown order {order!r}; expected one of {', '.join(ORDERS)}")

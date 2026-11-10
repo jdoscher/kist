@@ -133,6 +133,10 @@ RESTRICTED_PATHS = [
         rf"^{_ITEM}$",
         rf"^{_ITEM}/(file|thumb|history|links)$",
         r"^/api/folders$",
+        # Milestone 3: filtered to what the reader sees (services/boards.visible)
+        rf"^{_ITEM}/(annotations|versions|boards)$",
+        r"^/api/boards$",
+        r"^/api/boards/[^/]+(/(thumb|export))?$",
     )
 ]
 HELPER_PREFIX = "/api/ai/jobs"
