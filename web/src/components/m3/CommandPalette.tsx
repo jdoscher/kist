@@ -29,8 +29,20 @@ import {
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { emptyQuery, type Query } from '../../api'
 import { api3 } from '../../creativeApi'
-import { useCaps, useSmartFolders } from '../../data'
-import { addActionOpens, KIND_LABEL, mergeResults, moveActive, pushRecent, readRecent, type PaletteEntry, type PaletteKind } from '../../palette'
+import { COMPARE_MAX } from '../../compareTargets'
+import { useCaps, useCurrentItems, useItem, useSmartFolders } from '../../data'
+import {
+  addActionOpens,
+  compareActions,
+  comparePickEntries,
+  KIND_LABEL,
+  mergeResults,
+  moveActive,
+  pushRecent,
+  readRecent,
+  type PaletteEntry,
+  type PaletteKind,
+} from '../../palette'
 import { unfiledQuery } from '../../query'
 import { useAppState } from '../../state'
 import { Modal, useDialog } from '../Dialog'
@@ -54,6 +66,7 @@ const ACTION_ICON: Record<string, LucideIcon> = {
   boards: LayoutDashboard,
   triage: ListChecks,
   compare: Columns2,
+  'compare-with': Columns2,
   survey: Columns2,
   rename: PencilLine,
   'apply-template': Sparkles,
@@ -80,6 +93,10 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
   const listId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
   const recent = useMemo(() => readRecent(), [])
+  // Compare… with one item open: the list turns into a pick of the second
+  const [pickFor, setPickFor] = useState<string | null>(null)
+  const { items: inView } = useCurrentItems()
+  const pickItem = useItem(pickFor, inView)
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(q), 120)
@@ -110,12 +127,7 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
         { kind: 'action', id: 'history', title: 'Recent changes', subtitle: 'Undo', keywords: 'history undo' },
       )
     }
-    if (sel.length >= 2) {
-      a.unshift(
-        { kind: 'action', id: 'compare', title: `Compare ${Math.min(sel.length, 4)} selected`, subtitle: 'Side by side, wipe or overlay', keywords: 'diff' },
-        { kind: 'action', id: 'survey', title: `Survey ${sel.length} selected`, subtitle: 'Pick and reject, one by one', keywords: 'cull' },
-      )
-    }
+    a.unshift(...compareActions(sel.length, COMPARE_MAX))
     if (sel.length && caps.canEdit) {
       a.push(
         { kind: 'action', id: 'rename', title: `Rename ${sel.length} selected…`, subtitle: 'With a pattern', keywords: 'bulk' },
@@ -134,7 +146,9 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
   const serverEntries = (server.data ?? []).filter((e) => e.kind !== 'action' || KNOWN_ACTIONS.has(e.id))
   // a recent action that no longer applies (e.g. the theme you're on now) is dropped
   const liveRecent = recent.filter((r) => r.kind !== 'action' || local.some((l) => l.id === r.id))
-  const groups = mergeResults(q, local, serverEntries, liveRecent)
+  const groups = pickFor
+    ? [{ kind: 'item' as PaletteKind, entries: comparePickEntries(q, debounced === q ? (server.data ?? []) : [], inView ?? [], pickFor) }].filter((g) => g.entries.length)
+    : mergeResults(q, local, serverEntries, liveRecent)
   const flat = groups.flatMap((g) => g.entries.map((e) => ({ ...e, group: g.kind })))
   const cur = Math.min(active, flat.length - 1)
   useEffect(() => setActive(0), [q, debounced])
@@ -165,6 +179,8 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
         return openScreen({ kind: 'triage', view: 'unfiled' })
       case 'compare':
         return creative.openCompare(sel, 'compare')
+      case 'compare-with':
+        return creative.openCompare(sel, 'compare') // (a pick in between: see run)
       case 'survey':
         return creative.openCompare(sel, 'survey')
       case 'rename':
@@ -196,6 +212,20 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
   }
 
   const run = async (e: PaletteEntry & { group?: PaletteKind }) => {
+    if (pickFor) {
+      // the second item of Compare…: the open one first, like Compare with vN
+      if (e.kind !== 'item') return
+      onClose()
+      return creative.openCompare([pickFor, e.id], 'compare')
+    }
+    if (e.kind === 'action' && e.id === 'compare-with' && sel.length === 1) {
+      pushRecent(e)
+      setPickFor(sel[0])
+      setQ('')
+      setDebounced('')
+      inputRef.current?.focus()
+      return
+    }
     onClose()
     if (e.kind !== 'item') pushRecent(e)
     switch (e.kind) {
@@ -239,7 +269,7 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
 
   let i = -1
   return (
-    <Modal title="Go to or do anything" onClose={onClose} className="palette" headerClose={st.mobile}>
+    <Modal title={pickFor ? 'Compare with…' : 'Go to or do anything'} onClose={onClose} className="palette" headerClose={st.mobile}>
       <div className="palette-input">
         <Search size={16} strokeWidth={1.75} aria-hidden="true" />
         <input
@@ -250,8 +280,8 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
           aria-controls={listId}
           aria-autocomplete="list"
           aria-activedescendant={flat.length ? `${listId}-${cur}` : undefined}
-          aria-label="Search folders, tags, boards, items and actions"
-          placeholder="Folders, tags, boards, items, actions…"
+          aria-label={pickFor ? `Find the item to compare ${pickItem?.filename ?? 'it'} with` : 'Search folders, tags, boards, items and actions'}
+          placeholder={pickFor ? 'Compare with… (search items)' : 'Folders, tags, boards, items, actions…'}
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={onKeyDown}
@@ -292,7 +322,7 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
         ))}
         {!flat.length && (
           <p className="palette-empty" role="status">
-            {server.isFetching ? 'Searching…' : `Nothing matches “${q}”.`}
+            {server.isFetching ? 'Searching…' : pickFor && !q.trim() ? 'Type to find the item to compare with.' : `Nothing matches “${q}”.`}
           </p>
         )}
       </div>

@@ -7,6 +7,7 @@ import { createContext, lazy, Suspense, useCallback, useContext, useMemo, useSta
 import { useAppState } from '../../state'
 import { useShortcut } from '../../useShortcuts'
 import { QuickLook } from './QuickLook'
+import { COMPARE_MAX } from '../../compareTargets'
 
 const CommandPalette = lazy(() => import('./CommandPalette'))
 const Compare = lazy(() => import('./Compare'))
@@ -31,7 +32,7 @@ export function useCreative(): CreativeApi {
   return c
 }
 
-export const COMPARE_MAX = 4
+export { COMPARE_MAX }
 export const SURVEY_MAX = 12
 
 export function CreativeProvider({ children }: { children: ReactNode }) {

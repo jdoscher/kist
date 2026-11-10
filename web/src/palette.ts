@@ -137,6 +137,42 @@ export function moveActive(i: number, delta: number, n: number): number {
   return (((i + delta) % n) + n) % n
 }
 
+// ---------- Compare… ----------
+
+/** The palette's compare actions for a selection of `n` items. Two or more
+ * open Compare on them (up to `max`); one (the phone's open item, or the
+ * desktop's single selection) asks for a second item first. */
+export function compareActions(n: number, max = 4): PaletteEntry[] {
+  if (n >= 2) {
+    return [
+      { kind: 'action', id: 'compare', title: 'Compare…', subtitle: `${Math.min(n, max)} selected: side by side, wipe or overlay`, keywords: 'diff versus side by side' },
+      { kind: 'action', id: 'survey', title: `Survey ${n} selected`, subtitle: 'Pick and reject, one by one', keywords: 'cull' },
+    ]
+  }
+  if (n === 1) {
+    return [{ kind: 'action', id: 'compare-with', title: 'Compare…', subtitle: 'With another item: pick it next', keywords: 'diff versus side by side' }]
+  }
+  return []
+}
+
+/** While picking the item to compare with: with no query, the items in
+ * view (they are what you're looking at); with one, the server's item
+ * matches. Never the open item itself. */
+export function comparePickEntries(
+  q: string,
+  server: PaletteEntry[],
+  inView: { id: string; filename: string }[],
+  openId: string,
+  limit = 8,
+): PaletteEntry[] {
+  const view: PaletteEntry[] = inView.map((i) => ({ kind: 'item' as const, id: i.id, title: i.filename, subtitle: 'In view' }))
+  // typing: the items in view that match first (no wait for the server),
+  // then the server's matches from the whole library
+  const list = q.trim() ? [...rankLocal(q, view), ...server.filter((e) => e.kind === 'item')] : view
+  const seen = new Set<string>([openId])
+  return list.filter((e) => !seen.has(e.id) && !!seen.add(e.id)).slice(0, limit)
+}
+
 /** What an add action opens: the file picker, or a box for a link (an
  * image or a page URL). "Add from URL" once opened the file picker. */
 export function addActionOpens(id: string): 'files' | 'url' | null {

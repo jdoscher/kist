@@ -1,5 +1,5 @@
 import { ExternalLink, Lock, Maximize2, Star, X } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { emptyQuery, fileUrl, thumbUrl, type Item } from '../api'
 import { useCurrentItems, useFolderNames, useItem } from '../data'
 import { swipeDirection } from '../mobile'
@@ -8,13 +8,14 @@ import { ItemHistory } from './ItemHistory'
 import { ItemLinks } from './ItemLinks'
 import { ItemMeta } from './ItemMeta'
 import { ItemSections } from './m45/lazy'
+import { SheetVersions } from './m3/ItemCreative'
 import { ItemStatus } from './ItemStatus'
 import { CaptionField, ImpliedTags, ItemFaces, MatchWhy, MoreLikeThisButton, PaletteSwatches, StackInfo, TagText } from './ItemAI'
 
 /** An item's details without edit controls: the phone sheet's body, and
  * the info panel for a read-only token. Tags and folders are links to
  * their views. */
-export function ReadOnlyItem({ item, withThumb = false }: { item: Item; withThumb?: boolean }) {
+export function ReadOnlyItem({ item, withThumb = false, afterStack }: { item: Item; withThumb?: boolean; afterStack?: ReactNode }) {
   const { query, setQuery, setPreviewId } = useAppState()
   const folderName = useFolderNames()
   const thumb = thumbUrl(item, 512)
@@ -78,6 +79,7 @@ export function ReadOnlyItem({ item, withThumb = false }: { item: Item; withThum
       <PaletteSwatches item={item} />
       <ItemFaces item={item} editable={false} />
       <StackInfo item={item} editable={false} />
+      {afterStack}
       <ItemLinks item={item} editable={false} />
       <ItemMeta item={item} />
       <ItemSections item={item} />
@@ -161,7 +163,7 @@ export function DetailSheet() {
       </div>
 
       <div className="sheet-body">
-        <ReadOnlyItem item={item} />
+        <ReadOnlyItem item={item} afterStack={<SheetVersions item={item} />} />
       </div>
     </aside>
   )

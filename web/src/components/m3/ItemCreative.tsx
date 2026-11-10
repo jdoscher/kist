@@ -6,7 +6,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Columns2, Layers, LayoutDashboard, Upload } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { thumbUrl, type Item } from '../../api'
+import { sheetCompareChoices } from '../../compareTargets'
 import { api3, uploadVersion } from '../../creativeApi'
+import { org } from '../../organiseApi'
 import { useApplyItems, useCaps, useRefresh } from '../../data'
 import { afterVersionUpload } from '../../versions'
 import { describeError } from '../../writes'
@@ -89,23 +91,7 @@ export function ItemVersions({ item }: { item: Item }) {
       />
       {progress !== null && <progress max={100} value={progress} aria-label="Uploading the new version" />}
       {chain.length > 1 ? (
-        <ol className="version-list">
-          {chain.map((v, i) => (
-            <li key={v.id} className={v.id === item.id ? 'here' : ''}>
-              <button className="link-open" onClick={() => selectOnly(v.id)} aria-current={v.id === item.id ? 'true' : undefined}>
-                {thumbUrl(v) ? <img className="link-thumb" src={thumbUrl(v) ?? ''} alt="" /> : <span className="link-thumb icon" aria-hidden="true"><Layers size={14} /></span>}
-                <span className="link-text">
-                  <span className="link-kind">
-                    v{i + 1}
-                    {v.id === versions.data?.current_id ? ' · current' : ''}
-                  </span>
-                  <span className="link-name">{v.filename}</span>
-                  <span className="version-date">{dateText(v.created_at)}</span>
-                </span>
-              </button>
-            </li>
-          ))}
-        </ol>
+        <VersionList chain={chain} itemId={item.id} currentId={versions.data?.current_id} onOpen={selectOnly} />
       ) : (
         <p className="hint">One version. Upload a new one to keep both, linked, with the newest shown as current.</p>
       )}
@@ -115,6 +101,61 @@ export function ItemVersions({ item }: { item: Item }) {
           Compare with v{at}
         </button>
       )}
+    </div>
+  )
+}
+
+function VersionList({ chain, itemId, currentId, onOpen }: { chain: Item[]; itemId: string; currentId?: string | null; onOpen: (id: string) => void }) {
+  return (
+    <ol className="version-list">
+      {chain.map((v, i) => (
+        <li key={v.id} className={v.id === itemId ? 'here' : ''}>
+          <button className="link-open" onClick={() => onOpen(v.id)} aria-current={v.id === itemId ? 'true' : undefined}>
+            {thumbUrl(v) ? <img className="link-thumb" src={thumbUrl(v) ?? ''} alt="" /> : <span className="link-thumb icon" aria-hidden="true"><Layers size={14} /></span>}
+            <span className="link-text">
+              <span className="link-kind">
+                v{i + 1}
+                {v.id === currentId ? ' · current' : ''}
+              </span>
+              <span className="link-name">{v.filename}</span>
+              <span className="version-date">{dateText(v.created_at)}</span>
+            </span>
+          </button>
+        </li>
+      ))}
+    </ol>
+  )
+}
+
+/** The phone sheet's Versions and Compare: the version chain (tap one to
+ * open it), "Compare with vN" like the info panel, and "Compare with
+ * stack" for a stacked item. Read-only: no upload here. Compare opens in
+ * its phone layout. */
+export function SheetVersions({ item }: { item: Item }) {
+  const { openCompare } = useCreative()
+  const { selectOnly } = useAppState()
+  const versions = useQuery({ queryKey: ['versions', item.id], queryFn: () => api3.versions(item.id), staleTime: 10_000 })
+  const stack = useQuery({
+    queryKey: ['stack', item.stack_id],
+    queryFn: () => org.stack(item.stack_id as string),
+    enabled: !!item.stack_id,
+    retry: false,
+  })
+  const chain = versions.data?.items ?? []
+  const choices = sheetCompareChoices(chain, item.stack_id ? stack.data : null, item.id)
+  if (chain.length <= 1 && !choices.length) return null
+  return (
+    <div className="detail-section versions-section sheet-versions">
+      <h3 className="section-label">{chain.length > 1 ? `Versions (${chain.length})` : 'Compare'}</h3>
+      {chain.length > 1 && <VersionList chain={chain} itemId={item.id} currentId={versions.data?.current_id} onOpen={selectOnly} />}
+      <div className="btn-row">
+        {choices.map((c) => (
+          <button key={c.key} className="btn-icon" onClick={() => openCompare(c.ids)}>
+            <Columns2 size={14} strokeWidth={1.75} aria-hidden="true" />
+            {c.label}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }
