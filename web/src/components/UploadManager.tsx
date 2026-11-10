@@ -13,7 +13,7 @@ import { api, uploadFile } from '../api'
 import { jobLabel, jobsFromDataTransfer, type AddJob } from '../clipboard'
 import { useApplyItems, useRefresh } from '../data'
 import { useAppState } from '../state'
-import { nextQueued, uploadsReducer } from '../uploads'
+import { nextQueued, uploadsReducer, visibleUploads } from '../uploads'
 import { useWrite } from '../useWrite'
 import { describeError } from '../writes'
 
@@ -189,6 +189,8 @@ export function UploadManager({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('paste', onPaste)
   }, [addJobs])
 
+  const toasts = visibleUploads(entries)
+
   return (
     <Ctx.Provider value={{ enqueue, addJobs }}>
       {children}
@@ -199,7 +201,7 @@ export function UploadManager({ children }: { children: ReactNode }) {
       )}
       {/* always mounted: a live region must exist before its text changes */}
       <div className="upload-toasts" role="status" aria-live="polite" aria-relevant="additions text" data-keep-live="">
-          {entries.map((e) => (
+          {toasts.shown.map((e) => (
             <div key={e.key} className={`toast ${e.status}`}>
               <span className="name">{e.name}</span>
               {e.status === 'uploading' &&
@@ -246,6 +248,18 @@ export function UploadManager({ children }: { children: ReactNode }) {
               )}
             </div>
           ))}
+          {toasts.hiddenQueued + toasts.hiddenDone > 0 && (
+            <div className="toast more">
+              <span>
+                {[
+                  toasts.hiddenQueued ? `${toasts.hiddenQueued} more queued` : '',
+                  toasts.hiddenDone ? `${toasts.hiddenDone} more done` : '',
+                ]
+                  .filter(Boolean)
+                  .join(', ')}
+              </span>
+            </div>
+          )}
       </div>
     </Ctx.Provider>
   )

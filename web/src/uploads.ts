@@ -82,3 +82,32 @@ export function nextQueued<J>(state: UploadEntry<J>[]): UploadEntry<J> | undefin
   if (state.some((e) => e.status === 'uploading')) return undefined
   return state.find((e) => e.status === 'queued')
 }
+
+/** The toasts to show for a big batch: every entry that needs an action
+ * (error, in Trash) and the one uploading, then the newest finished and the
+ * next queued ones, up to `max`; the rest are counted (a 60-file drop used
+ * to stack 60 toasts past the top of the window, over the toolbar). Keeps
+ * the queue's order. */
+export function visibleUploads<J>(
+  state: UploadEntry<J>[],
+  max = 6,
+): { shown: UploadEntry<J>[]; hiddenQueued: number; hiddenDone: number } {
+  const keep = new Set<number>()
+  for (const e of state) if (e.status === 'error' || e.status === 'inTrash' || e.status === 'uploading') keep.add(e.key)
+  const finished = state.filter((e) => (e.status === 'done' || e.status === 'duplicate') && !keep.has(e.key))
+  const queued = state.filter((e) => e.status === 'queued')
+  // newest finished first, then the next in the queue, alternating so both show
+  const fin = [...finished].reverse()
+  let i = 0
+  let j = 0
+  while (keep.size < max && (i < fin.length || j < queued.length)) {
+    if (i < fin.length && (i <= j || j >= queued.length)) keep.add(fin[i++].key)
+    else keep.add(queued[j++].key)
+  }
+  const shown = state.filter((e) => keep.has(e.key))
+  return {
+    shown,
+    hiddenQueued: queued.filter((e) => !keep.has(e.key)).length,
+    hiddenDone: finished.filter((e) => !keep.has(e.key)).length,
+  }
+}

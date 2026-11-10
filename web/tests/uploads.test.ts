@@ -1,7 +1,7 @@
 // Upload queue state machine. Run with `npm test`.
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { nextQueued, uploadsReducer, type UploadEntry } from '../src/uploads.ts'
+import { nextQueued, uploadsReducer, visibleUploads, type UploadEntry } from '../src/uploads.ts'
 
 const add = (s: UploadEntry[], key: number, folderId: string | null) =>
   uploadsReducer(s, { type: 'add', entries: [{ key, job: key, name: `f${key}`, isUrl: false, folderId }] })
@@ -55,4 +55,27 @@ test('events for the wrong state are ignored', () => {
   assert.equal(s[0].status, 'queued') // never started
   s = uploadsReducer(s, { type: 'dismiss', key: 1 })
   assert.equal(s.length, 1) // queued work isn't dropped by a stray dismiss
+})
+
+test('a big batch shows a few toasts and counts the rest', () => {
+  let s: UploadEntry[] = []
+  for (let k = 1; k <= 60; k++) s = add(s, k, null)
+  for (let k = 1; k <= 20; k++) {
+    s = uploadsReducer(s, { type: 'start', key: k })
+    s = uploadsReducer(s, { type: 'finish', key: k, created: true, itemId: `i${k}`, itemState: 'active', at: k })
+  }
+  s = uploadsReducer(s, { type: 'start', key: 21 })
+  s = uploadsReducer(s, { type: 'fail', key: 21, error: 'boom' })
+  s = uploadsReducer(s, { type: 'start', key: 22 })
+  const v = visibleUploads(s, 6)
+  assert.equal(v.shown.length, 6)
+  // the failed one and the one uploading always show, in queue order
+  assert.ok(v.shown.some((e) => e.key === 21 && e.status === 'error'))
+  assert.ok(v.shown.some((e) => e.key === 22 && e.status === 'uploading'))
+  assert.deepEqual(v.shown.map((e) => e.key), [...v.shown.map((e) => e.key)].sort((a, b) => a - b))
+  assert.equal(v.shown.length + v.hiddenQueued + v.hiddenDone, 60)
+  // a small batch shows everything
+  const small = visibleUploads(add(add([], 1, null), 2, null), 6)
+  assert.equal(small.shown.length, 2)
+  assert.equal(small.hiddenQueued + small.hiddenDone, 0)
 })
