@@ -7,6 +7,7 @@
 import { useMutation } from '@tanstack/react-query'
 import { api, newBatchId, type Item } from './api'
 import { useApplyItems } from './data'
+import { oneFailedText } from './bulkText'
 import { runEach, serialize } from './writes'
 
 export type BulkAction =
@@ -61,8 +62,10 @@ export function trashedText(n: number): string {
   return n === 1 ? 'Moved 1 item to Trash.' : `Moved ${n} items to Trash.`
 }
 
-/** "Trashed 3 of 5. 2 failed: <first reason>." */
+/** "Trashed 3 of 5. 2 failed: <first reason>.", or for one item just
+ * what went wrong: "Couldn't move it to Trash: Protected: unprotect it first." */
 export function bulkReport(r: BulkResult): string {
+  if (r.ok === 0 && r.failed.length === 1) return oneFailedText(r.input.action, r.failed[0].error)
   return `${BULK_VERB[r.input.action.kind]} ${r.ok} of ${r.ok + r.failed.length}. ${r.failed.length} failed: ${r.failed[0]?.error ?? 'unknown error'}.`
 }
 

@@ -27,3 +27,18 @@ export function bulkDoneText(action: BulkAction, n: number, folderName?: (id: st
       return null // trash has its own notice; restore and delete forever have none
   }
 }
+
+const ONE_FAILED: Partial<Record<BulkAction['kind'], string>> = {
+  trash: 'move it to Trash',
+  restore: 'restore it',
+  hardDelete: 'delete it',
+  addTags: 'tag it',
+  removeTag: 'remove the tag',
+  move: 'move it',
+  addFolder: 'add it to the folder',
+}
+
+/** The notice when the one item acted on failed: just why, not "0 of 1". */
+export function oneFailedText(action: BulkAction, error: string): string {
+  return `Couldn't ${ONE_FAILED[action.kind] ?? 'change it'}: ${error.replace(/\.$/, '')}.`
+}
