@@ -282,7 +282,8 @@ class TagOut(BaseModel):
 
 
 OrderName = Literal[
-    "-created", "created", "filename", "-size", "-rating", "-modified", "-taken", "taken"
+    "-created", "created", "filename", "-size", "-rating", "-modified", "-taken", "taken",
+    "modified",  # M6
 ]
 KindName = Literal[
     "image", "video", "pdf", "audio", "model", "font", "design", "bundle", "other"

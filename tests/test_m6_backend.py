@@ -95,6 +95,10 @@ def test_buckets_take_the_list_order_key_and_every_filter(client, upload):
     assert client.get("/api/items/buckets", params={"sort": "modified", "order": "asc"}
                       ).json()["item_order"] == "modified"
     assert client.get("/api/items", params={"order": "modified"}).status_code == 200
+    from kist.schemas import OrderName
+    from kist.services.search import ORDERS
+
+    assert set(OrderName.__args__) == set(ORDERS)  # smart folders can save every order
     # filters: the same as GET /api/items
     tagged = client.get("/api/items/buckets", params={"tags": "m6"}).json()
     listed = client.get("/api/items", params={"tags": "m6"}).json()
@@ -302,3 +306,65 @@ def test_app_csp_allows_a_same_origin_service_worker():
         rules = dict(r.strip().split(" ", 1) for r in csp.split(";"))
         allowed = rules.get("worker-src") or rules.get("child-src") or rules["script-src"]
         assert "'self'" in allowed.split()
+
+
+# ---------- B7: the benchmark harness (scripts/bench) ----------
+
+
+def _bench_module(name):
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parent.parent / "scripts" / "bench" / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(f"bench_{name}", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_make_library_writes_a_consistent_synthetic_library(client, clean):
+    import os
+
+    make = _bench_module("make_library")
+    url = os.environ["KIST_DATABASE_URL"]
+    assert make.main(["--items", "400", "--tags", "60", "--folders", "12",
+                      "--database-url", url, "--library", str(clean)]) == 0
+    # never on top of a library that has items
+    assert make.main(["--items", "5", "--no-files", "--database-url", url]) == 2
+
+    stats = client.get("/api/stats").json()
+    assert stats["total_items"] + stats["trashed_items"] == 400
+    assert stats["tag_count"] == 60 and stats["folder_count"] == 12
+    page = client.get("/api/items", params={"limit": 5, "stacks": "collapse"}).json()
+    buckets = client.get("/api/items/buckets", params={"order": "-taken",
+                                                       "stacks": "collapse"}).json()
+    assert buckets["total"] == page["total"] > 0
+    # thumbnails are served from the hard-linked template
+    item = page["items"][0]
+    thumb = client.get(f"/api/items/{item['id']}/thumb")
+    assert thumb.status_code == 200 and thumb.headers["content-type"] == "image/webp"
+    # nothing for the background backfills to pick up
+    from kist.db import SessionLocal
+    from kist.models import Item
+    from kist.services import media
+
+    with SessionLocal() as s:
+        assert s.execute(sa.select(sa.func.count()).select_from(Item).where(
+            media.needs_backfill())).scalar_one() == 0
+        assert s.execute(sa.select(sa.func.count()).select_from(Item).where(
+            Item.thumbhash.is_(None), Item.preview_status == "ready")).scalar_one() == 0
+    # colour, text and similar searches find something
+    assert client.get("/api/items", params={"color": "#808080", "color_tol": 100}
+                      ).json()["items"]
+    smart = client.get("/api/smart-folders").json()
+    assert "Smart 0" in {sf["name"] for sf in smart}
+
+
+def test_bench_run_helpers():
+    from kist.services.search import decode_cursor
+
+    run = _bench_module("run")
+    assert decode_cursor(run.crafted_cursor("m", "")) == ("m", "")
+    assert decode_cursor(run.crafted_cursor(0, "~")) == (0, "~")
+    assert run.pct([5, 1, 3, 2, 4], 50) == 3 and run.pct(list(range(1, 101)), 95) == 95
+    assert run.main(["--url", "https://kist.example.com", "--token", "x"]) == 2
