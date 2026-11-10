@@ -9,7 +9,7 @@
   link-rot check of page_url (services/linkrot.py)
 
 Revision ID: 0501
-Revises: 0101
+Revises: 0401
 Create Date: 2026-11-09
 
 """

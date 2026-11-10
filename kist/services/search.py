@@ -137,6 +137,27 @@ def tag_condition(names: list[str]):
     return sa.exists().where(ItemTag.item_id == Item.id, ItemTag.tag_id == Tag.id, sa.or_(*conds))
 
 
+# search() arguments that rank or page rather than filter
+RANKING_KEYS = ("order", "limit", "cursor", "semantic", "similar", "image_vector", "color",
+                "color_tol", "text", "has_text")
+
+
+def filters_from_params(params: dict) -> list:
+    """GET /api/items' filters (api.items.search_filters) as SQL conditions
+    for listings that aren't a page of items (timeline, on-this-day, map):
+    every filter, text= and has_text= included; the ranking signals
+    (semantic, similar, color) and paging are not."""
+    from . import ranking
+
+    out = build_filters(**{k: v for k, v in params.items() if k not in RANKING_KEYS})
+    if params.get("has_text") is not None:
+        out.append(ranking.has_text_filter(bool(params["has_text"])))
+    tsq = ranking.tsquery(params["text"]) if params.get("text") else None
+    if tsq:
+        out.append(ranking.text_match(tsq, ranking.READ_SOURCES))
+    return out
+
+
 def build_filters(
     *,
     q: str | None = None,

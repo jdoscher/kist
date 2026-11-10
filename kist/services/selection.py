@@ -59,7 +59,10 @@ def check(session: Session, kind: str, target_id: str | None, item_ids: list[str
         boards = boards_service()
         if boards is None:
             raise validation.ValidationError("boards aren't available in this build")
-        boards.share_item_ids(session, target_id)  # raises if unknown
+        try:
+            boards.share_item_ids(session, target_id)
+        except boards.NotFound:
+            raise validation.ValidationError(f"Unknown board: {target_id}") from None
     return target_id, None
 
 
@@ -83,20 +86,46 @@ def filters(session: Session, kind: str, target_id: str | None,
         smart = session.get(SmartFolder, target_id)
         if smart is None:
             return [sa.false()]
-        q = dict(smart.query or {})
-        return search.build_filters(
-            q=q.get("q") or None, tags=q.get("tags") or None,
-            tags_any=q.get("tags_any") or None, untagged=bool(q.get("untagged")),
-            folder=q.get("folder") or None, kind=q.get("type") or None,
-            rating_min=q.get("rating") or None, view=q.get("view") or None,
-            preview_status=q.get("preview") or q.get("preview_status") or None,
-            created_after=_dt(q.get("created_after")),
-            created_before=_dt(q.get("created_before")),
-            state="active",  # never the trash, whatever the smart folder says
-        )
+        return smart_filters(dict(smart.query or {}))
     if kind == "board":
         return [live, Item.id.in_(board_ids(session, target_id) or [""])]
     return [sa.false()]
+
+
+MEDIA_KEYS = ("taken_after", "taken_before", "has_gps", "camera", "lens", "duration_min",
+              "duration_max", "vertical", "has_audio", "place")
+
+
+def smart_filters(q: dict) -> list:
+    """A saved smart-folder query as SQL conditions, through the same
+    search.build_filters every listing uses (so a share or export of a smart
+    folder holds what the smart folder shows). Ordering signals (semantic,
+    color) don't narrow a share; text= does (items whose OCR/PDF text
+    matches)."""
+    from . import ranking, search
+
+    out = search.build_filters(
+        q=q.get("q") or None, tags=q.get("tags") or None,
+        tags_any=q.get("tags_any") or None, untagged=bool(q.get("untagged")),
+        folder=q.get("folder") or None, kind=q.get("type") or None,
+        rating_min=q.get("rating") or None, view=q.get("view") or None,
+        preview_status=q.get("preview") or q.get("preview_status") or None,
+        created_after=_dt(q.get("created_after")),
+        created_before=_dt(q.get("created_before")),
+        state="active",  # never the trash, whatever the smart folder says
+        stacks=q.get("stacks") or None, person=q.get("person") or None,
+        flag=q.get("flag") or None, label=q.get("label") or None,
+        ai_generated=q.get("ai_generated"), license=q.get("license") or None,
+        source_status=q.get("source_status") or None,
+        media={k: (_dt(q[k]) if k.startswith("taken_") else q[k])
+               for k in MEDIA_KEYS if q.get(k) is not None},
+    )
+    if q.get("has_text") is not None:
+        out.append(ranking.has_text_filter(bool(q["has_text"])))
+    tsq = ranking.tsquery(q["text"]) if q.get("text") else None
+    if tsq:
+        out.append(ranking.text_match(tsq, ranking.READ_SOURCES))
+    return out
 
 
 def board_ids(session: Session, board_id: str | None) -> list[str]:

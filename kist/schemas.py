@@ -320,6 +320,21 @@ class SmartFolderQuery(BaseModel):
     # M3: "none" matches items without one
     flag: Literal["pick", "reject", "none"] | None = None
     label: Literal["red", "orange", "yellow", "green", "blue", "purple", "none"] | None = None
+    # M4: provenance and the link-rot watch
+    ai_generated: Literal["true", "false", "unknown"] | None = None
+    license: str | None = Field(default=None, max_length=200)
+    source_status: Literal["ok", "gone", "moved", "error", "unchecked"] | None = None
+    # M5: media filters (services/media.filters)
+    taken_after: datetime | None = None
+    taken_before: datetime | None = None
+    has_gps: bool | None = None
+    camera: str | None = Field(default=None, max_length=200)
+    lens: str | None = Field(default=None, max_length=200)
+    duration_min: float | None = Field(default=None, ge=0)
+    duration_max: float | None = Field(default=None, ge=0)
+    vertical: bool | None = None
+    has_audio: bool | None = None
+    place: str | None = Field(default=None, max_length=200)
 
 
 class PaletteColour(BaseModel):

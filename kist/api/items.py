@@ -38,6 +38,7 @@ from ..services import events as events_svc
 from ..services import items as items_svc
 from ..services import jobs as jobs_svc
 from ..services import links as links_svc
+from ..services import provenance as provenance_svc
 
 # Errors: items_svc.NotFound -> 404, validation.ValidationError -> 422,
 # TransitionError -> 409, items_svc.Conflict -> 409 with the current item,
@@ -164,7 +165,12 @@ async def create_item(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
 ):
-    """Upload a file (multipart form with 'file') or add from a URL (JSON {url})."""
+    """Upload a file (multipart form with 'file') or add from a URL (JSON {url}).
+
+    Provenance comes as a `provenance` object (JSON, or a JSON string form
+    field) and/or flat fields: page_url, image_url, title, captured_at,
+    method (extension | bookmarklet | ...), creator/author, credit, site,
+    license, rights_url/license_url (services/provenance.from_flat)."""
     settings = get_settings()
     content_type = request.headers.get("content-type", "")
 
@@ -204,7 +210,9 @@ async def create_item(
                 created_at=_parse_dt(form.get("created_at")),
                 modified_at=_parse_dt(form.get("modified_at")),
                 deleted_at=_parse_dt(form.get("deleted_at")),
-                provenance=_parse_provenance(form.get("provenance")),
+                # flat fields (the browser extension), then a provenance object
+                provenance={**provenance_svc.from_flat(form),
+                            **(_parse_provenance(form.get("provenance")) or {})},
             )
         finally:
             staging.unlink(missing_ok=True)
@@ -219,7 +227,8 @@ async def create_item(
             body = UrlAdd(**data)
         except PydanticValidationError as exc:
             raise RequestValidationError(exc.errors(include_url=False)) from None
-        prov = dict(body.provenance or {})
+        # flat keys (the extension, the /add page), then a provenance object
+        prov = {**provenance_svc.from_flat(data), **(body.provenance or {})}
         notes = body.notes
         if body.title and not prov.get("page_title"):
             prov["page_title"] = " ".join(body.title.split())[:2000]

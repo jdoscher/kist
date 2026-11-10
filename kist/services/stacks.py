@@ -399,6 +399,12 @@ def capture_info(item: Item) -> tuple[str | None, datetime | None]:
                         when = when.replace(microsecond=int(frac.ljust(6, "0")[:6]))
     except Exception:
         pass
+    if when is None and item.taken_at is not None:
+        # Milestone 5 read it (RAW via exiftool or the built-in reader, which
+        # Pillow can't open); stored as wall-clock time, like EXIF
+        when = item.taken_at.replace(tzinfo=None)
+    if camera is None and item.camera:
+        camera = item.camera
     if len(_exif_cache) > 200_000:
         _exif_cache.clear()
     _exif_cache[key] = (camera, when)
@@ -419,25 +425,34 @@ def suggestions(session: Session, limit: int = 200) -> list[dict]:
     out: list[dict] = []
     used: set[str] = set()
 
-    # RAW + JPEG pairs
+    # RAW + JPEG pairs: the same name, taken at the same second. Milestone 5
+    # reads the RAW's own time (raw_pair_key = name + EXIF time, and
+    # items.taken_at), so a reused file name from another shoot isn't paired
     by_stem: dict[str, list[Item]] = {}
     for i in items:
         if i.ext.lower() in RAW_EXTS or i.ext.lower() in PAIR_EXTS:
             by_stem.setdefault(_stem(i.filename), []).append(i)
     for stem, group in sorted(by_stem.items()):
-        raws = [i for i in group if i.ext.lower() in RAW_EXTS]
-        pairs = [i for i in group if i.ext.lower() in PAIR_EXTS]
-        if not stem or not raws or not pairs:
+        if not stem:
             continue
-        times = {capture_info(i)[1] for i in raws + pairs} - {None}
-        if len(times) > 1:
-            continue  # same name, different moments: a reused file name
-        members_ = sorted(raws + pairs, key=lambda i: i.id)
-        cover = next((i for i in pairs if i.preview_status == "ready"), pairs[0])
-        out.append({"kind": "raw_jpeg", "item_ids": [i.id for i in members_],
-                    "cover_item_id": cover.id,
-                    "reason": f"RAW and {cover.ext.upper()} named {stem}"})
-        used.update(i.id for i in members_)
+        keys = {i.raw_pair_key for i in group if i.raw_pair_key}
+        subgroups = ([[i for i in group if i.raw_pair_key == k] for k in sorted(keys)]
+                     if len(keys) > 1 else [group])
+        for sub in subgroups:
+            raws = [i for i in sub if i.ext.lower() in RAW_EXTS]
+            pairs = [i for i in sub if i.ext.lower() in PAIR_EXTS]
+            if not raws or not pairs:
+                continue
+            times = {when.replace(microsecond=0)
+                     for when in (capture_info(i)[1] for i in raws + pairs) if when}
+            if len(times) > 1:
+                continue  # same name, different moments: a reused file name
+            members_ = sorted(raws + pairs, key=lambda i: i.id)
+            cover = next((i for i in pairs if i.preview_status == "ready"), pairs[0])
+            out.append({"kind": "raw_jpeg", "item_ids": [i.id for i in members_],
+                        "cover_item_id": cover.id,
+                        "reason": f"RAW and {cover.ext.upper()} named {stem}"})
+            used.update(i.id for i in members_)
 
     # bursts: same camera, within BURST_SECONDS
     shots = []

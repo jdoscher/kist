@@ -192,8 +192,11 @@ def ingest_file(
             preview_status=preview_status,
             preview_error=preview_error,
         )
+        from .. import access
         from . import media as media_svc
 
+        principal = access.current()
+        item.added_by_token = principal.token_id if principal is not None else None
         media_svc.apply(item, probe.media)  # metadata + its filter columns
         # imports preserve original timestamps; otherwise the DB defaults apply
         if created_at is not None:

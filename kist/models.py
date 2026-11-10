@@ -201,6 +201,9 @@ class Item(Base):
     place: Mapped[str | None] = mapped_column(Text, nullable=True)
     # basename + taken_at: a RAW and its camera JPEG share it (M2 stacks)
     raw_pair_key: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # the named token that added it (migration 0602): lets an add-only token
+    # attach a page snapshot to its own fresh item. Not in meta.json.
+    added_by_token: Mapped[str | None] = mapped_column(String(26), nullable=True)
 
     tags: Mapped[list[Tag]] = relationship(secondary="item_tags", lazy="selectin")
     folders: Mapped[list[Folder]] = relationship(

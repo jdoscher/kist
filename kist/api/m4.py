@@ -2,6 +2,7 @@
 iOS Shortcut helper."""
 
 import json
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -15,7 +16,7 @@ from ..auth import require_scope
 from ..config import get_settings
 from ..db import get_session
 from ..lifecycle import JobKind
-from ..models import Job
+from ..models import Item, Job
 from ..services import export_images, exports, snapshots, validation
 from ..services import items as items_svc
 from ..services import jobs as jobs_svc
@@ -187,9 +188,11 @@ def get_import(job_id: int, session: Annotated[Session, Depends(get_session)]):
 @router.post("/items/{item_id}/snapshot", tags=["items"])
 async def save_snapshot(item_id: str, request: Request,
                         session: Annotated[Session, Depends(get_session)]):
-    """Body: JSON {html} or text/html from the browser extension. No body:
-    the server fetches page_url once (KIST_SNAPSHOTS=1)."""
-    access.require(access.Action.EDIT)
+    """Body: JSON {html, page_url?, title?, captured_at?} (the browser
+    extension) or a raw text/html body. No body: the server fetches page_url
+    once (KIST_SNAPSHOTS=1). Needs an edit scope, or an add-only token that
+    added this item itself under SNAPSHOT_WINDOW ago."""
+    _may_snapshot(session, item_id)
     declared = request.headers.get("content-length", "")
     if declared.isdigit() and int(declared) > snapshots.MAX_HTML_BYTES + 64 * 1024:
         raise HTTPException(413, "snapshots are at most 25 MB")
@@ -200,6 +203,7 @@ async def save_snapshot(item_id: str, request: Request,
             raise HTTPException(413, "snapshots are at most 25 MB")
     ctype = request.headers.get("content-type", "").split(";")[0].strip().lower()
     html = None
+    extra: dict = {}
     if raw.strip():
         if ctype in ("text/html", "application/xhtml+xml", "text/plain"):
             html = raw.decode("utf-8", errors="replace")
@@ -210,10 +214,15 @@ async def save_snapshot(item_id: str, request: Request,
                 raise HTTPException(422, "send JSON {html} or a text/html body") from None
             if isinstance(data, dict) and isinstance(data.get("html"), str):
                 html = data["html"]
+                extra = snapshots.client_fields(data)
             elif not (isinstance(data, dict) and data.get("html") is None):
                 raise HTTPException(422, "html must be a string")
     if html is not None:
-        info = await run_in_threadpool(snapshots.save, session, item_id, html, source="browser")
+        if html is None or not html.strip():
+            raise HTTPException(422, "the snapshot's html is empty")
+        info = await run_in_threadpool(lambda: snapshots.save(
+            session, item_id, html, source="browser", url=extra.get("page_url"),
+            title=extra.get("title"), captured_at=extra.get("captured_at")))
     else:
         try:
             info = await run_in_threadpool(snapshots.fetch, session, item_id)
@@ -227,6 +236,27 @@ async def save_snapshot(item_id: str, request: Request,
                 raise
             raise HTTPException(described[0], described[1]) from exc
     return info
+
+
+SNAPSHOT_WINDOW = timedelta(minutes=10)
+
+
+def _may_snapshot(session: Session, item_id: str) -> None:
+    """An edit scope may snapshot any item. An add-only token (the browser
+    extension's recommended token) only an item it added itself in the
+    last SNAPSHOT_WINDOW (items.added_by_token): enough to save the page
+    right after the image, and nothing it could use to overwrite another
+    item's snapshot. Anything else is 403, whether or not the item exists."""
+    p = access.current()
+    if p is None or p.can(access.Action.EDIT):
+        return
+    if p.can(access.Action.ADD) and p.token_id:
+        item = session.get(Item, item_id)
+        if (item is not None and item.deleted_at is None
+                and item.added_by_token == p.token_id
+                and item.created_at >= datetime.now(UTC) - SNAPSHOT_WINDOW):
+            return
+    raise access.Forbidden()
 
 
 @router.get("/items/{item_id}/snapshot", tags=["items"])

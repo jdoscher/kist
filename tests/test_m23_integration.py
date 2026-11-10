@@ -333,6 +333,6 @@ def test_migrations_are_one_line():
     from alembic.script import ScriptDirectory
 
     script = ScriptDirectory.from_config(Config("alembic.ini"))
-    assert script.get_heads() == ["0601"]
+    assert script.get_heads() == ["0602"]
     chain = [r.revision for r in script.walk_revisions("base", "heads")]
-    assert chain[:6] == ["0601", "0501", "0401", "0301", "0201", "0101"]
+    assert chain[:7] == ["0602", "0601", "0501", "0401", "0301", "0201", "0101"]

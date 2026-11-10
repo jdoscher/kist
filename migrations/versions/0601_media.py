@@ -5,7 +5,7 @@ taken_sort is a generated column (taken_at, else created_at) so the `taken`
 order and the timeline can use one index with keyset pagination.
 
 Revision ID: 0601
-Revises: 0101
+Revises: 0501
 Create Date: 2026-11-09
 
 """

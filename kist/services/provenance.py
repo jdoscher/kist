@@ -23,9 +23,16 @@ from typing import Any
 
 from . import validation, xmp
 
-METHODS = ("upload", "paste", "url", "extension", "inbox", "mcp", "import")
+METHODS = ("upload", "paste", "url", "extension", "bookmarklet", "inbox", "mcp", "import")
 TEXT_FIELDS = ("page_title", "creator", "credit", "license", "digital_source_type",
-               "imported_from", "original_id")
+               "imported_from", "original_id", "site")
+# flat fields POST /api/items takes beside (or instead of) a provenance
+# object: what the browser extension and the /add bookmarklet page send.
+# Aliases map to the stored name.
+FLAT_ALIASES = {"title": "page_title", "author": "creator", "license_url": "rights_url",
+                "site_name": "site"}
+FLAT_FIELDS = ("page_url", "image_url", "captured_at", "method", "creator", "credit",
+               "license", "rights_url", "site", "page_title", "ai_generated")
 URL_FIELDS = ("page_url", "image_url", "rights_url")
 FIELDS = (*URL_FIELDS, "captured_at", "method", *TEXT_FIELDS, "ai_generated", "c2pa", "geo")
 TEXT_MAX = 2000
@@ -209,6 +216,30 @@ def from_file(path: Path, xmp_path: Path | None = None) -> dict:
             prov["ai_generated"] = ai
         fields["provenance"] = prov
     return fields
+
+
+def from_flat(fields) -> dict:
+    """Provenance from flat request fields (multipart form or JSON keys):
+    page_url, image_url, title, captured_at, method, author/creator, credit,
+    site, license, license_url/rights_url. Lenient: a value that doesn't
+    validate is dropped (the image is what matters), never a 422."""
+    out: dict[str, Any] = {}
+    for raw_key in (*FLAT_FIELDS, *FLAT_ALIASES):
+        value = fields.get(raw_key)
+        if value is None or isinstance(value, (dict, list)):
+            continue
+        key = FLAT_ALIASES.get(raw_key, raw_key)
+        if key in out:
+            continue  # the canonical name wins over an alias
+        if key == "ai_generated" and isinstance(value, str):
+            value = {"true": True, "false": False}.get(value.strip().lower())
+            if value is None:
+                continue
+        try:
+            out.update(clean({key: value}))
+        except validation.ValidationError:
+            continue
+    return out
 
 
 def for_ingest(given: dict | None, from_files: dict | None, *, source_url: str | None) -> dict:

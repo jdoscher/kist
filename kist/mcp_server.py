@@ -149,8 +149,11 @@ item_out = ItemOut.for_agent
     "folder is a folder id (its subfolders are included) or 'none' for items "
     "in no folder, tagged or not. state is 'active' (default) or 'trashed' "
     "to search the trash. preview_status ('failed', 'pending', 'ready', "
-    "'none') finds items by preview state. type is one of image|video|pdf|font|other. "
-    "order is -created (default), created, filename, -size, -rating or -modified. "
+    "'none') finds items by preview state. type is one of image|video|pdf|audio|"
+    "model|font|design|bundle|other (design: PSD, AI, Sketch, Procreate ...; "
+    "model: 3D; bundle: a zip kept whole). "
+    "order is -created (default), created, filename, -size, -rating, -modified, "
+    "-taken or taken (date taken, else date added). "
     "Ranking (order is then ignored; combine freely with the filters): "
     "semantic='a describing phrase' ranks by what the images show (use it for "
     "any descriptive request); query plus semantic is a hybrid of words and "
@@ -166,7 +169,13 @@ item_out = ItemOut.for_agent
     "is a person id from list_people. "
     "flag is pick, reject or none; label is a colour (red, orange, yellow, green, "
     "blue, purple) or none; both filter ranked searches too. query also matches "
-    "annotation text. "
+    "annotation text, the text of a saved page snapshot and the place name. "
+    "Provenance: ai_generated true|false|unknown, license (exact, or 'none'), "
+    "source_status ok|gone|moved|error|unchecked (the link-rot watch). "
+    "Photos and media: taken_after/taken_before (ISO dates), camera and lens "
+    "(substrings, e.g. 'X100'), has_gps, place ('Kyoto'), vertical, "
+    "has_audio, duration_min/duration_max (seconds). Every filter applies to "
+    "every ranking too. "
     "Pass the returned next_cursor to fetch the following page.",
     restricted_ok=True,
 )
@@ -194,8 +203,27 @@ def search_items(
     person: str | None = None,
     flag: str | None = None,
     label: str | None = None,
+    ai_generated: bool | str | None = None,
+    license: str | None = None,
+    source_status: str | None = None,
+    taken_after: str | None = None,
+    taken_before: str | None = None,
+    camera: str | None = None,
+    lens: str | None = None,
+    has_gps: bool | None = None,
+    place: str | None = None,
+    vertical: bool | None = None,
+    has_audio: bool | None = None,
+    duration_min: float | None = None,
+    duration_max: float | None = None,
 ) -> dict[str, Any]:
     limit = max(1, min(limit, 100))
+    extra = _m45_filters(
+        ai_generated=ai_generated, license=license, source_status=source_status,
+        taken_after=taken_after, taken_before=taken_before, camera=camera, lens=lens,
+        has_gps=has_gps, place=place, vertical=vertical, has_audio=has_audio,
+        duration_min=duration_min, duration_max=duration_max,
+    )
     with SessionLocal() as session:
         result = search_svc.search(
             session,
@@ -206,9 +234,29 @@ def search_items(
             semantic=semantic, similar=similar_to, color=color, color_tol=color_tol,
             text=text, has_text=has_text,
             stacks="collapse" if collapse_stacks else None, person=person,
-            flag=flag, label=label,
+            flag=flag, label=label, **extra,
         )
         return _page(result)
+
+
+def _m45_filters(*, ai_generated=None, license=None, source_status=None, taken_after=None,
+                 taken_before=None, **media) -> dict[str, Any]:
+    """search() keyword arguments for the M4 provenance and M5 media
+    filters (the same build_filters path GET /api/items uses)."""
+    from datetime import datetime
+
+    if isinstance(ai_generated, bool):
+        ai_generated = "true" if ai_generated else "false"
+    for key, value in (("taken_after", taken_after), ("taken_before", taken_before)):
+        try:
+            media[key] = datetime.fromisoformat(value) if value else None
+        except ValueError:
+            raise ToolError(f"{key} must be an ISO date like 2024-05-01") from None
+    for key in ("duration_min", "duration_max"):
+        if media.get(key) is not None and media[key] < 0:
+            raise ToolError(f"{key} must be 0 or more seconds")
+    return {"ai_generated": ai_generated, "license": license, "source_status": source_status,
+            "media": media}
 
 
 def _page(result) -> dict[str, Any]:
@@ -223,8 +271,9 @@ def _page(result) -> dict[str, Any]:
     "Find items that look like an image that isn't in the library: a file "
     "path inside the import directories, or an image URL (a page link uses "
     "its preview image). Nothing is saved. Takes the same filters as "
-    "search_items (query, tags, folder, type, color, ...). Results are ranked "
-    "by visual similarity (match.kind 'similar').",
+    "search_items (query, tags, folder, type, color, flag, label, person, "
+    "collapse_stacks, the provenance and media filters ...). Results are "
+    "ranked by visual similarity (match.kind 'similar').",
     restricted_ok=True,
 )
 def search_by_image(
@@ -238,10 +287,32 @@ def search_by_image(
     color: str | None = None,
     flag: str | None = None,
     label: str | None = None,
+    person: str | None = None,
+    collapse_stacks: bool = False,
+    ai_generated: bool | str | None = None,
+    license: str | None = None,
+    source_status: str | None = None,
+    taken_after: str | None = None,
+    taken_before: str | None = None,
+    camera: str | None = None,
+    lens: str | None = None,
+    has_gps: bool | None = None,
+    place: str | None = None,
+    vertical: bool | None = None,
+    has_audio: bool | None = None,
+    duration_min: float | None = None,
+    duration_max: float | None = None,
     limit: int = 25,
     cursor: str | None = None,
 ) -> dict[str, Any]:
     from .services import ai
+
+    extra = _m45_filters(
+        ai_generated=ai_generated, license=license, source_status=source_status,
+        taken_after=taken_after, taken_before=taken_before, camera=camera, lens=lens,
+        has_gps=has_gps, place=place, vertical=vertical, has_audio=has_audio,
+        duration_min=duration_min, duration_max=duration_max,
+    )
 
     if bool(url) == bool(file_path):
         raise ToolError("provide exactly one of file_path or url")
@@ -253,7 +324,8 @@ def search_by_image(
     with SessionLocal() as session:
         return _page(search_svc.search(
             session, image_vector=vec, q=query, tags=tags, folder=folder, kind=type,
-            rating_min=rating_min, color=color, flag=flag, label=label,
+            rating_min=rating_min, color=color, flag=flag, label=label, person=person,
+            stacks="collapse" if collapse_stacks else None, **extra,
             limit=max(1, min(limit, 100)), cursor=cursor,
         ))
 

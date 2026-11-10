@@ -5,7 +5,7 @@ Errors follow the rest of the API (handlers in kist/app.py):
 items_svc.NotFound -> 404, ValidationError -> 422, TransitionError -> 409.
 """
 
-from datetime import date, datetime
+from datetime import date
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -20,7 +20,7 @@ from ..schemas import ItemCreateResponse, ItemOut, JobOut
 from ..services import bundles, fonts, geo, media, search, timeline, video
 from ..services import items as items_svc
 from ..services import jobs as jobs_svc
-from .items import CACHE_FOREVER, CACHE_REVALIDATE
+from .items import CACHE_FOREVER, CACHE_REVALIDATE, search_filters
 
 router = APIRouter(tags=["media"])
 
@@ -288,29 +288,11 @@ def bundle_file(item_id: str, path: str, session: Annotated[Session, Depends(get
 # ---------- timeline and map ----------
 
 
-def common_filters(
-    q: str | None = None,
-    tags: Annotated[str | None, Query()] = None,
-    folder: str | None = None,
-    type: str | None = None,
-    rating: Annotated[int | None, Query(ge=0, le=5)] = None,
-    state: str | None = None,
-    taken_after: datetime | None = None,
-    taken_before: datetime | None = None,
-    has_gps: bool | None = None,
-    camera: Annotated[str | None, Query(max_length=200)] = None,
-    lens: Annotated[str | None, Query(max_length=200)] = None,
-    vertical: bool | None = None,
-    has_audio: bool | None = None,
-    place: Annotated[str | None, Query(max_length=200)] = None,
-) -> list:
-    return search.build_filters(
-        q=q, tags=[t.strip() for t in tags.split(",") if t.strip()] if tags else None,
-        folder=folder, kind=type, rating_min=rating, state=state,
-        media=dict(taken_after=taken_after, taken_before=taken_before, has_gps=has_gps,
-                   camera=camera, lens=lens, vertical=vertical, has_audio=has_audio,
-                   place=place),
-    )
+def common_filters(params: Annotated[dict, Depends(search_filters)]) -> list:
+    """Every GET /api/items filter (M2 organise, M3 flags/labels, M4
+    provenance, M5 media, person, text= ...), through search.build_filters
+    like every listing; ranking parameters are ignored."""
+    return search.filters_from_params(params)
 
 
 @router.get("/timeline")

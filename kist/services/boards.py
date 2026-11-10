@@ -323,6 +323,23 @@ def missing_items(session: Session, doc: dict) -> list[str]:
     return [i for i in ids if i not in have]
 
 
+def share_item_ids(session: Session, board_id: str) -> list[str]:
+    """The live items on a board, in reading order (top to bottom, then left
+    to right), for share links and exports (services/selection.py). Raises
+    NotFound for an unknown or trashed board; a deleted item is left out."""
+    board = session.get(Board, board_id)
+    if board is None or board.deleted_at is not None:
+        raise NotFound(f"board {board_id} not found")
+    nodes = [n for n in board.doc.get("nodes") or []
+             if n.get("type") == "item" and n.get("item_id")]
+    nodes.sort(key=lambda n: (float(n.get("y") or 0), float(n.get("x") or 0)))
+    ordered = list(dict.fromkeys(n["item_id"] for n in nodes))
+    live = set(session.execute(
+        sa.select(Item.id).where(Item.id.in_(ordered or [""]), Item.deleted_at.is_(None))
+    ).scalars())
+    return [i for i in ordered if i in live]
+
+
 def summary(board: Board) -> dict:
     return {
         "id": board.id, "name": board.name, "version": board.version,

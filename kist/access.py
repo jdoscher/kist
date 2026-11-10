@@ -167,7 +167,10 @@ def _scope_allows(scope: str, method: str, path: str, hard: bool) -> bool:
     if scope == Scope.HELPER:
         return _under(path, HELPER_PREFIX)
     if scope == Scope.ADD:
-        return method == "POST" and path == "/api/items"
+        # and a page snapshot for an item it just added (api/m4.save_snapshot
+        # checks it is the token's own item, under 10 minutes old)
+        return method == "POST" and (path == "/api/items"
+                                     or bool(re.match(rf"^{_ITEM}/snapshot$", path)))
     if _under(path, TOKENS_PREFIX) or _under(path, HELPER_PREFIX):
         return False
     if _under(path, "/mcp"):

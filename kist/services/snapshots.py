@@ -147,8 +147,31 @@ def readable_text(html: str) -> tuple[str, str]:
 # ---------- saving ----------
 
 
+def client_fields(data: dict) -> dict:
+    """What the browser extension sends beside the html: page_url (http(s)
+    only), title and captured_at (ISO 8601). A value that doesn't validate
+    is dropped; the server's own values are used instead."""
+    out: dict = {}
+    try:
+        out["page_url"] = validation.source_url(data.get("page_url")) or None
+    except validation.ValidationError:
+        pass
+    title = " ".join(str(data.get("title") or "").split())[:2000]
+    if title:
+        out["title"] = title
+    raw = data.get("captured_at")
+    if isinstance(raw, str) and raw.strip():
+        try:
+            dt = datetime.fromisoformat(raw.strip().replace("Z", "+00:00"))
+            out["captured_at"] = (dt if dt.tzinfo else dt.replace(tzinfo=UTC)).isoformat()
+        except ValueError:
+            pass
+    return out
+
+
 def save(session: Session, item_id: str, html: str, *, source: str,
-         url: str | None = None) -> dict:
+         url: str | None = None, title: str | None = None,
+         captured_at: str | None = None) -> dict:
     from . import items as items_svc
 
     item = items_svc.get_item(session, item_id, with_deleted=False)
@@ -156,12 +179,13 @@ def save(session: Session, item_id: str, html: str, *, source: str,
         raise validation.ValidationError(
             f"snapshots are at most {MAX_HTML_BYTES // (1024 * 1024)} MB")
     clean = strip_active(html)
-    title, text = readable_text(clean)
+    page_title, text = readable_text(clean)
+    title = page_title or title
     d = page_dir(item.id)
     meta_svc.atomic_write_text(d / HTML_FILE, clean)
     meta_svc.atomic_write_text(d / TEXT_FILE, text)
     info = {
-        "captured_at": datetime.now(UTC).isoformat(), "source": source,
+        "captured_at": captured_at or datetime.now(UTC).isoformat(), "source": source,
         "url": url or item.source_url, "title": title,
         "html_bytes": len(clean.encode("utf-8")), "text_chars": len(text),
     }
