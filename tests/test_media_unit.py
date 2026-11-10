@@ -708,3 +708,12 @@ def test_raw_preview_follows_the_camera_orientation(tmp_path):
     probe = thumbs.generate_previews(nef, out, "image/x-nikon-nef", "nef")
     assert (probe.width, probe.height) == (300, 400)
     assert probe.media["exif"]["orientation"] == 6
+
+
+def test_default_user_agent_names_the_project():
+    """Wikimedia's robot policy wants a contact in the User-Agent; without
+    one its link checks answered 403 on the demo instance."""
+    from kist.services.ingest import DEFAULT_USER_AGENT
+
+    assert DEFAULT_USER_AGENT.startswith("kist/")
+    assert "https://github.com/jdoscher/kist" in DEFAULT_USER_AGENT

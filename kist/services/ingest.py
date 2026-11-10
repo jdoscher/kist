@@ -408,7 +408,11 @@ def is_media_mime(mime: str) -> bool:
     return mime.startswith(("image/", "video/")) or mime == "application/pdf"
 
 
-DEFAULT_USER_AGENT = f"kist/{__version__} (self-hosted asset manager)"
+# Wikimedia (and others) ask bots for a way to reach the operator: name the
+# project page. Set KIST_USER_AGENT to add your own contact.
+DEFAULT_USER_AGENT = (
+    f"kist/{__version__} (+https://github.com/jdoscher/kist; self-hosted asset manager)"
+)
 
 
 def _download(url: str, *, transport=None) -> tuple[Path, str, str]:
