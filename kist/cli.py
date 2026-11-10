@@ -694,6 +694,14 @@ def _samples(work: Path) -> list[tuple[str, Path]]:
     pdf.save(str(p))
     pdf.close()
     out.append(("pdf", p))
+    from PIL import ImageFont
+
+    try:  # Pillow's own copy of Aileron Regular (SIL OFL)
+        p = work / "sample.otf"
+        p.write_bytes(ImageFont.load_default(size=20).font_bytes)  # type: ignore[union-attr]
+        out.append(("font", p))
+    except Exception as exc:  # a Pillow without FreeType
+        print(f"  - font: skipped (no sample font here: {type(exc).__name__})")
     if shutil.which("ffmpeg") and shutil.which("ffprobe"):
         p = work / "sample.mp4"
         made = subprocess.run(

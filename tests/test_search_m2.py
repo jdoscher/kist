@@ -650,3 +650,34 @@ def test_regen_colors_and_old_font_items(client, upload, capsys):
     assert ids(client.get("/api/items", params={"color": "#0a78c8"}).json()) == [item["id"]]
     assert cli.regen_previews(False) == 0
     assert client.get(f"/api/items/{font['id']}").json()["preview_status"] == "ready"
+
+
+def test_mcp_search_by_image_url(client, colours, monkeypatch):
+    import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    body = solid_png((20, 200, 40))
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-Type", "image/png")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        monkeypatch.setattr(get_settings(), "url_allow_private", True)
+        init(client)
+        url = f"http://127.0.0.1:{server.server_address[1]}/q.png"
+        out = structured(call(client, "search_by_image", {"url": url}))
+        assert out["items"][0]["id"] == colours["green"]
+        assert client.get("/api/items").json()["total"] == 5  # nothing was added
+    finally:
+        server.shutdown()
+        server.server_close()
