@@ -814,8 +814,12 @@ Kist now looks inside video, audio, photos, RAW files, design sources, SVG,
   `POST /api/imports/upload` keeps an export sent from the browser in
   `library/import/uploads/`; the app shell sends `frame-ancestors 'none'`
   and `X-Frame-Options: DENY` (the /add card can't be framed), the /add
-  page may load images from the web for its preview, and a hosted
-  `KIST_MAP_TILES_URL`'s origin is allowed for images and fetches.
+  page may load images from the web for its preview, a hosted
+  `KIST_MAP_TILES_URL`'s origin is allowed for images and fetches, and
+  `script-src` allows `'wasm-unsafe-eval'` (WebAssembly only, never JS
+  eval) for the 3D viewer's mesh decoder.
+- Fixed: the video notes scrubber had a label without a role, and the
+  Notes button pointed `aria-controls` at a panel that wasn't there.
 
 ## [1.5.0] - 2026-11-09
 
