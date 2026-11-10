@@ -70,6 +70,7 @@ def _legacy_patches():
 
     return [
         (search, "tag_condition", legacy_tag_condition),
+        (stacks, "representative_filter", legacy_representative_filter),
     ]
 
 
@@ -238,6 +239,20 @@ def test_results_match_the_old_queries(seeded, monkeypatch):
                             if who is None and case == {} and stacks:
                                 assert new[0][1] > 0
     assert checked == 2 * len(_cases(seeded)) * 2 * len(ORDER_SAMPLE)
+
+
+def test_stack_reps_function_matches_migration():
+    """services/stacks.py names kist_stack_reps; migration 0801 makes it."""
+    import importlib.util
+    from pathlib import Path
+
+    path = (Path(__file__).resolve().parent.parent / "migrations" / "versions"
+            / "0801_stack_reps_function.py")
+    spec = importlib.util.spec_from_file_location("m0801", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    assert "kist_stack_reps(visible_folders text[])" in mod.STACK_REPS
+    assert mod.down_revision == "0701"
 
 
 def test_collapse_corner_cases_are_seeded(seeded):
