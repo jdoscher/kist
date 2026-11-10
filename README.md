@@ -368,7 +368,8 @@ palette (the web screens follow):
   text is found by `q`.
 - **Versions:** upload a new version of an item (`POST
   /api/items/{id}/versions`); it is linked `version_of` the newest, takes its
-  folders and tags, and becomes the cover when the old one is in a stack.
+  folders and tags, and is stacked with the older versions as the cover (it
+  joins their stack, or the chain becomes one).
   `GET /api/items?ids=a,b,c` fetches items to compare side by side.
 - **Templates** apply a set of tags, folders, notes, rating, flag, label,
   credit and licence (credit and licence become `credit:` and `license:`
@@ -1020,8 +1021,8 @@ PATCH  /api/items/{id}/annotations/{aid}   resolved}]. x/y/w/h are fractions 0-1
 DELETE /api/items/{id}/annotations/{aid}   image, t_* seconds; every change is an event
 GET    /api/items/{id}/versions  {items (the version_of chain, oldest first), current_id}
 POST   /api/items/{id}/versions  multipart 'file': a new version, linked version_of the
-                                 chain's newest, with its folders and tags (and the
-                                 cover of the stack the old one is in)
+                                 chain's newest, with its folders and tags; the chain
+                                 is stacked with it as the cover
 GET    /api/items/{id}/boards    boards the item is on
 POST   /api/items/rename         {item_ids, pattern, dry_run (default true), start}:
                                  {name} {ext} {n:3} {date:%Y%m%d} {w} {h} {folder}

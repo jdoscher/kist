@@ -10,6 +10,7 @@ import { patternErrors, renameAll, renameOne, strftime } from '../src/rename.ts'
 import { emptyQuery } from '../src/api.ts'
 import { stillMatches } from '../src/query.ts'
 import { fromUrl, historyAction, toUrl } from '../src/url.ts'
+import { afterVersionUpload } from '../src/versions.ts'
 
 const key = (k: string, mods: Partial<{ metaKey: boolean; ctrlKey: boolean; altKey: boolean }> = {}) => ({
   key: k,
@@ -214,4 +215,16 @@ test('flag and label filters ride in the URL and narrow lists in place', () => {
   assert.ok(stillMatches(item as never, q))
   assert.ok(!stillMatches({ ...item, flag: null } as never, q))
   assert.ok(stillMatches({ ...item, label: null } as never, { ...emptyQuery, label: 'none' }))
+})
+
+test('after a new version: select it, reload the stack, offer Compare', () => {
+  const next = afterVersionUpload({ item: { id: 'v2', filename: 'logo-v2.png' }, created: true }, 'v1')
+  assert.equal(next.select, 'v2')
+  assert.deepEqual(next.compare, ['v1', 'v2'])
+  assert.ok(next.invalidate.includes('stack') && next.invalidate.includes('item'))
+  assert.match(next.message, /newest version/)
+  // the same file again: shown, nothing to compare
+  const dup = afterVersionUpload({ item: { id: 'v1', filename: 'logo.png' }, created: false }, 'v1')
+  assert.equal(dup.compare, null)
+  assert.match(dup.message, /already in the library/)
 })

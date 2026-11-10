@@ -110,8 +110,8 @@ kist/
 │   ├── board_render.py  PNG/PDF (Pillow) and self-contained HTML export
 │   ├── annotations.py   point/box/range notes on items (annotations.json)
 │   ├── templates.py metadata templates (.kist/templates.json) and bulk rename
-│   ├── versions.py  the version_of chain and new-version uploads (a new
-│   │                version becomes the cover of the old one's stack)
+│   ├── versions.py  the version_of chain and new-version uploads (the
+│   │                chain is stacked, the new version its cover)
 │   ├── triage.py    the triage cursor over a view
 │   ├── palette.py   Cmd+K search across folders, tags, boards, people, items
 │   ├── shares.py    share links: scrypt passwords, signed per-link cookie,
@@ -562,7 +562,7 @@ with keyset paging. Ranked searches collapse differently, after ranking (see
 Ranked search). A stack left with one member dissolves. Uploading a new
 version (`versions.add_version`) of a stacked item adds the new version to
 that stack as its cover (`versions.on_new_version`); a version chain
-outside any stack stays unstacked. `rebuild-index` puts membership back
+outside any stack becomes a new stack with the new version as its cover. `rebuild-index` puts membership back
 with a core UPDATE that keeps `modified_at`, so `meta.json` still matches.
 
 **Suggested collections** cluster the active items' embeddings with

@@ -8,6 +8,7 @@ import { useRef, useState } from 'react'
 import { thumbUrl, type Item } from '../../api'
 import { api3, uploadVersion } from '../../creativeApi'
 import { useApplyItems, useCaps, useRefresh } from '../../data'
+import { afterVersionUpload } from '../../versions'
 import { describeError } from '../../writes'
 import { useAppState } from '../../state'
 import { useNotices } from '../Notices'
@@ -49,13 +50,12 @@ export function ItemVersions({ item }: { item: Item }) {
       const r = await uploadVersion(item.id, file, setProgress)
       apply([r.item])
       refresh.itemsAdded()
-      void qc.invalidateQueries({ queryKey: ['versions'] })
-      void qc.invalidateQueries({ queryKey: ['links'] })
-      notify({
-        key: 'version',
-        message: r.created ? `Added “${r.item.filename}” as the newest version.` : `That file is already in the library (“${r.item.filename}”).`,
-        action: { label: 'Show it', run: () => selectOnly(r.item.id) },
-      })
+      const next = afterVersionUpload(r, item.id)
+      for (const key of next.invalidate) void qc.invalidateQueries({ queryKey: [key] })
+      // the info panel moves to the new version (the stack's cover now)
+      selectOnly(next.select)
+      const compare = next.compare
+      notify({ key: 'version', message: next.message, action: compare ? { label: 'Compare', run: () => openCompare(compare) } : undefined })
     } catch (e) {
       notify({ key: 'version', tone: 'error', message: `Couldn't add the version: ${describeError(e)}` })
     } finally {

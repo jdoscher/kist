@@ -366,11 +366,21 @@ def test_new_version_becomes_the_stack_cover(client, upload, clean):
     got = client.get(f"/api/stacks/{stack['id']}").json()
     assert got["cover_item_id"] == new and {i["id"] for i in got["items"]} == {old, other, new}
     assert ids(client.get("/api/items", params={"stacks": "collapse"}).json()) == [new]
-    # a chain outside any stack stays unstacked
+    # a chain outside any stack becomes one, the new version its cover
     lone = upload("lone.png", data=solid((10, 10, 200)))["item"]["id"]
     res = client.post(f"/api/items/{lone}/versions",
                       files={"file": ("lone2.png", solid((12, 12, 210)), "image/png")})
-    assert res.json()["item"]["stack_id"] is None
+    v2 = res.json()["item"]
+    assert v2["stack_id"]
+    got = client.get(f"/api/stacks/{v2['stack_id']}").json()
+    assert got["cover_item_id"] == v2["id"] and {i["id"] for i in got["items"]} == {lone, v2["id"]}
+    # a third version joins that stack as the new cover
+    v3 = client.post(f"/api/items/{lone}/versions",
+                     files={"file": ("lone3.png", solid((14, 14, 220)), "image/png")}).json()["item"]
+    got = client.get(f"/api/stacks/{v2['stack_id']}").json()
+    assert got["cover_item_id"] == v3["id"] and len(got["items"]) == 3
+    assert v3["id"] in ids(client.get("/api/items", params={"stacks": "collapse"}).json())
+    assert lone not in ids(client.get("/api/items", params={"stacks": "collapse"}).json())
 
 
 def test_palette_lists_named_people_when_faces_are_on(client, upload, faces_on):  # noqa: F811

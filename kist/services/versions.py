@@ -6,7 +6,9 @@ A version_of link points from the newer item to the one it replaces
 version_of links in either direction; it's ordered by depth (hops to the
 oldest), then created_at. The newest is "current". A new upload is linked
 to the current head, so the chain stays a line, and inherits the head's
-folders and tags so it shows where the old one did.
+folders and tags so it shows where the old one did. The chain is stacked
+with the new version as the cover (on_new_version), so the grid shows one
+picture, the current one, rather than every version loose.
 """
 
 import sqlalchemy as sa
@@ -54,16 +56,24 @@ def chain(session: Session, item_id: str) -> list[Item]:
 
 
 def on_new_version(session: Session, old_id: str, new_id: str) -> None:
-    """When the version it replaces is in a stack (Milestone 2), the new
-    version joins that stack as its cover, so a collapsed grid shows the
-    current version. A chain outside any stack stays unstacked (stacking is
-    the owner's choice; GET /api/stacks/suggestions proposes it)."""
+    """Stack the chain with the new version as its cover, so a collapsed
+    grid shows the current version: it joins the stack the version it
+    replaces (or any other version) is in, else the chain becomes a new
+    stack. Stacking is an item event in the upload's batch, so it undoes
+    (and Unstack takes it apart)."""
     from . import stacks
 
     old = session.get(Item, old_id)
-    if old is None or not old.stack_id:
+    if old is None:
         return
-    stacks.update(session, old.stack_id, add=[new_id], cover=new_id)
+    members = chain(session, new_id)
+    stacked = [i.stack_id for i in [old, *reversed(members)] if i.stack_id]
+    if stacked:
+        stacks.update(session, stacked[0], add=[new_id], cover=new_id)
+        return
+    ids = [i.id for i in members if not i.deleted_at]
+    if new_id in ids and len(ids) >= 2:
+        stacks.create(session, ids, cover=new_id)
 
 
 def add_version(session: Session, item_id: str, staged, filename: str):
