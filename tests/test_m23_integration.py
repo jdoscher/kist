@@ -376,7 +376,8 @@ def test_new_version_becomes_the_stack_cover(client, upload, clean):
     assert got["cover_item_id"] == v2["id"] and {i["id"] for i in got["items"]} == {lone, v2["id"]}
     # a third version joins that stack as the new cover
     v3 = client.post(f"/api/items/{lone}/versions",
-                     files={"file": ("lone3.png", solid((14, 14, 220)), "image/png")}).json()["item"]
+                     files={"file": ("lone3.png", solid((14, 14, 220)), "image/png")})
+    v3 = v3.json()["item"]
     got = client.get(f"/api/stacks/{v2['stack_id']}").json()
     assert got["cover_item_id"] == v3["id"] and len(got["items"]) == 3
     assert v3["id"] in ids(client.get("/api/items", params={"stacks": "collapse"}).json())
