@@ -9,7 +9,9 @@ items filed in one folder).
 
 Each cluster gets a label: the tag most of its items share, else the tag
 whose text vector best matches the cluster's centre (zero-shot, the same
-tag vectors as tag suggestions).
+tag vectors and thresholds as tag suggestions) when at least half of the
+members match it too. Bookkeeping tags (credit:, license: ...) are never
+labels.
 
 Results are cached in library/.kist/collections.json; the worker recomputes
 them every KIST_COLLECTIONS_INTERVAL_HOURS, and ?refresh=1 does it now.
@@ -37,6 +39,8 @@ MIN_SIZE = 8
 MIN_COHESION = 0.72
 ALREADY_FILED = 0.8
 TAG_SHARE = 0.4
+LABEL_AGREEMENT = 0.5
+LABEL_RANK = 3
 SAMPLE = 2000
 MAX_ITEMS = 50_000
 SAMPLE_IDS = 6
@@ -205,6 +209,7 @@ def compute(session: Session) -> dict:
             session.rollback()
             log.info("collections: labels without new tag vectors (%s)", exc)
         tag_names, tag_m = sugg.tag_matrix(session, model)
+        reference = sugg.reference_matrix(model) if tag_names else None
         for c in range(k):
             idx = np.nonzero(labels == c)[0]
             if len(idx) < MIN_SIZE:
@@ -226,10 +231,14 @@ def compute(session: Session) -> dict:
                 for t in tags_of.get(m, []):
                     tcount[t] = tcount.get(t, 0) + 1
             common = sorted(tcount.items(), key=lambda kv: (-kv[1], kv[0].lower()))[:5]
-            zs = sugg.zero_shot(tag_names, tag_m, centres[c], top=3) if tag_names else []
-            if common and common[0][1] / len(members) >= TAG_SHARE:
-                label, source = common[0][0], "tags"
-            elif zs:
+            zs = (sugg.zero_shot(tag_names, tag_m, centres[c], top=3, reference=reference)
+                  if tag_names else [])
+            # a label names what the items show: never a bookkeeping tag
+            # (credit:, license: ...) however many items carry it
+            shared = [(t, n) for t, n in common if sugg.candidate_tag(t)]
+            if shared and shared[0][1] / len(members) >= TAG_SHARE:
+                label, source = shared[0][0], "tags"
+            elif zs and _members_agree(zs[0][0], x[idx], tag_names, tag_m):
                 label, source = zs[0][0], "zero_shot"
             else:
                 label, source = None, None
@@ -249,6 +258,27 @@ def compute(session: Session) -> dict:
         out["clusters"].sort(key=lambda c: (-c["cohesion"] * c["size"] ** 0.5, c["id"]))
     write_cache(out)
     return out
+
+
+def _members_agree(tag: str, vecs, tag_names: list[str], tag_m) -> bool:
+    """A zero-shot label must also be what the members themselves look
+    like: it ranks in the top LABEL_RANK candidate tags for at least
+    LABEL_AGREEMENT of them (the centre of a loose cluster can match a tag
+    that few members do)."""
+    import numpy as np
+
+    from . import suggestions as sugg
+
+    keep = [i for i, n in enumerate(tag_names) if sugg.candidate_tag(n)]
+    names = [tag_names[i] for i in keep]
+    if tag not in names:
+        return False
+    cos = _unit(np.asarray(vecs, dtype=np.float32)) @ tag_m[keep].T  # members x tags
+    mine = cos[:, names.index(tag)]
+    rank = (cos > mine[:, None]).sum(axis=1)  # 0 = the member's best tag
+    # in a small vocabulary "top 3" means little: there it must be the best
+    within = min(LABEL_RANK, max(1, len(names) // 4))
+    return float((rank < within).mean()) >= LABEL_AGREEMENT
 
 
 def path():

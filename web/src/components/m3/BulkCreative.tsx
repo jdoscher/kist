@@ -4,7 +4,11 @@
 
 import { useQueryClient } from '@tanstack/react-query'
 import { Ban, Check, Columns2, Grid2x2, PencilLine, Sparkles } from 'lucide-react'
+import { api } from '../../api'
 import { bulkReport, useBulkAction, type BulkAction } from '../../bulk'
+import { bulkDoneText } from '../../bulkText'
+import { useAfterUndo } from '../../data'
+import { undoReport } from '../../history'
 import { api3 } from '../../creativeApi'
 import { LABELS } from '../../cull'
 import { describeError } from '../../writes'
@@ -17,6 +21,7 @@ export function BulkCreative({ ids, busy }: { ids: string[]; busy: boolean }) {
   const bulk = useBulkAction()
   const creative = useCreative()
   const { notify } = useNotices()
+  const afterUndo = useAfterUndo()
   const { openScreen } = useAppState()
   const boards = useBoards()
   const newBoard = useNewBoard()
@@ -26,7 +31,25 @@ export function BulkCreative({ ids, busy }: { ids: string[]; busy: boolean }) {
       { ids, action },
       {
         onSuccess: (r) => {
-          if (r.failed.length) notify({ key: 'bulk', tone: 'error', message: bulkReport(r) })
+          if (r.failed.length) return notify({ key: 'bulk', tone: 'error', message: bulkReport(r) })
+          const text = r.ok ? bulkDoneText(action, r.ok) : null
+          if (text)
+            notify({
+              key: 'bulk',
+              message: text,
+              action: {
+                label: 'Undo',
+                run: () =>
+                  void api.undoBatch(r.batch).then(
+                    (res) => {
+                      afterUndo()
+                      const rep = undoReport(res)
+                      notify({ key: 'bulk', tone: rep.tone, message: rep.message })
+                    },
+                    (e) => notify({ key: 'bulk', tone: 'error', message: `Couldn't undo: ${describeError(e)}` }),
+                  ),
+              },
+            })
         },
       },
     )

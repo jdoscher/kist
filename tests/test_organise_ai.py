@@ -128,6 +128,68 @@ def test_zero_shot_scores_are_a_softmax():
     assert abs(sum(p for _, p in out) - 1.0) < 1e-5
 
 
+def test_bookkeeping_tags_are_never_zero_shot_candidates():
+    assert not suggestions.candidate_tag("credit:Wikimedia")
+    assert not suggestions.candidate_tag("License:CC-BY-4.0")
+    assert not suggestions.candidate_tag("source:Pinterest")
+    assert suggestions.candidate_tag("brand:Omega") and suggestions.candidate_tag("dog")
+    names = ["credit:blue", "blue"]
+    m = np.asarray([colour_vector(COLOURS["blue"])] * 2, dtype=np.float32)
+    m /= np.linalg.norm(m, axis=1, keepdims=True)
+    assert [t for t, _ in suggestions.zero_shot(names, m, colour_vector((0.0, 0.0, 1.0)))] \
+        == ["blue"]
+
+
+def _unit_rows(rows):
+    m = np.asarray(rows, dtype=np.float32)
+    return m / np.linalg.norm(m, axis=1, keepdims=True)
+
+
+def test_zero_shot_needs_a_tag_that_stands_out():
+    """CLIP-like numbers: every text sits ~0.2 from the image; a softmax
+    alone would crown the best of a bad lot."""
+    rng = np.random.default_rng(3)
+    dim = 64
+    img = rng.standard_normal(dim)
+    img /= np.linalg.norm(img)
+
+    def text(cos):  # a unit vector at cosine `cos` from the image
+        r = rng.standard_normal(dim)
+        r -= (r @ img) * img
+        r /= np.linalg.norm(r)
+        return cos * img + np.sqrt(1 - cos * cos) * r
+
+    reference = _unit_rows([text(c) for c in rng.normal(0.19, 0.012, 48)])
+    # a small vocabulary of near misses: nothing is suggested
+    near = _unit_rows([text(0.215), text(0.21), text(0.205)])
+    assert suggestions.zero_shot(["watch", "brand:Omega", "portrait"], near, img,
+                                 reference=reference) == []
+    # ...where the old softmax-only rule picked one
+    assert suggestions.zero_shot(["watch", "brand:Omega", "portrait"], near, img,
+                                 strict=False)[0][0] == "watch"
+    # a tag that matches (well above the reference) is
+    m = _unit_rows([text(0.29), text(0.215), text(0.2)])
+    got = suggestions.zero_shot(["dog", "watch", "portrait"], m, img, reference=reference)
+    assert [t for t, _ in got] == ["dog"]
+    # without a reference: a z-score among 12+ candidates, else a stricter floor
+    many = _unit_rows([text(0.29)] + [text(c) for c in rng.normal(0.19, 0.012, 20)])
+    names = ["dog"] + [f"t{i}" for i in range(20)]
+    assert [t for t, _ in suggestions.zero_shot(names, many, img)] == ["dog"]
+    assert suggestions.zero_shot(["dog", "x"], _unit_rows([text(0.25), text(0.2)]), img) == []
+
+
+def test_zero_shot_reference_is_embedded_once_and_kept(ml):
+    model = ai.active_model()
+    suggestions._reference_cache.clear()
+    m = suggestions.reference_matrix(model)
+    assert m.shape == (len(suggestions.REFERENCE_PROMPTS), DIM)
+    calls = ml.calls.count("/embed/text")
+    suggestions._reference_cache.clear()  # a new process: read from disk
+    assert suggestions.reference_matrix(model) is not None
+    assert ml.calls.count("/embed/text") == calls
+    assert (get_settings().state_dir / suggestions.REFERENCE_FILE).is_file()
+
+
 def test_suggestions_without_an_embedding_are_empty(client, upload, ml):
     item = upload("x.png")["item"]
     assert client.get(f"/api/items/{item['id']}/tag-suggestions").json() == []

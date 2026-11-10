@@ -93,7 +93,7 @@ def test_real_organise(client, upload, real_ml):
         zs_ok = 0
         for item_id, cat in held.items():
             vec = suggestions._item_vector(s, item_id, model)
-            zs = suggestions.zero_shot(names, m, vec, top=1, min_cosine=-1)
+            zs = suggestions.zero_shot(names, m, vec, top=1, strict=False)
             zs_ok += bool(zs and zs[0][0] == cat)
     n = len(held)
     print(f"\ntag suggestions on {n} held-out pictures: top-1 {top1}/{n}, top-3 {top3}/{n}; "

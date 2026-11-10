@@ -2,6 +2,7 @@ import { Lock, LockOpen, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { api } from '../api'
 import { bulkReport, hardDeleteQuestion, trashedText, useBulkAction, type BulkAction } from '../bulk'
+import { bulkDoneText } from '../bulkText'
 import { useAfterUndo, useCaps, useFolderNames, useFolders, useRefresh } from '../data'
 import { undoReport } from '../history'
 import { describeError } from '../writes'
@@ -53,6 +54,10 @@ export function BulkBar() {
           } else if (LEAVES_VIEW.has(action.kind)) {
             clearSelection()
           }
+          // every edit here is one batch, so its notice offers Undo (the
+          // same as Recent changes)
+          const text = r.ok > 0 && !r.failed.length ? bulkDoneText(action, r.ok, (id) => folderName.get(id)) : null
+          if (text) notify({ key: 'bulk', message: text, action: { label: 'Undo', run: () => undoBatch(r.batch) } })
           // trashing is undoable: the whole action was one batch, so Undo
           // reverts that batch (and says so if something changed since)
           if (action.kind === 'trash' && r.ok > 0 && !r.failed.length) {
@@ -66,6 +71,16 @@ export function BulkBar() {
       },
     )
   }
+
+  const undoBatch = (batch: string) =>
+    api.undoBatch(batch).then(
+      (res) => {
+        afterUndo()
+        const rep = undoReport(res, 'Undid', { folder: (id) => folderName.get(id) })
+        notify({ key: 'bulk', tone: rep.tone, message: rep.message })
+      },
+      (e) => notify({ key: 'bulk', tone: 'error', message: `Couldn't undo: ${describeError(e)}`, action: { label: 'Retry', run: () => void undoBatch(batch) } }),
+    )
 
   // put trashed items back by undoing the trash batch, then reload the
   // list on screen so they show up where they sort. A server without batch
