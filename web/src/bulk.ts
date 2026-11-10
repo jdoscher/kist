@@ -19,6 +19,8 @@ export type BulkAction =
   | { kind: 'removeTag'; tag: string }
   | { kind: 'rating'; rating: number }
   | { kind: 'protect'; value: boolean }
+  | { kind: 'flag'; flag: 'pick' | 'reject' | null }
+  | { kind: 'label'; label: 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | null }
 
 export interface BulkInput {
   ids: string[]
@@ -43,6 +45,8 @@ export const BULK_VERB: Record<BulkAction['kind'], string> = {
   removeTag: 'Untagged',
   rating: 'Rated',
   protect: 'Changed protection on',
+  flag: 'Flagged',
+  label: 'Labelled',
 }
 
 /** The one wording for permanent deletion, wherever it's asked. */
@@ -92,6 +96,10 @@ export function useBulkAction() {
               return api.patchItem(id, { rating: action.rating }, batch)
             case 'protect':
               return api.patchItem(id, { protected: action.value }, batch)
+            case 'flag':
+              return api.patchItem(id, { flag: action.flag }, batch)
+            case 'label':
+              return api.patchItem(id, { label: action.label }, batch)
           }
         }),
       )

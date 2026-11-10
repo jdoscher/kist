@@ -16,7 +16,7 @@ import type { Query } from './api'
 import type { GridLayout } from './layout'
 import type { MobileCols } from './mobile'
 import { mergeQuery, normalizeSaved } from './query'
-import { fromUrl, type OrganiseSection, type Place, type SettingsSection } from './url'
+import { fromUrl, type OrganiseSection, type Place, type Screen, type SettingsSection } from './url'
 import { usePrefs } from './usePrefs'
 import { inMenuLayer, pushMenuLayer, useUrlSync } from './urlSync'
 import type { Density, ThemePref } from './theme'
@@ -73,6 +73,9 @@ interface AppState {
   /** the Recent changes panel (batch undo) */
   recentOpen: boolean
   setRecentOpen: (open: boolean) => void
+  /** a full screen over the library: boards, a board, triage (Milestone 3) */
+  screen: Screen | null
+  openScreen: (screen: Screen | null) => void
 }
 
 const Ctx = createContext<AppState | null>(null)
@@ -102,6 +105,7 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
   const [organise, setOrganise] = useState<OrganiseSection | null>(initial.organise ?? null)
   const organiseFromApp = useRef(false)
   const [recentOpen, setRecentOpen] = useState(false)
+  const [screen, setScreen] = useState<Screen | null>(initial.screen ?? null)
   const [jobsOpen, setJobsOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const anchor = useRef<string | null>(null)
@@ -111,6 +115,7 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
     setQueryRaw((prev) => mergeQuery(prev, patch))
     setSettings(null)
     setOrganise(null)
+    setScreen(null)
     setSmartId(null)
     setSelection(new Set())
     setPreviewIdRaw(null)
@@ -120,6 +125,7 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
     setQueryRaw(normalizeSaved(q))
     setSettings(null)
     setOrganise(null)
+    setScreen(null)
     setSmartId(id)
     setSelection(new Set())
     setPreviewIdRaw(null)
@@ -129,11 +135,11 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
     () => ({
       query,
       smartId,
-      item: settings || organise ? null : previewId ?? (selection.size === 1 ? [...selection][0] : null),
-      full: !settings && !organise && previewId !== null,
-      ...(settings ? { settings } : organise ? { organise } : {}),
+      item: settings || organise || screen ? null : previewId ?? (selection.size === 1 ? [...selection][0] : null),
+      full: !settings && !organise && !screen && previewId !== null,
+      ...(settings ? { settings } : organise ? { organise } : screen ? { screen } : {}),
     }),
-    [query, smartId, selection, previewId, settings, organise],
+    [query, smartId, selection, previewId, settings, organise, screen],
   )
   useUrlSync({
     initial,
@@ -148,12 +154,15 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
       }
       if (p.organise) {
         setSettings(null)
+        setScreen(null)
         setOrganise(p.organise)
         return
       }
       setSettings(null)
       setOrganise(null)
       organiseFromApp.current = false
+      setScreen(p.screen ?? null)
+      if (p.screen) return
       settingsFromApp.current = false
       setQueryRaw(p.query)
       setSmartId(p.smartId)
@@ -177,6 +186,7 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
       return section
     })
     setSettings(null)
+    setScreen(null)
     setDrawerOpen(false)
   }, [settings])
 
@@ -233,6 +243,14 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
       for (let i = lo; i <= hi; i++) next.add(flatIds[i])
       return next
     })
+  }, [])
+
+  const openScreen = useCallback((sc: Screen | null) => {
+    setSettings(null)
+    setOrganise(null)
+    setScreen(sc)
+    setPreviewIdRaw(null)
+    setDrawerOpen(false)
   }, [])
 
   const clearSelection = useCallback(() => setSelection(new Set()), [])
@@ -295,8 +313,10 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
       organise,
       openOrganise,
       closeOrganise,
+      screen,
+      openScreen,
     }),
-    [organise, openOrganise, closeOrganise, settings, openSettings, closeSettings, recentOpen, query, setQuery, smartId, applySmartFolder, selection, selectOnly, toggleSelect, rangeSelect, clearSelection, selectAll, previewId, setPreviewId, panelOpen, setPanelOpen, gridLayout, setGridLayout, tileSize, setTileSize, drawerOpen, openDrawer, closeDrawer, jobsOpen, mobile, mobileCols, setMobileCols, theme, setTheme, density, setDensity, chromeShown],
+    [screen, openScreen, organise, openOrganise, closeOrganise, settings, openSettings, closeSettings, recentOpen, query, setQuery, smartId, applySmartFolder, selection, selectOnly, toggleSelect, rangeSelect, clearSelection, selectAll, previewId, setPreviewId, panelOpen, setPanelOpen, gridLayout, setGridLayout, tileSize, setTileSize, drawerOpen, openDrawer, closeDrawer, jobsOpen, mobile, mobileCols, setMobileCols, theme, setTheme, density, setDensity, chromeShown],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

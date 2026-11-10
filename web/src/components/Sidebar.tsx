@@ -32,6 +32,8 @@ import { isUnfiledView, smartFolderQuery, unfiledQuery } from '../query'
 import { fmtBytes } from '../format'
 import { useAiFlags } from './ItemAI'
 import type { Query } from '../api'
+import { SidebarBoards, SidebarCull } from './m3/Boards'
+import { SetupChecklist } from './m3/FirstRun'
 
 interface TreeNode extends Folder {
   children: TreeNode[]
@@ -540,6 +542,7 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
       </nav>
 
       <div className="section grow">
+        {!mobile && <SetupChecklist />}
         <div className="section-head">
           <h2>Folders</h2>
           {caps.canEdit && (
@@ -593,6 +596,9 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
             {mobile || !caps.canEdit ? 'No saved searches yet.' : 'Save a search: filter the grid, then press + above.'}
           </div>
         )}
+
+        <SidebarBoards />
+        <SidebarCull />
 
         <div className="section-head" style={{ marginTop: 16 }}>
           <h2>Tags</h2>

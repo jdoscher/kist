@@ -12,23 +12,41 @@
 //                     or cleanup (tag cleanup)
 //   /organise/:section  Organise: duplicates, stacks, collections (suggested)
 //                     or people
+//   /boards           the boards list (Milestone 3)
+//   /board/:id        a board's canvas
+//   /triage           triage mode (?view=unfiled|all, ?folder=)
 //   ?item=:id         the item shown in the info panel / item sheet
 //   &full=1           ...opened full screen
 //
 // Other filters are params: q, tags, any, untagged, folder (none), preview,
 // type, rating, order, after, before, trash (a smart folder over the trash),
-// fixity (failed); and the Milestone 2 searches: semantic, similar (an item
+// fixity (failed), flag (pick, reject, none), label (a colour, none); and the Milestone 2 searches: semantic, similar (an item
 // id), color + tol, text, person, image (an image kept for this tab:
 // imageSearch.ts). Unknown params are ignored, never an error.
 // Pure functions, tested in tests/url.test.ts.
 
 import { emptyQuery, type PreviewStatus, type Query } from './api.ts'
 
-export type SettingsSection = 'tokens' | 'archive' | 'ai' | 'vocabulary' | 'cleanup'
-export const SETTINGS_SECTIONS: SettingsSection[] = ['tokens', 'archive', 'ai', 'vocabulary', 'cleanup']
+export type SettingsSection = 'tokens' | 'archive' | 'ai' | 'vocabulary' | 'cleanup' | 'templates'
+export const SETTINGS_SECTIONS: SettingsSection[] = ['tokens', 'archive', 'ai', 'vocabulary', 'cleanup', 'templates']
 
 export type OrganiseSection = 'duplicates' | 'stacks' | 'collections' | 'people'
 export const ORGANISE_SECTIONS: OrganiseSection[] = ['duplicates', 'stacks', 'collections', 'people']
+
+/** Full screens that replace the library (Milestone 3). */
+export type Screen =
+  | { kind: 'boards'; trash?: boolean }
+  | { kind: 'board'; id: string }
+  | { kind: 'triage'; view: 'unfiled' | 'all'; folder?: string | null }
+
+export function screenUrl(sc: Screen): string {
+  if (sc.kind === 'boards') return sc.trash ? '/boards?trash=1' : '/boards'
+  if (sc.kind === 'board') return `/board/${encodeURIComponent(sc.id)}`
+  const s = new URLSearchParams()
+  s.set('view', sc.view)
+  if (sc.folder) s.set('folder', sc.folder)
+  return `/triage?${s}`
+}
 
 export interface Place {
   query: Query
@@ -39,6 +57,8 @@ export interface Place {
   settings?: SettingsSection | null
   /** the Organise screen (duplicates, stacks, collections, people) */
   organise?: OrganiseSection | null
+  /** a full screen (boards, a board, triage) is shown */
+  screen?: Screen | null
 }
 
 export type Layer = 'view' | 'sheet' | 'full'
@@ -46,11 +66,13 @@ export type Layer = 'view' | 'sheet' | 'full'
 const RANK: Record<Layer, number> = { view: 0, sheet: 1, full: 2 }
 
 const PREVIEWS: PreviewStatus[] = ['pending', 'ready', 'failed', 'none']
+const LABEL_PARAMS = ['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'none']
 
 /** The view part of the path (no item). */
 function placePath(p: Place): string {
   if (p.settings) return `/settings/${p.settings}`
   if (p.organise) return `/organise/${p.organise}`
+  if (p.screen) return screenUrl(p.screen)
   const q = p.query
   // a smart folder keeps its path even when it searches the trash
   if (p.smartId) return `/smart/${encodeURIComponent(p.smartId)}`
@@ -64,7 +86,7 @@ function placePath(p: Place): string {
 export function toUrl(p: Place): string {
   const q = p.query
   const path = placePath(p)
-  if (p.settings || p.organise) return path
+  if (p.settings || p.organise || p.screen) return path
   const s = new URLSearchParams()
   const tagInPath = path.startsWith('/tag/')
   if (q.q) s.set('q', q.q)
@@ -91,6 +113,8 @@ export function toUrl(p: Place): string {
   if (q.text) s.set('text', q.text)
   if (q.person) s.set('person', q.person)
   if (q.image) s.set('image', q.image)
+  if (q.flag) s.set('flag', q.flag)
+  if (q.label) s.set('label', q.label)
   if (p.item) s.set('item', p.item)
   if (p.item && p.full) s.set('full', '1')
   const qs = s.toString()
@@ -134,6 +158,8 @@ export function fromUrl(pathname: string, search: string): Place {
     text: s.get('text') ?? '',
     person: s.get('person') || null,
     image: s.get('image') || null,
+    flag: ['pick', 'reject', 'none'].includes(s.get('flag') ?? '') ? s.get('flag') : null,
+    label: LABEL_PARAMS.includes(s.get('label') ?? '') ? s.get('label') : null,
   }
   let smartId: string | null = null
   const [head, arg] = parts
@@ -149,6 +175,15 @@ export function fromUrl(pathname: string, search: string): Place {
   } else if (head === 'organise') {
     const section = ORGANISE_SECTIONS.includes(arg as OrganiseSection) ? (arg as OrganiseSection) : 'duplicates'
     return { query: { ...emptyQuery }, smartId: null, item: null, full: false, organise: section }
+  }
+  else if (head === 'boards' || (head === 'board' && arg) || head === 'triage') {
+    const screen: Screen =
+      head === 'boards'
+        ? { kind: 'boards', ...(s.get('trash') === '1' ? { trash: true } : {}) }
+        : head === 'board'
+          ? { kind: 'board', id: arg }
+          : { kind: 'triage', view: s.get('view') === 'all' ? 'all' : 'unfiled', folder: s.get('folder') || null }
+    return { query: { ...emptyQuery }, smartId: null, item: null, full: false, screen }
   }
   // anything else (including /all) is the whole library
   const item = s.get('item') || null

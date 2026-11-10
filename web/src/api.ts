@@ -58,6 +58,9 @@ export interface Item {
   /** the item's stack and, in a collapsed list, how many members it has */
   stack_id?: string | null
   stack_count?: number | null
+  /** culling (Milestone 3): pick | reject, and a colour label */
+  flag?: 'pick' | 'reject' | null
+  label?: 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | null
 }
 
 /** Why an item is in a ranked (or keyword) search. The snippet marks the
@@ -135,6 +138,9 @@ export interface Query {
   person: string | null
   /** search by an image that isn't in the library (imageSearch.ts; this tab only) */
   image: string | null
+  /** culling filters (Milestone 3): pick | reject | none, a colour | none */
+  flag?: string | null
+  label?: string | null
 }
 
 export const emptyQuery: Query = {
@@ -159,6 +165,8 @@ export const emptyQuery: Query = {
   text: '',
   person: null,
   image: null,
+  flag: null,
+  label: null,
 }
 
 export interface SmartFolder {
@@ -450,6 +458,8 @@ export function itemsParams(query: Query, cursor?: string, limit = 120): URLSear
   // a stack shows once (its cover, or in a ranked search the member that
   // matched); the trash lists every item
   if (!query.deleted) p.set('stacks', 'collapse')
+  if (query.flag) p.set('flag', query.flag)
+  if (query.label) p.set('label', query.label)
   p.set('order', query.order)
   p.set('limit', String(limit))
   if (cursor) p.set('cursor', cursor)
@@ -481,7 +491,7 @@ export const api = {
    * answers 409 (conflictItem) if someone else changed it since */
   patchItem: (
     id: string,
-    patch: Partial<Pick<Item, 'filename' | 'rating' | 'notes' | 'folder_ids' | 'source_url' | 'protected' | 'caption'>> & {
+    patch: Partial<Pick<Item, 'filename' | 'rating' | 'notes' | 'folder_ids' | 'source_url' | 'protected' | 'caption' | 'flag' | 'label'>> & {
       base_modified_at?: string
     },
     batch?: string,

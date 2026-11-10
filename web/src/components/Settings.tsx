@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { BookOpen, Check, Copy, Cpu, KeyRound, ShieldCheck, Sparkles, TriangleAlert, X } from 'lucide-react'
+import { BookOpen, Check, Copy, Cpu, FileText, KeyRound, ShieldCheck, Sparkles, TriangleAlert, X } from 'lucide-react'
 import { lazy, Suspense, useId, useState } from 'react'
 import { api, emptyQuery, type ApiToken, type ArchiveHealth } from '../api'
 import { useCaps, useFolderNames, useFolders, useMe, useStats } from '../data'
@@ -16,6 +16,7 @@ import { AiExtras } from './AiExtras'
 
 const VocabularySection = lazy(() => import('./TagSettings').then((m) => ({ default: m.VocabularySection })))
 const CleanupSection = lazy(() => import('./TagSettings').then((m) => ({ default: m.CleanupSection })))
+const TemplatesSection = lazy(() => import('./m3/Templates').then((m) => ({ default: m.TemplatesSection })))
 
 const SECTIONS: { id: SettingsSection; label: string; icon: typeof KeyRound }[] = [
   { id: 'tokens', label: 'Tokens', icon: KeyRound },
@@ -23,6 +24,7 @@ const SECTIONS: { id: SettingsSection; label: string; icon: typeof KeyRound }[] 
   { id: 'ai', label: 'AI', icon: Cpu },
   { id: 'vocabulary', label: 'Vocabulary', icon: BookOpen },
   { id: 'cleanup', label: 'Tag cleanup', icon: Sparkles },
+  { id: 'templates', label: 'Templates', icon: FileText },
 ]
 
 const dateText = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : '')
@@ -72,6 +74,7 @@ export function SettingsScreen() {
             <Suspense fallback={<p className="hint" role="status">Loading…</p>}>
               {section === 'vocabulary' && <VocabularySection />}
               {section === 'cleanup' && <CleanupSection />}
+              {section === 'templates' && <TemplatesSection />}
             </Suspense>
           </main>
         </div>

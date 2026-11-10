@@ -44,6 +44,8 @@ export function stillMatches(item: Item, q: Query, folderSubtree?: Set<string>):
   if (q.type && item.kind !== q.type) return false
   if (q.rating && item.rating < q.rating) return false
   if (q.preview && item.preview_status !== q.preview) return false
+  if (q.flag && (item.flag ?? 'none') !== q.flag) return false
+  if (q.label && (item.label ?? 'none') !== q.label) return false
   // fixity: the server's call (a re-check clears it); keep the item
   return true
 }
@@ -108,6 +110,8 @@ export function smartFolderQuery(q: Query): Partial<Query> {
     color_tol: q.color_tol,
     text: q.text,
     person: q.person,
+    flag: q.flag ?? null,
+    label: q.label ?? null,
   }
 }
 
@@ -143,7 +147,9 @@ export function hasNarrowing(q: Query): boolean {
     !!q.color ||
     !!q.text ||
     !!q.person ||
-    !!q.image
+    !!q.image ||
+    !!q.flag ||
+    !!q.label
   )
 }
 

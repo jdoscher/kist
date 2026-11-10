@@ -22,6 +22,12 @@ import { useCaps } from './data'
 import { Mark, Wordmark } from './components/Brand'
 import { useAppState } from './state'
 import { bannerText, describeError, hasDrafts } from './writes'
+import { CreativeProvider } from './components/m3/Creative'
+import { BoardsScreen } from './components/m3/Boards'
+
+// Milestone 3 full screens load on first use
+const BoardEditor = lazy(() => import('./components/m3/board/BoardEditor'))
+const Triage = lazy(() => import('./components/m3/Triage'))
 
 function TokenGate({ onDone, overlay = false }: { onDone: () => void; overlay?: boolean }) {
   const [value, setValue] = useState('')
@@ -138,7 +144,7 @@ const OrganiseScreen = lazy(() => import('./components/Organise').then((m) => ({
 
 /** The library (top bar, sidebar, grid, info panel), Settings or Organise. */
 function Screens({ mobile }: { mobile: boolean }) {
-  const { settings, organise } = useAppState()
+  const { settings, organise, screen } = useAppState()
   if (settings) return <SettingsScreen />
   if (organise)
     return (
@@ -146,13 +152,28 @@ function Screens({ mobile }: { mobile: boolean }) {
         <OrganiseScreen />
       </Suspense>
     )
+  // the board editor and triage take the whole window (focus); the boards
+  // list sits in the library's frame, in place of the grid
+  if (screen && screen.kind !== 'boards')
+    return (
+      <Suspense fallback={<main className="center" role="status">Loading…</main>}>
+        {screen.kind === 'board' && <BoardEditor key={screen.id} id={screen.id} />}
+        {screen.kind === 'triage' && <Triage key={`${screen.view}:${screen.folder ?? ''}`} screen={screen} />}
+      </Suspense>
+    )
   return (
     <>
       <TopBar mobile={mobile} />
       <div className="app-body">
         {mobile ? <Drawer /> : <DesktopSidebar />}
-        <Grid mobile={mobile} />
-        {mobile ? <DetailSheet /> : <DetailPanel />}
+        {screen?.kind === 'boards' ? (
+          <BoardsScreen trash={!!screen.trash} />
+        ) : (
+          <>
+            <Grid mobile={mobile} />
+            {mobile ? <DetailSheet /> : <DetailPanel />}
+          </>
+        )}
       </div>
     </>
   )
@@ -224,15 +245,17 @@ export default function App() {
       <DialogProvider>
         <AppStateProvider mobile={mobile}>
           <UploadManager>
-            <div className={`app-shell${mobile ? ' mobile' : ''}`}>
-              <ServerBanner />
-              <Screens mobile={mobile} />
-              <Preview />
-              <JobsPanel />
-              <RecentChanges />
-              <UndoShortcut />
-              {!authed && <TokenGate onDone={recheck} overlay />}
-            </div>
+            <CreativeProvider>
+              <div className={`app-shell${mobile ? ' mobile' : ''}`}>
+                <ServerBanner />
+                <Screens mobile={mobile} />
+                <Preview />
+                <JobsPanel />
+                <RecentChanges />
+                <UndoShortcut />
+                {!authed && <TokenGate onDone={recheck} overlay />}
+              </div>
+            </CreativeProvider>
           </UploadManager>
         </AppStateProvider>
       </DialogProvider>

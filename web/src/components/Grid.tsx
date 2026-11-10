@@ -24,6 +24,8 @@ import { describeError } from '../writes'
 import { BulkBar } from './BulkBar'
 import { ItemContextMenu, RankedError, rankedErrorText, SearchNote, usePersonName, showMatchBadge, StackBadge, TileMatch, tileExtra, useExpandedStacks, useStackToggle } from './GridExtras'
 import { searchTitle } from '../search'
+import { CullBadges, cullText } from './m3/CullControls'
+import { FirstRun } from './m3/FirstRun'
 
 const KIND_ICONS: Record<string, LucideIcon> = {
   image: ImageIcon,
@@ -98,7 +100,7 @@ const Tile = memo(function Tile({
       aria-selected={selected}
       aria-setsize={total}
       aria-posinset={index + 1}
-      aria-label={tileLabel(item) + extraLabel}
+      aria-label={tileLabel(item) + (cullText(item) ? `, ${cullText(item)}` : '') + extraLabel}
       tabIndex={tabbable ? 0 : -1}
       className={`tile${selected ? ' selected' : ''}${thumb ? '' : ' no-thumb'}${member ? ' stack-member' : ''}`}
       style={{ width, height, ...placeholder }}
@@ -148,6 +150,7 @@ const Tile = memo(function Tile({
           ))}
         </span>
       )}
+      <CullBadges item={item} />
       {item.protected && (
         <span className="badge lock" aria-hidden="true" title="Protected">
           <Lock size={11} strokeWidth={2.25} />
@@ -561,7 +564,11 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
           ))}
         </div>
       </div>
-      {empty && (
+      {empty && stats?.total_items === 0 && !query.deleted ? (
+        <div className="grid-empty first">
+          <FirstRun />
+        </div>
+      ) : empty && (
         <div className="grid-empty">
           <p>{empty.text}</p>
           {empty.action === 'everywhere' && (

@@ -11,6 +11,7 @@ import { ItemMeta } from './ItemMeta'
 import { ItemStatus } from './ItemStatus'
 import { ReadOnlyItem } from './DetailSheet'
 import { CaptionField, ImpliedTags, ItemFaces, MatchWhy, MoreLikeThisButton, PaletteSwatches, StackInfo, TagSuggestions, TagText } from './ItemAI'
+import { ItemBoards, ItemCull, ItemVersions } from './m3/ItemCreative'
 
 /** Protected items can't be trashed or deleted. Agents can protect but not
  * unprotect; removing protection needs a full-access (write/admin) token. */
@@ -135,6 +136,8 @@ function SingleItem({ item }: { item: Item }) {
       <MoreLikeThisButton item={item} />
       <CaptionField item={item} editable />
 
+      <ItemCull item={item} />
+
       <div className="detail-section">
         <label htmlFor={`${uid}-tags`}>Tags</label>
         <div className="tag-chips">
@@ -217,6 +220,9 @@ function SingleItem({ item }: { item: Item }) {
       <ItemFaces item={item} editable />
       <StackInfo item={item} editable />
       <ItemLinks item={item} editable />
+
+      <ItemVersions item={item} />
+      <ItemBoards item={item} />
 
       <ItemMeta item={item} />
 
