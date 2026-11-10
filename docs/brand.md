@@ -88,21 +88,23 @@ which also replaces the old star yellow. All colours are CSS variables in
 
 | Token | Dark | Light | Gallery grey |
 |---|---|---|---|
-| bg | #131312 | #FAF9F6 | #353535 |
-| bg-raised | #1C1C1A | #FFFFFF | #3D3D3D |
+| bg | #131312 | #FAF9F6 | #5C5C5C |
+| bg-raised | #1C1C1A | #FFFFFF | #565656 |
 | text | #ECEAE4 | #1C1B19 | #F5F5F5 |
-| text-dim | #9C9A93 | #5F5D57 | #D0D0D0 |
-| accent / focus / stars | #E8B04B | #8C5A00 | #E8B04B |
+| text-dim | #9C9A93 | #5F5D57 | #E4E4E4 |
+| accent / focus / stars | #E8B04B | #8C5A00 | #F6CF7E |
 | on-accent | #1A1408 | #FFFFFF | #1A1408 |
-| field outline | #6E6C66 | #8A877F | #9A9A9A |
-| danger | #F2716A | #B42318 | #FFA29C |
-| success | #5FC48A | #1E7A46 | #8FE0B0 |
+| field outline | #6E6C66 | #8A877F | #BDBDBD |
+| danger | #F2716A | #B42318 | #FFD0CC |
+| success | #5FC48A | #1E7A46 | #A8F0C4 |
 | canvas (image surround) | #131312 | #FAF9F6 | #767676 |
 | preview surround | #0D0D0C | #0D0D0C | #767676 |
 
 - **Gallery grey** is for judging colour: the images sit on an 18 % mid-grey
-  (#767676) in the grid and the full-screen preview, with darker neutral
-  chrome so text still passes. White on #767676 is 4.54:1.
+  (#767676) in the grid and the full-screen preview. The chrome is a
+  slightly darker mid-grey (#5C5C5C), close enough to read as one surface;
+  the lightest grey at which the brass links and error text still pass AA.
+  Panels step darker, not lighter, for the same reason.
 - The full-screen preview stays dark in the light theme, the way photo apps
   do, so images are always judged against the same surround.
 - Never use the bright brass #E8B04B as a fill or text on a light
