@@ -360,3 +360,54 @@ def test_shares_survive_a_rebuild_and_verify_checks_them(client, upload):
     shares_svc.path().write_text('{"version": 1, "shares": []}')
     with SessionLocal() as s:
         assert any("shares.json" in p for p in verify.run(s).problems)
+
+
+def test_access_log_drops_visitor_addresses():
+    import logging
+
+    from kist.share_pages import NoVisitorAddress
+
+    def rec(path):
+        r = logging.LogRecord("uvicorn.access", logging.INFO, "", 0,
+                              '%s - "%s %s HTTP/%s" %d', ("203.0.113.7:5555", "GET", path,
+                                                          "1.1", 200), None)
+        NoVisitorAddress().filter(r)
+        return r.getMessage()
+
+    assert "203.0.113.7" not in rec("/s/abcdefghijklmnopqrstuv")
+    assert "203.0.113.7" in rec("/api/items")
+    assert any(isinstance(f, NoVisitorAddress)
+               for f in logging.getLogger("uvicorn.access").filters)
+
+
+def test_unnormalised_paths_never_skip_the_token(client, upload):
+    """A raw '..' in the path (clients normally clean it up) must not turn
+    an API path into a public one."""
+    import asyncio
+
+    upload()
+
+    async def call(path: str) -> tuple[int, bytes]:
+        sent: list = []
+
+        async def receive():
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        async def send(message):
+            sent.append(message)
+
+        scope = {"type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1",
+                 "method": "GET", "scheme": "http", "path": path,
+                 "raw_path": path.encode(), "query_string": b"", "root_path": "",
+                 "headers": [(b"host", b"testserver")], "client": ("203.0.113.1", 1),
+                 "server": ("testserver", 80), "state": {}}
+        await client.app(scope, receive, send)
+        status = next(m["status"] for m in sent if m["type"] == "http.response.start")
+        body = b"".join(m.get("body", b"") for m in sent if m["type"] == "http.response.body")
+        return status, body
+
+    for path in ("/s/x/../../api/items", "/s/../api/items", "/s/../mcp",
+                 "/s/abcdefghijklmnopqrstuv/../../api/tokens"):
+        status, body = asyncio.run(call(path))
+        assert status in (401, 404), (path, status)
+        assert b'"items"' not in body and b"kist_" not in body

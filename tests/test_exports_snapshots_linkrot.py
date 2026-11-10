@@ -3,6 +3,7 @@ link-rot watch."""
 
 import hashlib
 import io
+import json
 import socket
 import zipfile
 from datetime import UTC, datetime, timedelta
@@ -376,3 +377,21 @@ def test_link_check_refuses_private_addresses(client, upload):
     with SessionLocal() as s:
         linkrot.run_batch(s, transport=httpx.MockTransport(handler), sleep=lambda t: None)
     assert client.get(f"/api/items/{item['id']}").json()["source_status"] == "error"
+
+
+def test_mcp_export_and_snapshot_tools(client, upload):
+    from test_tokens import mcp_result
+
+    item = upload("m.png")["item"]
+    res = mcp_result(client, "export_collection", {"target": "all"})
+    assert not res.get("isError"), res
+    export_id = res["structuredContent"]["id"] if "structuredContent" in res else json.loads(
+        res["content"][0]["text"])["id"]
+    run_jobs()
+    status = mcp_result(client, "export_status", {"id": export_id})
+    assert "done" in json.dumps(status)
+    missing = mcp_result(client, "get_page_snapshot", {"id": item["id"]})
+    assert missing.get("isError")
+    client.post(f"/api/items/{item['id']}/snapshot", json={"html": "<p>agent can read</p>"})
+    found = mcp_result(client, "get_page_snapshot", {"id": item["id"]})
+    assert "agent can read" in json.dumps(found)

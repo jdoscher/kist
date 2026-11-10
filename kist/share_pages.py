@@ -27,6 +27,21 @@ log = logging.getLogger("kist.share_pages")
 
 router = APIRouter(include_in_schema=False)
 
+
+class NoVisitorAddress(logging.Filter):
+    """uvicorn's access log names the client's address on every line; for
+    share pages it is replaced by "-", so visitors to a link aren't kept
+    in Kist's logs (a reverse proxy's own log is its own business)."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        args = record.args
+        if isinstance(args, tuple) and len(args) >= 3 and str(args[2]).startswith("/s/"):
+            record.args = ("-", *args[1:])
+        return True
+
+
+logging.getLogger("uvicorn.access").addFilter(NoVisitorAddress())
+
 SHARE_CSP = "; ".join([
     "default-src 'none'",
     "img-src 'self'",

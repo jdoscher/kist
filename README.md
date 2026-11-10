@@ -81,6 +81,13 @@ Open `http://<host>:8080`, paste your token, and drop files in.
 | `KIST_ML_IDLE_SECONDS` | `300` | The ml service unloads a model unused this long (0 = never) |
 | `KIST_ML_BASE_URL` | `https://huggingface.co` | Where model files are downloaded from (a mirror works: files are checked by sha256) |
 | `TZ` | `UTC` | The worker's time zone, which `KIST_AI_WINDOW` is in |
+| `KIST_EXPORT_RETENTION_DAYS` | `7` | Finished portable exports (`library/exports/`) are deleted after this many days; `0` keeps them |
+| `KIST_SNAPSHOTS` | `false` | Let `POST /api/items/{id}/snapshot` with no body fetch the item's page on the server (through the same SSRF guard as URL adds). Off: only snapshots the browser sends |
+| `KIST_LINK_CHECK_DAYS` | `7` | The link-rot watch re-checks every item's source page this often; `0` turns it off |
+| `KIST_LINK_CHECK_DELAY_SECONDS` | `2` | Pause between two link checks (and never the same host within 10 s) |
+| `KIST_WAYBACK` | `false` | Ask the Wayback Machine (archive.org, an outside service) for an archived copy of sources that are gone. Off by default: it tells archive.org which pages you kept |
+| `KIST_XMP_SIDECARS` | `true` | Write `items/<id>/original.xmp` (rating, keywords, notes, label, creator, rights, provenance) for images on every change, for Lightroom, darktable and digiKam |
+| `KIST_SHARE_PASSWORD_ATTEMPTS` | `10` | Wrong share-link passwords allowed per link per 15 minutes (then 429) |
 
 Kist speaks plain HTTP. To reach it from outside your LAN, put it behind a
 TLS-terminating reverse proxy (Caddy, nginx, Traefik). Over HTTPS the
@@ -209,9 +216,12 @@ library/
 ├── import/                 # files agents may add via MCP add_item(file_path)
 ├── failed/                 # inbox files whose import failed, under their own names
 ├── folders.json            # folder tree (with descriptions) + smart folders snapshot
+├── exports/                # portable exports ({id}.zip + {id}.json), auto-deleted
 ├── .kist/                  # worker heartbeat, last verify result, failed-write notes,
 │                           # tokens.json (hashed tokens), events-purged.jsonl,
-│                           # backup.json, db.sql.gz, checklist.json, retention.json
+│                           # backup.json, db.sql.gz, checklist.json, retention.json,
+│                           # shares.json (share links, hashed passwords),
+│                           # export-presets.json
 ├── .staging/               # files on their way in (the worker re-queues strays)
 └── items/
     └── {ulid}/
@@ -223,6 +233,8 @@ library/
         ├── meta.json       # all metadata (incl. links, protected), rewritten on every change
         ├── events.jsonl    # the item's history, one line per change (append-only)
         ├── fixity.jsonl    # every re-hash of the original: {at, sha256, ok}
+        ├── original.xmp    # images: XMP for other photo tools (KIST_XMP_SIDECARS)
+        ├── page/           # page snapshot: snapshot.html, text.txt, snapshot.json
         └── ai/             # AI results (rebuild-index loads them, never recomputes)
             ├── embed-ViT-B-32__openai.f16   # raw little-endian float16 vector
             ├── embed-ViT-B-32__openai.json  # {model, dim, created_at, kist_version}
@@ -294,6 +306,92 @@ parent loop is restored at the top level, and each of these is printed with
 The `pgdata` volume can always be thrown away; it is never the only copy of
 anything.
 
+## Sharing, exporting and importing
+
+**Share links.** `POST /api/shares {target_kind: folder|smart|board|items,
+target_id | item_ids, title?, password?, expires_in_days? (30; 0 = never) |
+expires_at?, allow_download?, allow_original?}` (admin or write token) makes
+a read-only page at `/s/<slug>` anyone with the link can open, with no token
+and no account. It is plain HTML with no script, under a sandboxing CSP,
+`noindex` and `Referrer-Policy: no-referrer`; `robots.txt` disallows `/s/`.
+A share serves only the items it covers *right now* (a smart-folder share
+stays live; trashed items never show), the original only with
+`allow_original`, and the full-screen copy as a download with
+`allow_download`. A password share sets an HttpOnly cookie for that link
+only after the right password (scrypt-hashed; 10 wrong tries per link per
+15 minutes, then 429). Expired or revoked links answer 410. Views are
+counted without recording who: the link's visitors are left out of Kist's
+access log too. Shares are kept in `library/.kist/shares.json`.
+
+**Portable export.** `POST /api/exports {target: folder|smart|items|all,
+target_id?, item_ids?, include: {originals, sidecars, events}}` builds a
+BagIt 1.0 zip in the background (`GET /api/exports/{id}` for status,
+`…/download` for the file): originals under readable names in
+`data/<folder path>/`, a `.json` and `.xmp` beside each, `items.csv`, and an
+`index.html` that browses the whole thing offline from a USB stick.
+`manifest-sha256.txt` lets any BagIt tool check every file. Exports are
+deleted after `KIST_EXPORT_RETENTION_DAYS`.
+
+**Export presets.** `POST /api/items/export-images {item_ids, preset}`
+answers a zip of resized copies (`max_side`, `format` jpg/webp/png/avif,
+`quality`, a text `watermark`) or, with `contact_sheet: {cols, caption}`, a
+PDF contact sheet. Metadata is stripped by default and GPS always is.
+Presets are saved in `library/.kist/export-presets.json`
+(`/api/export-presets`); `web-2048`, `full-res`, `instagram-1080`,
+`client-proof` and `contact-sheet` come built in.
+
+**Provenance.** Every item has a `provenance` block: `page_url` (the same
+as `source_url`), `image_url`, `page_title`, `captured_at`, `method`
+(upload, paste, url, extension, inbox, mcp, import), `creator`, `credit`,
+`license`, `rights_url`, `ai_generated`, `digital_source_type`, and for
+imports `imported_from` / `original_id`. Kist fills what it knows on ingest,
+reads XMP (embedded, or a `.xmp` beside an inbox file) for ratings,
+keywords, notes, creator and rights, and marks `ai_generated` from IPTC
+`DigitalSourceType` or a C2PA manifest. `PATCH /api/items/{id}
+{provenance: {...}}` edits it (null removes a field; undoable), and
+`GET /api/items?ai_generated=true|false|unknown&license=CC0` filters.
+
+**XMP sidecars.** With `KIST_XMP_SIDECARS` (on), every image has an
+`items/<id>/original.xmp` that Lightroom, darktable and digiKam read; Kist
+merges into an existing one, keeping properties it doesn't manage.
+`kist xmp --export DIR` writes `<name>.xmp` beside files you exported
+(matched by content), `kist xmp --rewrite` refreshes them all.
+
+**Page snapshots.** `POST /api/items/{id}/snapshot {html}` keeps the page
+an item came from (as the browser extension captured it) in
+`items/<id>/page/`, with scripts stripped; its text becomes searchable item
+text. `GET /api/items/{id}/snapshot` serves it sandboxed. With
+`KIST_SNAPSHOTS=1`, sending no body makes the server fetch `page_url` once.
+
+**Link-rot watch.** The worker re-checks every source page weekly, politely,
+and records `source_status` (`ok`, `moved`, `gone`, `error`) and
+`source_checked_at`; `/api/stats` counts `source_gone` (Needs attention) and
+`GET /api/items?source_status=gone` lists them. `kist link-check` runs a
+batch now. `KIST_WAYBACK=1` also records an archived copy's URL.
+
+**Importers.** `kist import <kind> <path|url> [--dry-run] [--folder NAME]`,
+or `POST /api/imports {kind, source, dry_run?, folder?}` (write or admin; a
+path must be inside `library/import/` or the inbox; `GET /api/imports/{id}`
+shows progress). Each run files into its own folder, `Imported/<kind>
+<date>`, keeps provenance, and is one history batch (undo it with
+`POST /api/batches/{batch_id}/undo`). A dry run reports counts, duplicates
+and errors and changes nothing.
+
+| kind | source |
+|---|---|
+| `pinterest` | the account data export zip (pins are downloaded from their image link or signature, else the source page's preview image; boards become folders) |
+| `arena` | a public channel URL (`https://www.are.na/<user>/<channel>`, through the public API, no key) or a "Download channel" zip |
+| `raindrop` | Raindrop.io's CSV or HTML export (cover image, else the page's preview image; collections become folders) |
+| `takeout` | Google Photos Takeout (JSON sidecars, including the `.supplemental-metadata.json` and cut-short names: date, description, geo, favourite) |
+| `apple-photos` | a folder from `osxphotos export DEST --sidecar json` (title, description, keywords, people, rating, date, GPS; sub-folders become folders) |
+| `sidecar` | any folder of files with `.json` and/or `.xmp` sidecars |
+| `eagle` | an Eagle `.library` folder (folder tree, tags, ratings, notes, source URL, trash, simple smart folders) |
+
+**iPhone.** A "Save to Kist" Shortcut in the share sheet posts images, files
+and links to `POST /api/items` with an add-only token; send `Accept:
+text/plain` and Kist answers `Saved to Kist: <name>`. Step by step:
+[docs/ios-shortcut.md](docs/ios-shortcut.md) (or `GET /api/shortcut`).
+
 ## MCP (Claude and other agents)
 
 Streamable-HTTP endpoint at `http://<host>:8080/mcp`, using the same bearer token:
@@ -318,6 +416,9 @@ claude mcp add --transport http kist http://<host>:8080/mcp \
 | `retry_preview` | queues another attempt at a failed preview |
 | `list_jobs`, `retry_job` | inbox imports and preview retries, and why one failed |
 | `find_duplicates`, `library_stats` | housekeeping |
+| `set_provenance` | creator, credit, license, page/image URL, `ai_generated` … (undoable) |
+| `export_collection`, `export_status` | build a portable BagIt export of a folder, smart folder, items or everything, then hand the user its download link |
+| `get_page_snapshot` | the readable text of the page an item was saved from, if kept |
 
 Every item carries `state` (`active` or `trashed`), `preview_status`
 (`ready`, `pending`, `failed` or `none`) and a `web_url` that opens it in the
@@ -360,7 +461,7 @@ makes is recorded in the item history under its name.
 
 ## REST API
 
-Every route except `/api/health` needs `Authorization: Bearer $KIST_TOKEN`.
+Every route except `/api/health`, `/robots.txt` and the share pages under `/s/` needs `Authorization: Bearer $KIST_TOKEN`.
 
 ```
 POST   /api/items                multipart upload, or JSON {"url": …}. Both accept
@@ -438,6 +539,35 @@ GET    /api/health/deep          database, migrations, worker heartbeat, library
                                  job queue, recent preview failures, last verify run
 POST   /api/client-errors        the web UI reports its crashes here (logged, 30/min)
 GET    /api/health               no auth; the database answers
+
+Milestone 4:
+GET    /api/items                + ai_generated (true|false|unknown), license (text, or
+                                 "none"), source_status (ok|gone|moved|error|unchecked)
+PATCH  /api/items/{id}           + provenance {...} (merged; null removes a field;
+                                 page_url sets source_url)
+POST   /api/items                + provenance (JSON; a form field for uploads); for
+                                 {url}: title (-> provenance.page_title) and text (added
+                                 to the notes); Accept: text/plain answers
+                                 "Saved to Kist: <name>" (201) / "Already in Kist: <name>"
+POST   /api/items/{id}/snapshot  JSON {html} or a text/html body; no body: fetch page_url
+                                 on the server (KIST_SNAPSHOTS=1, else 409)
+GET    /api/items/{id}/snapshot  the saved page (CSP: sandbox)
+GET    /api/items/{id}/snapshot/text
+POST   /api/items/export-images  {item_ids, preset: name | {max_side, format, quality,
+                                 strip_metadata, watermark?, contact_sheet?}} -> zip | PDF
+GET/POST /api/export-presets     saved presets; PUT/DELETE /api/export-presets/{name}
+POST   /api/exports              {target, target_id?, item_ids?, include?, format} -> 202
+GET    /api/exports              and /api/exports/{id} (status; ?download=1 = the zip),
+GET    /api/exports/{id}/download  DELETE /api/exports/{id}
+GET/POST /api/shares             (write/admin) share links; GET/PATCH/DELETE
+                                 /api/shares/{id}, POST /api/shares/{id}/revoke
+POST   /api/imports              (write/admin) {kind, source, dry_run?, folder?} -> 202;
+GET    /api/imports/{id}         status and report
+GET    /api/shortcut             (admin) the iOS Shortcut's steps for this server
+GET    /api/stats                + source_gone
+GET    /s/{slug}                 no token: the public share page (POST: its password);
+GET    /s/{slug}/i/{id}/thumb|display|file
+GET    /robots.txt               no token
 ```
 
 Lists use cursor pagination: pass `next_cursor` back as `cursor` until it is
