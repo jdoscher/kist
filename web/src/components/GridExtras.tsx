@@ -152,6 +152,10 @@ export function ItemContextMenu({
   const toggleStack = useStackToggle()
   const ref = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState({ x, y })
+  // the tile (or whatever) it was opened from: Escape puts focus back there
+  // instead of dropping it on the page, where the grid's keys stopped working
+  const opener = useRef<HTMLElement | null>(null)
+  if (opener.current === null && typeof document !== 'undefined') opener.current = document.activeElement as HTMLElement | null
   const top = item.dominant_colors?.[0]?.hex ?? null
   useEffect(() => {
     const el = ref.current
@@ -209,6 +213,7 @@ export function ItemContextMenu({
           e.preventDefault()
           e.stopPropagation()
           onClose()
+          if (opener.current?.isConnected) opener.current.focus()
         } else if (e.key === 'ArrowDown') {
           e.preventDefault()
           els[(i + 1) % els.length]?.focus()
