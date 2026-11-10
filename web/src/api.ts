@@ -1,5 +1,6 @@
 import { imageFor } from './imageSearch.ts'
 import { addM45Params, type M45Filters } from './m45/filters.ts'
+import { bucketParams, scrubSort, type Buckets } from './scrub.ts'
 
 // Server-defined states (kist/lifecycle.py); the UI never derives these itself.
 type ItemState = 'active' | 'trashed'
@@ -512,6 +513,18 @@ export const api = {
       throw e
     }
   },
+  /** The list's months for the date scrubber (GET /api/items/buckets, Kist
+   * 2.0 M6): same filters as listItems, with its date sort. null when the
+   * list isn't sorted by a date. */
+  itemBuckets: (query: Query): Promise<Buckets> | null => {
+    const s = scrubSort(query)
+    if (!s || query.image) return null
+    return request<Buckets>(`/api/items/buckets?${bucketParams(itemsParams(query), s)}`)
+  },
+  /** One page of the list from a cursor (a bucket's, for a scrubber jump),
+   * with its own page size (the server allows up to 500). */
+  listItemsFrom: (query: Query, cursor: string, limit = 120): Promise<ItemPage> =>
+    request<ItemPage>(itemsUrl(query, cursor || undefined, Math.min(500, Math.max(1, limit)))),
   getItem: (id: string) => request<Item>(`/api/items/${id}`),
   /** base_modified_at: the item's modified_at as last seen; the server
    * answers 409 (conflictItem) if someone else changed it since */

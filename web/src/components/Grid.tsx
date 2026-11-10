@@ -1,14 +1,16 @@
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { Check, File, FileText, Film, Hourglass, Image as ImageIcon, Lock, Star, TriangleAlert, type LucideIcon } from 'lucide-react'
-import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { emptyQuery, thumbUrl, type Item } from '../api'
 import { fmtDuration, plural, tileLabel } from '../format'
 import {
+  feedRows,
   isNavKey,
   layoutRows,
   mobileTileSize,
   nextIndex,
   pickThumbSize,
+  rowStarts,
   tilePositions,
   typicalAspect,
 } from '../layout'
@@ -27,6 +29,11 @@ import { searchTitle } from '../search'
 import { CullBadges, cullText } from './m3/CullControls'
 import { FirstRun } from './m3/FirstRun'
 import { ScrubHover } from './m45/ScrubHover'
+import { Scrubber } from './Scrubber'
+import { usePinchColumns, useWheelSize } from '../useGridZoom'
+import { useScrubWindow, type Anchor } from '../useScrubWindow'
+import { anchoredScrollTop } from '../zoom'
+import '../m6grid.css'
 
 const KIND_ICONS: Record<string, LucideIcon> = {
   image: ImageIcon,
@@ -189,7 +196,9 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
     setPreviewId,
     gridLayout,
     tileSize: sliderSize,
+    setTileSize,
     mobileCols,
+    setMobileCols,
     density,
   } = useAppState()
   const gap = densityGap(density)
@@ -230,8 +239,11 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
   const closeCtx = useCallback(() => setCtxMenu(null), [])
 
   const scrollRef = useRef<HTMLDivElement | null>(null)
+  const contentRef = useRef<HTMLDivElement | null>(null)
   const observer = useRef<ResizeObserver | null>(null)
   const [width, setWidth] = useState(800)
+  // the same element as state, for the listeners that need it attached
+  const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null)
 
   // callback ref: the scroll container only mounts after the first page
   // loads, so a mount-time effect would never see it
@@ -239,6 +251,7 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
     observer.current?.disconnect()
     observer.current = null
     scrollRef.current = el
+    setScrollEl(el)
     if (!el) return
     const ro = new ResizeObserver(() => setWidth(el.clientWidth))
     ro.observe(el)
@@ -252,14 +265,41 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
     [mobile, gridLayout, items],
   )
   const tileSize = mobile ? mobileTileSize(width - 16, mobileCols, aspect, gap) : desktopTileSize
+  // phone, 1 column: the feed (every item full width, in its own shape)
+  const feed = mobile && mobileCols === 1
   const rows = useMemo(
-    () => layoutRows(items, width - 16, tileSize, gridLayout, gap),
-    [items, width, tileSize, gridLayout, gap],
+    () => (feed ? feedRows(items, width - 16, gap) : layoutRows(items, width - 16, tileSize, gridLayout, gap)),
+    [feed, items, width, tileSize, gridLayout, gap],
   )
   const rowCount = rows.length
 
   // item index -> its row and horizontal centre, for up/down arrow keys
   const positions = useMemo(() => tilePositions(rows, gap), [rows, gap])
+  const loadedStarts = useMemo(() => rowStarts(rows, gap), [rows, gap])
+
+  // what to restore after the next relayout: the item under the fingers or
+  // pointer (zoom), the rows on screen (a month loaded above), or the top of
+  // a window that just jumped (date scrubber)
+  const anchorRef = useRef<Anchor | null>(null)
+  const setAnchor = useCallback((a: Anchor) => {
+    anchorRef.current = a
+  }, [])
+
+  // the date scrubber's window over the list (date sorts only)
+  const scrub = useScrubWindow({
+    query,
+    result,
+    items,
+    rows,
+    rowStartsLoaded: loadedStarts,
+    gap,
+    avail: width - 16,
+    tileSize,
+    layoutKey: `${width}|${tileSize}|${gridLayout}|${gap}|${feed}`,
+    scrollEl: () => scrollRef.current,
+    setAnchor,
+  })
+  const scrubbing = !!scrub.geom
 
   const virtualizer = useVirtualizer({
     count: rowCount,
@@ -268,22 +308,112 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
     overscan: 4,
     // the bulk bar and toasts float over the bottom: keep the current tile clear
     scrollPaddingEnd: 80,
+    // the scrubber's estimate of the months not loaded above and below
+    paddingStart: scrub.padStart,
+    paddingEnd: scrub.padEnd,
   })
 
   // re-measure when the row heights change (resize, slider, layout switch)
   useEffect(() => {
     virtualizer.measure()
-  }, [rows]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [rows, scrub.padStart]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // keep the view steady across relayouts (see anchorRef)
+  const prevPad = useRef(0)
+  const prevQuery = useRef(query)
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    const a = anchorRef.current
+    const pad = scrub.padStart
+    if (el && a) {
+      // the virtualizer re-measures in an effect, after this: size the
+      // content now so the scroll offset below isn't clamped to the old height
+      virtualizer.measure()
+      if (contentRef.current) contentRef.current.style.height = `${virtualizer.getTotalSize()}px`
+    }
+    const sameList = prevQuery.current === query
+    prevQuery.current = query
+    if (!sameList) anchorRef.current = null
+    else if (el && a) {
+      anchorRef.current = null
+      if (a.kind === 'pos') el.scrollTop = scrub.offsetOf(a.pos)
+      else {
+        const i = items.findIndex((it) => it.id === a.id)
+        const p = positions[i]
+        if (p && rows[p.row]) el.scrollTop = anchoredScrollTop(pad + loadedStarts[p.row], rows[p.row].height, a.frac, a.pointY)
+      }
+    } else if (el && sameList && pad !== prevPad.current && el.scrollTop >= prevPad.current && prevPad.current > 0) {
+      // the estimate above the loaded rows changed: the rows stay put
+      el.scrollTop += pad - prevPad.current
+    }
+    prevPad.current = pad
+  }, [rows, scrub.padStart, query]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Remember the item at a screen point, to keep it there after a zoom. */
+  const captureAt = useCallback(
+    (x: number, y: number) => {
+      const el = scrollRef.current
+      if (!el) return
+      const box = el.getBoundingClientRect()
+      const hit = document.elementFromPoint(x, y)?.closest<HTMLElement>('[role=option][id^="tile-"]')
+      let tile = hit && el.contains(hit) ? hit : null
+      if (!tile) {
+        // between tiles: the first tile in the row nearest the point
+        let best: HTMLElement | null = null
+        let bestD = Infinity
+        for (const t of el.querySelectorAll<HTMLElement>('[role=option][id^="tile-"]')) {
+          const r = t.getBoundingClientRect()
+          const d = Math.abs((r.top + r.bottom) / 2 - y) + Math.abs((r.left + r.right) / 2 - x) / 4
+          if (d < bestD) {
+            bestD = d
+            best = t
+          }
+        }
+        tile = best
+      }
+      if (!tile) return
+      const r = tile.getBoundingClientRect()
+      setAnchor({
+        kind: 'item',
+        id: tile.id.slice('tile-'.length),
+        frac: r.height > 0 ? (y - r.top) / r.height : 0,
+        pointY: y - box.top,
+      })
+    },
+    [setAnchor],
+  )
+
+  // W1.2 pinch on the phone, W1.3 ⌘/Ctrl+wheel and trackpad pinch on desktop
+  usePinchColumns(scrollEl, () => contentRef.current, mobile, mobileCols, setMobileCols, captureAt)
+  useWheelSize(scrollEl, !mobile, sliderSize, setTileSize, captureAt)
 
   const virtualRows = virtualizer.getVirtualItems()
 
   useEffect(() => {
+    // with the scrubber, its window decides what loads (useScrubWindow)
+    if (scrubbing) return
     const last = virtualRows.at(-1)
     if (!last) return
     if (last.index >= rowCount - 2 && result.hasNextPage && !result.isFetchingNextPage) {
       result.fetchNextPage()
     }
-  }, [virtualRows, rowCount, result.hasNextPage, result.isFetchingNextPage]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [virtualRows, rowCount, result.hasNextPage, result.isFetchingNextPage, scrubbing]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // scrubber window: load for wherever the viewport is, a moment after
+  // scrolling settles (a fling or a drag through years loads only the end)
+  useEffect(() => {
+    if (!scrollEl || !scrubbing) return
+    let t: ReturnType<typeof setTimeout>
+    const onScroll = () => {
+      clearTimeout(t)
+      t = setTimeout(scrub.check, 140)
+    }
+    scrollEl.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      clearTimeout(t)
+      scrollEl.removeEventListener('scroll', onScroll)
+    }
+  }, [scrollEl, scrubbing, scrub.check])
 
   // the keyboard cursor (roving tabindex): one tile is in the Tab order
   const [focusedId, setFocusedId] = useState<string | null>(null)
@@ -515,7 +645,7 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
         {mobile ? '' : ', Delete moves to Trash, the context menu key shows More like this'}.
       </span>
       <div
-        className="grid-scroll"
+        className={`grid-scroll${scrubbing ? ' scrubbed' : ''}`}
         ref={attachScroll}
         role={items.length ? 'listbox' : undefined}
         aria-multiselectable={items.length ? 'true' : undefined}
@@ -529,7 +659,7 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
           if (e.target === e.currentTarget) clearSelection()
         }}
       >
-        <div role="presentation" style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
+        <div ref={contentRef} role="presentation" style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
           {virtualRows.map((row) => (
             <div
               key={row.key}
@@ -580,6 +710,19 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
             <button onClick={() => setQuery({ ...emptyQuery, order: query.order })}>Show all items</button>
           )}
         </div>
+      )}
+      {scrub.model && scrollEl && items.length > 0 && (
+        <Scrubber
+          model={scrub.model}
+          scrollEl={scrollEl}
+          positionAt={scrub.positionAt}
+          onScrub={(pos) => {
+            if (scrollEl) scrollEl.scrollTop = scrub.offsetOf(pos)
+          }}
+          onScrubEnd={scrub.goTo}
+          mobile={mobile}
+          layoutKey={`${scrub.padStart}|${items.length}|${rows.length}`}
+        />
       )}
       {!mobile && <BulkBar />}
       {ctxMenu && <ItemContextMenu item={ctxMenu.item} x={ctxMenu.x} y={ctxMenu.y} onClose={closeCtx} />}

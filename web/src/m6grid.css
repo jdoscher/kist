@@ -1,0 +1,168 @@
+/* Kist 2.0 M6 grid: the date scrubber, pinch and feed view.
+   Desktop rules are only the scrubber rail; phone rules stay under .mobile. */
+
+/* ---------- date scrubber ---------- */
+.scrubber {
+  position: absolute;
+  right: 0;
+  width: 30px;
+  z-index: 3;
+  pointer-events: none;
+}
+.scrub-track {
+  position: absolute;
+  inset: 6px 0 6px 0;
+  pointer-events: auto;
+  cursor: ns-resize;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  border-radius: 6px;
+}
+.scrub-track:focus-visible {
+  outline: 2px solid var(--canvas-focus);
+  outline-offset: -2px;
+}
+.scrub-year {
+  position: absolute;
+  right: 3px;
+  transform: translateY(-1px);
+  font-size: 10px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--canvas-dim);
+  pointer-events: none;
+}
+.scrub-mark {
+  position: absolute;
+  right: 0;
+  width: 26px;
+  height: 2px;
+  margin-top: -1px;
+  background: var(--accent);
+  border-radius: 1px;
+  pointer-events: none;
+}
+.scrub-label {
+  position: absolute;
+  right: 34px;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  padding: 4px 9px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.82);
+  color: #fff;
+  font-size: var(--fs-1);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  box-shadow: var(--shadow);
+  pointer-events: none;
+}
+/* the rail is the grid's scrollbar while it shows */
+.app-shell:not(.mobile) .grid-scroll.scrubbed {
+  margin-right: 30px;
+  scrollbar-width: none;
+}
+.app-shell:not(.mobile) .grid-scroll.scrubbed::-webkit-scrollbar {
+  display: none;
+}
+
+/* ---------- phone: thumb shown while scrolling ---------- */
+.mobile .scrubber {
+  width: 48px;
+}
+.mobile .scrubber .scrub-track {
+  pointer-events: none;
+  cursor: default;
+}
+.mobile .scrub-thumb {
+  position: absolute;
+  right: 2px;
+  width: 44px;
+  height: 44px;
+  margin-top: -22px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  pointer-events: none;
+  touch-action: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.mobile .scrubber.shown .scrub-thumb {
+  pointer-events: auto;
+  opacity: 1;
+}
+.mobile .scrub-thumb:focus-visible {
+  outline: 2px solid var(--canvas-focus);
+  outline-offset: -2px;
+  border-radius: 8px;
+}
+.mobile .scrub-grip {
+  width: 30px;
+  height: 40px;
+  border-radius: 20px 0 0 20px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-right: none;
+  box-shadow: var(--shadow);
+  background-image: linear-gradient(var(--text-dim), var(--text-dim)), linear-gradient(var(--text-dim), var(--text-dim));
+  background-size: 12px 2px;
+  background-repeat: no-repeat;
+  background-position: 11px 16px, 11px 22px;
+}
+.mobile .scrubber.dragging .scrub-year {
+  right: 50px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+}
+.mobile .scrub-label {
+  right: 52px;
+  font-size: var(--fs-2);
+  padding: 6px 12px;
+}
+
+/* ---------- phone: column stepper (TopBar) ---------- */
+.mobile .cols-stepper {
+  display: inline-flex;
+  align-items: stretch;
+}
+.mobile .cols-stepper button {
+  min-width: 26px;
+  padding: 0 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.mobile .cols-stepper button:disabled {
+  opacity: 0.45;
+}
+.mobile .cols-stepper .cols-now {
+  min-width: 16px;
+  padding: 0 1px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-left: none;
+  background: var(--bg-hover);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* ---------- phone: pinch ---------- */
+/* the browser's page zoom stays off the grid; scrolling still works */
+.mobile .grid-scroll {
+  touch-action: pan-x pan-y;
+}
+.mobile .grid-scroll.pinching > div {
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile .scrub-thumb {
+    transition: none;
+  }
+}
