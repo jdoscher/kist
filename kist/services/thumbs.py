@@ -24,6 +24,8 @@ class Probe:
         self.width: int | None = None
         self.height: int | None = None
         self.duration_s: float | None = None
+        # Milestone 5: the item's media block (services/media.py)
+        self.media: dict | None = None
 
 
 # Read video files as the container their extension names, and only from
@@ -226,12 +228,20 @@ def dominant_colors(image_path: Path, count: int = 5) -> list[dict]:
         return out
 
 
-def generate_previews(original: Path, item_dir: Path, mime: str, ext: str) -> Probe:
+def generate_previews(
+    original: Path, item_dir: Path, mime: str, ext: str, options: dict | None = None
+) -> Probe:
     """Produce thumbnails + probe data for the original file.
 
     Raises on failure for allowed formats; callers treat failures as
     'no preview' rather than failing the ingest.
     """
+    from . import media
+
+    # Milestone 5 kinds (video, audio, design, model, bundle, font, RAW, SVG)
+    handled = media.generate(original, item_dir, mime, ext, options or {})
+    if handled is not None:
+        return handled
     kind = kind_for(mime, ext)
     probe = Probe()
 
@@ -268,16 +278,21 @@ def generate_previews(original: Path, item_dir: Path, mime: str, ext: str) -> Pr
     else:
         return probe  # no preview for 'other'
 
+    if kind == "image":
+        media.image_extras(original, item_dir, mime, ext, probe)  # EXIF, GIF scrub
     return probe
 
 
 PREVIEW_FILES = (
     "thumb_256.webp", "thumb_512.webp", "thumb_1024.webp", "display.webp", SCREEN_FILE,
+    # Milestone 5 (services/media.py)
+    "scrub.webp", "scrub.json", "waveform.json", "preview_icon",
 )
 
 
 def generate_previews_isolated(
-    original: Path, item_dir: Path, mime: str, ext: str, *, cleanup: bool = True
+    original: Path, item_dir: Path, mime: str, ext: str, *, cleanup: bool = True,
+    options: dict | None = None,
 ) -> Probe:
     """generate_previews() in a child process with a time limit.
 
@@ -292,7 +307,8 @@ def generate_previews_isolated(
     try:
         out = subprocess.run(
             [sys.executable, "-m", "kist.services.preview_child",
-             str(original), str(item_dir), mime, ext],
+             str(original), str(item_dir), mime, ext,
+             *([json.dumps(options)] if options else [])],
             capture_output=True, text=True,
             timeout=get_settings().preview_timeout_seconds,
         )
@@ -311,6 +327,7 @@ def generate_previews_isolated(
     probe.width, probe.height, probe.duration_s = (
         data.get("width"), data.get("height"), data.get("duration_s"),
     )
+    probe.media = data.get("media")
     return probe
 
 
@@ -371,7 +388,10 @@ def thumbhash_for(item_dir: Path) -> str | None:
 
 
 def enrich(item_dir: Path) -> tuple[int | None, list[dict] | None]:
-    """Perceptual hash + dominant colors, computed from generated thumbs."""
+    """Perceptual hash + dominant colors, computed from generated thumbs.
+    None for a generic icon (media.make_icon): every GLB icon is alike."""
+    if (item_dir / "preview_icon").exists():
+        return None, None
     phash = None
     colors = None
     big = item_dir / "thumb_1024.webp"

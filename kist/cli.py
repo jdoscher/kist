@@ -181,6 +181,12 @@ def item_from_meta(session, meta: dict, original: Path, folder_ids: set[str]) ->
         if meta.get(key):
             setattr(item, key, parse_dt(meta[key]))
     item.fixity_checked_at, item.fixity_failed_at = fixity_svc.from_log(original.parent)
+    from .services import media as media_svc
+
+    # media metadata + the filter columns derived from it (no geocoding:
+    # the place is in the block already)
+    media_svc.apply(item, meta.get("media") if isinstance(meta.get("media"), dict) else None,
+                    geocode=False)
     item.tags = tags_svc.get_or_create(session, meta.get("tags", []), validate=False)
     item.folders = [session.get(Folder, f) for f in raw_folders if f in folder_ids]
     return item
@@ -202,7 +208,9 @@ def recover_without_meta(session, item_dir: Path) -> str | None:
     digest = ingest.sha256_file(original)
     if session.execute(sa.select(Item.id).where(Item.sha256 == digest)).first():
         return None
-    mime = ingest.sniff_mime(original)
+    from .services import formats
+
+    mime = formats.refine_mime(original, ingest.sniff_mime(original), ext)
     try:
         created = ULID.from_str(item_dir.name).datetime
     except (ValueError, TypeError):
@@ -748,6 +756,9 @@ def main() -> None:
     sub.add_parser("ai-sidecars", help="write missing AI sidecar files from the database")
     sub.add_parser("helper", help="run AI jobs here for a Kist server (see kist helper -h)",
                    add_help=False)
+    from . import media_cli
+
+    media_cli.add_parsers(sub)  # media-backfill, geo-download (Milestone 5)
 
     if len(sys.argv) > 1 and sys.argv[1] == "helper":
         from . import helper
@@ -774,6 +785,8 @@ def main() -> None:
         sys.exit(ai_backfill(args.kind, args.limit))
     if args.cmd == "ai-sidecars":
         sys.exit(ai_sidecars())
+    if args.cmd in media_cli.COMMANDS:
+        sys.exit(media_cli.run(args))
 
 
 if __name__ == "__main__":

@@ -478,6 +478,52 @@ def ai_status() -> dict[str, Any]:
         return json.loads(json.dumps(ai.status(session), default=str))
 
 
+# ---------- Milestone 5: video for agents ----------
+
+
+@tool(
+    "Watch a video (or animated GIF/WebP): returns one contact-sheet image of "
+    "`frames` evenly spaced frames (default 9, at most 36) with each frame's "
+    "time burned in, so you can see what happens and when. Use save_frame to "
+    "keep a moment as its own item.",
+    restricted_ok=True,
+)
+def view_video(item_id: str, frames: int = 9) -> Image:
+    from .services import media
+
+    with SessionLocal() as session:
+        item = items_svc.get_item(session, item_id)
+        return Image(data=media.contact_sheet(item, frames), format="png")
+
+
+@tool(
+    "Save the frame of a video at t seconds as a new PNG item (full "
+    "resolution), linked derived_from the video and given its tags and "
+    "folders. Returns the new item.",
+    needs=Action.EDIT,
+)
+def save_frame(item_id: str, t: float) -> dict[str, Any]:
+    from .services import media
+
+    with SessionLocal() as session:
+        return item_out(media.save_frame(session, item_id, t).item)
+
+
+@tool(
+    "Cut a clip from a video (format mp4, gif or webp) or audio item (mp3 or "
+    "wav), start..end in seconds; max_side limits the size. Runs as a job: "
+    "list_jobs shows it, and its result_item_id is the new item.",
+    needs=Action.EDIT,
+)
+def make_clip(item_id: str, start: float, end: float, format: str = "mp4",
+              max_side: int | None = None) -> dict[str, Any]:
+    from .services import media
+
+    with SessionLocal() as session:
+        job = media.queue_clip(session, item_id, start, end, format, max_side)
+        return jobs_svc.job_out(job).model_dump(mode="json")
+
+
 # Mounted by kist.app at /mcp; streamable_http_path="/" so the endpoint is
 # exactly /mcp. host="0.0.0.0" disables the SDK's localhost-only DNS-rebinding
 # allowlist (the app is reached over the LAN; our bearer middleware guards it).

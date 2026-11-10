@@ -21,7 +21,7 @@ import sqlalchemy as sa
 
 from .config import get_settings
 from .db import SessionLocal, engine
-from .lifecycle import JobKind
+from .lifecycle import HEAVY_KINDS, JobKind
 from .models import Item, Job
 from .observability import configure_logging
 from .services.health import heartbeat_path
@@ -104,6 +104,10 @@ def process_job(session, job: Job) -> None:
         from .services import ai
 
         ai.on_new_item(session, item)  # now it has a thumbnail to embed
+    elif job.kind in HEAVY_KINDS:
+        from .services import media
+
+        media.run_job(session, job)  # clips and proxies (ffmpeg, niced)
     else:
         raise ValueError(f"unknown job kind: {job.kind}")
 

@@ -70,6 +70,37 @@ class Settings(BaseSettings):
     # scanned PDFs: OCR at most this many pages (text layers are read in full)
     ai_ocr_pdf_pages: int = 5
 
+    # ---- media (Milestone 5; services/media.py, services/video.py) ----
+    # threads one ffmpeg run may use (it also runs under `nice`)
+    ffmpeg_threads: int = 2
+    # hardware video encoding for proxies and clips: qsv | vaapi | none.
+    # Needs /dev/dri passed into the worker container; software is the
+    # fallback when the hardware encoder fails
+    hwaccel: str = "none"
+    vaapi_device: str = "/dev/dri/renderD128"
+    # frames in a video's scrub sprite (scrub.webp)
+    scrub_frames: int = 20
+    # longest clip (seconds) for mp4/mp3/wav, and for animated gif/webp
+    clip_max_seconds: float = 600.0
+    gif_max_seconds: float = 60.0
+    # web-safe proxies: long side at most this many pixels
+    proxy_max_side: int = 1920
+    # use exiftool (when installed) for camera metadata and RAW previews
+    exiftool: bool = True
+    # asset bundles (zip files): limits that keep a zip bomb harmless
+    bundle_max_entries: int = 20000
+    bundle_max_total_mb: int = 8192  # uncompressed, all entries together
+    bundle_max_entry_mb: int = 1024  # one entry served or read
+    # the web map: a tile URL template or a PMTiles file URL, and its credit
+    # line. Empty: the web uses the self-hosted PMTiles file (docs/maps.md)
+    map_tiles_url: str = ""
+    map_attribution: str = ""
+
+    @property
+    def geo_dir(self) -> Path:
+        """library/.kist/geo: the GeoNames extract `kist geo-download` writes."""
+        return self.state_dir / "geo"
+
     @property
     def items_dir(self) -> Path:
         return self.library_dir / "items"

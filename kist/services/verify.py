@@ -24,10 +24,11 @@ RESULT_FILE = "verify.json"
 COMPARED = (
     "filename", "rating", "notes", "source_url", "tags", "folder_ids", "sha256",
     "preview_status", "preview_rev", "thumbhash", "protected", "links",
+    "media",  # Milestone 5
 )
 COMPARED_TIMES = ("created_at", "modified_at", "deleted_at")
 # keys older meta.json files don't have yet, and what their absence means
-MISSING_MEANS = {"protected": False, "links": []}
+MISSING_MEANS = {"protected": False, "links": [], "media": None}
 FIXES = (
     "fixes: kist rewrite-meta (meta.json or folders.json out of date; safe while Kist "
     "runs, it re-reads each item as it writes it), kist rebuild-index (rows missing "

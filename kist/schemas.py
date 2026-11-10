@@ -43,6 +43,12 @@ class ItemOut(BaseModel):
     created_at: datetime
     modified_at: datetime
     deleted_at: datetime | None
+    # Milestone 5 (services/media.py): what Kist read from the file
+    # (video/audio/exif/svg/model/font/bundle/design/raw blocks, scrub,
+    # playable, cover_time ...), when it was taken and where
+    media: dict[str, Any] | None = None
+    taken_at: datetime | None = None
+    place: str | None = None
 
     @classmethod
     def from_item(cls, item: Item) -> "ItemOut":
@@ -82,6 +88,9 @@ class ItemOut(BaseModel):
             created_at=item.created_at,
             modified_at=item.modified_at,
             deleted_at=item.deleted_at,
+            media=item.media,
+            taken_at=item.taken_at,
+            place=item.place,
         )
 
     @classmethod
@@ -204,8 +213,12 @@ class TagOut(BaseModel):
     count: int
 
 
-OrderName = Literal["-created", "created", "filename", "-size", "-rating", "-modified"]
-KindName = Literal["image", "video", "pdf", "other"]
+OrderName = Literal[
+    "-created", "created", "filename", "-size", "-rating", "-modified", "-taken", "taken"
+]
+KindName = Literal[
+    "image", "video", "pdf", "audio", "model", "font", "design", "bundle", "other"
+]
 PreviewName = Literal["pending", "ready", "failed", "none"]
 
 
@@ -270,6 +283,7 @@ class JobOut(BaseModel):
     attempts: int
     filename: str | None  # the file an ingest job imports
     item_id: str | None  # the item a regen_preview job works on
+    result_item_id: str | None = None  # the item a clip job made
     last_error: str | None
     created_at: datetime
     started_at: datetime | None

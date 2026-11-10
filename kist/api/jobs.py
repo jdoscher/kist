@@ -22,6 +22,13 @@ def list_jobs(
     return [jobs_svc.job_out(j) for j in jobs_svc.list_jobs(session, status, limit)]
 
 
+@router.get("/{job_id}", response_model=JobOut)
+def get_job(job_id: int, session: Annotated[Session, Depends(get_session)]):
+    """One job: poll a clip or proxy job until it's done (result_item_id is
+    the item a clip made)."""
+    return jobs_svc.job_out(jobs_svc.get_job(session, job_id))
+
+
 @router.post("/{job_id}/retry", response_model=JobOut)
 def retry_job(job_id: int, session: Annotated[Session, Depends(get_session)]):
     return jobs_svc.job_out(jobs_svc.retry(session, job_id))

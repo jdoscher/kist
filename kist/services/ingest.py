@@ -26,7 +26,7 @@ from ..filetypes import MIME_TO_EXT
 from ..ids import new_ulid
 from ..lifecycle import JobKind, PreviewStatus
 from ..models import Item, Job
-from . import events, netguard, previews, thumbs, validation
+from . import events, formats, netguard, previews, thumbs, validation
 from . import meta as meta_svc
 from . import tags as tags_svc
 
@@ -117,8 +117,11 @@ def ingest_file(
             )
         return IngestResult(existing, created=False)
 
-    mime = sniff_mime(path)
-    ext = pick_ext(filename, mime)
+    sniffed = sniff_mime(path)
+    ext = pick_ext(filename, sniffed)
+    # libmagic's answer, made precise for RAW, design, 3D, font and audio
+    # files after checking their content (services/formats.py)
+    mime = formats.refine_mime(path, sniffed, ext)
     item_id = new_ulid()
     item_dir = settings.items_dir / item_id
     item_dir.mkdir(parents=True, exist_ok=True)
@@ -164,6 +167,9 @@ def ingest_file(
             preview_status=preview_status,
             preview_error=preview_error,
         )
+        from . import media as media_svc
+
+        media_svc.apply(item, probe.media)  # metadata + its filter columns
         # imports preserve original timestamps; otherwise the DB defaults apply
         if created_at is not None:
             item.created_at = created_at

@@ -88,11 +88,15 @@ class JobKind(StrEnum):
     REGEN_PREVIEW = "regen_preview"  # retry an item's previews
     EMBED = "embed"  # image embedding (the ml service or a helper)
     OCR = "ocr"  # text in screenshots and PDFs
+    CLIP = "clip"  # cut a clip / GIF from a video or audio item (services/media.py)
+    PROXY = "proxy"  # web-safe copy of a video or audio file browsers can't play
 
 
 # the heavy kinds: they wait while any light job (ingest, previews) is
 # pending, and backfilled ones wait for KIST_AI_WINDOW
 AI_KINDS = (JobKind.EMBED, JobKind.OCR)
+# ffmpeg's heavy work: claimed after every waiting ingest and preview job
+HEAVY_KINDS = (JobKind.CLIP, JobKind.PROXY)
 
 
 MAX_ATTEMPTS = 3

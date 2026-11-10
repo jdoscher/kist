@@ -65,6 +65,18 @@ def list_items(
     cursor: str | None = None,
     # order by meaning: nearest to this text first (needs the ml service)
     semantic: Annotated[str | None, Query(max_length=1000)] = None,
+    # Milestone 5 media filters (services/media.filters); order=-taken sorts
+    # by date taken
+    taken_after: datetime | None = None,
+    taken_before: datetime | None = None,
+    has_gps: bool | None = None,
+    camera: Annotated[str | None, Query(max_length=200)] = None,
+    lens: Annotated[str | None, Query(max_length=200)] = None,
+    duration_min: Annotated[float | None, Query(ge=0)] = None,
+    duration_max: Annotated[float | None, Query(ge=0)] = None,
+    vertical: bool | None = None,
+    has_audio: bool | None = None,
+    place: Annotated[str | None, Query(max_length=200)] = None,
 ):
     tag_names = list(tags or [])
     semantic_vec, semantic_model = None, None
@@ -83,6 +95,10 @@ def list_items(
         created_after=created_after, created_before=created_before, fixity=fixity,
         limit=limit, cursor=cursor,
         semantic=semantic_vec, semantic_model=semantic_model,
+        media=dict(taken_after=taken_after, taken_before=taken_before, has_gps=has_gps,
+                   camera=camera, lens=lens, duration_min=duration_min,
+                   duration_max=duration_max, vertical=vertical, has_audio=has_audio,
+                   place=place),
     )
     return ItemPage(
         items=[ItemOut.from_item(i) for i in rows],
@@ -321,6 +337,9 @@ def get_file(item_id: str, session: Annotated[Session, Depends(get_session)]):
         # run script with this origin's storage (where the token lives)
         headers["Content-Security-Policy"] = "sandbox"
     headers["Cache-Control"] = CACHE_FOREVER  # an item's original never changes
+    if item.mime.startswith("font/"):
+        # @font-face specimens load fonts from here: same origin only
+        headers["Cross-Origin-Resource-Policy"] = "same-origin"
     return FileResponse(
         path,
         media_type=item.mime,

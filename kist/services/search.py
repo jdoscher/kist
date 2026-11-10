@@ -9,7 +9,14 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from .. import access
-from ..filetypes import KINDS, OCTET_STREAM, VIDEO_EXTS
+from ..filetypes import (
+    BUNDLE_MIMES,
+    DESIGN_MIMES,
+    FONT_MIMES,
+    KINDS,
+    OCTET_STREAM,
+    VIDEO_EXTS,
+)
 from ..lifecycle import ItemState, PreviewStatus
 from ..models import Folder, Item, ItemFolder, ItemTag, Tag
 from .validation import ValidationError
@@ -31,6 +38,9 @@ ORDERS: dict[str, tuple[Any, bool]] = {
     "-size": (Item.size_bytes, True),
     "-rating": (Item.rating, True),
     "-modified": (Item.modified_at, True),
+    # Milestone 5: date taken (EXIF / video creation time), else created_at
+    "-taken": (Item.taken_sort, True),
+    "taken": (Item.taken_sort, False),
 }
 
 # filetypes.kind_for in SQL: the type filter, the stats and ItemOut.kind
@@ -40,12 +50,26 @@ _VIDEO = sa.or_(
     Item.mime.like("video/%"),
     sa.and_(Item.mime == OCTET_STREAM, sa.func.lower(Item.ext).in_(sorted(VIDEO_EXTS))),
 )
-_IMAGE = Item.mime.like("image/%")
+# Milestone 5 kinds (filetypes.m5_kind)
+_DESIGN = Item.mime.in_(sorted(DESIGN_MIMES))
+_AUDIO = Item.mime.like("audio/%")
+_MODEL = Item.mime.like("model/%")
+_FONT = sa.or_(Item.mime.like("font/%"), Item.mime.in_(sorted(FONT_MIMES)))
+_BUNDLE = Item.mime.in_(sorted(BUNDLE_MIMES))
+_IMAGE = sa.and_(Item.mime.like("image/%"), sa.not_(_DESIGN))
 KIND_FILTERS = {
     "pdf": _PDF,
     "video": _VIDEO,
     "image": _IMAGE,
-    "other": sa.and_(sa.not_(_PDF), sa.not_(_VIDEO), sa.not_(_IMAGE)),
+    "design": _DESIGN,
+    "audio": _AUDIO,
+    "model": _MODEL,
+    "font": _FONT,
+    "bundle": _BUNDLE,
+    "other": sa.and_(
+        sa.not_(_PDF), sa.not_(_VIDEO), sa.not_(Item.mime.like("image/%")), sa.not_(_DESIGN),
+        sa.not_(_AUDIO), sa.not_(_MODEL), sa.not_(_FONT), sa.not_(_BUNDLE),
+    ),
 }
 
 
@@ -95,8 +119,12 @@ def build_filters(
     created_after: datetime | None = None,
     created_before: datetime | None = None,
     fixity: str | None = None,
+    media: dict | None = None,
 ) -> list[Any]:
-    filters: list[Any] = []
+    from . import media as media_svc
+
+    # Milestone 5 media filters (taken_after, camera, has_gps ...)
+    filters: list[Any] = media_svc.filters(media)
     if fixity is not None:
         if fixity != "failed":
             raise ValidationError(f"unknown fixity {fixity!r}; expected failed")
@@ -125,6 +153,7 @@ def build_filters(
                 Item.filename.ilike(pattern),
                 sa.func.similarity(Item.filename, q) > 0.25,
                 Item.notes.ilike(pattern),
+                Item.place.ilike(pattern),  # "City, Country" (Milestone 5)
             )
         )
     if tags:
@@ -239,6 +268,7 @@ def search_items(
     cursor: str | None = None,
     semantic: list[float] | None = None,
     semantic_model: str | None = None,
+    media: dict | None = None,
 ) -> tuple[list[Item], str | None, int | None]:
     """total is counted on the first page only (no cursor); later pages
     return None.
@@ -254,6 +284,7 @@ def search_items(
         rating_min=rating_min, deleted=deleted, state=state, view=view,
         preview_status=preview_status,
         created_after=created_after, created_before=created_before, fixity=fixity,
+        media=media,
     )
     if order not in ORDERS:
         raise ValidationError(f"unknown order {order!r}; expected one of {', '.join(ORDERS)}")
