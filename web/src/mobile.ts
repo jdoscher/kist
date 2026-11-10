@@ -1,6 +1,7 @@
 // Phone layout helpers. The pure functions are tested in tests/mobile.test.ts.
 
 import { useEffect, useState } from 'react'
+import type { PhoneCols } from './zoom.ts'
 
 /**
  * When the phone layout applies: touch screens that are narrow, or short
@@ -17,7 +18,8 @@ export function isPhoneLayout(width: number, height: number, coarsePointer: bool
   return coarsePointer && (width <= 760 || height <= 500)
 }
 
-export type MobileCols = 2 | 3
+/** The phone grid's columns: 1 (the feed), 2, 3, 4 or 6 (zoom.ts). */
+export type MobileCols = PhoneCols
 
 export function useIsMobile(): boolean {
   const [mobile, setMobile] = useState(

@@ -4,6 +4,7 @@
 
 import { TILE_SIZE_DEFAULT, TILE_SIZE_MAX, TILE_SIZE_MIN, type GridLayout } from './layout.ts'
 import type { MobileCols } from './mobile.ts'
+import { parsePhoneCols } from './zoom.ts'
 import { isDensity, isThemePref, type Density, type ThemePref } from './theme.ts'
 
 export interface Prefs {
@@ -54,7 +55,7 @@ export function readPrefs(store: Store | null = browserStore()): Prefs {
     panelOpen: get('panelOpen') !== '0',
     gridLayout: get('gridLayout') === 'square' ? 'square' : 'justified',
     tileSize: size === null ? TILE_SIZE_DEFAULT : clampSize(Number(size)),
-    mobileCols: get('mobileCols') === '2' ? 2 : 3,
+    mobileCols: parsePhoneCols(get('mobileCols')),
     theme: isThemePref(get('theme')) ? (get('theme') as ThemePref) : 'system',
     density: isDensity(get('density')) ? (get('density') as Density) : 'comfortable',
   }

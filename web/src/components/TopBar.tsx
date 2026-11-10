@@ -1,10 +1,10 @@
-import { Command, History, ImageUp, Info, Menu, PanelsLeftRight, RectangleHorizontal, Settings, Square, Upload, X } from 'lucide-react'
+import { Command, History, ImageUp, Info, Menu, Minus, PanelsLeftRight, Plus, RectangleHorizontal, Settings, Square, Upload, X } from 'lucide-react'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { TILE_SIZE_MAX, TILE_SIZE_MIN } from '../layout'
 import { useCaps, useTags } from '../data'
 import { useAppState } from '../state'
 import type { ItemKind } from '../api'
-import type { MobileCols } from '../mobile'
+import { PHONE_COLS, stepCols } from '../zoom'
 import { AppearanceMenu } from './Appearance'
 import { Mark, Wordmark } from './Brand'
 import { PasteButton } from './PasteButton'
@@ -338,18 +338,29 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
           <span className={mobile ? 'sr-only' : 'btn-text'}>Square tiles</span>
         </button>
         {mobile ? (
-          <div className="cols-toggle" role="group" aria-label="Columns" title="Columns">
-            {([2, 3] as MobileCols[]).map((c) => (
-              <button
-                key={c}
-                className={mobileCols === c ? 'on' : ''}
-                aria-pressed={mobileCols === c}
-                onClick={() => setMobileCols(c)}
-                aria-label={`${c} columns`}
-              >
-                {c}
-              </button>
-            ))}
+          // pinch is the quick way; these step through the same columns
+          // (1 = the feed, 2, 3, 4, 6) for one hand, keyboards and screen readers
+          <div className="cols-toggle cols-stepper" role="group" aria-label="Columns">
+            <button
+              onClick={() => setMobileCols(stepCols(mobileCols, -1))}
+              disabled={mobileCols === PHONE_COLS[0]}
+              aria-label="Fewer columns"
+              title="Fewer columns (or pinch out on the grid)"
+            >
+              <Minus size={14} strokeWidth={2.25} aria-hidden="true" />
+            </button>
+            <span className="cols-now" aria-live="polite">
+              {mobileCols}
+              <span className="sr-only">{mobileCols === 1 ? ' column (feed)' : ' columns'}</span>
+            </span>
+            <button
+              onClick={() => setMobileCols(stepCols(mobileCols, 1))}
+              disabled={mobileCols === PHONE_COLS[PHONE_COLS.length - 1]}
+              aria-label="More columns"
+              title="More columns (or pinch in on the grid)"
+            >
+              <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
+            </button>
           </div>
         ) : (
         <label className="size-label">

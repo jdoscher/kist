@@ -110,6 +110,29 @@ function justifiedRows(items: Sized[], avail: number, target: number, gap: numbe
   return rows
 }
 
+/** The phone's 1-column feed: every item on its own full-width row, in its
+ * own (clamped) shape. */
+export function feedRows(items: Sized[], avail: number, gap: number = TILE_GAP): Row[] {
+  const w = avail - gap
+  if (w <= 0) return []
+  return items.map((it, index) => ({
+    tiles: [{ index, width: w }],
+    height: Math.max(40, Math.round(w / tileAspect(it))),
+  }))
+}
+
+/** Each row's top in content px (rows are `height + gap` apart), after
+ * `padStart` px of space above the first row. */
+export function rowStarts(rows: Row[], gap: number = TILE_GAP, padStart = 0): number[] {
+  const out: number[] = []
+  let y = padStart
+  for (const r of rows) {
+    out.push(y)
+    y += r.height + gap
+  }
+  return out
+}
+
 /**
  * Pack items into rows. `avail` is the usable content width; `size` is the
  * target tile height (justified) or tile edge (square).
