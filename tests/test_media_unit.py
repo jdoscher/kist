@@ -346,6 +346,27 @@ def test_heic_exif_prefers_exiftool_and_never_pillow_heif(tmp_path, monkeypatch)
     assert media.exif_pillow(p) == {}
 
 
+def test_exiftool_reads_heic_items_not_fast2(monkeypatch, tmp_path):
+    """-fast2 makes exiftool skip HEIF items' Exif/XMP ('No Extents for Exif
+    item') and RAW maker notes: Kist uses -fast."""
+    import subprocess
+
+    seen = {}
+
+    class R:
+        returncode = 0
+        stdout = '[{"Make": "Apple", "Model": "iPhone 17 Pro"}]'
+
+    def fake_run(args, **kw):
+        seen["args"] = args
+        return R()
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    data = media.exif_exiftool(tmp_path / "original.heic")
+    assert "-fast2" not in seen["args"] and "-fast" in seen["args"]
+    assert data["make"] == "Apple"
+
+
 # ---------- design files ----------
 
 

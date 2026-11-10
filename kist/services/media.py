@@ -582,7 +582,7 @@ def exif_exiftool(path: Path) -> dict:
     import subprocess
 
     out = subprocess.run(
-        ["exiftool", "-j", "-n", "-fast2", "-Make", "-Model", "-LensModel", "-LensID",
+        ["exiftool", "-j", "-n", "-fast", "-Make", "-Model", "-LensModel", "-LensID",
          "-FocalLength", "-FNumber", "-ExposureTime", "-ISO", "-DateTimeOriginal",
          "-OffsetTimeOriginal", "-Orientation", "-GPSLatitude", "-GPSLongitude", "-Software",
          "--", str(path)],
