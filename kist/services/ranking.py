@@ -393,7 +393,17 @@ def keyword_matches(session: Session, items: list[Item], q: str) -> dict[str, di
 def snippets(session: Session, item_ids: list[str], tsq: str,
              sources: tuple[str, ...] | None) -> dict[str, str]:
     """The text around each item's hit, the words marked << >> (OCR and PDF
-    text before a caption)."""
+    text before a caption). An item that matched some words elsewhere (the
+    filename, its notes) still gets the words its text has marked."""
+    out = _snippets(session, item_ids, tsq, sources)
+    rest = [i for i in item_ids if i not in out]
+    if rest and " & " in tsq:
+        out.update(_snippets(session, rest, tsq.replace(" & ", " | "), sources))
+    return out
+
+
+def _snippets(session: Session, item_ids: list[str], tsq: str,
+              sources: tuple[str, ...] | None) -> dict[str, str]:
     if not item_ids:
         return {}
     conds = [ItemText.item_id.in_(item_ids), _tsv(ItemText.text).op("@@")(_tsq(tsq))]
