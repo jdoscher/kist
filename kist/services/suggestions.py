@@ -3,7 +3,9 @@
 Two sources, each with its own `why`:
 - "similar items": the item's nearest neighbours by image embedding vote
   with their tags, each vote weighted by how close the neighbour is
-  (score = the weighted share of neighbours carrying the tag).
+  (score = the weighted share of neighbours carrying the tag). Bookkeeping
+  tags don't vote, and a tag whose name the picture clearly matches less
+  than its voters do is dropped (_text_contradicts: a dog among cats).
 - "matches the image": zero-shot CLIP. Every tag name is embedded as text
   once per model ("a photo of <tag>", cached in tag_embeddings and kept up
   to date as tags come and go), and the image is compared with all of them.
@@ -23,8 +25,10 @@ Two sources, each with its own `why`:
   where a file came from, not what it shows.
   Measured with the real ViT-B-32 on a 60-photo, 6-category seed set over
   11 vocabularies (59 tags with distractors, brand: and credit:/license:
-  tags; 8 tags; random 12/20/30-tag subsets): precision 43% -> 99%
-  (full vocabulary 81% -> 99%), collection labels 39 right, 0 wrong.
+  tags; 8 tags; random 12/20/30-tag subsets): zero-shot precision 43% ->
+  99% (full vocabulary 81% -> 99%), collection labels 46 right/20 wrong ->
+  39 right/0 wrong; with 3 of 10 tagged per category, kNN 38 right/6 wrong
+  -> 38/0.
 """
 
 import json
@@ -45,6 +49,10 @@ log = logging.getLogger("kist.suggestions")
 NEIGHBOURS = 24
 MIN_NEIGHBOUR_SIM = 0.6
 KNN_MIN_SCORE = 0.15
+# a kNN tag is dropped when the picture matches the tag's name this much
+# less than the neighbours carrying it do (seed set: wrong ones -0.03..-0.08,
+# right ones -0.027 and up)
+KNN_TEXT_MARGIN = 0.03
 ZERO_SHOT_TEMPERATURE = 100.0
 ZERO_SHOT_MIN_SCORE = 0.05
 # below this raw cosine a tag name doesn't describe the image at all, however
@@ -244,6 +252,43 @@ def _neighbours(session: Session, item_id: str, vec, model: str) -> list[tuple[s
     return [(i, 1.0 - float(d)) for i, d in rows if 1.0 - float(d) >= MIN_NEIGHBOUR_SIM]
 
 
+def _text_contradicts(session: Session, model: str, vec, voters: dict[str, list[str]],
+                      tag_names: list[str], matrix) -> set[str]:
+    """kNN tags the picture's own text match rules out: a tag whose name
+    describes what its items show (they match it: a mean cosine of at least
+    ZERO_SHOT_MIN_COSINE) is dropped when this picture matches it clearly
+    less (by KNN_TEXT_MARGIN) than the neighbours that carry it. A dog among
+    tagged cats looks like a cat to the image vectors (pets sit close in
+    CLIP) but not like "a photo of cat". Tags whose names say nothing visual
+    (a project, a client) are left alone: their own items don't match them
+    either."""
+    import numpy as np
+
+    index = {n.lower(): i for i, n in enumerate(tag_names)}
+    keys = [k for k in voters if k in index]
+    if not keys:
+        return set()
+    ids = sorted({i for k in keys for i in voters[k]})
+    vecs = dict(session.execute(
+        sa.select(ItemEmbedding.item_id, ItemEmbedding.vector)
+        .where(ItemEmbedding.item_id.in_(ids), ItemEmbedding.model == model)
+    ).all())
+    v = np.asarray(vec, dtype=np.float32)
+    v /= np.linalg.norm(v) + 1e-12
+    out = set()
+    for k in keys:
+        rows = [vecs[i] for i in voters[k] if i in vecs]
+        if not rows:
+            continue
+        m = np.asarray(rows, dtype=np.float32)
+        m /= np.linalg.norm(m, axis=1, keepdims=True) + 1e-12
+        t = matrix[index[k]]
+        theirs = float((m @ t).mean())
+        if theirs >= ZERO_SHOT_MIN_COSINE and float(v @ t) < theirs - KNN_TEXT_MARGIN:
+            out.add(k)
+    return out
+
+
 def suggest(session: Session, item_id: str, limit: int = 10) -> list[dict]:
     """[{tag, score, why}] for an item, best first (empty without an
     embedding). AiUnavailable only when new tags need embedding and the ml
@@ -266,23 +311,6 @@ def suggest(session: Session, item_id: str, limit: int = 10) -> list[dict]:
     skip = own | set(feedback)
     scores: dict[str, tuple[float, str, str]] = {}  # lower -> (score, why, name)
 
-    neighbours = _neighbours(session, item.id, vec, model)
-    if neighbours:
-        weight = {i: s for i, s in neighbours}
-        total = sum(weight.values())
-        votes: dict[str, float] = {}
-        names: dict[str, str] = {}
-        for nid, tag in session.execute(
-            sa.select(ItemTag.item_id, Tag.name).join(Tag, Tag.id == ItemTag.tag_id)
-            .where(ItemTag.item_id.in_(list(weight)))
-        ).all():
-            votes[tag.lower()] = votes.get(tag.lower(), 0.0) + weight[nid]
-            names[tag.lower()] = tag
-        for key, v in votes.items():
-            score = v / total
-            if key not in skip and score >= KNN_MIN_SCORE:
-                scores[key] = (score, SIMILAR, names[key])
-
     try:
         refresh_tag_embeddings(session)
     except ai.AiUnavailable as exc:
@@ -290,6 +318,31 @@ def suggest(session: Session, item_id: str, limit: int = 10) -> list[dict]:
         log.info("tag suggestions without new tag vectors: %s", exc)
     tag_names, matrix = tag_matrix(session, model)
     reference = reference_matrix(model) if tag_names else None
+
+    neighbours = _neighbours(session, item.id, vec, model)
+    if neighbours:
+        weight = {i: s for i, s in neighbours}
+        total = sum(weight.values())
+        votes: dict[str, float] = {}
+        voters: dict[str, list[str]] = {}
+        names: dict[str, str] = {}
+        for nid, tag in session.execute(
+            sa.select(ItemTag.item_id, Tag.name).join(Tag, Tag.id == ItemTag.tag_id)
+            .where(ItemTag.item_id.in_(list(weight)))
+        ).all():
+            if not candidate_tag(tag):
+                continue  # credit:, license: ... say where a file came from
+            votes[tag.lower()] = votes.get(tag.lower(), 0.0) + weight[nid]
+            voters.setdefault(tag.lower(), []).append(nid)
+            names[tag.lower()] = tag
+        found = {key: v / total for key, v in votes.items()
+                 if key not in skip and v / total >= KNN_MIN_SCORE}
+        contradicted = _text_contradicts(session, model, vec, {k: voters[k] for k in found},
+                                         tag_names, matrix)
+        for key, score in found.items():
+            if key not in contradicted:
+                scores[key] = (score, SIMILAR, names[key])
+
     for name, p in zero_shot(tag_names, matrix, vec, top=limit * 2, reference=reference):
         key = name.lower()
         if key in skip or p < ZERO_SHOT_MIN_SCORE:

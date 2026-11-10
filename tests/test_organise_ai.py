@@ -119,6 +119,35 @@ def test_tag_suggestions_knn_zero_shot_and_feedback(client, upload, ml):
     assert not out.get("isError")
 
 
+def test_similar_items_skip_bookkeeping_and_contradicted_tags(client, upload, ml):
+    """Neighbours vote with their tags, but not with credit:/license: tags,
+    and not with a tag whose name the picture clearly doesn't match the way
+    its own items do (CLIP puts dogs next to tagged cats)."""
+    for i in range(4):
+        upload(f"r{i}.png", data=solid((230, 10 + i, 10)),
+               tags="red,client-acme,credit:Wikimedia")
+    # close to the reds as a picture, but not red the way they are
+    target = upload("magenta.png", data=solid((220, 0, 128)))["item"]
+    drain()
+    got = {s["tag"]: s for s in
+           client.get(f"/api/items/{target['id']}/tag-suggestions").json()}
+    assert got["client-acme"]["why"] == "similar items"
+    assert "credit:Wikimedia" not in got
+    assert got.get("red", {}).get("why") != "similar items"
+    # a picture as red as they are isn't contradicted
+    twin = upload("red.png", data=solid((232, 12, 10)))["item"]
+    drain()
+    with SessionLocal() as s:
+        model = ai.active_model()
+        names, m = suggestions.tag_matrix(s, model)
+        vec = suggestions._item_vector(s, twin["id"], model)
+        ids = [i["id"] for i in client.get("/api/items", params={"tags": "red"}).json()["items"]]
+        voters = {"red": ids, "client-acme": ids}
+        assert suggestions._text_contradicts(s, model, vec, voters, names, m) == set()
+        vec = suggestions._item_vector(s, target["id"], model)
+        assert suggestions._text_contradicts(s, model, vec, voters, names, m) == {"red"}
+
+
 def test_zero_shot_scores_are_a_softmax():
     names = ["red", "green", "blue"]
     m = np.asarray([colour_vector(COLOURS[n]) for n in names], dtype=np.float32)
@@ -276,6 +305,34 @@ def test_suggested_collections_end_to_end(client, upload, ml):
     assert res["smart_folder_id"]
     out = mcp_result(client, "suggested_collections")
     assert not out.get("isError")
+
+
+def test_collection_labels_skip_bookkeeping_tags(client, upload, ml):
+    """Every red item shares credit:Wikimedia, and the vocabulary is tiny:
+    the label is what the items show or nothing, never the credit."""
+    for i in range(9):
+        upload(f"red{i}.png", data=solid((220 + i, 10, 10)),
+               tags="credit:Wikimedia,red" if i < 3 else "credit:Wikimedia")
+    for i in range(9):
+        upload(f"blue{i}.png", data=solid((10, 10, 220 + i)), tags="license:CC-BY-4.0")
+    drain()
+    data = client.get("/api/collections/suggested", params={"refresh": 1}).json()
+    labels = {c["label_suggestion"] for c in data["clusters"]}
+    assert not any(lab and ":" in lab for lab in labels), data["clusters"]
+    # the reds' label comes from zero-shot over "red"; the blues match no tag
+    assert labels == {"red", None}, data["clusters"]
+
+
+def test_members_must_agree_with_a_zero_shot_label():
+    names = ["red", "green", "blue"]
+    m = np.asarray([colour_vector(COLOURS[n]) for n in names], dtype=np.float32)
+    m /= np.linalg.norm(m, axis=1, keepdims=True)
+    reds = np.asarray([colour_vector((1.0, 0.05 * i, 0.0)) for i in range(6)])
+    mixed = np.asarray([colour_vector((1.0, 0.0, 0.0))] * 2
+                       + [colour_vector((0.0, 0.0, 1.0))] * 4)
+    assert collections._members_agree("red", reds, names, m)
+    assert not collections._members_agree("red", mixed, names, m)
+    assert not collections._members_agree("credit:red", reds, ["credit:red"] + names[1:], m)
 
 
 # ---------- faces ----------
