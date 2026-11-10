@@ -62,6 +62,8 @@ class Kind:
     CAPTION = "caption"  # services/captions.py: generated or edited
     STACK = "stack"  # stack membership or cover (services/stacks.py)
     ANNOTATION = "annotation"  # Milestone 3 (services/annotations.py)
+    COVER = "cover"  # a video's cover frame (services/media.py)
+    POSTER = "poster"  # a poster image uploaded for a model / design file
 
 
 class NotFound(Exception):
@@ -428,6 +430,8 @@ def event_keys(kind: str, before, after) -> set[str]:
         return {"stack"}
     if kind in EXTRA_KINDS:
         return EXTRA_KINDS[kind].keys(before, after)
+    if kind in (Kind.COVER, Kind.POSTER):
+        return {f"media:{kind}"}
     return {"state"}  # create, trash, restore, purge
 
 
@@ -503,6 +507,10 @@ def _apply_inverse(session: Session, ev: ItemEvent) -> str | None:
             stacks_svc.restore_membership(session, ev.item_id, before)
         elif ev.kind in EXTRA_KINDS:
             return EXTRA_KINDS[ev.kind].inverse(session, ev)
+        elif ev.kind == Kind.COVER:
+            from . import media
+
+            media.set_cover(session, ev.item_id, before.get("cover_time"))
         elif ev.kind == Kind.PURGE:
             return "it was permanently deleted; only a backup can bring it back"
         else:

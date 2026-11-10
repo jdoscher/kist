@@ -69,6 +69,12 @@ class ItemOut(BaseModel):
     source_status: str | None = None
     source_checked_at: datetime | None = None
     source_wayback_url: str | None = None
+    # Milestone 5 (services/media.py): what Kist read from the file
+    # (video/audio/exif/svg/model/font/bundle/design/raw blocks, scrub,
+    # playable, cover_time ...), when it was taken and where
+    media: dict[str, Any] | None = None
+    taken_at: datetime | None = None
+    place: str | None = None
 
     @classmethod
     def from_item(cls, item: Item, match: dict | None = None) -> "ItemOut":
@@ -119,6 +125,9 @@ class ItemOut(BaseModel):
             stack_id=item.stack_id,
             stack_count=count_for(item),
             **_m4_fields(item),
+            media=item.media,
+            taken_at=item.taken_at,
+            place=item.place,
         )
 
     @classmethod
@@ -270,8 +279,12 @@ class TagOut(BaseModel):
     value: str = ""  # "rolex" for brand:rolex; the name for a plain tag
 
 
-OrderName = Literal["-created", "created", "filename", "-size", "-rating", "-modified"]
-KindName = Literal["image", "video", "pdf", "font", "other"]
+OrderName = Literal[
+    "-created", "created", "filename", "-size", "-rating", "-modified", "-taken", "taken"
+]
+KindName = Literal[
+    "image", "video", "pdf", "audio", "model", "font", "design", "bundle", "other"
+]
 PreviewName = Literal["pending", "ready", "failed", "none"]
 
 
@@ -370,6 +383,7 @@ class JobOut(BaseModel):
     attempts: int
     filename: str | None  # the file an ingest job imports
     item_id: str | None  # the item a regen_preview job works on
+    result_item_id: str | None = None  # the item a clip job made
     last_error: str | None
     created_at: datetime
     started_at: datetime | None

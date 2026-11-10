@@ -213,6 +213,7 @@ def _keyword_score(q: str, tsq: str | None):
         sa.func.similarity(Item.filename, q)
         + sa.case((Item.filename.ilike(pattern), 0.5), else_=0.0)
         + sa.case((Item.notes.ilike(pattern), 0.3), else_=0.0)
+        + sa.case((Item.place.ilike(pattern), 0.3), else_=0.0)
         + sa.case((annotation_match(pattern), 0.3), else_=0.0)
         + text_rank
     )
@@ -225,6 +226,7 @@ def keyword_condition(q: str):
         Item.filename.ilike(pattern),
         sa.func.similarity(Item.filename, q) > 0.25,
         Item.notes.ilike(pattern),
+        Item.place.ilike(pattern),  # "City, Country" (Milestone 5)
         annotation_match(pattern),
     ]
     tsq = tsquery(q)

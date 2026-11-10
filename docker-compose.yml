@@ -95,6 +95,10 @@ services:
       KIST_SHARE_PASSWORD_ATTEMPTS: ${KIST_SHARE_PASSWORD_ATTEMPTS:-10}
       KIST_WAYBACK: ${KIST_WAYBACK:-false}
       KIST_LINK_CHECK_DAYS: ${KIST_LINK_CHECK_DAYS:-7}
+      # media (Milestone 5): ffmpeg threads per run; the web map's tiles
+      KIST_FFMPEG_THREADS: ${KIST_FFMPEG_THREADS:-2}
+      KIST_MAP_TILES_URL: ${KIST_MAP_TILES_URL:-}
+      KIST_MAP_ATTRIBUTION: ${KIST_MAP_ATTRIBUTION:-}
       # KIST_AI_WINDOW is in this time zone (/api/ai/status reports window_open)
       TZ: ${TZ:-UTC}
     # KIST_BIND is the host address to listen on. 0.0.0.0 (the default) is
@@ -177,6 +181,11 @@ services:
       KIST_LINK_CHECK_DAYS: ${KIST_LINK_CHECK_DAYS:-7}
       KIST_LINK_CHECK_DELAY_SECONDS: ${KIST_LINK_CHECK_DELAY_SECONDS:-2}
       KIST_WAYBACK: ${KIST_WAYBACK:-false}
+      # media (Milestone 5): ffmpeg runs niced with this many threads; proxies
+      # and clips may use the Intel GPU (qsv | vaapi | none; see devices below)
+      KIST_FFMPEG_THREADS: ${KIST_FFMPEG_THREADS:-2}
+      KIST_HWACCEL: ${KIST_HWACCEL:-none}
+      KIST_VAAPI_DEVICE: ${KIST_VAAPI_DEVICE:-/dev/dri/renderD128}
       # KIST_AI_WINDOW is in this time zone
       TZ: ${TZ:-UTC}
     volumes:
@@ -184,6 +193,15 @@ services:
       # a backup repository on a local disk: mount it and set
       # KIST_BACKUP_REPO=/backup (remote repos such as sftp: or rest: need no mount)
       # - /mnt/usb/kist-backup:/backup
+    # Hardware video encoding (KIST_HWACCEL=vaapi or qsv; Intel iGPU, e.g.
+    # an N100): proxies and clips are encoded on the GPU, and fall back to
+    # the CPU when that fails. Pass the render node through and add the group
+    # that owns it on the host (`stat -c %g /dev/dri/renderD128`), as for the
+    # ml service below:
+    # devices:
+    #   - /dev/dri:/dev/dri
+    # group_add:
+    #   - "${KIST_RENDER_GID:-105}"
     depends_on:
       db:
         condition: service_healthy

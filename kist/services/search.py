@@ -15,7 +15,15 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from .. import access
-from ..filetypes import FONT_EXTS, FONT_MIMES, KINDS, OCTET_STREAM, VIDEO_EXTS
+from ..filetypes import (
+    BUNDLE_MIMES,
+    DESIGN_MIMES,
+    FONT_EXTS,
+    FONT_MIMES,
+    KINDS,
+    OCTET_STREAM,
+    VIDEO_EXTS,
+)
 from ..lifecycle import ItemState, PreviewStatus
 from ..models import Folder, Item, ItemFolder, ItemTag, Tag
 from .validation import ValidationError
@@ -37,6 +45,9 @@ ORDERS: dict[str, tuple[Any, bool]] = {
     "-size": (Item.size_bytes, True),
     "-rating": (Item.rating, True),
     "-modified": (Item.modified_at, True),
+    # Milestone 5: date taken (EXIF / video creation time), else created_at
+    "-taken": (Item.taken_sort, True),
+    "taken": (Item.taken_sort, False),
 }
 
 # filetypes.kind_for in SQL: the type filter, the stats and ItemOut.kind
@@ -46,17 +57,31 @@ _VIDEO = sa.or_(
     Item.mime.like("video/%"),
     sa.and_(Item.mime == OCTET_STREAM, sa.func.lower(Item.ext).in_(sorted(VIDEO_EXTS))),
 )
-_IMAGE = Item.mime.like("image/%")
+# Milestone 5 kinds (filetypes.m5_kind); PSD/PSB are design, not image
+_DESIGN = Item.mime.in_(sorted(DESIGN_MIMES))
+_AUDIO = Item.mime.like("audio/%")
+_MODEL = Item.mime.like("model/%")
+# fonts: a font MIME, or a font extension libmagic called octet-stream (M2)
 _FONT = sa.or_(
+    Item.mime.like("font/%"),
     Item.mime.in_(sorted(FONT_MIMES)),
     sa.and_(Item.mime == OCTET_STREAM, sa.func.lower(Item.ext).in_(sorted(FONT_EXTS))),
 )
+_BUNDLE = Item.mime.in_(sorted(BUNDLE_MIMES))
+_IMAGE = sa.and_(Item.mime.like("image/%"), sa.not_(_DESIGN))
 KIND_FILTERS = {
     "pdf": _PDF,
     "video": _VIDEO,
     "image": _IMAGE,
+    "design": _DESIGN,
+    "audio": _AUDIO,
+    "model": _MODEL,
     "font": _FONT,
-    "other": sa.and_(sa.not_(_PDF), sa.not_(_VIDEO), sa.not_(_IMAGE), sa.not_(_FONT)),
+    "bundle": _BUNDLE,
+    "other": sa.and_(
+        sa.not_(_PDF), sa.not_(_VIDEO), sa.not_(Item.mime.like("image/%")), sa.not_(_DESIGN),
+        sa.not_(_AUDIO), sa.not_(_MODEL), sa.not_(_FONT), sa.not_(_BUNDLE),
+    ),
 }
 
 
@@ -138,10 +163,15 @@ def build_filters(
     source_status: str | None = None,
     # extra SQL conditions (internal callers)
     extra: list[Any] | None = None,
+    # Milestone 5 media filters (services/media.filters: taken_after, camera,
+    # has_gps ...)
+    media: dict | None = None,
 ) -> list[Any]:
+    from . import media as media_svc
     from . import provenance
 
     filters: list[Any] = list(extra or [])
+    filters += media_svc.filters(media)
     filters += provenance.filters(ai_generated=ai_generated, license=license,
                                   source_status=source_status)
     filters += _creative_filters(flag, label)
@@ -303,6 +333,7 @@ def search(
     source_status: str | None = None,
     # extra SQL conditions (internal callers)
     extra: list[Any] | None = None,
+    media: dict | None = None,
 ) -> SearchResult:
     """One page of items. total is counted on the first page only (no
     cursor); later pages return None.
@@ -352,6 +383,7 @@ def search(
         flag=flag, label=label,
         ai_generated=ai_generated, license=license, source_status=source_status,
         extra=extra,
+        media=media,
     )
     if collapse_ranked:
         # the trash lists every trashed item on its own (as build_filters does)

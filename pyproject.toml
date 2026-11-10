@@ -35,6 +35,19 @@ ml = [
     "rapidocr-onnxruntime>=1.4.4,<2",
 ]
 
+# Milestone 5 media extras (the Docker image installs them; everything works
+# without them, with the fallbacks named in docs/architecture.md):
+# fontTools reads WOFF2 fonts (built-in reader: TTF/OTF/WOFF), resvg-py
+# renders SVG thumbnails (fallback: libvips' librsvg), trimesh converts
+# OBJ/STL/PLY to GLB for the web viewer (fallback: no conversion)
+media = [
+    "fonttools>=4.50",
+    "brotli>=1.1",
+    "resvg-py>=0.2",
+    "trimesh>=4",
+    "numpy>=1.26",
+]
+
 [project.urls]
 Homepage = "https://github.com/jdoscher/kist"
 

@@ -28,6 +28,10 @@ def outcome(item_dir: Path, mime: str, ext: str) -> PreviewStatus:
         return PreviewStatus.NONE
     if (item_dir / "thumb_256.webp").is_file():
         return PreviewStatus.READY
+    from .media import NO_PREVIEW_OK
+
+    if kind_for(mime, ext) in NO_PREVIEW_OK:  # a font, a .fig with no thumbnail
+        return PreviewStatus.NONE
     return PreviewStatus.FAILED
 
 
@@ -53,14 +57,19 @@ def regenerate(session: Session, item: Item) -> PreviewStatus:
         item.preview_error = "original file missing on disk"
     else:
         try:
+            from . import media
+
+            cover = (item.media or {}).get("cover_time")
             probe = thumbs.generate_previews_isolated(
-                original, item_dir, item.mime, item.ext, cleanup=False
+                original, item_dir, item.mime, item.ext, cleanup=False,
+                options={"cover_time": cover} if cover is not None else None,
             )
-            phash, colors = thumbs.enrich(item_dir)
+            phash, colors = thumbs.enrich(item_dir, kind_for(item.mime, item.ext))
             if probe.width is not None:
                 item.width, item.height = probe.width, probe.height
             if probe.duration_s is not None:
                 item.duration_s = probe.duration_s
+            media.apply(item, media.merge(item.media, probe.media))
             if phash is not None:
                 item.phash = phash
             if colors is not None:
@@ -133,9 +142,13 @@ def recompute_colors(session: Session, item: Item) -> bool:
     method changed); item_colors follows by trigger. Not an edit: modified_at
     stays. Returns whether they changed."""
     small = get_settings().items_dir / item.id / "thumb_256.webp"
-    if not small.is_file():
+    if ((small.parent / "preview_icon").exists()
+            or kind_for(item.mime, item.ext) in thumbs.DRAWN_PREVIEW_KINDS):
+        colors = None  # an icon, waveform or specimen has no palette (thumbs.enrich)
+    elif not small.is_file():
         return False
-    colors = thumbs.dominant_colors(small)
+    else:
+        colors = thumbs.dominant_colors(small)
     if colors == item.dominant_colors:
         return False
     session.execute(

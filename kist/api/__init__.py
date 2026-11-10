@@ -17,6 +17,7 @@ from . import (
     tags,
     tokens,
 )
+from . import media as media_routes
 
 api_router = APIRouter()
 api_router.include_router(misc.router)
@@ -34,3 +35,4 @@ api_router.include_router(boards.router)
 api_router.include_router(creative.router)
 api_router.include_router(shares.router)
 api_router.include_router(m4.router)
+api_router.include_router(media_routes.router)  # Milestone 5

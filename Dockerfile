@@ -16,9 +16,13 @@ ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PYTHONDONTWRITEBYTECODE=1 \
 # restic (Debian's package) for `kist backup`; pg_dump has to match the
 # Postgres 16 server, so postgresql-client-16 comes from the PostgreSQL apt
 # repository (bookworm's own client is 15)
+# exiftool (libimage-exiftool-perl): camera metadata and the embedded
+# previews of RAW files (Kist's own reader covers them when it's missing);
+# Debian's ffmpeg includes ffprobe, libwebp and the VA-API/QSV encoders
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libvips42 \
     ffmpeg \
+    libimage-exiftool-perl \
     libmagic1 \
     restic \
     ca-certificates \
@@ -37,7 +41,7 @@ COPY pyproject.toml README.md* ./
 COPY kist/ ./kist/
 COPY migrations/ ./migrations/
 COPY alembic.ini docker-entrypoint.sh ./
-RUN pip install . && chmod +x docker-entrypoint.sh
+RUN pip install ".[media]" && chmod +x docker-entrypoint.sh
 
 COPY --from=web /web/dist ./web/dist
 

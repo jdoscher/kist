@@ -4,6 +4,7 @@ from typing import Any
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    Computed,
     DateTime,
     Float,
     ForeignKey,
@@ -175,6 +176,31 @@ class Item(Base):
         DateTime(timezone=True), nullable=True
     )
     source_wayback_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # ---- media (Milestone 5; services/media.py) ----
+    # everything Kist read from the file (ffprobe, EXIF, SVG colours, model
+    # stats ...) plus the few user choices about it (cover_time, poster).
+    # meta.json carries this block; the columns below are derived from it
+    # (media.apply) so they can be filtered and indexed
+    media: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True), nullable=True)
+    # when the photo/video was taken (EXIF DateTimeOriginal as wall-clock
+    # time, stored as if UTC; or a video's creation_time)
+    taken_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # taken_at, else created_at: the timeline's date and the `taken` sort
+    taken_sort: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), Computed("coalesce(taken_at, created_at)", persisted=True)
+    )
+    has_gps: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    lon: Mapped[float | None] = mapped_column(Float, nullable=True)
+    camera: Mapped[str | None] = mapped_column(Text, nullable=True)
+    lens: Mapped[str | None] = mapped_column(Text, nullable=True)
+    vertical: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    has_audio: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    # "City, Country" from offline reverse geocoding (services/geo.py)
+    place: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # basename + taken_at: a RAW and its camera JPEG share it (M2 stacks)
+    raw_pair_key: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     tags: Mapped[list[Tag]] = relationship(secondary="item_tags", lazy="selectin")
     folders: Mapped[list[Folder]] = relationship(

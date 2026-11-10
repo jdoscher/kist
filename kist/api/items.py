@@ -82,6 +82,18 @@ def search_filters(
     license: Annotated[str | None, Query(max_length=200)] = None,
     # M4 link-rot watch: ok | gone | moved | error | unchecked
     source_status: str | None = None,
+    # Milestone 5 media filters (services/media.filters); order=-taken sorts
+    # by date taken
+    taken_after: datetime | None = None,
+    taken_before: datetime | None = None,
+    has_gps: bool | None = None,
+    camera: Annotated[str | None, Query(max_length=200)] = None,
+    lens: Annotated[str | None, Query(max_length=200)] = None,
+    duration_min: Annotated[float | None, Query(ge=0)] = None,
+    duration_max: Annotated[float | None, Query(ge=0)] = None,
+    vertical: bool | None = None,
+    has_audio: bool | None = None,
+    place: Annotated[str | None, Query(max_length=200)] = None,
 ) -> dict:
     """The filters GET /api/items and POST /api/search/image share, as
     services.search.search() keyword arguments."""
@@ -98,6 +110,10 @@ def search_filters(
         limit=limit, cursor=cursor, has_text=has_text, color=color, color_tol=color_tol,
         text=text, stacks=stacks, person=person, flag=flag, label=label,
         ai_generated=ai_generated, license=license, source_status=source_status,
+        media=dict(taken_after=taken_after, taken_before=taken_before, has_gps=has_gps,
+                   camera=camera, lens=lens, duration_min=duration_min,
+                   duration_max=duration_max, vertical=vertical, has_audio=has_audio,
+                   place=place),
     )
 
 
@@ -421,6 +437,9 @@ def get_file(item_id: str, session: Annotated[Session, Depends(get_session)]):
         # run script with this origin's storage (where the token lives)
         headers["Content-Security-Policy"] = "sandbox"
     headers["Cache-Control"] = CACHE_FOREVER  # an item's original never changes
+    if item.mime.startswith("font/"):
+        # @font-face specimens load fonts from here: same origin only
+        headers["Cross-Origin-Resource-Policy"] = "same-origin"
     return FileResponse(
         path,
         media_type=item.mime,

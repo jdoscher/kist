@@ -84,6 +84,9 @@ def to_meta(item: Item) -> dict:
         "preview_error": item.preview_error,
         "preview_rev": item.preview_rev or 0,
         **_m4_meta(item),
+        # Milestone 5: metadata read from the file + cover/poster choices
+        # (services/media.py); the filter columns are derived from it
+        "media": item.media,
     }
 
 

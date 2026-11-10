@@ -382,6 +382,49 @@ palette (the web screens follow):
 Everything is in the item history and undoes as a batch (board edits too),
 and `kist rebuild-index` restores boards, annotations, flags, labels and
 templates from their files.
+## Video, audio, photos, design files, 3D and fonts
+
+Kist 2.0 looks inside more than images:
+
+- **Video**: hover-scrub sprites (20 frames, one WebP), duration, fps,
+  codec, bitrate, rotation and audio from ffprobe. Pick any frame as the
+  cover, save a frame as its own image, or cut a clip to MP4, GIF or
+  animated WebP (a worker job). Files a browser can't play (ProRes, HEVC,
+  AVI, MKV with odd codecs) get a web-safe H.264 proxy the first time they're
+  played; originals are always served with HTTP Range. Animated GIF and WebP
+  get the same scrub sprite. Agents can watch a video with MCP `view_video`.
+- **Audio** (mp3, wav, flac, aac, m4a, ogg, aiff): a waveform thumbnail,
+  peaks for the player, duration, artist and title; clips to mp3/wav.
+- **Photos**: camera, lens, focal length, aperture, shutter, ISO, date
+  taken and GPS from EXIF; filters for all of them, sort by date taken, a
+  timeline, On this day, and a map. Place names ("Kyoto, Japan") come from
+  GeoNames, offline: run `docker compose exec worker kist geo-download` once.
+  Originals are never changed, so a downloaded original still carries its
+  GPS position: share exports (which strip it) instead of originals when
+  that matters.
+- **RAW** (CR2, CR3, NEF, ARW, RAF, ORF, RW2, DNG, PEF): previews from the
+  camera's embedded JPEG, in milliseconds.
+- **Design files**: thumbnails from the preview PSD/PSB, AI, EPS, Sketch,
+  Procreate, Krita, OpenRaster, Affinity and Blender files carry inside.
+  Figma `.fig` files have none: they show an icon until you upload a poster.
+- **SVG**: sanitized (no script, no external references) for thumbnails and
+  "Copy SVG", with its exact fill and stroke colours.
+- **3D** (glb, gltf, obj, fbx, stl, usdz, ply): bounds and triangle counts;
+  the web shows them with `<model-viewer>` and saves a poster as the
+  thumbnail. OBJ, STL and PLY are converted to GLB when `trimesh` is
+  installed (it is in the image).
+- **Fonts**: family, style, glyphs, variable axes and scripts.
+- **Bundles**: a zip (a model with its textures, a texture set, a kit) is
+  kept whole, listed, previewed from the best picture inside, and single
+  files can be opened from it.
+
+Items added before 2.0 get all this with
+`docker compose exec worker kist media-backfill`.
+
+ffmpeg runs under `nice` with `KIST_FFMPEG_THREADS` threads (default 2), and
+clips and proxies wait behind imports and previews. An Intel iGPU can encode
+proxies and clips: set `KIST_HWACCEL=vaapi` (or `qsv`) and pass `/dev/dri`
+to the worker (see `docker-compose.yml`).
 
 ## Storage layout
 
@@ -413,9 +456,16 @@ library/
         ├── thumb_256.webp  # longest side 256
         ├── thumb_512.webp  # short side 512 (grid tiles)
         ├── thumb_1024.webp # longest side 1024 (preview, MCP view_item)
-        ├── display.webp    # HEIC only: full-resolution copy browsers can show
-        ├── meta.json       # all metadata (incl. links, protected, flag, label),
-        │                   # rewritten on every change
+        ├── display.webp    # HEIC and RAW: full-resolution copy browsers can show
+        ├── scrub.webp      # video / animated GIF+WebP: hover-scrub sprite (+ scrub.json)
+        ├── waveform.json   # audio: peaks (BBC audiowaveform JSON)
+        ├── proxy.mp4       # video browsers can't play: web-safe H.264 copy (on first play)
+        ├── model.glb       # OBJ/STL/PLY converted for the 3D viewer (needs trimesh)
+        ├── bundle.json     # zip bundles: what's inside
+        ├── sanitized.svg   # SVG: what "Copy SVG" returns
+        ├── poster.png      # a poster you uploaded (3D models, .fig ...): back it up
+        ├── meta.json       # all metadata (incl. links, protected, flag, label,
+        │                   # provenance, media), rewritten on every change
         ├── annotations.json # notes pinned to points, boxes and video times
         ├── events.jsonl    # the item's history, one line per change (append-only)
         ├── fixity.jsonl    # every re-hash of the original: {at, sha256, ok}
@@ -700,6 +750,14 @@ GET    /api/items                q, tags (csv, all; a tag also matches through a
                                  {kind, score, snippet?} and the cursor is an offset.
                                  total is counted on the first page only (no cursor);
                                  later pages say null.
+                                 M4 filters: ai_generated (true|false|unknown),
+                                 license (exact, none), source_status (ok|gone|moved|
+                                 error|unchecked). M5 media filters: taken_after,
+                                 taken_before, has_gps, camera, lens, place
+                                 (substrings), duration_min/_max (seconds), vertical,
+                                 has_audio; order=-taken|taken sorts by date taken
+                                 (else date added). type also takes audio, model,
+                                 design, bundle (and font)
                                  ids=a,b,c instead: those items in that order (compare);
                                  unknown or invisible ids are left out, other
                                  parameters ignored
@@ -731,6 +789,31 @@ GET    /api/items/{id}/file      the original
 GET    /api/items/{id}/thumb     ?size=256|512|1024, 2048 (full-screen copy), 4096 (HEIC);
                                  &v=<preview_rev> makes the answer cacheable for good
 GET    /api/items/{id}/history   every change to the item, newest first
+GET    /api/items/{id}/scrub     video / animated GIF scrub sprite (WebP); scrub.json:
+                                 {frames, cols, rows, frame_w, frame_h, times[]}
+POST   /api/items/{id}/cover     {"t": seconds | null}: the video's thumbnail frame
+POST   /api/items/{id}/frames    {"t": seconds}: save that frame as a new PNG item
+                                 (derived_from the video, with its tags and folders) -> 201
+POST   /api/items/{id}/clip      {start, end, format: mp4|gif|webp (video) | mp3|wav
+                                 (audio), max_side?} -> 202 job; GET /api/jobs/{id}
+                                 until done, then result_item_id is the new item
+GET    /api/items/{id}/stream    something the browser can play, with Range: the original,
+                                 or the web-safe proxy (202 {status: preparing} while
+                                 it's made); POST .../proxy queues it by hand
+GET    /api/items/{id}/waveform  audio peaks (BBC audiowaveform JSON, 1,000 buckets)
+GET    /api/items/{id}/svg       the sanitized SVG text ("Copy SVG")
+POST   /api/items/{id}/poster    a PNG/JPEG/WebP poster for a 3D model, design file or bundle
+GET    /api/items/{id}/model     the model for <model-viewer> (GLB/glTF, or converted GLB)
+GET    /api/items/{id}/font-info family, style, glyph count, variable axes, scripts
+GET    /api/items/{id}/glyphs    ?page=: the font's codepoints, 256 a page
+GET    /api/items/{id}/bundle    what's inside a zip bundle; .../bundle/{path} serves one
+                                 file from it (paths that leave the bundle: 400)
+GET    /api/timeline             ?group=day|month|year + the item filters:
+                                 [{key, count, first_item_id}] by date taken
+GET    /api/on-this-day          ?day=YYYY-MM-DD: items taken that day in earlier years
+GET    /api/map                  ?bbox=w,s,e,n&zoom=: GPS items clustered on a grid
+GET    /api/map/config           tile URL, attribution, whether place names are loaded
+GET    /api/jobs/{id}            one job (clips and proxies report result_item_id)
 GET    /api/items/{id}/links     [{item, kind, direction: out|in}]
 POST   /api/items/{id}/links     {"dst_id", "kind"}: derived_from, alternate, related,
                                  not_duplicate (find_duplicates stops pairing them),
@@ -949,8 +1032,9 @@ Kist is built for one person on a trusted network. Read
 ## Development
 
 ```bash
-# backend (needs libvips, libmagic, ffmpeg, and a Postgres to point at)
-python3.12 -m venv .venv && .venv/bin/pip install -e ".[dev]"
+# backend (needs libvips, libmagic, ffmpeg + ffprobe, and a Postgres to point at;
+# exiftool and the "media" extra are optional: tests skip or use fallbacks)
+python3.12 -m venv .venv && .venv/bin/pip install -e ".[dev,media]"
 KIST_TOKEN=dev-token-0123456789 \
 KIST_LIBRARY_DIR=./library \
 KIST_DATABASE_URL=postgresql+psycopg://kist:kist@localhost:5432/kist \
@@ -962,6 +1046,8 @@ cd web && npm install && npm run dev
 # tests: integration tests need a throwaway Postgres database
 KIST_TEST_DATABASE_URL=postgresql+psycopg://kist:kist@localhost:5432/kist_test \
   .venv/bin/pytest
+# real RAW files (CC0 samples from raw.pixls.us, listed in tests/test_media_unit.py):
+# KIST_TEST_RAW_DIR=~/raw-samples .venv/bin/pytest tests/test_media_unit.py
 .venv/bin/ruff check kist tests migrations
 ```
 

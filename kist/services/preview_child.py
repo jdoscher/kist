@@ -15,10 +15,12 @@ def main(argv: list[str]) -> int:
         original, item_dir, ext = argv[1:]
         thumbs.screen_copy_from(Path(original), Path(item_dir), ext)
         return 0
-    original, item_dir, mime, ext = argv
-    probe = thumbs.generate_previews(Path(original), Path(item_dir), mime, ext)
+    original, item_dir, mime, ext = argv[:4]
+    options = json.loads(argv[4]) if len(argv) > 4 else None
+    probe = thumbs.generate_previews(Path(original), Path(item_dir), mime, ext, options)
     print(json.dumps({
         "width": probe.width, "height": probe.height, "duration_s": probe.duration_s,
+        "media": probe.media,
     }))
     return 0
 

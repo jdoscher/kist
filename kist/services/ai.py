@@ -540,10 +540,22 @@ def ensure_vector_index(session: Session, model: str) -> None:
 # ---------- what an item needs ----------
 
 
+# kinds never embedded: an audio file's thumbnail is its waveform, not
+# something to search by meaning. A font's specimen is embedded ("more like
+# this" finds similar-looking typefaces), as are design files, RAW, SVG,
+# video and PDF previews, a 3D model's or bundle's real picture (an uploaded
+# poster, the image inside a bundle); a generic icon (media.ICON_MARKER) never.
+NOT_EMBEDDED_KINDS = ("audio",)
+
+
 def embed_source(item: Item) -> Path | None:
     if item.preview_status != PreviewStatus.READY:
         return None
+    if kind_for(item.mime, item.ext) in NOT_EMBEDDED_KINDS:
+        return None
     d = get_settings().items_dir / item.id
+    if (d / "preview_icon").exists():
+        return None
     for name in EMBED_SOURCES:
         if (d / name).is_file():
             return d / name

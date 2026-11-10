@@ -92,6 +92,8 @@ class JobKind(StrEnum):
     FACES = "faces"  # faces and their embeddings (opt-in: KIST_FACES)
     EXPORT = "export"  # M4: a BagIt zip (services/exports.py)
     IMPORT = "import"  # M4: an importer run (kist/importers)
+    CLIP = "clip"  # cut a clip / GIF from a video or audio item (services/media.py)
+    PROXY = "proxy"  # web-safe copy of a video or audio file browsers can't play
 
 
 # the heavy kinds: they wait while any light job (ingest, previews) is
@@ -105,6 +107,8 @@ DEFAULT_AI_KINDS = (JobKind.EMBED, JobKind.OCR, JobKind.FACES)
 HELPER_KINDS = (JobKind.EMBED, JobKind.OCR, JobKind.CAPTION)
 # what a helper takes when it names no kinds
 HELPER_DEFAULT_KINDS = (JobKind.EMBED, JobKind.OCR)
+# ffmpeg's heavy work: claimed after every waiting ingest and preview job
+HEAVY_KINDS = (JobKind.CLIP, JobKind.PROXY)
 
 
 MAX_ATTEMPTS = 3
