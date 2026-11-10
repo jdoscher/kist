@@ -821,6 +821,37 @@ Kist now looks inside video, audio, photos, RAW files, design sources, SVG,
 - Fixed: the video notes scrubber had a label without a role, and the
   Notes button pointed `aria-controls` at a panel that wasn't there.
 
+### Fixed (2.0 smoke test)
+- Triage: each decision takes the item out of the Unfiled queue, so
+  "N left" counts down, and ⌘Z puts it back.
+- A bulk tag edit's notice offers Undo, like Trash and Stack.
+- AI tag suggestions and collection labels no longer guess with a small
+  vocabulary (a dog as "watch" or "brand:Omega", buildings as
+  "credit:Wikimedia"): a zero-shot tag must stand out against the picture's
+  match with generic reference prompts (a z-score) and clear a raw cosine of
+  0.24; credit:, license:, source: and other bookkeeping tags are never
+  suggested or used as labels; a "similar items" tag whose name the picture
+  clearly doesn't match the way its neighbours do is dropped; a collection's
+  zero-shot label must be what most of its members match too, in the usual
+  spelling of the tag. On the 60-photo seed set over 11 vocabularies,
+  zero-shot precision went from 43% to 99%; in a library seeded with 3 of
+  10 photos tagged per category, every suggestion was right (93/93, was
+  121/168).
+- Trashing a protected item says why ("Couldn't move it to Trash:
+  Protected: unprotect it first.") without a useless Retry: Retry is offered
+  only where trying again could help (no answer, a server error, a timeout).
+- Board: ⌘A, ⌘Z, ⌘D, ⌘G and Escape work with focus on the toolbar, not only
+  after clicking the canvas.
+- Uploading a new version selects it (the info panel follows) and stacks the
+  version chain with the new version as the cover, so the grid shows one
+  picture; the notice offers Compare.
+- `PATCH /api/items/{id}` with `base_modified_at` answers 409 only when a
+  field it writes was changed since: a link, tags, a stack or a rating
+  changed meanwhile no longer refuse a notes or name save.
+- Captions through an OpenAI-compatible server on the home network
+  (`KIST_CAPTION_URL` on a private address) no longer warn that images go to
+  OpenAI; another host is named in the warning.
+
 ## [1.5.0] - 2026-11-09
 
 A hardening release. Kist was reviewed for security, data integrity,
