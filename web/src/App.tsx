@@ -143,10 +143,11 @@ function UndoShortcut() {
 function Screens({ mobile }: { mobile: boolean }) {
   const { settings, screen } = useAppState()
   if (settings) return <SettingsScreen />
-  if (screen)
+  // the board editor and triage take the whole window (focus); the boards
+  // list sits in the library's frame, in place of the grid
+  if (screen && screen.kind !== 'boards')
     return (
       <Suspense fallback={<main className="center">Loading…</main>}>
-        {screen.kind === 'boards' && <BoardsScreen trash={!!screen.trash} />}
         {screen.kind === 'board' && <BoardEditor key={screen.id} id={screen.id} />}
         {screen.kind === 'triage' && <Triage key={`${screen.view}:${screen.folder ?? ''}`} screen={screen} />}
       </Suspense>
@@ -156,8 +157,14 @@ function Screens({ mobile }: { mobile: boolean }) {
       <TopBar mobile={mobile} />
       <div className="app-body">
         {mobile ? <Drawer /> : <DesktopSidebar />}
-        <Grid mobile={mobile} />
-        {mobile ? <DetailSheet /> : <DetailPanel />}
+        {screen?.kind === 'boards' ? (
+          <BoardsScreen trash={!!screen.trash} />
+        ) : (
+          <>
+            <Grid mobile={mobile} />
+            {mobile ? <DetailSheet /> : <DetailPanel />}
+          </>
+        )}
       </div>
     </>
   )

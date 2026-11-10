@@ -220,10 +220,11 @@ export function BoardsScreen({ trash = false }: { trash?: boolean }) {
   return (
     <main className={`boards-screen${mobile ? ' mobile' : ''}`} aria-labelledby="boards-h">
       <div className="boards-head">
-        <button className="btn-icon" onClick={() => setQuery({ ...emptyQuery })}>
-          <X size={16} aria-hidden="true" /> {mobile ? '' : 'Library'}
-          {mobile && <span className="sr-only">Back to the library</span>}
-        </button>
+        {mobile && (
+          <button className="icon-btn" onClick={() => setQuery({ ...emptyQuery })} aria-label="Back to the library">
+            <X size={16} aria-hidden="true" />
+          </button>
+        )}
         <h1 id="boards-h">{trash ? 'Boards trash' : 'Boards'}</h1>
         <span className="grow" />
         <button className="btn-icon" aria-pressed={trash} onClick={() => openScreen({ kind: 'boards', trash: !trash })}>

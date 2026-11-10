@@ -401,6 +401,18 @@ compare, triage, quick look and the Cmd+K palette (the web screens follow).
   and labels from their files; `kist verify` checks them (and
   `templates.json`); `kist rewrite-meta` rewrites them.
 
+### Milestone 3: creative workflows (web app)
+
+- **Boards.** A canvas of library items, notes, text, shapes, colour swatches and labelled arrows. Drag items in from a library panel or from the grid (or use Add buttons). Pan, zoom, marquee-select, align and distribute, group (⌘G), duplicate (⌘D), crop and snap. Saves automatically; if an agent or another tab changed the board, a banner offers to combine, keep theirs or overwrite. Export to PNG, PDF or a self-contained HTML file. A list view gives keyboard and screen-reader users every editing action without dragging. Phones can view, pan and zoom.
+- **Compare and survey.** Select 2–4 items and compare them side by side with synced zoom, a wipe slider and a difference overlay, or survey a selection and pick or reject with P/X and auto-advance.
+- **Triage.** Go through Unfiled one item at a time: P/X/U, 1–5 stars, 6–9 colour labels, T to tag, F to file, arrows to move, Undo. On a phone, swipe: left/right moves, up keeps, down rejects.
+- **Quick look.** Hold Space on a tile to peek; Z shows a 100% loupe from the original, also in the full-screen view.
+- **Pinned notes.** Pins and boxes on images; time-range notes on videos, shown as marks on the scrubber (M adds one at the current time).
+- **⌘K palette.** Jump to any folder, tag, board or item, or run an action; a full-height sheet on phones.
+- **Flags, labels and versions.** Pick/reject flags and colour labels on tiles, in the info panel, the selection bar and sidebar filters. Upload a new version of an item and compare it with the previous one.
+- **Templates and bulk rename.** Save sets of tags, folders, notes and labels as templates (Settings) and apply them from the selection bar. Rename many items with a pattern ({name}, {n:3}, {date:%Y%m%d}, {w}x{h}…) with a live preview; one Undo restores every name.
+- **First run.** Empty views explain the ways in (drop or paste, Eagle import, the browser extension, an agent over MCP), and a dismissable checklist walks through setup.
+
 ### Milestones 2 and 3 together
 - Every search mode takes every filter: the vocabulary's aliases, implied
   tags and `ns:*` namespaces, `person`, `flag`, `label` and annotation text
