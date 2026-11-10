@@ -3,6 +3,7 @@ import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState } from 
 import { api, getToken, setToken, setUnauthorizedHandler } from './api'
 import { DetailPanel } from './components/DetailPanel'
 import { DetailSheet } from './components/DetailSheet'
+import { ShellStatus, useOfflineText } from './components/AppShell'
 import { DialogProvider } from './components/Dialog'
 import { Grid } from './components/Grid'
 import { JobsPanel } from './components/JobsPanel'
@@ -216,11 +217,14 @@ function ServerBanner() {
     retry: false,
   })
   const status = (health.error as { status?: number } | null)?.status
-  const text = health.isError && status !== 401 ? bannerText(status) : ''
+  // no answer at all (no connection, server gone): the Offline banner
+  // (shell.ts); an answer with an error: the database line
+  const offline = useOfflineText()
+  const text = offline || (health.isError && status !== 401 && status !== 0 ? bannerText(status) : '')
   // the live region is always there, so the message is read out when it appears
   return (
     <div className="server-banner-wrap" role="status" aria-live="polite">
-      {text && <div className="server-banner">{text}</div>}
+      {text && <div className={`server-banner${offline ? ' offline-banner' : ''}`}>{text}</div>}
     </div>
   )
 }
@@ -278,6 +282,7 @@ export default function App() {
               <M45Provider>
               <div className={`app-shell${mobile ? ' mobile' : ''}`}>
                 <ServerBanner />
+                <ShellStatus />
                 <Screens mobile={mobile} />
                 <Preview />
                 <JobsPanel />
