@@ -69,6 +69,11 @@ class Client:
         return json.loads(body)
 
 
+# Crockford base32 ULIDs use 0-9 and A-Z: "Z" * 26 sorts after every one in
+# the C and en_US collations alike
+ID_AFTER_ALL = "Z" * 26
+
+
 def crafted_cursor(value, item_id: str) -> str:
     """A keyset cursor (services/search.encode_cursor's format) that starts
     mid-list for a non-date order: [value, id]."""
@@ -106,7 +111,12 @@ def build_cases(c: Client, args) -> list[tuple[str, str, dict | list]]:
                 continue
             cursor = buckets[len(buckets) // 2]["cursor"]
         else:
-            last = "~" if direction == "desc" else ""
+            # an id past every ULID (desc) or before every one (asc). Not
+            # "~": in a database with an en_US collation (the official
+            # postgres image's default) punctuation sorts before letters
+            # and digits, so (rating = 0 AND id < '~') matched nothing and
+            # the -rating deep page came back empty (44 bytes)
+            last = ID_AFTER_ALL if direction == "desc" else ""
             value = {"filename": "m", "size": 5_000_000, "rating": 0}[sort]
             cursor = crafted_cursor(value, last)
         cases.append((f"items deep page order={order}", "/api/items",

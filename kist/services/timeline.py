@@ -31,18 +31,27 @@ def buckets(session: Session, group: str, filters: list, limit: int = 5000) -> l
     if group not in GROUPS:
         raise ValidationError("group must be day, month or year")
     key = sa.func.to_char(_utc(Item.taken_sort), GROUPS[group]).label("key")
-    first = sa.type_coerce(
-        sa.func.array_agg(aggregate_order_by(Item.id, Item.taken_sort.desc(), Item.id.desc())),
-        ARRAY(sa.Text),
-    )[1]
+    # first_item_id is the bucket's first item in (taken_sort, id) DESC
+    # order: the largest id among the items taken at the bucket's newest
+    # moment (the key is a function of taken_sort). Two plain aggregates
+    # instead of array_agg(id ORDER BY taken_sort DESC, id DESC)[1], which
+    # sorted every item by (key, taken_sort, id) and spilled to disk
+    # (dev0, 250k items: month 280 ms, day 390 ms per request)
     rows = session.execute(
-        sa.select(key, sa.func.count().label("count"), first.label("first"))
+        sa.select(key, sa.func.count().label("count"),
+                  sa.func.max(Item.taken_sort).label("newest"))
         .where(*filters)
         .group_by(key)
         .order_by(key.desc())
         .limit(limit)
     ).all()
-    return [{"key": r.key, "count": r.count, "first_item_id": r.first} for r in rows]
+    newest = sorted({r.newest for r in rows})
+    firsts = dict(session.execute(
+        sa.select(Item.taken_sort, sa.func.max(Item.id))
+        .where(*filters, Item.taken_sort.in_(newest))
+        .group_by(Item.taken_sort)
+    ).all()) if newest else {}
+    return [{"key": r.key, "count": r.count, "first_item_id": firsts[r.newest]} for r in rows]
 
 
 def on_this_day(session: Session, filters: list, day: date | None = None,

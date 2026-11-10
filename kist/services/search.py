@@ -119,12 +119,19 @@ def folder_subtree(folder_id: str):
 STACK_MODES = ("collapse",)
 
 
-def tag_condition(names: list[str]):
+def tag_condition(names: list[str], session: Session | None = None):
     """An item carries one of these tags, where a tag also matches through
     the vocabulary (services/vocabulary.py): an alias finds its tag, and a
     tag finds every item tagged with a tag that implies it, at any depth
     (#shoes finds boots). "ns:*" matches any tag in that namespace. The
-    expansion happens here, at query time; nothing is written to items."""
+    expansion happens here, at query time; nothing is written to items.
+
+    With a session the names are resolved to tag ids first (one small
+    query) and the filter names those ids as literals. Postgres then
+    knows from its statistics how many items carry them; behind the
+    vocabulary's recursive CTE it guessed half the library for any tag, so
+    a rare tag's page walked the whole date index probing every item (1.2 s
+    on 250k items) and a common tag's count probed 80k items one by one."""
     from .vocabulary import is_wildcard, matching_names
 
     conds = []
@@ -135,6 +142,13 @@ def tag_condition(names: list[str]):
             conds.append(Tag.name.ilike(f"{escaped}:%", escape="\\"))
         else:
             conds.append(Tag.name.in_(matching_names(name)))
+    if session is not None:
+        ids = sorted(session.execute(sa.select(Tag.id).where(sa.or_(*conds))).scalars())
+        if not ids:
+            return sa.false()
+        # integers from the database, inlined so every plan sees the values
+        literal = [sa.literal_column(str(int(i))) for i in ids]
+        return sa.exists().where(ItemTag.item_id == Item.id, ItemTag.tag_id.in_(literal))
     return sa.exists().where(ItemTag.item_id == Item.id, ItemTag.tag_id == Tag.id, sa.or_(*conds))
 
 
@@ -143,14 +157,15 @@ RANKING_KEYS = ("order", "limit", "cursor", "semantic", "similar", "image_vector
                 "color_tol", "text", "has_text")
 
 
-def filters_from_params(params: dict) -> list:
+def filters_from_params(params: dict, session: Session | None = None) -> list:
     """GET /api/items' filters (api.items.search_filters) as SQL conditions
     for listings that aren't a page of items (timeline, on-this-day, map):
     every filter, text= and has_text= included; the ranking signals
     (semantic, similar, color) and paging are not."""
     from . import ranking
 
-    out = build_filters(**{k: v for k, v in params.items() if k not in RANKING_KEYS})
+    out = build_filters(**{k: v for k, v in params.items() if k not in RANKING_KEYS},
+                        session=session)
     if params.get("has_text") is not None:
         out.append(ranking.has_text_filter(bool(params["has_text"])))
     tsq = ranking.tsquery(params["text"]) if params.get("text") else None
@@ -188,6 +203,9 @@ def build_filters(
     # Milestone 5 media filters (services/media.filters: taken_after, camera,
     # has_gps ...)
     media: dict | None = None,
+    # with a session, tag filters are resolved to tag ids first (see
+    # tag_condition): same items, better plans
+    session: Session | None = None,
 ) -> list[Any]:
     from . import media as media_svc
     from . import provenance
@@ -226,9 +244,9 @@ def build_filters(
         filters.append(keyword_condition(q))
     if tags:
         for name in tags:  # AND semantics: item must carry every tag
-            filters.append(tag_condition([name]))
+            filters.append(tag_condition([name], session))
     if tags_any:  # OR semantics: item carries at least one of these
-        filters.append(tag_condition(tags_any))
+        filters.append(tag_condition(tags_any, session))
     if untagged:
         filters.append(sa.not_(sa.exists().where(ItemTag.item_id == Item.id)))
     if folder == "none":
@@ -406,6 +424,7 @@ def search(
         ai_generated=ai_generated, license=license, source_status=source_status,
         extra=extra,
         media=media,
+        session=session,
     )
     if collapse_ranked:
         # the trash lists every trashed item on its own (as build_filters does)
@@ -451,14 +470,14 @@ def _keyset_page(session: Session, filters: list, order: str, limit: int,
         value, last_id = decode_cursor(cursor)
         if last_id in (SEMANTIC_CURSOR, RANKED_CURSOR):
             raise BadCursor("that cursor belongs to a ranked search; start again without one")
+        # a row comparison, not (col < v OR col = v AND id < last): the same
+        # rows (both columns are NOT NULL), but Postgres can start the
+        # (col, id) index scan at the cursor instead of reading every row
+        # before it (a mid-library page of -created: 77 -> 2 ms on 250k)
         if desc:
-            stmt = stmt.where(
-                sa.or_(col < value, sa.and_(col == value, Item.id < last_id))
-            )
+            stmt = stmt.where(sa.tuple_(col, Item.id) < sa.tuple_(value, last_id))
         else:
-            stmt = stmt.where(
-                sa.or_(col > value, sa.and_(col == value, Item.id > last_id))
-            )
+            stmt = stmt.where(sa.tuple_(col, Item.id) > sa.tuple_(value, last_id))
 
     rows = list(session.execute(stmt.limit(limit + 1)).scalars())
     next_cursor = None

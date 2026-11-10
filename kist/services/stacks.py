@@ -20,6 +20,7 @@ import warnings
 from datetime import datetime
 
 import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Session, aliased
 
 from .. import access
@@ -95,21 +96,27 @@ def stack_out(session: Session, stack: Stack) -> dict:
 def representative_filter():
     """search.py's stacks=collapse: an item outside any stack, or its
     stack's cover, or (when the caller can't see the cover, or it's in the
-    trash) the stack's first member the caller can see."""
-    cover = aliased(Item, name="stack_cover")
-    member = aliased(Item, name="stack_member")
-    cover_id = (
-        sa.select(Stack.cover_item_id)
-        .join(cover, cover.id == Stack.cover_item_id)
-        .where(Stack.id == Item.stack_id, *_visible_cond(cover))
-        .scalar_subquery()
+    trash) the stack's first member the caller can see.
+
+    Written as (stack_id, id) IN kist_stack_reps(...), which Postgres runs
+    once per query as a hashed subplan (one row per stack, ~9 ms for 1,700
+    stacks on an N100). The function (migration 0801) holds the same SQL as
+    the correlated subqueries this used to be, at a fixed small planner
+    cost: correlated with every row, Postgres costed the filter per row of
+    the whole table and planned tag, folder and unfiled listings around it
+    (nested loops of 80k primary-key probes, JIT). tests/test_m6_perf.py
+    compares the two on a seeded library."""
+    reader = access.restricted()
+    folders = sa.cast(
+        sa.literal(sorted(reader.visible_folders) or [""], ARRAY(sa.Text))
+        if reader is not None else sa.null(),
+        ARRAY(sa.Text),
     )
-    first_id = (
-        sa.select(sa.func.min(member.id))
-        .where(member.stack_id == Item.stack_id, *_visible_cond(member))
-        .scalar_subquery()
+    reps = sa.func.kist_stack_reps(folders).table_valued("stack_id", "item_id")
+    return sa.or_(
+        Item.stack_id.is_(None),
+        sa.tuple_(Item.stack_id, Item.id).in_(sa.select(reps.c.stack_id, reps.c.item_id)),
     )
-    return sa.or_(Item.stack_id.is_(None), Item.id == sa.func.coalesce(cover_id, first_id))
 
 
 _COUNTS = "kist_stack_counts"

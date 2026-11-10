@@ -1147,7 +1147,7 @@ def item_buckets(
             folder=folder, kind=type, rating_min=rating_min,
             stacks="collapse" if collapse_stacks else None, person=person,
             flag=flag, label=label, **extra,
-        ))
+        ), session)
         return buckets.buckets(session, filters, sort=sort, order=order)
 
 

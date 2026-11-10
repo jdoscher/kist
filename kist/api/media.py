@@ -288,11 +288,12 @@ def bundle_file(item_id: str, path: str, session: Annotated[Session, Depends(get
 # ---------- timeline and map ----------
 
 
-def common_filters(params: Annotated[dict, Depends(search_filters)]) -> list:
+def common_filters(params: Annotated[dict, Depends(search_filters)],
+                   session: Annotated[Session, Depends(get_session)]) -> list:
     """Every GET /api/items filter (M2 organise, M3 flags/labels, M4
     provenance, M5 media, person, text= ...), through search.build_filters
     like every listing; ranking parameters are ignored."""
-    return search.filters_from_params(params)
+    return search.filters_from_params(params, session)  # the request's session
 
 
 @router.get("/timeline")
@@ -301,7 +302,9 @@ def get_timeline(session: Annotated[Session, Depends(get_session)],
                  group: Literal["day", "month", "year"] = "month"):
     """[{key, count, first_item_id}], newest first, by date taken (else the
     date added). The same filters as GET /api/items."""
-    return timeline.buckets(session, group, filters)
+    # plain str/int values: a JSONResponse renders the same bytes without
+    # jsonable_encoder walking ~5,000 day buckets (~100 ms on dev0's N100)
+    return JSONResponse(timeline.buckets(session, group, filters))
 
 
 @router.get("/on-this-day")

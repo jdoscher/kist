@@ -60,12 +60,22 @@ def tag_dict(tag_id: int, name: str, count: int) -> dict:
 
 def list_with_counts(session: Session, namespace: str | None = None) -> list[dict]:
     """Every tag with its live-item count. namespace: only tags in it
-    ("brand" for brand:*), or "none" for tags outside every namespace."""
+    ("brand" for brand:*), or "none" for tags outside every namespace.
+
+    The live count is every use of the tag minus its uses on trashed items
+    (each item_tags row names an existing item): two small aggregates,
+    instead of joining all of item_tags to items to drop the trashed 1 %
+    (dev0, 250k items: 297 -> 77 ms)."""
+    uses = (sa.select(ItemTag.tag_id, sa.func.count().label("n"))
+            .group_by(ItemTag.tag_id).subquery("uses"))
+    trashed = (sa.select(ItemTag.tag_id, sa.func.count().label("n"))
+               .join(Item, Item.id == ItemTag.item_id).where(Item.deleted_at.isnot(None))
+               .group_by(ItemTag.tag_id).subquery("trashed_uses"))
+    count = (sa.func.coalesce(uses.c.n, 0) - sa.func.coalesce(trashed.c.n, 0)).label("count")
     rows = session.execute(
-        sa.select(Tag.id, Tag.name, sa.func.count(Item.id).label("count"))
-        .outerjoin(ItemTag, ItemTag.tag_id == Tag.id)
-        .outerjoin(Item, sa.and_(Item.id == ItemTag.item_id, Item.deleted_at.is_(None)))
-        .group_by(Tag.id, Tag.name)
+        sa.select(Tag.id, Tag.name, count)
+        .outerjoin(uses, uses.c.tag_id == Tag.id)
+        .outerjoin(trashed, trashed.c.tag_id == Tag.id)
         .order_by(sa.text("count DESC"), Tag.name)
     ).all()
     out = [tag_dict(r.id, r.name, r.count) for r in rows]
