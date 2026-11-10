@@ -345,6 +345,40 @@ def backfill_thumbhashes() -> int:
         return previews.backfill_thumbhashes(s)
 
 
+ORGANISE_EVERY_SECONDS = 300
+
+
+def run_organise() -> None:
+    """Background upkeep for Milestone 2 (never fails the loop): new
+    unnamed people from faces that match no one yet (KIST_FACES), and the
+    suggested collections every KIST_COLLECTIONS_INTERVAL_HOURS (which also
+    embeds new tag names for tag suggestions)."""
+    from .services import ai
+    from .services import collections as collections_svc
+    from .services import faces as faces_svc
+
+    settings = get_settings()
+    if settings.faces:
+        try:
+            with SessionLocal() as s:
+                made = faces_svc.cluster_unassigned(s)
+            if made:
+                log.info("faces: %d new people to name", made)
+        except Exception:
+            log.exception("face clustering failed")
+    if settings.ml_url and collections_svc.due(settings.collections_interval_hours):
+        try:
+            with SessionLocal() as s:
+                if ai.has_embeddings(s):
+                    data = collections_svc.compute(s)
+                    log.info("suggested collections: %d clusters from %d items",
+                             len(data["clusters"]), data["items"])
+        except ai.AiUnavailable as exc:
+            log.warning("suggested collections postponed: %s", exc)
+        except Exception:
+            log.exception("suggested collections failed")
+
+
 def main() -> None:
     configure_logging()
     settings = get_settings()
@@ -373,7 +407,7 @@ def main() -> None:
 
     last_inbox_scan = last_reap = last_recover = last_verify_check = 0.0
     last_backfill = last_retention = last_backup_check = 0.0
-    last_fixity = 0.0
+    last_fixity = last_organise = 0.0
     last_error = ""
     while True:
         heartbeat.progressed()
@@ -409,6 +443,9 @@ def main() -> None:
                 checked, _failed = check_fixity()
                 if checked:
                     last_fixity = 0.0  # more may be due
+            if not worked and time.monotonic() - last_organise > ORGANISE_EVERY_SECONDS:
+                last_organise = time.monotonic()
+                run_organise()
             # older items get their ThumbHash placeholder a batch at a time,
             # only while the queue is idle
             if not worked and time.monotonic() - last_backfill > 60:

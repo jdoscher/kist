@@ -188,14 +188,17 @@ def set_tags(
     replace: list[str] | None = None,
     add: list[str] | None = None,
     remove: list[str] | None = None,
+    resolve: bool = True,
 ) -> Item:
+    """Replace, or add/remove, tags. Added tags go through the vocabulary's
+    aliases (resolve=False puts back exactly what is given: undo)."""
     item = get_item(session, item_id)
     before = events.state(item)
     if replace is not None:
-        item.tags = tags_svc.get_or_create(session, replace)
+        item.tags = tags_svc.get_or_create(session, replace, resolve=resolve)
     else:
         current = {t.name.lower(): t for t in item.tags}
-        for tag in tags_svc.get_or_create(session, add or []):
+        for tag in tags_svc.get_or_create(session, add or [], resolve=resolve):
             current.setdefault(tag.name.lower(), tag)
         for name in remove or []:
             current.pop(tags_svc.normalize(name).lower(), None)
@@ -276,6 +279,7 @@ def hard_delete(session: Session, item_id: str) -> None:
         raise Protected(item.id)
     meta_svc.advisory_lock(session, f"item:{item.id}")
     linked = _linked_ids(session, item.id)
+    had_faces = _has_faces(session, item.id)
     events.record(session, item.id, events.Kind.PURGE, meta_svc.to_meta(item), None)
     session.execute(
         sa.delete(Job).where(
@@ -291,6 +295,18 @@ def hard_delete(session: Session, item_id: str) -> None:
     shutil.rmtree(d, ignore_errors=True)
     for other in linked:  # their meta.json listed the link
         meta_svc.sync_item(session, other)
+    if had_faces:  # people.json lists faces by item
+        from . import faces as faces_svc
+
+        faces_svc.sync_people_file(session)
+
+
+def _has_faces(session: Session, item_id: str) -> bool:
+    from ..models import Face
+
+    return session.execute(
+        sa.select(Face.id).where(Face.item_id == item_id, Face.person_id.isnot(None)).limit(1)
+    ).first() is not None
 
 
 def _linked_ids(session: Session, item_id: str) -> list[str]:

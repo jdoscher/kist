@@ -70,6 +70,62 @@ embedded (OpenCLIP ViT-B-32) and the text in screenshots and PDFs read,
 entirely on your own hardware, with the results kept as plain files next to
 each item. Plus a new look for the web app.
 
+### Milestone 2: organising
+
+Keeping a growing library tidy: a tag vocabulary with aliases and implied
+tags, a cleanup workbench, tag suggestions, duplicate groups you resolve in
+one step, stacks, suggested collections, and (opt-in) faces and people. All
+of it runs on your own hardware, writes plain files the database can be
+rebuilt from, and every change undoes as one batch.
+
+#### Upgrade notes
+- Migration 0301 runs on start (new tables `tag_aliases`, `tag_implies`,
+  `tag_embeddings`, `tag_feedback`, `stacks`, `faces`, `people`, and
+  `items.stack_id`).
+- New settings: `KIST_FACES` (0; set it for the app, worker and ml service),
+  `KIST_FACE_MODELS_URL`, `KIST_COLLECTIONS_INTERVAL_HOURS` (24). With faces
+  on, `kist ai-backfill --kind faces` looks at the items you already have.
+- New files to back up with the library: `vocabulary.json`,
+  `.kist/people.json`, `items/*/ai/faces.json`, `items/*/ai/tag-feedback.json`
+  (`.kist/collections.json` is a cache).
+
+#### Added
+- **Tag vocabulary.** Aliases (`POST /api/vocabulary/aliases`) rewrite the
+  items carrying the variant, as tag events in one batch, and every later
+  use on every path; implied tags (`POST /api/vocabulary/implies`) are
+  matched at search time and shown as `implied_tags`, never written to items,
+  and loops are refused; `namespace:value` tags are grouped
+  (`GET /api/tags?namespace=`, `tags=brand:*`). Kept in
+  `library/vocabulary.json`. MCP `get_vocabulary`; `set_tags` resolves aliases.
+- **Tag cleanup.** `GET /api/tags/cleanup` (one-offs, case/spacing clashes,
+  near-misspellings and plurals, unused since a date, smart folders naming
+  missing tags or folders), `POST /api/tags/merge` with a dry run and
+  `POST /api/tags/rename`, each one undoable batch. MCP `tag_cleanup`,
+  `merge_tags`.
+- **Tag suggestions.** `GET /api/items/{id}/tag-suggestions`: the tags of the
+  item's nearest look-alikes ("similar items") and CLIP zero-shot over the
+  tag names ("matches the image"), with feedback that keeps a rejected tag
+  away from that item. MCP `suggest_tags`.
+- **Duplicate groups.** `GET /api/duplicates/groups?kind=same_image|similar|exact`
+  with a suggested keeper; `POST /api/duplicates/resolve` merges tags,
+  folders, notes, the best rating and the source URL into it and trashes the
+  rest, in one batch. MCP `duplicate_groups`, `resolve_duplicates`.
+- **Stacks.** `POST/GET/PATCH/DELETE /api/stacks`, `GET /api/items?stacks=collapse`
+  (covers only, with `stack_count`), suggestions for RAW+JPEG pairs, bursts
+  and `version_of` links. Membership is a `stack` event and lives in
+  `meta.json`. MCP `suggest_stacks`, `stack_items`.
+- **Suggested collections.** `GET /api/collections/suggested`: clusters of 8+
+  look-alike items not already in one folder, labelled from their tags or
+  zero-shot, recomputed daily by the worker; accept one as a folder or a
+  tag plus smart folder. MCP `suggested_collections`.
+- **Faces and people (opt-in).** YuNet + SFace (OpenCV zoo, Apache-2.0) in the
+  ml service with numpy pre/post-processing; a `faces` job per image; people
+  formed automatically, named, merged and searched
+  (`GET /api/people`, `PATCH /api/people/{id}`, `POST /api/people/merge`,
+  `GET /api/items?person=`, face crops). MCP `list_people`.
+- Smart folders can save `stacks` and `person`. A folder-limited read token
+  sees people, stacks and faces only for its own items.
+
 ### Upgrade notes
 - **Back up the database first:** `docker compose exec db pg_dump -U kist
   kist | gzip > kist-before-2.0.sql.gz`.

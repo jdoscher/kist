@@ -20,6 +20,7 @@ dependencies = [
     "pillow>=10.3",
     "pillow-heif>=0.16",
     "imagehash>=4.3",
+    "numpy>=1.26",  # clustering, duplicate and tag-suggestion maths (M2)
     "python-magic>=0.4.27",
     "mcp>=2.1,<3",
 ]

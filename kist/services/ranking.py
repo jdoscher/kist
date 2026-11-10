@@ -256,10 +256,17 @@ def decode_offset(cursor: str | None) -> int:
 
 
 def ranked_page(
-    session: Session, filters: list, sig: Signals, limit: int, cursor: str | None
+    session: Session, filters: list, sig: Signals, limit: int, cursor: str | None,
+    *, collapse_stacks: bool = False,
 ) -> tuple[list[Item], str | None, dict[str, dict], int | None]:
     """One page of a ranked search: (items, next_cursor, {item_id: match},
-    total). total is counted in the same query, on the first page only."""
+    total). total is counted in the same query, on the first page only.
+
+    collapse_stacks (stacks=collapse) collapses after ranking: each stack
+    keeps only its best-ranked member the caller can see, at that member's
+    place (the member that matched, so its match and snippet are true; its
+    stack_id and stack_count say there is more). The plain search shows
+    the cover instead, because there nothing ranks."""
     from .search import encode_cursor
 
     offset = decode_offset(cursor)
@@ -283,9 +290,9 @@ def ranked_page(
     if sig.text:
         signals.append((KIND_TEXT, _text_signal(base, sig.text)))
 
-    cols: list[Any] = [Item]
+    inner_cols: list[Any] = [Item.id.label("ranked_id")]
     for kind, sub in signals:
-        cols += [sub.c.score.label(f"{kind}_score"), sub.c.rk.label(f"{kind}_rk")]
+        inner_cols += [sub.c.score.label(f"{kind}_score"), sub.c.rk.label(f"{kind}_rk")]
     if len(signals) == 1:
         sub = signals[0][1]
         order_value = sub.c.score
@@ -293,13 +300,24 @@ def ranked_page(
         order_value = sa.literal(0.0)
         for _, sub in signals:
             order_value = order_value + sa.func.coalesce(1.0 / (RRF_K + sub.c.rk), 0.0)
+    inner_cols.append(order_value.label("fused"))
+    if collapse_stacks:
+        inner_cols.append(sa.func.row_number().over(
+            partition_by=sa.func.coalesce(Item.stack_id, Item.id),
+            order_by=(order_value.desc().nulls_last(), Item.id.asc()),
+        ).label("stack_pos"))
+    inner = sa.select(*inner_cols).join(base, base.c.id == Item.id)
+    for _, sub in signals:
+        inner = inner.outerjoin(sub, sub.c.id == Item.id)
+    ranked = inner.subquery("ranked")
+    cols: list[Any] = [Item, *(c for c in ranked.c if c.key not in ("ranked_id", "stack_pos"))]
     if offset == 0:
         cols.append(sa.func.count().over().label("total"))
-    stmt = sa.select(*cols, order_value.label("fused")).join(base, base.c.id == Item.id)
-    for _, sub in signals:
-        stmt = stmt.outerjoin(sub, sub.c.id == Item.id)
+    stmt = sa.select(*cols).join(ranked, ranked.c.ranked_id == Item.id)
+    if collapse_stacks:
+        stmt = stmt.where(ranked.c.stack_pos == 1)
     stmt = (
-        stmt.order_by(sa.literal_column("fused").desc().nulls_last(), Item.id.asc())
+        stmt.order_by(ranked.c.fused.desc().nulls_last(), Item.id.asc())
         .offset(offset)
         .limit(limit + 1)
     )

@@ -74,6 +74,12 @@ class Settings(BaseSettings):
     ai_embed_batch: int = 16
     # scanned PDFs: OCR at most this many pages (text layers are read in full)
     ai_ocr_pdf_pages: int = 5
+    # faces and people (opt-in): queue `faces` jobs for images. The ml
+    # service needs KIST_FACES=1 too (it only loads the face models then)
+    faces: bool = False
+    # the worker recomputes suggested collections this often (0: only on
+    # demand, GET /api/collections/suggested?refresh=1)
+    collections_interval_hours: float = 24.0
 
     # ---- captions (services/captions.py; off unless a provider is set) ----
     # ollama | openai | anthropic | gemini. The last three send each image

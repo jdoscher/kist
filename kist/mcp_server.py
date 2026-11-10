@@ -57,7 +57,11 @@ mcp = MCPServer(
         "finds a colour (item_palette shows an item's), text finds words inside "
         "screenshots and PDFs, and search_by_image finds items like an image "
         "that isn't in the library. Ranked results carry match {kind, score, "
-        "snippet} saying why each matched."
+        "snippet} saying why each matched. Before tagging, read get_vocabulary: it lists "
+        "the preferred tags, the aliases Kist rewrites to them, implied tags "
+        "(never add an implied tag yourself: searching it already finds the "
+        "item) and namespaces such as brand:rolex. suggest_tags proposes tags "
+        "for an item; nothing is applied until you call set_tags."
     ),
     version=__version__,
 )
@@ -131,9 +135,8 @@ item_out = ItemOut.for_agent
     "folder is a folder id (its subfolders are included) or 'none' for items "
     "in no folder, tagged or not. state is 'active' (default) or 'trashed' "
     "to search the trash. preview_status ('failed', 'pending', 'ready', "
-    "'none') finds items by preview state. type is one of image|video|pdf|other. "
+    "'none') finds items by preview state. type is one of image|video|pdf|font|other. "
     "order is -created (default), created, filename, -size, -rating or -modified. "
-    "Pass the returned next_cursor to fetch the following page. "
     "Ranking (order is then ignored; combine freely with the filters): "
     "semantic='a describing phrase' ranks by what the images show (use it for "
     "any descriptive request); query plus semantic is a hybrid of words and "
@@ -142,7 +145,12 @@ item_out = ItemOut.for_agent
     "palette; text='words' keeps items whose screenshot/PDF text has those "
     "words (snippet shows where); has_text=true keeps items with any text. "
     "query also matches text inside images and captions. type 'font' finds "
-    "font files.",
+    "font files. "
+    "A tag also finds items whose tags imply it (see get_vocabulary), and "
+    "'brand:*' matches any tag in that namespace. collapse_stacks=true shows "
+    "one item per stack (in a ranked search, the stack's best match). person "
+    "is a person id from list_people. "
+    "Pass the returned next_cursor to fetch the following page.",
     restricted_ok=True,
 )
 def search_items(
@@ -165,6 +173,8 @@ def search_items(
     order: str = "-created",
     limit: int = 25,
     cursor: str | None = None,
+    collapse_stacks: bool = False,
+    person: str | None = None,
 ) -> dict[str, Any]:
     limit = max(1, min(limit, 100))
     with SessionLocal() as session:
@@ -176,6 +186,7 @@ def search_items(
             rating_min=rating_min, limit=limit, cursor=cursor,
             semantic=semantic, similar=similar_to, color=color, color_tol=color_tol,
             text=text, has_text=has_text,
+            stacks="collapse" if collapse_stacks else None, person=person,
         )
         return _page(result)
 
@@ -349,7 +360,11 @@ def update_item(
         return item_out(item)
 
 
-@tool("Add and/or remove tags on an item. Returns the updated item.", needs=Action.EDIT)
+@tool(
+    "Add and/or remove tags on an item. Added tags go through the vocabulary's "
+    "aliases (an alias becomes its preferred tag). Returns the updated item.",
+    needs=Action.EDIT,
+)
 def set_tags(
     id: str,
     add: list[str] | None = None,
@@ -565,6 +580,154 @@ def ai_status() -> dict[str, Any]:
 
     with SessionLocal() as session:
         return json.loads(json.dumps(ai.status(session), default=str))
+
+
+# ---------- Milestone 2: organise ----------
+
+
+@tool(
+    "The tag vocabulary: aliases (variant -> preferred tag, e.g. Fashion -> "
+    "Clothing; Kist rewrites them), implied tags (boots implies shoes: "
+    "searching shoes finds boots, so don't add shoes yourself) and the "
+    "namespaces in use (brand:, place: ...). Read it before tagging."
+)
+def get_vocabulary() -> dict[str, Any]:
+    from .services import vocabulary
+
+    with SessionLocal() as session:
+        return vocabulary.get(session)
+
+
+@tool(
+    "Suggest tags for an item: [{tag, score, why}], why is 'similar items' "
+    "(the tags of its look-alikes) or 'matches the image' (the picture matches "
+    "the tag's name). Nothing is applied: call set_tags for the ones that fit. "
+    "Empty until the item has an image embedding."
+)
+def suggest_tags(id: str, limit: int = 10) -> list[dict[str, Any]]:
+    from .services import suggestions
+
+    with SessionLocal() as session:
+        return suggestions.suggest(session, id, max(1, min(limit, 50)))
+
+
+@tool(
+    "Tag cleanup suggestions: one_off (used once), clash (same name but for "
+    "case or spacing), near (misspellings, plurals), unused (no recent use) and "
+    "smart_folder (a smart folder names a missing tag or folder). Each has a "
+    "proposal; propose a batch to the user, then merge_tags."
+)
+def tag_cleanup() -> list[dict[str, Any]]:
+    with SessionLocal() as session:
+        return [json_safe(s) for s in tags_svc.cleanup(session)]
+
+
+@tool(
+    "Merge tags: every item with a tag in from_tags gets `into` instead, as one "
+    "batch (undo_batch reverts it). dry_run=true only counts the items. "
+    "keep_alias=true leaves the old names as aliases of `into`.",
+    needs=Action.EDIT,
+)
+def merge_tags(from_tags: list[str], into: str, dry_run: bool = False,
+               keep_alias: bool = False) -> dict[str, Any]:
+    with SessionLocal() as session:
+        return tags_svc.merge(session, from_tags, into, dry_run=dry_run, keep_alias=keep_alias)
+
+
+@tool(
+    "Duplicate groups: kind 'same_image' (same picture, resized or re-encoded), "
+    "'similar' (near-identical by meaning) or 'exact' (same bytes). Each group "
+    "has items and a suggested_keep. Propose, then resolve_duplicates once the "
+    "user agrees."
+)
+def duplicate_groups(kind: str = "same_image", limit: int = 20) -> list[dict[str, Any]]:
+    from .services import duplicates
+
+    with SessionLocal() as session:
+        keys = ("id", "filename", "width", "height", "size_bytes", "tags", "rating",
+                "source_url", "created_at", "thumb_url")
+        return [
+            {**g, "items": [i.model_dump(mode="json", include=set(keys)) for i in g["items"]]}
+            for g in duplicates.groups(session, kind, max(1, min(limit, 100)))
+        ]
+
+
+@tool(
+    "Resolve a duplicate group: keep one item, merge the others' tags, folders, "
+    "notes, best rating and source URL into it, and move the others to the "
+    "trash. One batch: undo_batch puts everything back.",
+    needs=Action.EDIT,
+)
+def resolve_duplicates(keep: str, others: list[str]) -> dict[str, Any]:
+    from .services import duplicates
+
+    with SessionLocal() as session:
+        out = duplicates.resolve(session, keep, others)
+        return {**out, "keep": item_out(out["keep"])}
+
+
+@tool(
+    "Stacks worth making: RAW+JPEG pairs, bursts (same camera, within 2 s) and "
+    "items linked version_of. Nothing is stacked until stack_items."
+)
+def suggest_stacks(limit: int = 50) -> list[dict[str, Any]]:
+    from .services import stacks
+
+    with SessionLocal() as session:
+        return stacks.suggestions(session, max(1, min(limit, 500)))
+
+
+@tool(
+    "Stack items so the grid shows them as one (the cover). unstack=true with "
+    "stack_id dissolves a stack instead.",
+    needs=Action.EDIT,
+)
+def stack_items(item_ids: list[str] | None = None, cover: str | None = None,
+                stack_id: str | None = None, unstack: bool = False) -> dict[str, Any]:
+    from .services import stacks
+
+    with SessionLocal() as session:
+        if unstack:
+            if not stack_id:
+                raise ToolError("pass stack_id to unstack")
+            return {"unstacked": stacks.unstack(session, stack_id)}
+        stack = stacks.create(session, item_ids or [], cover)
+        out = stacks.stack_out(session, stack)
+        return {**out, "items": [i.model_dump(mode="json")["id"] for i in out["items"]]}
+
+
+@tool(
+    "Suggested collections: clusters of look-alike items not yet in one folder "
+    "({id, size, sample_item_ids, label_suggestion}). Offer them to the user; "
+    "accepting one is done in the web UI or POST /api/collections/suggested/{id}/accept."
+)
+def suggested_collections() -> list[dict[str, Any]]:
+    from .services import collections
+
+    with SessionLocal() as session:
+        data = collections.suggested(session)
+        return [{k: c.get(k) for k in ("id", "size", "sample_item_ids", "label_suggestion",
+                                       "common_tags", "cohesion")}
+                for c in data["clusters"]]
+
+
+@tool(
+    "People found by face recognition (only when the owner turned faces on): "
+    "id, name (null until someone names them), face and item counts. "
+    "search_items(person=id) lists their pictures.",
+    restricted_ok=True,
+)
+def list_people() -> list[dict[str, Any]]:
+    from .services import faces
+
+    with SessionLocal() as session:
+        return faces.list_people(session)
+
+
+def json_safe(value):
+    import json
+
+    return json.loads(json.dumps(value, default=str))
 
 
 # Mounted by kist.app at /mcp; streamable_http_path="/" so the endpoint is

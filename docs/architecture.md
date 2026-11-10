@@ -48,6 +48,8 @@ kist/
 ├── api/             REST routers: items, folders, smart folders, tags, jobs,
 │                    tokens, history (batches, undo), misc (health, archive health),
 │                    ai (status, helper jobs), search (search by image)
+│                    organise (vocabulary, cleanup, duplicates, stacks,
+│                    collections, people)
 ├── services/        all business logic, shared by REST, MCP, CLI, and worker
 │   ├── validation.py input rules every path shares (422 / MCP ToolError)
 │   ├── ingest.py    hash → dedupe → sniff → store → previews → meta.json;
@@ -75,7 +77,18 @@ kist/
 │   ├── fixity.py    rolling re-hash of originals (fixity.jsonl)
 │   ├── backup.py    `kist backup`: pg_dump + restic, backup.json
 │   ├── archive.py   /api/archive-health and the 3-2-1 checklist
-│   ├── tags.py      tag upsert, counts, pruning
+│   ├── tags.py      tag upsert (through the aliases), counts, pruning,
+│   │                cleanup suggestions, merge and rename
+│   ├── vocabulary.py aliases, implied tags, namespaces + vocabulary.json;
+│   │                the query-time expansion of tag filters
+│   ├── suggestions.py tag suggestions (kNN votes + zero-shot), tag vectors,
+│   │                per-item feedback (ai/tag-feedback.json)
+│   ├── duplicates.py duplicate groups (exact, same_image, similar), resolve
+│   ├── stacks.py    stacks, the collapse filter, stack suggestions (EXIF)
+│   ├── collections.py suggested collections: numpy k-means + silhouette,
+│   │                library/.kist/collections.json, accept
+│   ├── faces.py     faces jobs, ai/faces.json, people (assign, cluster,
+│   │                merge) + library/.kist/people.json
 │   ├── folders.py   folder tree (moves under a lock) + folders.json
 │   ├── smart_folders.py  saved searches
 │   ├── library.py   stats (one query) and near-duplicates
@@ -99,6 +112,7 @@ kist/
 ├── ml/              self-contained (imports nothing else from kist): the ml image
 │   ├── models.py    model files pinned by revision + sha256, download + verify
 │   ├── engine.py    ONNX sessions, preprocessing, tokenizer, RapidOCR, devices
+│   ├── faces.py     YuNet + SFace in numpy/Pillow (opt-in, KIST_FACES)
 │   └── server.py    the ml service's FastAPI app
 └── migrate.py       Alembic upgrade under an advisory lock
 web/src/             the single-page UI
@@ -136,6 +150,14 @@ item_text     item_id, source (ocr | pdf | caption), text, lang, model, created_
 item_colors   item_id, idx, l, a, b, pct   (CIE Lab of each dominant colour;
               kept by a trigger on items.dominant_colors; index on (a, b, l))
 ai_helpers    name, last_seen, jobs_done, info
+tag_aliases   alias (citext), tag (citext)        variant -> preferred tag
+tag_implies   tag, implied (citext)               boots -> shoes (virtual)
+tag_embeddings model, tag, vector (halfvec)       tag names as text vectors (cache)
+tag_feedback  item_id, tag, accepted, at          suggestion feedback per item
+stacks        id, cover_item_id                   + items.stack_id
+faces         id, item_id, idx, box (jsonb: x, y, w, h fractions + landmarks),
+              score, model, embedding (halfvec(128), HNSW cosine), person_id
+people        id, name (null = unnamed), cover_face_id
 ```
 
 Every list order has a partial `(column, id)` index over live items, so
@@ -182,6 +204,12 @@ by `rebuild-index`:
 | item history | `items/{id}/events.jsonl`, appended after each commit; a purged item's lines move to `library/.kist/events-purged.jsonl` |
 | fixity dates | the last line of `items/{id}/fixity.jsonl` |
 | named tokens (hashed) | `library/.kist/tokens.json` |
+| tag aliases and implied tags | `library/vocabulary.json` |
+| stack membership and cover | each member's `meta.json` (`"stack": {id, cover}`) |
+| faces | `items/{id}/ai/faces.json` (a face is `<item>:<idx>` across rebuilds) |
+| people, their names and faces | `library/.kist/people.json` |
+| tag-suggestion feedback | `items/{id}/ai/tag-feedback.json` |
+| suggested collections (a cache) | `library/.kist/collections.json` |
 | backups, checklist, retention start | `library/.kist/backup.json`, `checklist.json`, `retention.json` |
 | embeddings, OCR/PDF text, captions | `items/{id}/ai/embed-<model>.f16` + `.json`, `ai/ocr.json`, `ai/caption.json` |
 | palettes (`item_colors`) | `dominant_colors` in each `meta.json`; the trigger refills the table as rows come back |
@@ -344,6 +372,66 @@ The `ml` service (`kist/ml/server.py`) loads each tower on first use and
 drops it after `KIST_ML_IDLE_SECONDS`; at most `KIST_ML_CONCURRENCY`
 inferences run at once. Model files come from a pinned Hugging Face revision
 and are refused unless their sha256 matches (`kist/ml/models.py`).
+
+## Organise (Milestone 2)
+
+**Vocabulary.** `tags.get_or_create` sends every new tag through the
+aliases (`vocabulary.resolve`), so REST, MCP, uploads and imports all write
+the preferred tag; undo and rebuild pass `resolve=False` to put back exactly
+what was there. Adding an alias is a merge (`tags.merge`): each item's change
+goes through `items.set_tags`, so it is a `tags` event in the request's batch
+and one undo reverts it. Implications are never written to items: the search
+tag filter (`search.tag_condition`) matches a tag name against a recursive
+CTE (`vocabulary.matching_names`) of the name, its alias target and every
+tag that implies it at any depth; `ItemOut.implied_tags` walks the same rules
+in Python (cached per session). A new rule that would close a loop is
+refused (422), and the CTE's `UNION` couldn't loop anyway.
+
+**Tag suggestions** never write anything but feedback. The kNN half asks
+pgvector for the item's 24 nearest neighbours through `search.build_filters`
+(so a reader only ever votes with items it may see); the zero-shot half
+compares the item's vector with every tag's text vector (`tag_embeddings`,
+filled lazily, 64 per request, and fully by the worker's daily collections
+run) as a softmax at CLIP's temperature, dropping tags whose raw cosine is
+under 0.2.
+
+**Duplicates** are pairs (SQL self-join on phash for `same_image`; blockwise
+numpy dot products for `similar`) turned into groups with union-find after
+removing `not_duplicate` pairs and pairs inside one stack. `resolve` runs the
+merge and the trashing through the item services in the request's batch.
+
+**Stacks.** `items.stack_id` plus `stacks.cover_item_id`. Membership changes
+are `stack` events (`{stack_id, cover}`), undone by
+`stacks.restore_membership`, which re-creates a dissolved stack row by id.
+`?stacks=collapse` keeps an item when it has no stack, is its stack's cover,
+or (cover trashed or not visible to the caller) is the lowest-id member the
+caller can see: correlated subqueries, so it composes with every filter and
+with keyset paging. A stack left with one member dissolves.
+
+**Suggested collections** cluster the active items' embeddings with
+spherical k-means (k-means++ seeding, best of 4), k chosen by mean silhouette
+on a sample of ≤ 5,000, then drop clusters under 8 items, with mean cosine to
+the centre under 0.72, or ≥ 80% in one folder already. Results go to
+`library/.kist/collections.json`; the worker recomputes them every
+`KIST_COLLECTIONS_INTERVAL_HOURS`.
+
+**Faces** (opt-in, `KIST_FACES`) are a third AI job kind, run by the worker
+against the ml service only (helpers don't claim them). The ml service
+loads YuNet and SFace only when its own `KIST_FACES` is on; their pre- and
+post-processing (letterbox, anchor-free decoding, NMS, Umeyama alignment to
+the 112×112 ArcFace template) is numpy + Pillow, no OpenCV. A new face joins
+the person of its nearest face at cosine ≥ 0.42 (never two faces of one
+picture); the worker's `cluster_unassigned` turns the rest into unnamed
+people (connected components at ≥ 0.48, two pictures or more). People are
+not item data: renames and merges aren't item events.
+
+**Scopes.** Changes need `write`/`agent`/`admin` like every non-GET. A
+folder-limited reader reaches `/api/people`, `/api/stacks/{id}`,
+`/api/items/{id}/faces` and `/api/faces/{id}/thumb`, each filtered to items
+it can see (a stack shows only visible members, people count only visible
+faces); the curation endpoints (vocabulary, cleanup, duplicates,
+collections, tag suggestions, stack suggestions) are 404 for it, like
+`/api/tags`.
 
 ## Ingest
 

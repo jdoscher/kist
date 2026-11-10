@@ -88,6 +88,9 @@ Open `http://<host>:8080`, paste your token, and drop files in.
 | `KIST_ML_IDLE_SECONDS` | `300` | The ml service unloads a model unused this long (0 = never) |
 | `KIST_ML_BASE_URL` | `https://huggingface.co` | Where model files are downloaded from (a mirror works: files are checked by sha256) |
 | `TZ` | `UTC` | The worker's time zone, which `KIST_AI_WINDOW` is in |
+| `KIST_FACES` | `0` | Faces and people, opt-in. Set it for the app, worker **and** ml service: the worker then queues a `faces` job per image, and only then does the ml service download (~39 MB) and load the face models. See [Organising](#organising-vocabulary-duplicates-stacks-collections-people) |
+| `KIST_FACE_MODELS_URL` | — | A mirror for the two face model files (they're checked by sha256 either way) |
+| `KIST_COLLECTIONS_INTERVAL_HOURS` | `24` | How often the worker recomputes suggested collections; `0` = only on request (`?refresh=1`) |
 
 Kist speaks plain HTTP. To reach it from outside your LAN, put it behind a
 TLS-terminating reverse proxy (Caddy, nginx, Traefik). Over HTTPS the
@@ -276,6 +279,67 @@ device for embeddings: CoreML's Neural Engine is barely
 faster for ViT-B-32 (7.8 vs 8.8 ms) and compiles the model for 40–75 s at
 every start (`--device coreml` if you want it anyway).
 
+## Organising: vocabulary, duplicates, stacks, collections, people
+
+Kist 2.0 helps keep a growing library tidy. Nothing here changes an item on
+its own: every change is a request (or MCP call) you or an agent makes, it is
+recorded in the item history, and one undo reverts it.
+
+- **Vocabulary.** An *alias* maps a variant to the preferred tag
+  (`Fashion → Clothing`): adding one rewrites the items that carry it, and
+  every later use (web, API, MCP, uploads, imports) is rewritten on the way
+  in. An *implied tag* is virtual (`Boots → Shoes`): searching `#Shoes`
+  finds items tagged Boots, and items show it greyed as `implied_tags`, but
+  it is never written to them, so removing the rule cleans up everything.
+  Loops are refused. Tags of the form `namespace:value` (`brand:Rolex`) are
+  grouped by namespace (`GET /api/tags?namespace=brand`, search
+  `tags=brand:*`). The rules live in `library/vocabulary.json`.
+- **Tag cleanup.** `GET /api/tags/cleanup` lists tags used once, case or
+  spacing clashes (`dark mode` / `dark-mode`), near-misspellings and plurals
+  (`Staitionery`, `Restaurants`), tags unused since a date, and smart folders
+  that name a tag or folder that doesn't exist, each with a proposal.
+  `POST /api/tags/merge` (with `?dry_run=1` first) and `POST /api/tags/rename`
+  apply one as a single undoable batch.
+- **Tag suggestions.** `GET /api/items/{id}/tag-suggestions` proposes tags
+  from the item's look-alikes ("similar items") and from comparing the
+  picture with every tag's name ("matches the image", CLIP zero-shot).
+  Never applied by themselves; rejected ones aren't suggested for that item
+  again.
+- **Duplicates.** `GET /api/duplicates/groups?kind=same_image` (perceptual
+  hash within 4 bits and the same aspect ratio), `similar` (embeddings at
+  cosine ≥ 0.92) or `exact` (same bytes; ingest already refuses those). Each
+  group suggests a keeper (largest, then oldest, then with a source URL).
+  `POST /api/duplicates/resolve` merges the others' tags, folders, notes,
+  best rating and source URL into the keeper and trashes them. Pairs linked
+  `not_duplicate` are never grouped.
+- **Stacks.** Show a RAW and its JPEG, a burst or several versions as one
+  item: `POST /api/stacks`, then `GET /api/items?stacks=collapse` lists only
+  the covers with a `stack_count`. `GET /api/stacks/suggestions` finds RAW+JPEG
+  pairs (same name, same EXIF time), bursts (same camera within 2 s) and
+  `version_of` links. Membership is in each member's `meta.json`.
+- **Suggested collections.** The worker clusters the embeddings once a day
+  (numpy k-means, k chosen by silhouette) and keeps groups of 8+ look-alike
+  items that aren't already one folder, each with a label from their common
+  tags or zero-shot over the tag names: "You seem to collect…". Accept one to
+  make a folder (or a tag plus a smart folder) holding them.
+- **Faces and people (opt-in, `KIST_FACES=1`).** OpenCV-zoo's YuNet finds
+  faces and SFace describes them, on your own hardware, in the ml container
+  (pre- and post-processing in numpy, no OpenCV). Faces of one person are
+  grouped into unnamed people for you to name (`PATCH /api/people/{id}`),
+  merge, and search (`GET /api/items?person=`). Results live in
+  `items/<id>/ai/faces.json` and `library/.kist/people.json`, so a rebuild
+  keeps every name. Off by default: face data is personal, and nothing is
+  computed or downloaded until you turn it on.
+
+Model files for faces (Apache-2.0; opencv_zoo commit `48b10fa`):
+
+| file | sha256 |
+|---|---|
+| `face_detection_yunet_2023mar.onnx` (227 KB) | `8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4` |
+| `face_recognition_sface_2021dec.onnx` (37 MB) | `0ba9fbfa01b5270c96627c4ef784da859931e02f04419c829e83484087c34e79` |
+
+For existing items: `docker compose exec worker kist ai-backfill --kind faces`.
+
 ## Storage layout
 
 ```
@@ -284,9 +348,11 @@ library/
 ├── import/                 # files agents may add via MCP add_item(file_path)
 ├── failed/                 # inbox files whose import failed, under their own names
 ├── folders.json            # folder tree (with descriptions) + smart folders snapshot
+├── vocabulary.json         # tag aliases and implied tags
 ├── .kist/                  # worker heartbeat, last verify result, failed-write notes,
 │                           # tokens.json (hashed tokens), events-purged.jsonl,
-│                           # backup.json, db.sql.gz, checklist.json, retention.json
+│                           # backup.json, db.sql.gz, checklist.json, retention.json,
+│                           # people.json (names + faces), collections.json (a cache)
 ├── .staging/               # files on their way in (the worker re-queues strays)
 └── items/
     └── {ulid}/
@@ -303,6 +369,9 @@ library/
             ├── embed-ViT-B-32__openai.json  # {model, dim, created_at, kist_version}
             ├── ocr.json                     # {model, lang, text, boxes, source, created_at}
             └── caption.json                 # {text, model, provider, created_at, edited}
+            ├── faces.json                   # KIST_FACES: {model, faces: [{box, landmarks,
+            │                                #   score, embedding}]} (boxes as fractions)
+            └── tag-feedback.json            # accepted/rejected tag suggestions
 ```
 
 Postgres is only the query index. Every item's metadata lives next to its
@@ -396,6 +465,12 @@ claude mcp add --transport http kist http://<host>:8080/mcp \
 | `retry_preview` | queues another attempt at a failed preview |
 | `list_jobs`, `retry_job` | inbox imports and preview retries, and why one failed |
 | `find_duplicates`, `library_stats` | housekeeping |
+| `get_vocabulary` | preferred tags, aliases, implied tags and namespaces: read it before tagging (`set_tags` rewrites aliases anyway) |
+| `suggest_tags` | tag suggestions for an item with why; apply the good ones with `set_tags` |
+| `tag_cleanup`, `merge_tags` | cleanup suggestions, and merging tags as one undoable batch (`dry_run` first) |
+| `duplicate_groups`, `resolve_duplicates` | duplicate groups with a suggested keeper; keep one, merge the rest into it and trash them |
+| `suggest_stacks`, `stack_items` | RAW+JPEG, burst and version stacks to propose, and stacking (or `unstack`) |
+| `suggested_collections`, `list_people` | "you seem to collect…" clusters; people found by faces (when on). `search_items` takes `collapse_stacks` and `person` |
 
 Every item carries `state` (`active` or `trashed`), `preview_status`
 (`ready`, `pending`, `failed` or `none`) and a `web_url` that opens it in the
@@ -432,7 +507,7 @@ tokens.
 | `write` | every REST edit, including permanent delete from the trash and unprotecting |
 | `agent` | what MCP allows: edits, never a permanent delete, never unprotect |
 | `add` | `POST /api/items` (file or URL) and `GET /api/me` only |
-| `read` | GETs only. With `folder_ids`, only live items in those folders and their subfolders are visible; every other path answers 404 |
+| `read` | GETs only. With `folder_ids`, only live items in those folders and their subfolders are visible: searches, items, folders, people, stacks and faces are filtered to them, and every other path answers 404 |
 | `helper` | the AI job claim/report endpoints only |
 
 A missing scope answers 403 `{"detail": "This token can't do that"}`; a
@@ -449,7 +524,10 @@ POST   /api/items                multipart upload, or JSON {"url": …}. Both ac
                                  created_at, modified_at, deleted_at (ISO 8601;
                                  deleted_at files the item straight into the trash),
                                  so importers can carry metadata over from other tools
-GET    /api/items                q, tags (csv, all), tags_any (csv, any), untagged,
+GET    /api/items                q, tags (csv, all; a tag also matches through aliases and
+                                 implied tags, brand:* a whole namespace), tags_any (csv, any),
+                                 untagged, stacks=collapse (one item per stack, with
+                                 stack_count), person (a person id),
                                  view (unfiled: no folder and no tags),
                                  folder (id, subfolders included; or "none"), type, rating, order,
                                  state (active | trashed; deleted=true still works),
@@ -508,7 +586,42 @@ DELETE /api/tokens/{id}          (admin) revoke
 GET    /api/archive-health       fixity, last verify, last backup, free disk, the 3-2-1
                                  checklist
 POST   /api/archive-health/checklist  {"id": "offsite", "done": true}
-GET    /api/tags                 with counts
+GET    /api/tags                 with counts, namespace and value; ?namespace=brand | none
+GET    /api/tags/cleanup         ?unused_since=: [{kind: one_off | clash | near | unused |
+                                 smart_folder, tags, counts, proposal}]
+POST   /api/tags/merge           {"from": [...], "into", "keep_alias"?}; ?dry_run=1 counts
+                                 the items; one batch (undo it to put everything back)
+POST   /api/tags/rename          {"from", "to"} (onto an existing tag: a merge)
+GET    /api/vocabulary           {aliases: [{alias, tag}], implies: [{tag, implied}],
+                                 namespaces: [{namespace, tags}]}
+POST   /api/vocabulary/aliases   {"alias", "tag"}: rewrites items carrying the alias
+DELETE /api/vocabulary/aliases   ?alias=
+POST   /api/vocabulary/implies   {"tag", "implied"}: a loop answers 422
+DELETE /api/vocabulary/implies   ?tag=&implied=
+GET    /api/items/{id}/tag-suggestions        ?limit=10: [{tag, score, why: "similar items" |
+                                              "matches the image"}]
+POST   /api/items/{id}/tag-suggestions/feedback  {"tag", "accepted"}
+GET    /api/duplicates/groups    ?kind=same_image | similar | exact: [{id, kind, items,
+                                 pairs, suggested_keep}]
+POST   /api/duplicates/resolve   {"keep", "others": [...], "merge": {tags, folders, notes,
+                                 rating: "max" | "keep", source_url}}: one batch
+GET    /api/stacks/suggestions   [{kind: raw_jpeg | burst | version, item_ids,
+                                 cover_item_id, reason}]
+POST   /api/stacks               {"item_ids": [...], "cover"?} -> {id, cover_item_id, count,
+                                 items}
+GET    /api/stacks/{id}
+PATCH  /api/stacks/{id}          {"cover"?, "add"?, "remove"?}
+DELETE /api/stacks/{id}          unstack (the items stay)
+GET    /api/collections/suggested  ?refresh=1: {computed_at, clusters: [{id, size,
+                                 item_ids, sample_item_ids, label_suggestion, ...}]}
+POST   /api/collections/suggested/{id}/accept  {"name", "kind": "folder" | "smart_folder",
+                                 "parent_id"?}
+GET    /api/people               [{id, name, face_count, item_count, cover}]
+PATCH  /api/people/{id}          {"name"?, "cover_face_id"?}
+POST   /api/people/merge         {"from": [...], "into"}
+GET    /api/items/{id}/faces     [{id, box (fractions), person_id, person_name, thumb_url}]
+GET    /api/faces/{id}/thumb     ?size=160: a square crop (webp)
+PATCH  /api/faces/{id}           {"person_id": id | null}
 DELETE /api/tags/unused          delete tags no item uses (trashed items count)
 GET/POST/PATCH/DELETE /api/folders  folders have a description (up to 5,000 characters)
 GET/POST/PATCH/DELETE /api/smart-folders

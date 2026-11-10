@@ -89,14 +89,20 @@ class JobKind(StrEnum):
     EMBED = "embed"  # image embedding (the ml service or a helper)
     OCR = "ocr"  # text in screenshots and PDFs
     CAPTION = "caption"  # a sentence describing an image (services/captions.py)
+    FACES = "faces"  # faces and their embeddings (opt-in: KIST_FACES)
 
 
 # the heavy kinds: they wait while any light job (ingest, previews) is
 # pending, and backfilled ones wait for KIST_AI_WINDOW
-AI_KINDS = (JobKind.EMBED, JobKind.OCR, JobKind.CAPTION)
-# what `kist ai-backfill` and a helper take when no kind is named: captions
-# are opt-in (they are slow, or leave the house)
-DEFAULT_AI_KINDS = (JobKind.EMBED, JobKind.OCR)
+AI_KINDS = (JobKind.EMBED, JobKind.OCR, JobKind.CAPTION, JobKind.FACES)
+# what `kist ai-backfill` takes when no kind is named: captions are opt-in
+# (they are slow, or leave the house); faces are skipped unless KIST_FACES
+DEFAULT_AI_KINDS = (JobKind.EMBED, JobKind.OCR, JobKind.FACES)
+# what a `kist helper` may claim (faces run on the ml service only; captions
+# when the helper's Mac runs the Ollama caption provider)
+HELPER_KINDS = (JobKind.EMBED, JobKind.OCR, JobKind.CAPTION)
+# what a helper takes when it names no kinds
+HELPER_DEFAULT_KINDS = (JobKind.EMBED, JobKind.OCR)
 
 
 MAX_ATTEMPTS = 3

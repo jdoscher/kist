@@ -44,6 +44,8 @@ class ItemOut(BaseModel):
     tags: list[str]
     # a sentence describing the image (generated or edited; services/captions.py)
     caption: str | None = None
+    # tags the vocabulary implies (boots -> shoes); virtual, never stored
+    implied_tags: list[str] = []
     protected: bool = False  # can't be trashed or purged until unprotected
     state: str  # lifecycle.ItemState: active | trashed
     preview_status: str  # lifecycle.PreviewStatus: pending | ready | failed | none
@@ -56,9 +58,15 @@ class ItemOut(BaseModel):
     deleted_at: datetime | None
     # only in search results: why this item matched (ranked and keyword searches)
     match: MatchOut | None = None
+    # the item's stack (services/stacks.py) and how many members you can see
+    stack_id: str | None = None
+    stack_count: int | None = None
 
     @classmethod
     def from_item(cls, item: Item, match: dict | None = None) -> "ItemOut":
+        from .services.stacks import count_for
+        from .services.vocabulary import implied_for_item
+
         status = item.preview_status or PreviewStatus.PENDING
         # a pending retry keeps serving the old thumbnails until it finishes
         has_thumb = status == PreviewStatus.READY or (
@@ -84,6 +92,7 @@ class ItemOut(BaseModel):
             source_url=item.source_url,
             tags=sorted(t.name for t in item.tags),
             caption=item.caption,
+            implied_tags=implied_for_item(item),
             protected=bool(item.protected),
             state=item_state(item).value,
             preview_status=str(status),
@@ -97,6 +106,8 @@ class ItemOut(BaseModel):
             modified_at=item.modified_at,
             deleted_at=item.deleted_at,
             match=MatchOut(**match) if match else None,
+            stack_id=item.stack_id,
+            stack_count=count_for(item),
         )
 
     @classmethod
@@ -221,6 +232,8 @@ class TagOut(BaseModel):
     id: int
     name: str
     count: int
+    namespace: str | None = None  # "brand" for brand:rolex
+    value: str = ""  # "rolex" for brand:rolex; the name for a plain tag
 
 
 OrderName = Literal["-created", "created", "filename", "-size", "-rating", "-modified"]
@@ -254,6 +267,9 @@ class SmartFolderQuery(BaseModel):
     color_tol: int | None = Field(default=None, ge=0, le=100)
     text: str | None = Field(default=None, max_length=500)
     has_text: bool | None = None
+    # M2 organise: one entry per stack, items showing a person
+    stacks: Literal["collapse"] | None = None  # covers only
+    person: str | None = None  # a person id (faces)
 
 
 class PaletteColour(BaseModel):
