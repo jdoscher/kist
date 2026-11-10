@@ -91,6 +91,9 @@ def check_items(session: Session, report: Report) -> None:
                     k for k in COMPARED_TIMES
                     if _instant(on_disk.get(k)) != _instant(expected.get(k))
                 ]
+                from .provenance import meta_drift
+
+                drift += meta_drift(on_disk, expected)
                 if drift:
                     report.problems.append(
                         f"{item.id}: meta.json differs in {', '.join(drift)}"
@@ -145,7 +148,9 @@ def check_ai(session: Session, report: Report) -> None:
         sa.select(ItemEmbedding.item_id, ItemEmbedding.model)
     ).all():
         rows.setdefault(item_id, set()).add(model)
-    texts = set(session.execute(sa.select(ItemText.item_id)).scalars())
+    texts = set(session.execute(
+        sa.select(ItemText.item_id).where(ItemText.source.in_(ai.OCR_SOURCES))
+    ).scalars())
     for item_id, models in sorted(rows.items()):
         for model in sorted(models):
             f16, js = ai.embed_paths(item_id, model)
@@ -177,6 +182,16 @@ def check_ai(session: Session, report: Report) -> None:
             )
 
 
+def check_m4(session: Session, report: Report) -> None:
+    """Share links (shares.json), page snapshot text (page/text.txt) and
+    the export presets file."""
+    from . import export_images, shares, snapshots
+
+    report.problems.extend(shares.check_file(session))
+    report.problems.extend(snapshots.check(session))
+    report.problems.extend(export_images.check_file())
+
+
 def run(session: Session) -> Report:
     from . import events as events_svc
     from . import tokens as tokens_svc
@@ -187,6 +202,7 @@ def run(session: Session) -> Report:
     report.problems.extend(tokens_svc.check_file(session))
     report.problems.extend(events_svc.check_files(session))
     check_ai(session, report)
+    check_m4(session, report)
     for key in meta_svc.pending():
         report.problems.append(f"{key}: an earlier write to disk failed")
     return report

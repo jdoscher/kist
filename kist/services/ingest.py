@@ -79,6 +79,8 @@ def ingest_file(
     created_at: datetime | None = None,
     modified_at: datetime | None = None,
     deleted_at: datetime | None = None,
+    provenance: dict | None = None,
+    xmp_path: Path | None = None,
 ) -> IngestResult:
     """Ingest the file at `path`, consuming it (moved into the item dir).
 
@@ -91,8 +93,14 @@ def ingest_file(
     Everything sent along is checked before any work is done: an unknown
     folder or a bad tag name raises validation.ValidationError and leaves
     the file where it was.
+
+    provenance: what the caller knows (services/provenance.py); XMP in the
+    file and in `xmp_path` (a neighbouring .xmp, left where it is) adds
+    tags, a rating, notes and rights. The caller's values win.
     """
     from . import items as items_svc
+    from . import provenance as provenance_svc
+    from . import xmp as xmp_svc
 
     settings = get_settings()
     all_folder_ids = list(folder_ids or []) + ([folder_id] if folder_id else [])
@@ -103,6 +111,7 @@ def ingest_file(
     rating = validation.rating(rating or 0)
     created_at = validation.timestamp(created_at, "created_at")
     modified_at = validation.timestamp(modified_at, "modified_at")
+    provenance = provenance_svc.clean(provenance)  # bad input -> 422 before any work
     digest = sha256_file(path)
 
     existing = session.execute(
@@ -117,6 +126,12 @@ def ingest_file(
             )
         return IngestResult(existing, created=False)
 
+    file_fields = provenance_svc.from_file(path, xmp_path)
+    tag_names, rating, notes = xmp_svc.merge_into_ingest(
+        file_fields, tags=tag_names, rating=rating, notes=notes
+    )
+    prov = provenance_svc.for_ingest(provenance, file_fields, source_url=source_url)
+    source_url = source_url or prov.get("page_url")
     mime = sniff_mime(path)
     ext = pick_ext(filename, mime)
     item_id = new_ulid()
@@ -129,6 +144,13 @@ def ingest_file(
             path.replace(original)  # same filesystem: atomic
         except OSError:
             shutil.move(str(path), original)
+        if xmp_path is not None and xmp_path.is_file():
+            # the sidecar Kist writes later merges into this one, keeping
+            # every property it doesn't manage (develop settings, history)
+            from ..filetypes import kind_for
+
+            if kind_for(mime, ext) == "image":
+                shutil.copyfile(xmp_path, item_dir / xmp_svc.SIDECAR_NAME)
 
         probe = thumbs.Probe()
         preview_error = None
@@ -160,6 +182,7 @@ def ingest_file(
             rating=rating,
             notes=notes or "",
             source_url=source_url,
+            provenance={k: v for k, v in prov.items() if k != "page_url"} or None,
             deleted_at=deleted_at,
             preview_status=preview_status,
             preview_error=preview_error,
@@ -250,18 +273,25 @@ def ingest_url(
     created_at: datetime | None = None,
     modified_at: datetime | None = None,
     deleted_at: datetime | None = None,
+    provenance: dict | None = None,
 ) -> IngestResult:
     from . import items as items_svc
+    from . import provenance as provenance_svc
 
     # refuse bad input before downloading anything
+    provenance = provenance_svc.clean(provenance)
     items_svc.resolve_folders(session, list(folder_ids or []) + ([folder_id] if folder_id else []))
     for name in tag_names or []:
         validation.tag_name(name)
     staging, filename, content_type = _download(url)
+    image_url = url
+    page_title = None
     if content_type in ("text/html", "application/xhtml+xml"):
         # a page link (Pinterest, Unsplash, a blog post…): take its preview image
         try:
-            image_url = page_image_url(staging.read_text(errors="replace"), url)
+            html = staging.read_text(errors="replace")
+            image_url = page_image_url(html, url)
+            page_title = page_title_of(html)
         finally:
             staging.unlink(missing_ok=True)
         if not image_url:
@@ -281,12 +311,31 @@ def ingest_url(
             "download it and upload the file instead"
         )
 
+    prov = {"method": "url", "image_url": image_url}
+    if page_title:
+        prov["page_title"] = page_title[: provenance_svc.TEXT_MAX]
+    prov.update(provenance)
     return ingest_file(
         session, staging, filename,
         folder_id=folder_id, folder_ids=folder_ids, tag_names=tag_names,
         notes=notes, source_url=source_url or url, rating=rating,
         created_at=created_at, modified_at=modified_at, deleted_at=deleted_at,
+        provenance=prov,
     )
+
+
+_TITLE = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
+
+
+def page_title_of(html: str) -> str | None:
+    """og:title, else <title>, of an HTML page."""
+    for tag in _META_TAG.findall(html[:500_000]):
+        attrs = {k.lower(): (v1 or v2) for k, v1, v2 in _ATTR.findall(tag)}
+        if (attrs.get("property") or attrs.get("name") or "").lower() == "og:title":
+            if attrs.get("content", "").strip():
+                return " ".join(unescape(attrs["content"]).split())
+    m = _TITLE.search(html[:500_000])
+    return " ".join(unescape(m.group(1)).split()) or None if m else None
 
 
 class NotMediaError(ValueError):
@@ -417,10 +466,13 @@ def run_ingest_job(session: Session, payload: dict) -> None:
     if not path.exists():
         # never report success for a file we didn't ingest
         raise FileNotFoundError(f"the file to import is gone: {path.name}")
+    xmp_path = Path(payload["xmp_path"]) if payload.get("xmp_path") else None
     ingest_file(
         session, path, payload.get("filename") or path.name,
-        source_url=payload.get("source_url"), **meta_kwargs,
+        source_url=payload.get("source_url"), xmp_path=xmp_path, **meta_kwargs,
     )
+    if xmp_path is not None:
+        xmp_path.unlink(missing_ok=True)
 
 
 def scan_inbox() -> None:
@@ -433,6 +485,8 @@ def scan_inbox() -> None:
     for entry in sorted(inbox.rglob("*")):
         if not entry.is_file() or entry.name.startswith("."):
             continue
+        if entry.suffix.lower() == ".xmp":
+            continue  # a sidecar: it goes in with its photo, never on its own
         try:
             stat = entry.stat()
         except FileNotFoundError:
@@ -446,14 +500,20 @@ def scan_inbox() -> None:
         except OSError:
             log.exception("failed to stage inbox file %s", entry)
             continue
+        from .xmp import neighbour
+
+        payload = {"path": str(staged), "filename": entry.name}
+        side = neighbour(entry)
+        if side is not None:  # Lightroom/darktable/digiKam sidecar beside it
+            staged_xmp = settings.staging_dir / f"xmpside-{new_ulid()}.xmp"
+            try:
+                side.replace(staged_xmp)
+                payload["xmp_path"] = str(staged_xmp)
+            except OSError:
+                log.warning("could not take the XMP sidecar %s along", side.name)
         try:
             with SessionLocal() as session:
-                session.add(
-                    Job(
-                        kind=JobKind.INGEST,
-                        payload={"path": str(staged), "filename": entry.name},
-                    )
-                )
+                session.add(Job(kind=JobKind.INGEST, payload=payload))
                 session.commit()
         except BaseException:
             # no job, no import: put it back in the inbox for the next scan

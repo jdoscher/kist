@@ -158,6 +158,15 @@ class Item(Base):
     )
     # base64 ThumbHash of the preview (services/thumbhash.py); "" = can't be made
     thumbhash: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # M4 (services/provenance.py): where it came from and what may be done
+    # with it; page_url mirrors source_url
+    provenance: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    # M4 link-rot watch (services/linkrot.py): ok | gone | moved | error
+    source_status: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_checked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    source_wayback_url: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     tags: Mapped[list[Tag]] = relationship(secondary="item_tags", lazy="selectin")
     folders: Mapped[list[Folder]] = relationship(
@@ -265,6 +274,34 @@ class AiHelper(Base):
     )
     jobs_done: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
     info: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+
+
+class Share(Base):
+    """A public read-only link, /s/<slug> (services/shares.py). The durable
+    copy is library/.kist/shares.json."""
+
+    __tablename__ = "shares"
+
+    id: Mapped[str] = mapped_column(String(26), primary_key=True)
+    slug: Mapped[str] = mapped_column(Text, unique=True)
+    # folder | smart | board | items
+    target_kind: Mapped[str] = mapped_column(Text)
+    target_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    item_ids: Mapped[list[str] | None] = mapped_column(ARRAY(Text), nullable=True)
+    title: Mapped[str] = mapped_column(Text, default="", server_default="")
+    password_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    allow_download: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    allow_original: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    created_by: Mapped[str] = mapped_column(Text, default="owner", server_default="owner")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    view_count: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
+    last_viewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 class Job(Base):

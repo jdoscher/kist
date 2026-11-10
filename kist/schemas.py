@@ -43,6 +43,12 @@ class ItemOut(BaseModel):
     created_at: datetime
     modified_at: datetime
     deleted_at: datetime | None
+    # M4: where it came from (services/provenance.py; page_url = source_url)
+    provenance: dict[str, Any] = {}
+    # M4 link-rot watch: ok | gone | moved | error, or null (never checked)
+    source_status: str | None = None
+    source_checked_at: datetime | None = None
+    source_wayback_url: str | None = None
 
     @classmethod
     def from_item(cls, item: Item) -> "ItemOut":
@@ -82,6 +88,7 @@ class ItemOut(BaseModel):
             created_at=item.created_at,
             modified_at=item.modified_at,
             deleted_at=item.deleted_at,
+            **_m4_fields(item),
         )
 
     @classmethod
@@ -94,6 +101,17 @@ class ItemOut(BaseModel):
         out["file_url"] = f"/api/items/{item.id}/file"
         out["web_url"] = web_url(item)
         return out
+
+
+def _m4_fields(item: Item) -> dict[str, Any]:
+    from .services.provenance import out as provenance_out
+
+    return {
+        "provenance": provenance_out(item),
+        "source_status": getattr(item, "source_status", None),
+        "source_checked_at": getattr(item, "source_checked_at", None),
+        "source_wayback_url": getattr(item, "source_wayback_url", None),
+    }
 
 
 def web_url(item: Item) -> str:
@@ -136,6 +154,9 @@ class ItemPatch(BaseModel):
     # protected items can't be trashed or purged; unprotecting needs the
     # write or admin scope
     protected: bool | None = None
+    # M4: merged into the item's provenance; a field set to null is removed.
+    # provenance.page_url is source_url
+    provenance: dict[str, Any] | None = None
     # the modified_at the client last saw; a mismatch answers 409
     base_modified_at: datetime | None = None
 
@@ -169,6 +190,12 @@ class UrlAdd(BaseModel):
     created_at: datetime | None = None
     modified_at: datetime | None = None
     deleted_at: datetime | None = None
+    # M4: provenance fields the client knows (method paste/extension/...)
+    provenance: dict[str, Any] | None = None
+    # an iOS Shortcut's share sheet sends the page title and selected text:
+    # title becomes provenance.page_title, text is added to the notes
+    title: str | None = Field(default=None, max_length=2000)
+    text: str | None = Field(default=None, max_length=validation.NOTES_MAX)
 
     _source_url = field_validator("source_url")(_check_source_url)
 
@@ -261,6 +288,7 @@ class StatsOut(BaseModel):
     failed_jobs: int = 0
     preview_failed: int = 0
     fixity_failed: int = 0  # originals whose last fixity check failed
+    source_gone: int = 0  # M4: live items whose source page is gone (link-rot watch)
 
 
 class JobOut(BaseModel):

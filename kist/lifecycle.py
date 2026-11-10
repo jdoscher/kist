@@ -88,6 +88,8 @@ class JobKind(StrEnum):
     REGEN_PREVIEW = "regen_preview"  # retry an item's previews
     EMBED = "embed"  # image embedding (the ml service or a helper)
     OCR = "ocr"  # text in screenshots and PDFs
+    EXPORT = "export"  # M4: a BagIt zip (services/exports.py)
+    IMPORT = "import"  # M4: an importer run (kist/importers)
 
 
 # the heavy kinds: they wait while any light job (ingest, previews) is

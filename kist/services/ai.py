@@ -60,6 +60,8 @@ log = logging.getLogger("kist.ai")
 
 AI_DIR = "ai"
 OCR_FILE = "ocr.json"
+# item_text rows the AI jobs own; "page" (M4 page snapshots) is kept apart
+OCR_SOURCES = ("ocr", "pdf")
 PDF_TEXT_MODEL = "pdf-text-layer"
 EMBED_SOURCES = ("thumb_512.webp", "thumb_1024.webp", "thumb_256.webp")
 # EXIF Make / Model: an image a camera took isn't OCR'd
@@ -358,8 +360,9 @@ def _clean_text(text: str) -> str:
 
 def _upsert_text(session: Session, item_id: str, source: str, text: str, lang: str | None,
                  model: str, created_at: datetime) -> None:
-    # one text row per item: a PDF's OCR replaces nothing else
-    session.execute(sa.delete(ItemText).where(ItemText.item_id == item_id))
+    # one OCR/PDF text row per item (a page snapshot's text is kept)
+    session.execute(sa.delete(ItemText).where(ItemText.item_id == item_id,
+                                              ItemText.source.in_(OCR_SOURCES)))
     session.add(ItemText(item_id=item_id, source=source, text=text, lang=lang, model=model,
                          created_at=created_at))
 
@@ -430,7 +433,9 @@ def rewrite_missing_sidecars(session: Session) -> tuple[int, int]:
             continue
         write_embedding_sidecar(item_id, model, vec, created_at)
         emb += 1
-    for t in session.execute(sa.select(ItemText)).scalars():
+    for t in session.execute(
+        sa.select(ItemText).where(ItemText.source.in_(OCR_SOURCES))
+    ).scalars():
         if (ai_dir(t.item_id) / OCR_FILE).is_file() or not _item_exists_on_disk(t.item_id):
             continue
         write_ocr_sidecar(t.item_id, {
@@ -540,7 +545,8 @@ def enqueue_for_item(session: Session, item: Item, *, backfill: bool = False,
     if JobKind.OCR in kinds:
         which = ocr_kind(item)
         done = session.execute(
-            sa.select(ItemText.item_id).where(ItemText.item_id == item.id).limit(1)
+            sa.select(ItemText.item_id).where(ItemText.item_id == item.id,
+                                              ItemText.source.in_(OCR_SOURCES)).limit(1)
         ).first() is not None
         if which and not done and not _open_jobs(session, JobKind.OCR, [item.id]):
             session.add(Job(kind=JobKind.OCR,
@@ -587,7 +593,8 @@ def backfill(session: Session, kinds: tuple[str, ...] = AI_KINDS,
                 sa.or_(Item.mime == "application/pdf",
                        sa.and_(Item.mime.like("image/%"),
                                Item.preview_status == PreviewStatus.READY)),
-                ~sa.exists().where(ItemText.item_id == Item.id),
+                ~sa.exists().where(ItemText.item_id == Item.id,
+                                   ItemText.source.in_(OCR_SOURCES)),
             )
         ids = list(session.execute(missing.order_by(Item.id)).scalars())
         for start in range(0, len(ids), 500):
@@ -808,7 +815,10 @@ def status(session: Session) -> dict:
     embedded = session.execute(
         sa.select(sa.func.count()).select_from(ItemEmbedding).where(ItemEmbedding.model == model)
     ).scalar_one()
-    ocr_done = session.execute(sa.select(sa.func.count()).select_from(ItemText)).scalar_one()
+    ocr_done = session.execute(
+        sa.select(sa.func.count()).select_from(ItemText)
+        .where(ItemText.source.in_(OCR_SOURCES))
+    ).scalar_one()
     rows = session.execute(
         sa.select(Job.kind, Job.status, sa.func.count())
         .where(Job.kind.in_(AI_KINDS))

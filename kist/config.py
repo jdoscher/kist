@@ -70,6 +70,30 @@ class Settings(BaseSettings):
     # scanned PDFs: OCR at most this many pages (text layers are read in full)
     ai_ocr_pdf_pages: int = 5
 
+    # ---- M4: in, out and sharing ----
+    # finished exports (library/exports/<id>.zip) are deleted after this long
+    export_retention_days: int = 7
+    # POST /api/items/{id}/snapshot with no body fetches page_url on the
+    # server (through the SSRF guard). Off: only browser-sent snapshots
+    snapshots: bool = False
+    # the link-rot watch re-checks each item's page_url this often (days);
+    # 0 turns it off. Requests are spaced KIST_LINK_CHECK_DELAY_SECONDS apart
+    link_check_days: float = 7.0
+    link_check_delay_seconds: float = 2.0
+    # ask the Wayback Machine (archive.org, an outside service) for an
+    # archived copy of sources that are gone. Off by default: it tells
+    # archive.org which pages you kept
+    wayback: bool = False
+    # write items/<id>/original.xmp (rating, keywords, notes, provenance) for
+    # images whenever they change, for Lightroom/darktable/digiKam
+    xmp_sidecars: bool = True
+    # failed share-link password tries allowed per link per 15 minutes
+    share_password_attempts: int = 10
+
+    @property
+    def exports_dir(self) -> Path:
+        return self.library_dir / "exports"
+
     @property
     def items_dir(self) -> Path:
         return self.library_dir / "items"

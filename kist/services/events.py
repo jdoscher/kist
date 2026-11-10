@@ -41,7 +41,7 @@ BATCH_MAX = 64
 _BATCH_RE = re.compile(r"^[A-Za-z0-9._:-]{1,64}$")
 
 # fields an "edit" event carries; protected has its own kind
-EDIT_FIELDS = ("filename", "rating", "notes", "source_url", "created_at")
+EDIT_FIELDS = ("filename", "rating", "notes", "source_url", "created_at", "provenance")
 
 
 class Kind:
@@ -124,12 +124,16 @@ def _iso(value: datetime | None) -> str | None:
 
 def state(item: Item) -> dict:
     """What events compare: an item's user-editable state."""
+    from .provenance import stored as stored_provenance
+
     return {
         "filename": item.filename,
         "rating": item.rating,
         "notes": item.notes,
         "source_url": item.source_url,
         "created_at": _iso(item.created_at),
+        # page_url is source_url, compared above
+        "provenance": stored_provenance(item),
         "protected": bool(item.protected),
         "tags": sorted(t.name for t in item.tags),
         "folder_ids": sorted(f.id for f in item.folders),
@@ -393,6 +397,8 @@ def _apply_inverse(session: Session, ev: ItemEvent) -> str | None:
                 if not same:
                     return f"{f} was changed later"
             fields = dict(before)
+            if "provenance" in fields:  # the whole block, not a merge
+                fields["provenance_replace"] = fields.pop("provenance")
             if fields.get("created_at"):
                 fields["created_at"] = datetime.fromisoformat(fields["created_at"])
             items_svc.update_item(session, ev.item_id, fields=fields)

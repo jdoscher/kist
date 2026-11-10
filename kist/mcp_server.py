@@ -478,6 +478,103 @@ def ai_status() -> dict[str, Any]:
         return json.loads(json.dumps(ai.status(session), default=str))
 
 
+# ---------- M4: provenance, exports, page snapshots ----------
+
+
+@tool(
+    "Set where an item came from and what may be done with it: any of "
+    "page_url, image_url, page_title, creator, credit, license, rights_url, "
+    "ai_generated (true/false), digital_source_type. Only the fields you "
+    "pass change; pass an empty string to clear one. Recorded in the item "
+    "history (undoable). Returns the updated item (its provenance block).",
+    needs=Action.EDIT,
+)
+def set_provenance(
+    id: str,
+    page_url: str | None = None,
+    image_url: str | None = None,
+    page_title: str | None = None,
+    creator: str | None = None,
+    credit: str | None = None,
+    license: str | None = None,
+    rights_url: str | None = None,
+    ai_generated: bool | None = None,
+    digital_source_type: str | None = None,
+) -> dict[str, Any]:
+    given = {k: v for k, v in {
+        "page_url": page_url, "image_url": image_url, "page_title": page_title,
+        "creator": creator, "credit": credit, "license": license, "rights_url": rights_url,
+        "ai_generated": ai_generated, "digital_source_type": digital_source_type,
+    }.items() if v is not None}
+    if not given:
+        raise ToolError("nothing to update")
+    patch = {k: (None if v == "" else v) for k, v in given.items()}
+    with SessionLocal() as session:
+        return item_out(items_svc.update_item(session, id, fields={"provenance": patch}))
+
+
+@tool(
+    "Export a collection as a portable BagIt zip that opens without Kist "
+    "(originals under readable names, .json and .xmp sidecars, items.csv, an "
+    "offline index.html). target is folder, smart, items or all; target_id is "
+    "the folder or smart folder id; item_ids for target=items. Runs as a job: "
+    "poll export_status(id) until status is done, then hand the user its "
+    "download_url (same token).",
+    needs=Action.EDIT,
+)
+def export_collection(
+    target: str,
+    target_id: str | None = None,
+    item_ids: list[str] | None = None,
+    originals: bool = True,
+    events: bool = False,
+) -> dict[str, Any]:
+    from .services import exports
+
+    principal = access.current()
+    with SessionLocal() as session:
+        record = exports.create(
+            session, target=target, target_id=target_id, item_ids=item_ids,
+            include={"originals": originals, "sidecars": True, "events": events},
+            created_by=principal.name if principal else "mcp",
+        )
+    return exports.out(record)
+
+
+@tool("The status of an export_collection run (pending, running, done, failed).")
+def export_status(id: str) -> dict[str, Any]:
+    import json
+
+    from .services import exports
+
+    try:
+        return json.loads(json.dumps(exports.out(exports.get(id)), default=str))
+    except exports.NotFound as exc:
+        raise ToolError(str(exc)) from None
+
+
+@tool(
+    "The readable text of the web page an item was saved from, if a page "
+    "snapshot was kept (so you can summarise the article behind an image). "
+    "Long pages are cut to max_chars.",
+    restricted_ok=False,
+)
+def get_page_snapshot(id: str, max_chars: int = 20000) -> dict[str, Any]:
+    from .services import snapshots
+
+    with SessionLocal() as session:
+        item = items_svc.get_item(session, id)
+        text = snapshots.text_of(item.id)
+        if text is None:
+            raise ToolError(f"item {id} has no page snapshot")
+        found = snapshots.read(item.id)
+        info = found[1] if found else {}
+        limit = max(100, min(int(max_chars), 200_000))
+        return {"item_id": item.id, "url": info.get("url"), "title": info.get("title"),
+                "captured_at": info.get("captured_at"), "text": text[:limit],
+                "truncated": len(text) > limit}
+
+
 # Mounted by kist.app at /mcp; streamable_http_path="/" so the endpoint is
 # exactly /mcp. host="0.0.0.0" disables the SDK's localhost-only DNS-rebinding
 # allowlist (the app is reached over the LAN; our bearer middleware guards it).

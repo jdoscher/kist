@@ -5,7 +5,7 @@ from typing import Annotated
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
@@ -35,6 +35,7 @@ from ..services import events as events_svc
 from ..services import items as items_svc
 from ..services import jobs as jobs_svc
 from ..services import links as links_svc
+from ..services import provenance as provenance_svc
 
 # Errors: items_svc.NotFound -> 404, validation.ValidationError -> 422,
 # TransitionError -> 409, items_svc.Conflict -> 409 with the current item,
@@ -65,6 +66,11 @@ def list_items(
     cursor: str | None = None,
     # order by meaning: nearest to this text first (needs the ml service)
     semantic: Annotated[str | None, Query(max_length=1000)] = None,
+    # M4: true | false | unknown
+    ai_generated: str | None = None,
+    license: Annotated[str | None, Query(max_length=200)] = None,
+    # M4 link-rot watch: ok | gone | moved | error | unchecked
+    source_status: str | None = None,
 ):
     tag_names = list(tags or [])
     semantic_vec, semantic_model = None, None
@@ -83,6 +89,9 @@ def list_items(
         created_after=created_after, created_before=created_before, fixity=fixity,
         limit=limit, cursor=cursor,
         semantic=semantic_vec, semantic_model=semantic_model,
+        extra=provenance_svc.filters(
+            ai_generated=ai_generated, license=license, source_status=source_status
+        ),
     )
     return ItemPage(
         items=[ItemOut.from_item(i) for i in rows],
@@ -136,6 +145,7 @@ async def create_item(
                 created_at=_parse_dt(form.get("created_at")),
                 modified_at=_parse_dt(form.get("modified_at")),
                 deleted_at=_parse_dt(form.get("deleted_at")),
+                provenance=_parse_provenance(form.get("provenance")),
             )
         finally:
             staging.unlink(missing_ok=True)
@@ -150,15 +160,22 @@ async def create_item(
             body = UrlAdd(**data)
         except PydanticValidationError as exc:
             raise RequestValidationError(exc.errors(include_url=False)) from None
+        prov = dict(body.provenance or {})
+        notes = body.notes
+        if body.title and not prov.get("page_title"):
+            prov["page_title"] = " ".join(body.title.split())[:2000]
+        if body.text and body.text.strip() and body.text.strip() != body.url:
+            notes = (notes + "\n\n" if notes else "") + body.text.strip()
+            notes = validation.notes(notes)
         try:
             result = await run_in_threadpool(
                 lambda: ingest.ingest_url(
                     session, body.url,
                     folder_id=body.folder_id, folder_ids=body.folder_ids,
-                    tag_names=body.tags, notes=body.notes,
+                    tag_names=body.tags, notes=notes,
                     source_url=body.source_url, rating=body.rating,
                     created_at=body.created_at, modified_at=body.modified_at,
-                    deleted_at=body.deleted_at,
+                    deleted_at=body.deleted_at, provenance=prov,
                 )
             )
         except (ValueError, httpx.HTTPError) as exc:
@@ -167,7 +184,30 @@ async def create_item(
                 raise
             raise HTTPException(described[0], described[1]) from exc
 
+    if _wants_plain_text(request):
+        # an iOS Shortcut shows this as its result banner
+        verb = "Saved to Kist" if result.created else "Already in Kist"
+        return PlainTextResponse(
+            f"{verb}: {result.item.filename}", status_code=201 if result.created else 200
+        )
     return ItemCreateResponse(item=ItemOut.from_item(result.item), created=result.created)
+
+
+def _wants_plain_text(request: Request) -> bool:
+    accept = request.headers.get("accept", "").lower()
+    return accept.startswith("text/plain")
+
+
+def _parse_provenance(raw) -> dict | None:
+    if raw is None or not str(raw).strip():
+        return None
+    try:
+        data = json.loads(str(raw))
+    except json.JSONDecodeError:
+        raise HTTPException(422, "provenance must be a JSON object") from None
+    if not isinstance(data, dict):
+        raise HTTPException(422, "provenance must be a JSON object")
+    return data
 
 
 def _parse_tags(raw: str | None) -> list[str]:

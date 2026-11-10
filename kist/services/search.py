@@ -95,8 +95,9 @@ def build_filters(
     created_after: datetime | None = None,
     created_before: datetime | None = None,
     fixity: str | None = None,
+    extra: list[Any] | None = None,
 ) -> list[Any]:
-    filters: list[Any] = []
+    filters: list[Any] = list(extra or [])  # M4: provenance / link-rot filters
     if fixity is not None:
         if fixity != "failed":
             raise ValidationError(f"unknown fixity {fixity!r}; expected failed")
@@ -239,6 +240,7 @@ def search_items(
     cursor: str | None = None,
     semantic: list[float] | None = None,
     semantic_model: str | None = None,
+    extra: list[Any] | None = None,
 ) -> tuple[list[Item], str | None, int | None]:
     """total is counted on the first page only (no cursor); later pages
     return None.
@@ -254,6 +256,7 @@ def search_items(
         rating_min=rating_min, deleted=deleted, state=state, view=view,
         preview_status=preview_status,
         created_after=created_after, created_before=created_before, fixity=fixity,
+        extra=extra,
     )
     if order not in ORDERS:
         raise ValidationError(f"unknown order {order!r}; expected one of {', '.join(ORDERS)}")
