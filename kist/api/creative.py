@@ -179,11 +179,14 @@ def triage_next(
     folder: str | None = None,
     flag: str | None = None,
     label: str | None = None,
+    undecided: bool | None = None,
 ):
     """The next item to triage in a view (default Unfiled) after `after`,
-    the ids to prefetch, and how many are left."""
+    the ids to prefetch, and how many are left. The Unfiled queue skips items
+    already decided on (flagged, labelled or rated); undecided=true/false
+    overrides that for any view."""
     out = triage.next_item(session, view=view, after=after, order=order, prefetch=prefetch,
-                           folder=folder, flag=flag, label=label)
+                           folder=folder, flag=flag, label=label, undecided=undecided)
     return TriageOut(item=ItemOut.from_item(out["item"]) if out["item"] else None,
                      prefetch_ids=out["prefetch_ids"], remaining=out["remaining"])
 

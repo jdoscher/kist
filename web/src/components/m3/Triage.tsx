@@ -1,4 +1,6 @@
 // Triage mode (/triage?view=unfiled): one item at a time, big, with the
+// queue of undecided items (the server skips flagged, labelled and rated
+// ones in Unfiled, so "N left" counts down with each decision),
 // culling keys (P/X/U, 0-5, 6-9, T tag, F folder, ←/→, ⌘Z) and, on a
 // phone, swipes (up keep, down reject, left/right move) plus buttons for
 // everything (WCAG 2.5.7: nothing needs a gesture).
@@ -36,7 +38,11 @@ export default function Triage({ screen }: { screen: Extract<Screen, { kind: 'tr
   const [trail, setTrail] = useState<string[]>([]) // items shown before, for ←
   // an item stepped back to (←) or undone, shown instead of the queue's
   const [pinned, setPinned] = useState<Item | null>(null)
-  const [done, setDone] = useState(0)
+  // items decided on this session (a flag, label, rating, tag, folder or
+  // Trash): in the Unfiled queue each one leaves it, so "N left" goes down
+  const [decided, setDecided] = useState<string[]>([])
+  const done = decided.length
+  const markDone = (id: string) => setDecided((d) => (d.includes(id) ? d : [...d, id]))
   const [batches, setBatches] = useState<{ batch: string; itemId: string }[]>([])
   const [auto, setAutoRaw] = useState(() => {
     try {
@@ -64,6 +70,15 @@ export default function Triage({ screen }: { screen: Extract<Screen, { kind: 'tr
     staleTime: 0,
     gcTime: 60_000,
   })
+
+  // how many are left, refreshed after every decision (the queue's own
+  // fetch stays put so the item on screen doesn't jump)
+  const left = useQuery({
+    queryKey: ['triage', 'left', view, screen.folder ?? null],
+    queryFn: () => api3.triageNext({ view, folder: screen.folder, prefetch: 0 }),
+    staleTime: 0,
+  })
+  const refreshLeft = () => void qc.invalidateQueries({ queryKey: ['triage', 'left'] })
 
   const current = pinned ?? next.data?.item ?? null
   // the latest copy of the current item (edits patch ['item', id])
@@ -120,7 +135,9 @@ export default function Triage({ screen }: { screen: Extract<Screen, { kind: 'tr
         setTrail((t) => t.filter((x) => x !== it.id))
         setPinned(it)
       } else force((n) => n + 1)
-      setDone((d) => Math.max(0, d - 1))
+      // still decided if an earlier change on it stands
+      if (!batches.slice(0, -1).some((b) => b.itemId === it.id)) setDecided((d) => d.filter((x) => x !== it.id))
+      refreshLeft()
       setSaid(`Undone on ${it.filename}`)
     } catch (e) {
       notify({ key: 'triage', tone: 'error', message: `Couldn't undo: ${describeError(e)}` })
@@ -140,7 +157,8 @@ export default function Triage({ screen }: { screen: Extract<Screen, { kind: 'tr
     else if (a.kind === 'label') batch = await patch(item, { label: item.label === a.label ? null : a.label })
     else if (a.kind === 'trash') batch = await file.trash(item)
     if (!record(batch, item)) return
-    setDone((d) => d + 1)
+    markDone(item.id)
+    refreshLeft()
     const fresh = qc.getQueryData<Item>(['item', item.id]) ?? item
     setSaid(`${fresh.filename}: ${cullText(fresh) || 'unflagged'}${fresh.rating ? `, ${fresh.rating} stars` : ''}`)
     if ((auto && advances(a)) || a.kind === 'trash') goNext()
@@ -150,7 +168,8 @@ export default function Triage({ screen }: { screen: Extract<Screen, { kind: 'tr
     if (!item) return
     const batch = kind === 'tags' ? await file.addTags(item, value as string[]) : await file.addFolder(item, value as string)
     if (!record(batch, item)) return
-    setDone((d) => d + 1)
+    markDone(item.id)
+    refreshLeft()
     setSaid(kind === 'tags' ? `Tagged ${(value as string[]).map((t) => `#${t}`).join(' ')}` : `Filed in ${folders?.find((f) => f.id === value)?.name ?? 'the folder'}`)
     if (auto && kind === 'folder') goNext()
   }
@@ -173,7 +192,7 @@ export default function Triage({ screen }: { screen: Extract<Screen, { kind: 'tr
 
   // phone: swipe on the image
   const touch = useRef<{ x: number; y: number } | null>(null)
-  const remaining = next.data?.remaining ?? 0
+  const remaining = left.data?.remaining ?? next.data?.remaining ?? 0
   const total = view === 'unfiled' ? done + remaining : remaining
   const position = view === 'unfiled' ? done : trail.length + (item ? 1 : 0)
   const pct = total ? Math.round((position / total) * 100) : 100
@@ -228,8 +247,11 @@ export default function Triage({ screen }: { screen: Extract<Screen, { kind: 'tr
 
       {!item && !next.isLoading && (
         <div className="triage-empty">
-          <h2>{view === 'unfiled' ? 'Unfiled is clear.' : 'That’s everything.'}</h2>
-          <p>{done ? `${done} decisions this session.` : 'Nothing to triage here.'}</p>
+          <h2>{view === 'unfiled' ? 'Nothing left to decide in Unfiled.' : 'That’s everything.'}</h2>
+          <p>
+            {done ? `${done} ${done === 1 ? 'item' : 'items'} decided this session.` : 'Nothing to triage here.'}
+            {view === 'unfiled' && ' Picked, rated and labelled items stay in Unfiled until you tag them or file them in a folder.'}
+          </p>
           <button className="primary" onClick={exit}>
             Back to the library
           </button>

@@ -642,7 +642,7 @@ class RenameOut(BaseModel):
 class TriageOut(BaseModel):
     item: ItemOut | None
     prefetch_ids: list[str]
-    remaining: int  # items in the view (what's left to triage)
+    remaining: int  # items in the queue (what's left to triage)
 
 
 class PaletteResult(BaseModel):

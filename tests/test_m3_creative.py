@@ -335,6 +335,32 @@ def test_triage_queue_walks_the_view_in_order(client, upload):
     assert client.get("/api/triage/next?after=01NOPE").status_code == 404
 
 
+def test_triage_decisions_take_items_out_of_the_unfiled_queue(client, upload):
+    items = [upload(f"d{i}.png")["item"] for i in range(5)]
+    q = lambda extra="": client.get(f"/api/triage/next?view=unfiled{extra}").json()  # noqa: E731
+    assert q()["remaining"] == 5
+    a, b, c, d, _ = (i["id"] for i in items)
+    client.patch(f"/api/items/{a}", json={"flag": "pick"})
+    client.patch(f"/api/items/{b}", json={"flag": "reject"})
+    client.patch(f"/api/items/{c}", json={"rating": 3})
+    client.patch(f"/api/items/{d}", json={"label": "red"}, headers={"X-Kist-Batch": "lab"})
+    res = q()
+    assert res["remaining"] == 1 and res["item"]["id"] == items[4]["id"]
+    # still in the Unfiled view: a decision isn't filing
+    assert client.get("/api/items?view=unfiled").json()["total"] == 5
+    # the cursor carries on after a decided item (newest first: e is first)
+    assert q(f"&after={d}")["item"] is None
+    # undo puts it back in the queue
+    assert client.post("/api/batches/lab/undo").status_code == 200
+    assert q()["remaining"] == 2
+    # undecided=false: the whole view, as before
+    assert q("&undecided=false")["remaining"] == 5
+    # view=all keeps every item unless asked
+    all_ = client.get("/api/triage/next?view=all").json()
+    assert all_["remaining"] == 5
+    assert client.get("/api/triage/next?view=all&undecided=true").json()["remaining"] == 2
+
+
 def test_palette_mixes_kinds(client, upload):
     client.post("/api/folders", json={"name": "Moodboards"})
     client.post("/api/smart-folders", json={"name": "Mood picks", "query": {"q": "x"}})
