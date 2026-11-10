@@ -593,6 +593,53 @@ and the boards routes (a board only when every item on it is visible); the
 palette, triage and templates are 404 for it. `access.RESTRICTED_PATHS` is
 the one list of what such a reader may reach;
 `tests/test_m23_integration.py` walks every family.
+## Milestones 4 and 5 with 2 and 3 (int-all)
+
+**One filter path.** `search.build_filters` takes the M4 provenance
+filters (`ai_generated`, `license`, `source_status`, via
+`provenance.filters`) and the M5 media filters (`media`, via
+`media.filters`) next to M2/M3's, so the plain list, every ranked mode
+(`ranking.ranked_page` gets the same list), search by image and the
+folder-limited scope all apply them. `search.filters_from_params` turns
+`GET /api/items`' parameters into that list for the timeline, on-this-day
+and the map; `selection.smart_filters` does the same for a saved
+smart-folder query, so a share or export of a smart folder holds what it
+shows (`semantic` and `color` order a list and don't narrow a share;
+`text=` does).
+
+**Item text sources.** `item_text.source` is `ocr` | `pdf` | `caption` |
+`page`. `q` (and a hybrid's keyword half) matches all four; `text=` and
+`has_text` are `ai.READ_SOURCES` (`ocr`, `pdf`) only: the words inside the
+item. The AI jobs only ever replace their own rows.
+
+**Boards in shares and exports.** `boards.share_item_ids` gives a board's
+live items in reading order (by node y, then x); `selection` uses it for
+`target_kind: board` and refuses a trashed or unknown board (422).
+
+**RAW pairs.** `stacks.suggestions` groups by file stem, splits a group by
+`raw_pair_key` when there are several, and compares capture times to the
+second, taking `items.taken_at` (read from the RAW by M5) where Pillow
+can't read the file.
+
+**Browser extension.** `provenance.from_flat` maps the flat fields the
+extension and the `/add` page send (`title` → `page_title`, `author` →
+`creator`, `license_url` → `rights_url`, `site`), dropping values that
+don't validate; an explicit `provenance` object wins. Ingest stores the
+adding token's id in `items.added_by_token` (migration 0602; not in
+meta.json). `api/m4._may_snapshot` lets an add-only token snapshot only an
+item with its own token id created under 10 minutes ago; anyone else
+without an edit scope gets 403 whether or not the item exists. The
+middleware lets the add scope reach exactly `POST /api/items` and
+`POST /api/items/{id}/snapshot`.
+
+**Scopes.** A folder-limited reader additionally reaches the M5 item reads
+(`scrub`, `stream`, `waveform`, `svg`, `model`, `font-info`, `glyphs`,
+`bundle`) of items it sees, and `/api/timeline`, `/api/on-this-day`,
+`/api/map` (counted over its items only). Shares, exports, export presets,
+imports and snapshots are 404 for it. `/s/<slug>` is public and
+share-scoped: with or without a token, it serves only that share's items.
+`tests/test_m45_integration.py` walks these.
+
 ## Media (Milestone 5)
 
 **Kinds.** `filetypes.kind_for` still decides by sniffed MIME type, never by
@@ -611,8 +658,19 @@ time limit) asks `media.generate` first. It writes the usual thumbnails
 plus scrub sprites, waveforms, bundle manifests and sanitized SVG, and
 returns a `media` block. A design file, model or bundle without a picture
 gets a generic icon tile and a `preview_icon` marker, which keeps the icon
-out of the perceptual hash and dominant colours. A font has no thumbnail
-here (`preview_status: none`) until M2's specimens land.
+out of the perceptual hash and dominant colours. A font's thumbnail is
+Milestone 2's specimen (`thumbs.font_specimen`), made after `fonts.info`
+reads it; a font FreeType can't render but fontTools can read keeps
+`preview_status: none`, and one neither can read fails like any broken
+file. Waveforms and font specimens are pictures Kist drew
+(`thumbs.DRAWN_PREVIEW_KINDS`): no perceptual hash, no palette.
+
+**What the AI jobs take.** Embeddings (`ai.embed_source`): any item with a
+ready preview except audio (`ai.NOT_EMBEDDED_KINDS`) and generic icons, so
+images, RAW, SVG, video, PDF, design files, font specimens (similar
+typefaces), uploaded posters and a bundle's picture are all searchable by
+meaning. OCR (`ai.ocr_kind`): PDFs and images without camera EXIF, as
+before (RAW and design files are left out). Faces: images only.
 
 **Metadata.** `items.media` (JSONB) holds what was read: `video`/`audio`
 (ffprobe), `exif` (Pillow for photos; exiftool, else the built-in TIFF/CR3

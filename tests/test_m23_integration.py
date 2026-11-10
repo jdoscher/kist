@@ -45,7 +45,13 @@ def _counts() -> dict:
 
 
 ITEM_KEYS = ("filename", "tags", "implied_tags", "caption", "flag", "label", "stack_id",
-             "stack_count", "folder_ids", "rating", "notes", "source_url", "state")
+             "stack_count", "folder_ids", "rating", "notes", "source_url", "state",
+             # Milestones 4 and 5 (int-all)
+             "provenance", "source_status", "source_wayback_url", "media", "taken_at", "place",
+             "kind", "preview_status", "width", "height", "duration_s")
+# files M4/M5 keep beside each item (none may vanish in a rebuild)
+SIDE_FILES = ("original.xmp", "page/text.txt", "page/snapshot.html", "scrub.webp",
+              "scrub.json", "waveform.json", "bundle.json")
 
 
 def snapshot(client, items: dict[str, str]) -> dict:
@@ -64,6 +70,15 @@ def snapshot(client, items: dict[str, str]) -> dict:
     out["palette"] = client.get(f"/api/items/{items['r0']}/palette").json()
     out["collections"] = client.get("/api/collections/suggested").json()
     out["counts"] = _counts()
+    # M4: share links, page snapshot text; M5: what's beside each item
+    out["shares"] = [{k: s[k] for k in ("id", "slug", "target_kind", "target_id", "title")}
+                     for s in client.get("/api/shares").json()]
+    out["snapshot_text"] = {k: client.get(f"/api/items/{v}/snapshot/text").text
+                            for k, v in items.items() if k in ("g0",)}
+    items_dir = get_settings().items_dir
+    out["side_files"] = {k: sorted(f for f in SIDE_FILES if (items_dir / v / f).is_file())
+                         for k, v in items.items()}
+    out["timeline"] = client.get("/api/timeline", params={"group": "year"}).json()
     searches = {
         "implied": {"tags": "shoes"},
         "alias": {"tags": "bootz"},
@@ -77,14 +92,25 @@ def snapshot(client, items: dict[str, str]) -> dict:
         "colour_collapse": {"color": "#dc1414", "color_tol": 40, "stacks": "collapse"},
         "semantic_flag": {"semantic": "red", "flag": "pick"},
         "credit_tag": {"tags": "credit:jay"},
+        # M4
+        "page_q": {"q": "zeppelin"},
+        "ai_generated": {"ai_generated": "true"},
+        "license": {"license": "cc0"},
+        "gone": {"source_status": "gone"},
+        # M5
+        "audio": {"type": "audio"},
+        "bundle": {"type": "bundle"},
+        "has_audio": {"has_audio": "true"},
+        "taken": {"order": "-taken", "type": "video"},
+        "semantic_audio_off": {"semantic": "red", "type": "audio"},
     }
     out["searches"] = {k: sorted(ids(client.get("/api/items", params=p).json()))
                        for k, p in searches.items()}
     return out
 
 
-def test_rebuild_and_verify_cover_milestones_2_and_3(client, upload, faces_on, clean,  # noqa: F811
-                                                      capsys):
+def test_rebuild_and_verify_cover_milestones_2_to_5(client, upload, faces_on, clean,  # noqa: F811
+                                                     capsys, tmp_path):
     folder = client.post("/api/folders", json={"name": "Shoots"}).json()
     fids = json.dumps([folder["id"]])
     items = {}
@@ -136,6 +162,39 @@ def test_rebuild_and_verify_cover_milestones_2_and_3(client, upload, faces_on, c
     res = client.patch(f"/api/items/{items['r2']}", json={"flag": "pick", "label": "red"})
     assert res.status_code == 200, res.text
 
+    # M4: provenance (+ XMP sidecar), a page snapshot, a share, a link-rot result
+    res = client.patch(f"/api/items/{items['g0']}", json={"provenance": {
+        "ai_generated": True, "license": "CC0", "creator": "Ana"}})
+    assert res.status_code == 200, res.text
+    res = client.post(f"/api/items/{items['g0']}/snapshot",
+                      json={"html": "<p>The zeppelin over the harbour</p>",
+                            "page_url": "https://news.test/z", "title": "Z"})
+    assert res.status_code == 200, res.text
+    share = client.post("/api/shares", json={"target_kind": "folder", "target_id": folder["id"],
+                                             "title": "Shoots", "password": "pw pw"})
+    assert share.status_code == 201, share.text
+    gone = upload("gone.png", data=solid((90, 90, 90)), source_url="https://gone.test/x")
+    items["gone"] = gone["item"]["id"]
+    from kist.services import linkrot
+
+    with SessionLocal() as s:
+        linkrot.record(s, items["gone"], "gone", "https://web.archive.org/web/2020/x")
+    # M5: a video (media block, scrub sidecar, a chosen cover), audio
+    # (waveform), a bundle (manifest)
+    import media_fixtures as F
+
+    if F.HAVE_FFMPEG:
+        items["vid"] = upload("v.mp4", F.video(tmp_path / "v.mp4").read_bytes(),
+                              "application/octet-stream")["item"]["id"]
+        res = client.post(f"/api/items/{items['vid']}/cover", json={"t": 2})
+        assert res.status_code == 200, res.text
+        items["song"] = upload("song.mp3", F.audio(tmp_path / "s.mp3").read_bytes(),
+                               "application/octet-stream")["item"]["id"]
+    items["kit"] = upload("kit.zip", F.zip_with(tmp_path / "kit.zip", {
+        "kit/albedo.png": F.png((120, 100, 80), (64, 64)), "kit/LICENSE.txt": b"CC0"}
+    ).read_bytes(), "application/zip")["item"]["id"]
+    drain()
+
     before = snapshot(client, items)
     # the snapshot shows every part really happened
     assert before["searches"]["implied"] == sorted(items[k] for k in ("r0", "r1", "r2"))
@@ -155,6 +214,22 @@ def test_rebuild_and_verify_cover_milestones_2_and_3(client, upload, faces_on, c
     assert before["items"]["g2"]["label"] == "blue"
     assert before["used_in"] == [board.json()["id"]]
     assert all(before["counts"][k] > 0 for k in before["counts"])
+    assert before["searches"]["page_q"] == [items["g0"]]
+    assert before["searches"]["ai_generated"] == before["searches"]["license"] == [items["g0"]]
+    assert before["searches"]["gone"] == [items["gone"]]
+    assert before["searches"]["bundle"] == [items["kit"]]
+    assert before["items"]["gone"]["source_wayback_url"].startswith("https://web.archive")
+    assert "zeppelin" in before["snapshot_text"]["g0"]
+    assert before["shares"][0]["slug"] and len(before["shares"]) == 1
+    assert before["side_files"]["g0"] == ["original.xmp", "page/snapshot.html", "page/text.txt"]
+    assert before["side_files"]["kit"] == ["bundle.json"]
+    if "vid" in items:
+        assert before["items"]["vid"]["media"]["cover_time"] == 2.0
+        assert before["side_files"]["vid"] == ["scrub.json", "scrub.webp"]
+        assert before["side_files"]["song"] == ["waveform.json"]
+        assert before["searches"]["audio"] == [items["song"]]
+        assert before["searches"]["has_audio"] == sorted([items["vid"], items["song"]])
+        assert before["searches"]["semantic_audio_off"] == [items["song"]]
     capsys.readouterr()
     assert cli.verify() == 0, (capsys.readouterr().out, items)
 

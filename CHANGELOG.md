@@ -6,11 +6,15 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
-Kist 2.0, milestones 1 to 3: the platform and AI infrastructure; finding
+Kist 2.0, milestones 1 to 5: the platform and AI infrastructure; finding
 things (search by meaning, colour, text in images and by image; a tag
-vocabulary, stacks, duplicates, suggested collections, faces); and the
+vocabulary, stacks, duplicates, suggested collections, faces); the
 backend for creative workflows (boards, flags and labels, annotations,
-versions, templates, triage, the command palette). Everything runs on your
+versions, templates, triage, the command palette); getting things in and
+out (share links, portable exports, export presets, provenance, page
+snapshots, the link-rot watch, importers, XMP sidecars); and formats and
+media (video scrubbing, clips and proxies, audio, camera metadata, RAW,
+design files, SVG, 3D, fonts, bundles, a timeline and a map). Everything runs on your
 own hardware unless you choose a cloud caption provider, every change is in
 the item history and undoes as a batch, and every new piece of data is a
 plain file next to the library, so `kist rebuild-index` restores it.
@@ -29,8 +33,9 @@ From 1.5.0, in this order:
   migration 0101 says why. Stay on the `pg16` tag: a different Postgres
   major version can't open a pg16 data directory.
 - Then: `docker compose pull db && docker compose build && docker compose
-  up -d`. Migrations 0006–0010, 0101, 0201, 0301 and 0401 run on start
-  (one line, in that order). The new `ml` service
+  up -d`. Migrations 0006–0010, 0101, 0201, 0301, 0401, 0501, 0601 and 0602
+  run on start (one line, in that order). The rebuilt image now includes
+  exiftool and the `media` extra (fontTools, brotli, resvg-py, trimesh). The new `ml` service
   downloads its model files (~600 MB, checked by sha256) into the
   `ml-models` volume on first start; AI jobs wait for it.
 - Run `kist rewrite-meta` once (it adds `protected`, `links` and `thumbhash`
@@ -85,6 +90,70 @@ From 1.5.0, in this order:
   `.kist/people.json`, `.kist/templates.json`, `items/*/annotations.json`,
   `items/*/ai/caption.json`, `items/*/ai/faces.json` and
   `items/*/ai/tag-feedback.json` (`.kist/collections.json` is a cache).
+- Milestones 4 and 5's migrations: 0501 (the `shares` table,
+  `items.provenance` seeded from `source_url`, which stays and equals
+  `provenance.page_url`, the link-rot columns, `item_text` source `page`),
+  0601 (`items.media` and its indexed columns `taken_at`, `taken_sort`,
+  `has_gps`, `lat`/`lon`, `camera`, `lens`, `vertical`, `has_audio`, `place`,
+  `raw_pair_key`) and 0602 (`items.added_by_token`, see below).
+- The one `kist rewrite-meta` above also adds `provenance`, `source_check`
+  and `media` to every meta.json, writes `.kist/shares.json` and an
+  `original.xmp` for every image (`kist xmp --rewrite` does only the
+  latter). Until then `kist verify` stays quiet about the missing keys.
+- Then `docker compose exec worker kist media-backfill` (once; `--limit N`
+  does it in parts): camera and video metadata, scrub sprites and
+  waveforms, and older PSDs, RAWs, design files, models and zips get their
+  new kinds and previews.
+- Then `docker compose exec worker kist regen-previews --colors-only`
+  (the same command as for Milestone 2's palettes; run it after
+  `media-backfill`): audio waveforms and font specimens lose the palette
+  they never had (colour search no longer finds Kist's own colours), and
+  design files keep theirs.
+- Optional: `docker compose exec worker kist geo-download` (about 10 MB from
+  GeoNames, once) names the places of photos with GPS, offline afterwards.
+- Optional: the map's tiles. By default the web map reads a Protomaps
+  PMTiles file you download into the library (`docs/maps.md`); or set
+  `KIST_MAP_TILES_URL` and `KIST_MAP_ATTRIBUTION` for a hosted provider
+  (that provider then sees which areas you look at).
+- Optional: hardware video encoding on an Intel iGPU. Set
+  `KIST_HWACCEL=vaapi` (or `qsv`) for the worker and uncomment its
+  `/dev/dri` `devices` and `group_add` lines in `docker-compose.yml`; a
+  failed GPU encode falls back to the CPU. `KIST_FFMPEG_THREADS` (2) caps
+  every ffmpeg run, which also runs under `nice`.
+- The worker now checks each item's source page about once a week (a
+  request every 2 s, never the same host twice in 10 s). Set
+  `KIST_LINK_CHECK_DAYS=0` to keep Kist from contacting those sites.
+  `KIST_WAYBACK=1` (off) also asks archive.org, an outside service, about
+  gone sources.
+- **Share links are Kist's first pages without a token.** Only `/s/<slug>`
+  (and `/robots.txt`) are public; they serve only that share's items,
+  never originals unless the share allows it, with no script, a sandboxing
+  CSP, `noindex`, scrypt-hashed passwords with a rate limit, and 410 once
+  expired or revoked. Visitors' addresses aren't logged. If Kist sits
+  behind a proxy with its own login, exempt `/s/` there only if you want
+  shares to work for people without that login. Review
+  `GET /api/shares` now and then; revoking is instant.
+- The browser extension and the bookmarklet's `/add` page: create an
+  add-only token for them (Settings → Tokens). It can now also attach a
+  page snapshot to an item it added itself in the last 10 minutes
+  (migration 0602 records which token added an item; the column isn't in
+  meta.json, so a rebuild just closes that window early).
+- New files to back up: `.kist/shares.json`, `.kist/export-presets.json`,
+  `items/*/page/`, `items/*/original.xmp`, `items/*/poster.png` (uploaded
+  3D/design posters) and `.kist/geo/` (or re-run `geo-download`).
+  `library/exports/` empties itself; scrub sprites, waveforms, proxies and
+  bundle manifests are regenerated by `regen-previews`.
+- New settings, all optional, in `.env.example` and passed through by
+  `docker-compose.yml`: M4 `KIST_EXPORT_RETENTION_DAYS` (7),
+  `KIST_SNAPSHOTS` (off), `KIST_LINK_CHECK_DAYS` (7),
+  `KIST_LINK_CHECK_DELAY_SECONDS` (2), `KIST_WAYBACK` (off),
+  `KIST_XMP_SIDECARS` (on), `KIST_SHARE_PASSWORD_ATTEMPTS` (10); M5
+  `KIST_FFMPEG_THREADS` (2), `KIST_HWACCEL` (none), `KIST_VAAPI_DEVICE`,
+  `KIST_SCRUB_FRAMES` (20), `KIST_CLIP_MAX_SECONDS` (600),
+  `KIST_GIF_MAX_SECONDS` (60), `KIST_PROXY_MAX_SIDE` (1920),
+  `KIST_EXIFTOOL` (on), `KIST_BUNDLE_MAX_ENTRIES`,
+  `KIST_BUNDLE_MAX_TOTAL_MB`, `KIST_BUNDLE_MAX_ENTRY_MB`,
+  `KIST_MAP_TILES_URL`, `KIST_MAP_ATTRIBUTION`.
 
 ### Milestone 1: the platform
 
@@ -425,25 +494,7 @@ compare, triage, quick look and the Cmd+K palette (the web screens follow).
 
 ### Milestone 4: in, out and sharing
 
-#### Upgrade notes
-- Migration 0501 runs on start: the `shares` table, `items.provenance`
-  (seeded from `source_url`, which stays and equals `provenance.page_url`),
-  the link-rot columns, and `item_text` accepting source `page`.
-- Run `kist rewrite-meta` once: it adds `provenance` and `source_check` to
-  every meta.json, writes `library/.kist/shares.json` and an `original.xmp`
-  for every image (`kist xmp --rewrite` does only the latter). Until then
-  `kist verify` stays quiet about the missing keys.
-- The worker now checks each item's source page about once a week (a
-  request every 2 s, never the same host twice in 10 s). Set
-  `KIST_LINK_CHECK_DAYS=0` to keep Kist from contacting those sites.
-- Back up `library/.kist/shares.json`, `export-presets.json` and the new
-  `items/*/page/` folders with the rest of the library; `library/exports/`
-  can be left out (it empties itself).
-- New settings: `KIST_EXPORT_RETENTION_DAYS` (7), `KIST_SNAPSHOTS` (off),
-  `KIST_LINK_CHECK_DAYS` (7), `KIST_LINK_CHECK_DELAY_SECONDS` (2),
-  `KIST_WAYBACK` (off), `KIST_XMP_SIDECARS` (on),
-  `KIST_SHARE_PASSWORD_ATTEMPTS` (10). All are in `.env.example` and passed
-  through by `docker-compose.yml`.
+(Upgrade notes: in the combined list above.)
 
 #### Added
 - **Share links.** Read-only pages at `/s/<slug>` for a folder, smart
@@ -492,23 +543,13 @@ compare, triage, quick look and the Cmd+K palette (the web screens follow).
 - MCP: `set_provenance`, `export_collection`, `export_status`,
   `get_page_snapshot`.
 - CLI: `kist import`, `kist xmp`, `kist link-check`.
+
 ### Milestone 5: formats and media
 
 Kist now looks inside video, audio, photos, RAW files, design sources, SVG,
 3D models, fonts and zip bundles, and adds a timeline, On this day and a map.
 
-#### Upgrade notes
-- Migration 0601 adds `items.media` and the media columns (runs on start).
-- Run `docker compose exec worker kist media-backfill` once: it reads
-  camera and video metadata, makes scrub sprites and waveforms, and gives
-  older design files, RAWs, models and zips their new kinds and previews.
-  `--limit N` does it in parts.
-- Optional: `docker compose exec worker kist geo-download` (about 10 MB from
-  GeoNames, once) names the places of photos with GPS, offline.
-- The image now includes exiftool and the `media` extra (fontTools,
-  resvg-py, trimesh, numpy). Rebuild: `docker compose build`.
-- Hardware encoding on an Intel iGPU: `KIST_HWACCEL=vaapi` (or `qsv`) and
-  the commented `/dev/dri` lines under the worker in `docker-compose.yml`.
+(Upgrade notes: in the combined list above.)
 
 #### Added
 - Video: a hover-scrub sprite per video (`scrub.webp` + `scrub.json`, 20
@@ -567,6 +608,45 @@ Kist now looks inside video, audio, photos, RAW files, design sources, SVG,
   foreignObject or external references.
 - Bundles are never extracted; traversal paths are refused and size, total
   and entry-count caps stop zip bombs. Design-file zip entries are capped.
+
+### Milestones 4 and 5 with 2 and 3
+- One filter path: the provenance filters (`ai_generated`, `license`,
+  `source_status`) and the media filters (`taken_after`, `taken_before`,
+  `has_gps`, `camera`, `lens`, `place`, `duration_min`, `duration_max`,
+  `vertical`, `has_audio`) go through the same filter builder as M2 and M3's,
+  so they work in the plain list, `semantic`, `similar`, `color`, `text`,
+  hybrid and search by image, and for a folder-limited token. Smart folders
+  can save them, and a share or export of a smart folder holds exactly what
+  it shows. `/api/timeline`, `/api/on-this-day` and `/api/map` take every
+  `GET /api/items` filter (flags, labels, people, tags with the
+  vocabulary, `text=` ...).
+- `q` also finds the text of a saved page snapshot and the place name;
+  `text=` (and `has_text`) stays the text inside images and PDFs only.
+  Snippets prefer OCR/PDF text, then the page, then the caption.
+- Boards can be shared and exported: their live items in reading order (top
+  to bottom, left to right); a trashed board can't be.
+- RAW+JPEG stack suggestions use the date Kist reads from the RAW itself
+  (`raw_pair_key`, `taken_at`), so a reused file name from another shoot
+  isn't paired; times are compared to the second.
+- Fonts keep Milestone 2's specimen as their thumbnail and gain font-info
+  and glyphs. What gets embedded (for meaning search and "more like this"):
+  images, RAW, SVG, video, PDF and design-file previews, font specimens, and
+  a model's or bundle's real picture; never audio (its thumbnail is a
+  waveform) or a generic icon. Waveforms, font specimens and icons get no
+  perceptual hash or palette. OCR stays with screenshots and PDFs.
+- The browser extension's requests as it sends them: `POST /api/items`
+  takes flat provenance fields beside the file or URL (`page_url`,
+  `image_url`, `title`, `captured_at`, `method` incl. `bookmarklet`,
+  `author`/`creator`, `credit`, `site`, `license`,
+  `license_url`/`rights_url`; a value that doesn't validate is dropped
+  rather than failing the save), and `POST /api/items/{id}/snapshot` takes
+  `{html, page_url, title, captured_at}` or a raw `text/html` body.
+- MCP: `search_items` and `search_by_image` take the provenance and media
+  filters; `search_by_image` also `person` and `collapse_stacks`; `type`
+  lists the new kinds and `order` takes `-taken`/`taken`.
+- `kist rebuild-index` and `kist verify` cover all five milestones at once
+  (shares, provenance, snapshots, XMP, link-rot results, media blocks and
+  their sidecars, alongside M2/M3's data).
 
 ## [1.5.0] - 2026-11-09
 

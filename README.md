@@ -603,11 +603,15 @@ merges into an existing one, keeping properties it doesn't manage.
 `kist xmp --export DIR` writes `<name>.xmp` beside files you exported
 (matched by content), `kist xmp --rewrite` refreshes them all.
 
-**Page snapshots.** `POST /api/items/{id}/snapshot {html}` keeps the page
-an item came from (as the browser extension captured it) in
-`items/<id>/page/`, with scripts stripped; its text becomes searchable item
-text. `GET /api/items/{id}/snapshot` serves it sandboxed. With
+**Page snapshots.** `POST /api/items/{id}/snapshot {html, page_url, title,
+captured_at}` (or a raw `text/html` body) keeps the page an item came from
+(as the browser extension captured it) in `items/<id>/page/`, with scripts
+stripped; its text is found by `q` (not by `text=`, which is the text inside
+images and PDFs). `GET /api/items/{id}/snapshot` serves it sandboxed. With
 `KIST_SNAPSHOTS=1`, sending no body makes the server fetch `page_url` once.
+The extension's add-only token may snapshot an item it added itself in the
+last 10 minutes; anything else needs a write, agent or admin token. A
+folder-limited reader doesn't see snapshots.
 
 **Link-rot watch.** The worker re-checks every source page weekly, politely,
 and records `source_status` (`ok`, `moved`, `gone`, `error`) and
@@ -649,8 +653,8 @@ claude mcp add --transport http kist http://<host>:8080/mcp \
 
 | tool | |
 |---|---|
-| `search_items` | `query` (filename, notes, annotation text, text in images and captions), tags (all / any / none; aliases, implied tags and `brand:*` namespaces match), folder, type, rating, `view="unfiled"` (the inbox), `state="trashed"`, `preview_status`, `flag`, `label`, `person`, `collapse_stacks`; ranked by `semantic` (a description: what the images show), `similar_to` (an item id), `color` (+ `color_tol`), `text` (words inside screenshots and PDFs); `has_text`. Every filter works with every ranking. Ranked items carry `match {kind, score, snippet}` |
-| `search_by_image` | items that look like an image given by URL or a file under `library/import/` (nothing is saved); the main filters (query, tags, folder, type, rating, color, flag, label) |
+| `search_items` | `query` (filename, notes, annotation text, text in images and captions, a saved page's text, the place name), tags (all / any / none; aliases, implied tags and `brand:*` namespaces match), folder, type (image, video, pdf, audio, model, font, design, bundle, other), rating, `view="unfiled"` (the inbox), `state="trashed"`, `preview_status`, `flag`, `label`, `person`, `collapse_stacks`; provenance `ai_generated` (true/false/unknown), `license`, `source_status`; media `taken_after`/`taken_before` (ISO dates), `camera`, `lens`, `has_gps`, `place`, `vertical`, `has_audio`, `duration_min`/`duration_max`; `order` also `-taken`/`taken`; ranked by `semantic` (a description: what the images show), `similar_to` (an item id), `color` (+ `color_tol`), `text` (words inside screenshots and PDFs); `has_text`. Every filter works with every ranking. Ranked items carry `match {kind, score, snippet}` |
+| `search_by_image` | items that look like an image given by URL or a file under `library/import/` (nothing is saved); the main filters (query, tags, folder, type, rating, color, flag, label, `person`, `collapse_stacks`, and the provenance and media filters) |
 | `item_palette` | an item's colours `[{hex, pct, name}]` |
 | `get_item` | full metadata |
 | `view_item` | returns the image itself so the model can see it |
@@ -676,6 +680,7 @@ claude mcp add --transport http kist http://<host>:8080/mcp \
 | `set_provenance` | creator, credit, license, page/image URL, `ai_generated` … (undoable) |
 | `export_collection`, `export_status` | build a portable BagIt export of a folder, smart folder, items or everything, then hand the user its download link |
 | `get_page_snapshot` | the readable text of the page an item was saved from, if kept |
+| `view_video`, `save_frame`, `make_clip` | watch a video as one contact sheet with timestamps, keep a frame as its own item, cut a clip (a job) |
 
 Every item carries `state` (`active` or `trashed`), `preview_status`
 (`ready`, `pending`, `failed` or `none`) and a `web_url` that opens it in the
@@ -808,8 +813,9 @@ GET    /api/items/{id}/font-info family, style, glyph count, variable axes, scri
 GET    /api/items/{id}/glyphs    ?page=: the font's codepoints, 256 a page
 GET    /api/items/{id}/bundle    what's inside a zip bundle; .../bundle/{path} serves one
                                  file from it (paths that leave the bundle: 400)
-GET    /api/timeline             ?group=day|month|year + the item filters:
+GET    /api/timeline             ?group=day|month|year + every GET /api/items filter:
                                  [{key, count, first_item_id}] by date taken
+                                 (on-this-day and map take the same filters)
 GET    /api/on-this-day          ?day=YYYY-MM-DD: items taken that day in earlier years
 GET    /api/map                  ?bbox=w,s,e,n&zoom=: GPS items clustered on a grid
 GET    /api/map/config           tile URL, attribution, whether place names are loaded
@@ -940,12 +946,21 @@ GET    /api/items                + ai_generated (true|false|unknown), license (t
                                  "none"), source_status (ok|gone|moved|error|unchecked)
 PATCH  /api/items/{id}           + provenance {...} (merged; null removes a field;
                                  page_url sets source_url)
-POST   /api/items                + provenance (JSON; a form field for uploads); for
-                                 {url}: title (-> provenance.page_title) and text (added
-                                 to the notes); Accept: text/plain answers
+POST   /api/items                + provenance (JSON; a form field for uploads), and/or
+                                 flat fields (form fields or JSON keys, as the browser
+                                 extension and the /add page send them): page_url,
+                                 image_url, title, captured_at, method (upload|paste|url|
+                                 extension|bookmarklet|inbox|mcp|import), author|creator,
+                                 credit, site, license, license_url|rights_url (a value
+                                 that doesn't validate is dropped; a provenance object
+                                 wins); for {url}: title (-> provenance.page_title) and
+                                 text (added to the notes); Accept: text/plain answers
                                  "Saved to Kist: <name>" (201) / "Already in Kist: <name>"
-POST   /api/items/{id}/snapshot  JSON {html} or a text/html body; no body: fetch page_url
-                                 on the server (KIST_SNAPSHOTS=1, else 409)
+POST   /api/items/{id}/snapshot  JSON {html, page_url?, title?, captured_at?} or a raw
+                                 text/html body; no body: fetch page_url on the server
+                                 (KIST_SNAPSHOTS=1, else 409). An edit scope, or an
+                                 add-only token for an item it added itself under 10
+                                 minutes ago (else 403)
 GET    /api/items/{id}/snapshot  the saved page (CSP: sandbox)
 GET    /api/items/{id}/snapshot/text
 POST   /api/items/export-images  {item_ids, preset: name | {max_side, format, quality,
