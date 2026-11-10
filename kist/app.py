@@ -17,11 +17,14 @@ from .mcp_server import mcp, mcp_http_app
 from .observability import RequestContext, configure_logging
 from .schemas import ItemOut
 from .services import ai as ai_svc
+from .services import collections as collections_svc
 from .services import events as events_svc
+from .services import faces as faces_svc
 from .services import folders as folders_svc
 from .services import items as items_svc
 from .services import jobs as jobs_svc
 from .services import smart_folders as smart_svc
+from .services import stacks as stacks_svc
 from .services import tokens as tokens_svc
 from .services.search import BadCursor
 from .services.validation import ValidationError
@@ -92,6 +95,9 @@ def _error(status: int, detail) -> JSONResponse:
 @app.exception_handler(folders_svc.FolderNotFound)
 @app.exception_handler(tokens_svc.NotFound)
 @app.exception_handler(events_svc.NotFound)
+@app.exception_handler(stacks_svc.NotFound)
+@app.exception_handler(faces_svc.NotFound)
+@app.exception_handler(collections_svc.NotFound)
 async def not_found(request: Request, exc: Exception):
     return _error(404, str(exc))
 

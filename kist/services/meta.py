@@ -71,6 +71,7 @@ def to_meta(item: Item) -> dict:
         "rating": item.rating,
         "protected": bool(item.protected),
         "links": _links(item),
+        "stack": _stack(item),
         "notes": item.notes,
         "source_url": item.source_url,
         "tags": sorted(t.name for t in item.tags),
@@ -87,6 +88,12 @@ def _links(item: Item) -> list[dict]:
     from .links import meta_links
 
     return meta_links(item)
+
+
+def _stack(item: Item) -> dict | None:
+    from .stacks import meta_block
+
+    return meta_block(item)
 
 
 def folder_path(folder) -> list[str]:

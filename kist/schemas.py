@@ -33,6 +33,8 @@ class ItemOut(BaseModel):
     notes: str
     source_url: str | None
     tags: list[str]
+    # tags the vocabulary implies (boots -> shoes); virtual, never stored
+    implied_tags: list[str] = []
     protected: bool = False  # can't be trashed or purged until unprotected
     state: str  # lifecycle.ItemState: active | trashed
     preview_status: str  # lifecycle.PreviewStatus: pending | ready | failed | none
@@ -43,9 +45,15 @@ class ItemOut(BaseModel):
     created_at: datetime
     modified_at: datetime
     deleted_at: datetime | None
+    # the item's stack (services/stacks.py) and how many members you can see
+    stack_id: str | None = None
+    stack_count: int | None = None
 
     @classmethod
     def from_item(cls, item: Item) -> "ItemOut":
+        from .services.stacks import count_for
+        from .services.vocabulary import implied_for_item
+
         status = item.preview_status or PreviewStatus.PENDING
         # a pending retry keeps serving the old thumbnails until it finishes
         has_thumb = status == PreviewStatus.READY or (
@@ -70,6 +78,7 @@ class ItemOut(BaseModel):
             notes=item.notes,
             source_url=item.source_url,
             tags=sorted(t.name for t in item.tags),
+            implied_tags=implied_for_item(item),
             protected=bool(item.protected),
             state=item_state(item).value,
             preview_status=str(status),
@@ -82,6 +91,8 @@ class ItemOut(BaseModel):
             created_at=item.created_at,
             modified_at=item.modified_at,
             deleted_at=item.deleted_at,
+            stack_id=item.stack_id,
+            stack_count=count_for(item),
         )
 
     @classmethod
@@ -202,6 +213,8 @@ class TagOut(BaseModel):
     id: int
     name: str
     count: int
+    namespace: str | None = None  # "brand" for brand:rolex
+    value: str = ""  # "rolex" for brand:rolex; the name for a plain tag
 
 
 OrderName = Literal["-created", "created", "filename", "-size", "-rating", "-modified"]
@@ -229,6 +242,8 @@ class SmartFolderQuery(BaseModel):
     deleted: bool = False
     created_after: datetime | None = None
     created_before: datetime | None = None
+    stacks: Literal["collapse"] | None = None  # covers only
+    person: str | None = None  # a person id (faces)
 
 
 class SmartFolderOut(BaseModel):

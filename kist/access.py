@@ -131,8 +131,12 @@ RESTRICTED_PATHS = [
         r"^/api/version$",
         r"^/api/items$",
         rf"^{_ITEM}$",
-        rf"^{_ITEM}/(file|thumb|history|links)$",
+        rf"^{_ITEM}/(file|thumb|history|links|faces)$",
         r"^/api/folders$",
+        # filtered to the reader's items (services/stacks.py, faces.py)
+        r"^/api/people$",
+        r"^/api/stacks/(?!suggestions$)[^/]+$",
+        r"^/api/faces/[^/]+/thumb$",
     )
 ]
 HELPER_PREFIX = "/api/ai/jobs"

@@ -23,11 +23,11 @@ RESULT_FILE = "verify.json"
 # compared as written; timestamps are compared as instants below
 COMPARED = (
     "filename", "rating", "notes", "source_url", "tags", "folder_ids", "sha256",
-    "preview_status", "preview_rev", "thumbhash", "protected", "links",
+    "preview_status", "preview_rev", "thumbhash", "protected", "links", "stack",
 )
 COMPARED_TIMES = ("created_at", "modified_at", "deleted_at")
 # keys older meta.json files don't have yet, and what their absence means
-MISSING_MEANS = {"protected": False, "links": []}
+MISSING_MEANS = {"protected": False, "links": [], "stack": None}
 FIXES = (
     "fixes: kist rewrite-meta (meta.json or folders.json out of date; safe while Kist "
     "runs, it re-reads each item as it writes it), kist rebuild-index (rows missing "
@@ -187,6 +187,13 @@ def run(session: Session) -> Report:
     report.problems.extend(tokens_svc.check_file(session))
     report.problems.extend(events_svc.check_files(session))
     check_ai(session, report)
+    from . import faces as faces_svc
+    from . import suggestions as suggestions_svc
+    from . import vocabulary
+
+    report.problems.extend(vocabulary.check_file(session))
+    report.problems.extend(faces_svc.check(session))
+    report.problems.extend(suggestions_svc.check_feedback_files(session))
     for key in meta_svc.pending():
         report.problems.append(f"{key}: an earlier write to disk failed")
     return report

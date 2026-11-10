@@ -158,6 +158,10 @@ class Item(Base):
     )
     # base64 ThumbHash of the preview (services/thumbhash.py); "" = can't be made
     thumbhash: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # services/stacks.py; "stack" in meta.json is the durable copy
+    stack_id: Mapped[str | None] = mapped_column(
+        String(26), ForeignKey("stacks.id", ondelete="SET NULL"), nullable=True
+    )
 
     tags: Mapped[list[Tag]] = relationship(secondary="item_tags", lazy="selectin")
     folders: Mapped[list[Folder]] = relationship(
@@ -292,4 +296,108 @@ class Job(Base):
     )
     finished_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+
+
+# ---------- Milestone 2: organise ----------
+
+
+class TagAlias(Base):
+    """A variant spelling and the tag it stands for (services/vocabulary.py);
+    library/vocabulary.json is the durable copy."""
+
+    __tablename__ = "tag_aliases"
+
+    alias: Mapped[str] = mapped_column(CITEXT, primary_key=True)
+    tag: Mapped[str] = mapped_column(CITEXT)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class TagImplies(Base):
+    """`tag` implies `implied` (boots -> shoes): searching the implied tag
+    finds items carrying `tag`. Never written to items."""
+
+    __tablename__ = "tag_implies"
+
+    tag: Mapped[str] = mapped_column(CITEXT, primary_key=True)
+    implied: Mapped[str] = mapped_column(CITEXT, primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class TagEmbedding(Base):
+    """A tag name as a text vector (zero-shot tag suggestions); a cache."""
+
+    __tablename__ = "tag_embeddings"
+
+    model: Mapped[str] = mapped_column(Text, primary_key=True)
+    tag: Mapped[str] = mapped_column(CITEXT, primary_key=True)
+    vector: Mapped[list[float]] = mapped_column(HalfVec(), deferred=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class TagFeedback(Base):
+    """A tag suggestion someone accepted or rejected for one item."""
+
+    __tablename__ = "tag_feedback"
+
+    item_id: Mapped[str] = mapped_column(
+        String(26), ForeignKey("items.id", ondelete="CASCADE"), primary_key=True
+    )
+    tag: Mapped[str] = mapped_column(CITEXT, primary_key=True)
+    accepted: Mapped[bool] = mapped_column(Boolean)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Stack(Base):
+    """Items shown as one in the grid (RAW+JPEG, a burst, versions)."""
+
+    __tablename__ = "stacks"
+
+    id: Mapped[str] = mapped_column(String(26), primary_key=True)
+    cover_item_id: Mapped[str | None] = mapped_column(
+        String(26), ForeignKey("items.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class Person(Base):
+    """A cluster of faces, named or not (services/faces.py);
+    library/.kist/people.json is the durable copy."""
+
+    __tablename__ = "people"
+
+    id: Mapped[str] = mapped_column(String(26), primary_key=True)
+    name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cover_face_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class Face(Base):
+    """One detected face; items/<id>/ai/faces.json is the durable copy
+    (face `idx` is its position in that file)."""
+
+    __tablename__ = "faces"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    item_id: Mapped[str] = mapped_column(
+        String(26), ForeignKey("items.id", ondelete="CASCADE")
+    )
+    idx: Mapped[int] = mapped_column(Integer)
+    # {x, y, w, h} as fractions of the image, plus landmarks
+    box: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    score: Mapped[float] = mapped_column(Float)
+    model: Mapped[str] = mapped_column(Text)
+    embedding: Mapped[list[float]] = mapped_column(HalfVec(128), deferred=True)
+    person_id: Mapped[str | None] = mapped_column(
+        String(26), ForeignKey("people.id", ondelete="SET NULL"), nullable=True
     )

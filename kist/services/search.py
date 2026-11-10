@@ -79,6 +79,28 @@ def folder_subtree(folder_id: str):
     return tree.union(sa.select(Folder.id).where(Folder.parent_id == tree.c.id))
 
 
+STACK_MODES = ("collapse",)
+
+
+def tag_condition(names: list[str]):
+    """An item carries one of these tags, where a tag also matches through
+    the vocabulary (services/vocabulary.py): an alias finds its tag, and a
+    tag finds every item tagged with a tag that implies it, at any depth
+    (#shoes finds boots). "ns:*" matches any tag in that namespace. The
+    expansion happens here, at query time; nothing is written to items."""
+    from .vocabulary import is_wildcard, matching_names
+
+    conds = []
+    for name in names:
+        ns = is_wildcard(name)
+        if ns is not None:
+            escaped = ns.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            conds.append(Tag.name.ilike(f"{escaped}:%", escape="\\"))
+        else:
+            conds.append(Tag.name.in_(matching_names(name)))
+    return sa.exists().where(ItemTag.item_id == Item.id, ItemTag.tag_id == Tag.id, sa.or_(*conds))
+
+
 def build_filters(
     *,
     q: str | None = None,
@@ -95,6 +117,8 @@ def build_filters(
     created_after: datetime | None = None,
     created_before: datetime | None = None,
     fixity: str | None = None,
+    stacks: str | None = None,
+    person: str | None = None,
 ) -> list[Any]:
     filters: list[Any] = []
     if fixity is not None:
@@ -129,21 +153,9 @@ def build_filters(
         )
     if tags:
         for name in tags:  # AND semantics: item must carry every tag
-            filters.append(
-                sa.exists().where(
-                    ItemTag.item_id == Item.id,
-                    ItemTag.tag_id == Tag.id,
-                    Tag.name == name,
-                )
-            )
+            filters.append(tag_condition([name]))
     if tags_any:  # OR semantics: item carries at least one of these
-        filters.append(
-            sa.exists().where(
-                ItemTag.item_id == Item.id,
-                ItemTag.tag_id == Tag.id,
-                Tag.name.in_(tags_any),
-            )
-        )
+        filters.append(tag_condition(tags_any))
     if untagged:
         filters.append(sa.not_(sa.exists().where(ItemTag.item_id == Item.id)))
     if folder == "none":
@@ -168,6 +180,17 @@ def build_filters(
         filters.append(Item.created_at >= created_after)
     if created_before:
         filters.append(Item.created_at <= created_before)
+    if person:
+        from ..models import Face
+
+        filters.append(sa.exists().where(Face.item_id == Item.id, Face.person_id == person))
+    if stacks is not None:
+        if stacks not in STACK_MODES:
+            raise ValidationError(f"unknown stacks {stacks!r}; expected collapse")
+        if not trashed:  # the trash lists every trashed item on its own
+            from .stacks import representative_filter
+
+            filters.append(representative_filter())
     reader = access.restricted()
     if reader is not None:
         if folder and folder != "none" and folder not in reader.visible_folders:
@@ -234,6 +257,8 @@ def search_items(
     created_after: datetime | None = None,
     created_before: datetime | None = None,
     fixity: str | None = None,
+    stacks: str | None = None,
+    person: str | None = None,
     order: str = "-created",
     limit: int = 100,
     cursor: str | None = None,
@@ -254,6 +279,7 @@ def search_items(
         rating_min=rating_min, deleted=deleted, state=state, view=view,
         preview_status=preview_status,
         created_after=created_after, created_before=created_before, fixity=fixity,
+        stacks=stacks, person=person,
     )
     if order not in ORDERS:
         raise ValidationError(f"unknown order {order!r}; expected one of {', '.join(ORDERS)}")

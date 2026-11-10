@@ -88,11 +88,14 @@ class JobKind(StrEnum):
     REGEN_PREVIEW = "regen_preview"  # retry an item's previews
     EMBED = "embed"  # image embedding (the ml service or a helper)
     OCR = "ocr"  # text in screenshots and PDFs
+    FACES = "faces"  # faces and their embeddings (opt-in: KIST_FACES)
 
 
 # the heavy kinds: they wait while any light job (ingest, previews) is
 # pending, and backfilled ones wait for KIST_AI_WINDOW
-AI_KINDS = (JobKind.EMBED, JobKind.OCR)
+AI_KINDS = (JobKind.EMBED, JobKind.OCR, JobKind.FACES)
+# what a `kist helper` may claim (faces run on the ml service only)
+HELPER_KINDS = (JobKind.EMBED, JobKind.OCR)
 
 
 MAX_ATTEMPTS = 3

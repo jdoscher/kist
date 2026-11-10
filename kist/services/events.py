@@ -55,6 +55,7 @@ class Kind:
     LINK = "link"
     UNLINK = "unlink"
     PROTECT = "protect"
+    STACK = "stack"  # stack membership or cover (services/stacks.py)
 
 
 class NotFound(Exception):
@@ -367,6 +368,8 @@ def event_keys(kind: str, before, after) -> set[str]:
     if kind in (Kind.LINK, Kind.UNLINK):
         link = after.get("link") or before.get("link") or {}
         return {f"link:{link.get('item_id')}:{link.get('kind')}"}
+    if kind == Kind.STACK:
+        return {"stack"}
     return {"state"}  # create, trash, restore, purge
 
 
@@ -407,6 +410,7 @@ def _apply_inverse(session: Session, ev: ItemEvent) -> str | None:
                 session, ev.item_id,
                 add=[old[k] for k in old.keys() - new.keys()],
                 remove=[new[k] for k in new.keys() - old.keys()],
+                resolve=False,  # put back exactly the old names, aliases or not
             )
         elif ev.kind == Kind.FOLDERS:
             old, new = set(before.get("folder_ids", [])), set(after.get("folder_ids", []))
@@ -429,6 +433,10 @@ def _apply_inverse(session: Session, ev: ItemEvent) -> str | None:
                 links_svc.unlink(session, src, dst, link["kind"])
             else:
                 links_svc.link(session, src, dst, link["kind"])
+        elif ev.kind == Kind.STACK:
+            from . import stacks as stacks_svc
+
+            stacks_svc.restore_membership(session, ev.item_id, before)
         elif ev.kind == Kind.PURGE:
             return "it was permanently deleted; only a backup can bring it back"
         else:

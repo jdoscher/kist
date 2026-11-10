@@ -100,6 +100,42 @@ MODELS: dict[str, ModelSpec] = {
 }
 
 
+@dataclass(frozen=True)
+class FileSpec:
+    """One model file outside Hugging Face, pinned by commit and sha256."""
+
+    name: str
+    url: str
+    sha256: str
+    size: int
+    license: str = ""
+
+
+# Faces (opt-in, KIST_FACES=1): OpenCV-zoo's YuNet and SFace, Apache-2.0,
+# from github.com/opencv/opencv_zoo at a fixed commit (Git LFS files, served
+# from media.githubusercontent.com)
+OPENCV_ZOO = (
+    "https://media.githubusercontent.com/media/opencv/opencv_zoo/"
+    "48b10fa505aeb51fbd127fc60a5c660040e823b7/models"
+)
+FACE_MODELS: dict[str, FileSpec] = {
+    "detector": FileSpec(
+        name="yunet-2023mar",
+        url=f"{OPENCV_ZOO}/face_detection_yunet/face_detection_yunet_2023mar.onnx",
+        sha256="8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4",
+        size=232589,
+        license="MIT (YuNet) / Apache-2.0 (opencv_zoo)",
+    ),
+    "recognizer": FileSpec(
+        name="sface-2021dec",
+        url=f"{OPENCV_ZOO}/face_recognition_sface/face_recognition_sface_2021dec.onnx",
+        sha256="0ba9fbfa01b5270c96627c4ef784da859931e02f04419c829e83484087c34e79",
+        size=38696353,
+        license="Apache-2.0",
+    ),
+}
+
+
 class ModelError(RuntimeError):
     pass
 
@@ -149,6 +185,23 @@ def ensure_files(spec: ModelSpec, tower: str, cache_dir: Path,
             continue
         _download(spec.url(rel, base_url), dest, sha, size)
     return root
+
+
+def ensure_file(spec: FileSpec, cache_dir: Path, base_url: str | None = None) -> Path:
+    """Download (if needed) and verify one pinned file; returns its path.
+    KIST_FACE_MODELS_URL replaces the opencv_zoo prefix (a mirror)."""
+    dest = cache_dir / "faces" / spec.url.rsplit("/", 1)[-1]
+    if _is_verified(dest, spec.sha256, spec.size):
+        return dest
+    if dest.is_file() and dest.stat().st_size == spec.size and sha256_of(dest) == spec.sha256:
+        _verified_marker(dest).write_text(spec.sha256)
+        return dest
+    url = spec.url
+    mirror = base_url or os.environ.get("KIST_FACE_MODELS_URL", "")
+    if mirror:
+        url = mirror.rstrip("/") + "/" + spec.url.rsplit("/", 1)[-1]
+    _download(url, dest, spec.sha256, spec.size)
+    return dest
 
 
 def _download(url: str, dest: Path, sha: str, size: int) -> None:

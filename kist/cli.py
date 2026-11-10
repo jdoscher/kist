@@ -228,10 +228,14 @@ def recover_without_meta(session, item_dir: Path) -> str | None:
 
 
 def rebuild_index(wipe: bool) -> int:
-    from .services import ai
+    from .models import Person, Stack, TagAlias, TagEmbedding, TagImplies
+    from .services import ai, vocabulary
     from .services import events as events_svc
+    from .services import faces as faces_svc
     from .services import folders as folders_svc
     from .services import links as links_svc
+    from .services import stacks as stacks_svc
+    from .services import suggestions as suggestions_svc
     from .services import tokens as tokens_svc
 
     settings = get_settings()
@@ -260,7 +264,9 @@ def rebuild_index(wipe: bool) -> int:
             session.execute(sa.delete(ItemLink))
             session.execute(sa.delete(ItemTag))
             session.execute(sa.delete(ItemFolder))
-            session.execute(sa.delete(Item))
+            session.execute(sa.delete(Item))  # faces, feedback, embeddings go with them
+            for table in (Stack, Person, TagAlias, TagImplies, TagEmbedding):
+                session.execute(sa.delete(table))  # back from their files below
             session.execute(sa.delete(Tag))
             session.execute(sa.delete(SmartFolder))
             session.execute(sa.delete(Folder))
@@ -275,6 +281,13 @@ def rebuild_index(wipe: bool) -> int:
             warnings += 1
         elif restored_tokens:
             print(f"tokens: {restored_tokens} restored")
+
+        restored_rules, vocab_problem = vocabulary.restore(session)
+        if vocab_problem:
+            warn(f"vocabulary.json unreadable: {vocab_problem}")
+            warnings += 1
+        elif restored_rules:
+            print(f"vocabulary: {restored_rules} aliases and implied tags restored")
 
         if data is not None:
             folder_ids, folder_warnings = restore_folders(session, data)
@@ -356,20 +369,28 @@ def rebuild_index(wipe: bool) -> int:
 
         print(f"items: {ok} restored, {skipped} already present, {errors} errors")
 
-        # links need both ends: a second pass once every item is back
-        links = 0
+        # links and stacks need every member: a second pass once all are back
+        links = stacked = 0
         for meta_file in sorted(items_dir.glob("*/meta.json")):
             try:
                 meta = json.loads(meta_file.read_text())
                 if meta.get("links") and session.get(Item, meta.get("id")) is not None:
                     links += links_svc.restore_from_meta(session, meta["id"], meta["links"])
                     session.commit()
+                if meta.get("stack") and session.get(Item, meta.get("id")) is not None:
+                    item = session.get(Item, meta["id"])
+                    if item.stack_id is None:
+                        stacked += stacks_svc.restore_from_meta(session, meta["id"],
+                                                                meta["stack"])
+                        session.commit()
             except Exception as exc:
                 session.rollback()
                 warn(f"{meta_file}: links not restored: {exc}")
                 warnings += 1
         if links:
             print(f"links: {links} restored")
+        if stacked:
+            print(f"stacks: {stacked} items put back in their stacks")
         restored_events, bad_lines = events_svc.restore(session)
         print(f"history: {restored_events} events restored")
         if bad_lines:
@@ -391,6 +412,24 @@ def rebuild_index(wipe: bool) -> int:
                 warnings += 1
         print(f"AI results loaded from sidecars: {emb} embeddings, {txt} texts")
 
+        # faces (ai/faces.json), who they are (people.json), tag feedback
+        face_rows = feedback = 0
+        for item_id in session.execute(sa.select(Item.id).order_by(Item.id)).scalars().all():
+            try:
+                face_rows += faces_svc.load_sidecar(session, item_id)
+                feedback += suggestions_svc.load_feedback_sidecar(session, item_id)
+            except Exception as exc:
+                session.rollback()
+                warn(f"{item_id}: faces or tag feedback unreadable: {exc}")
+                warnings += 1
+        people, people_problem = faces_svc.restore_people(session)
+        if people_problem:
+            warn(f"people.json unreadable: {people_problem}")
+            warnings += 1
+        if face_rows or people or feedback:
+            print(f"faces: {face_rows} loaded, {people} people restored; "
+                  f"tag feedback: {feedback}")
+
         # keep snapshots in sync with what we just restored
         folders_svc.snapshot(session)
     if errors or warnings or recovered:
@@ -403,9 +442,13 @@ def rebuild_index(wipe: bool) -> int:
 
 
 def rewrite_meta() -> int:
+    from .models import TagFeedback
     from .services import events as events_svc
+    from .services import faces as faces_svc
     from .services import meta as meta_svc
+    from .services import suggestions as suggestions_svc
     from .services import tokens as tokens_svc
+    from .services import vocabulary
 
     written = failed = 0
     with SessionLocal() as session:
@@ -421,9 +464,16 @@ def rewrite_meta() -> int:
                 failed += 1
         folders_ok = meta_svc.sync_folders(session)
         folders_ok = tokens_svc.sync_file(session) and folders_ok
+        folders_ok = vocabulary.sync_file(session) and folders_ok
+        folders_ok = faces_svc.sync_people_file(session) and folders_ok
+        for item_id in session.execute(
+            sa.select(TagFeedback.item_id).distinct().order_by(TagFeedback.item_id)
+        ).scalars().all():
+            suggestions_svc.write_feedback_sidecar(session, item_id)
     if not failed and folders_ok:
         meta_svc.clear_pending()
-    print(f"rewrote meta.json for {written} items (+ folders.json)"
+    print(f"rewrote meta.json for {written} items (+ folders.json, tokens.json, "
+          "vocabulary.json, people.json)"
           + (f"; {failed} failed (see the log)" if failed else ""))
     return 0 if not failed and folders_ok else 2
 
@@ -742,7 +792,7 @@ def main() -> None:
     p_fix.add_argument("--limit", type=int, default=100,
                        help="how many originals to check (default 100)")
     p_backfill = sub.add_parser("ai-backfill", help="queue AI jobs for items without results")
-    p_backfill.add_argument("--kind", choices=["embed", "ocr"], default=None)
+    p_backfill.add_argument("--kind", choices=["embed", "ocr", "faces"], default=None)
     p_backfill.add_argument("--limit", type=int, default=None,
                             help="at most this many jobs per kind")
     sub.add_parser("ai-sidecars", help="write missing AI sidecar files from the database")

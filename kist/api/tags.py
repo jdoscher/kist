@@ -11,8 +11,11 @@ router = APIRouter(prefix="/tags", tags=["tags"])
 
 
 @router.get("", response_model=list[TagOut])
-def list_tags(session: Annotated[Session, Depends(get_session)]):
-    return tags_svc.list_with_counts(session)
+def list_tags(session: Annotated[Session, Depends(get_session)], namespace: str | None = None):
+    """Every tag with its count, namespace ("brand" for brand:rolex) and
+    value. namespace=brand lists only that namespace; namespace=none only
+    tags outside every namespace."""
+    return tags_svc.list_with_counts(session, namespace)
 
 
 @router.delete("/unused")

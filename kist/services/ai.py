@@ -51,7 +51,7 @@ from sqlalchemy.orm import Session
 from .. import __version__
 from ..config import get_settings
 from ..filetypes import kind_for
-from ..lifecycle import AI_KINDS, JobKind, JobStatus, PreviewStatus
+from ..lifecycle import AI_KINDS, HELPER_KINDS, JobKind, JobStatus, PreviewStatus
 from ..ml.models import MODELS
 from ..models import AiHelper, HalfVec, Item, ItemEmbedding, ItemText, Job
 from . import meta as meta_svc
@@ -546,9 +546,23 @@ def enqueue_for_item(session: Session, item: Item, *, backfill: bool = False,
             session.add(Job(kind=JobKind.OCR,
                             payload={**_payload(item, backfill), "pdf": which == "pdf"}))
             queued.append(JobKind.OCR)
+    if JobKind.FACES in kinds and _faces_wanted(item) and not _open_jobs(
+        session, JobKind.FACES, [item.id]
+    ):
+        session.add(Job(kind=JobKind.FACES, payload=_payload(item, backfill)))
+        queued.append(JobKind.FACES)
     if queued:
         session.commit()
     return queued
+
+
+def _faces_wanted(item: Item) -> bool:
+    """Faces are on, the item is an image with previews, and it hasn't been
+    looked at yet (ai/faces.json is written even when there are none)."""
+    from . import faces as faces_svc
+
+    return (faces_svc.enabled() and faces_svc.source(item) is not None
+            and not faces_svc.sidecar_path(item.id).is_file())
 
 
 def _payload(item: Item, backfill: bool) -> dict:
@@ -571,10 +585,18 @@ def backfill(session: Session, kinds: tuple[str, ...] = AI_KINDS,
              limit: int | None = None) -> dict[str, int]:
     """Queue jobs for every active item without a result for the active
     model. They wait for KIST_AI_WINDOW."""
+    if not get_settings().faces:
+        kinds = tuple(k for k in kinds if k != JobKind.FACES)
     counts = {k: 0 for k in kinds}
     model = active_model()
     for kind in kinds:
-        if kind == JobKind.EMBED:
+        if kind == JobKind.FACES:
+            missing = sa.select(Item.id).where(
+                Item.deleted_at.is_(None),
+                Item.mime.like("image/%"),
+                Item.preview_status == PreviewStatus.READY,
+            )
+        elif kind == JobKind.EMBED:
             missing = sa.select(Item.id).where(
                 Item.deleted_at.is_(None),
                 Item.preview_status == PreviewStatus.READY,
@@ -598,7 +620,11 @@ def backfill(session: Session, kinds: tuple[str, ...] = AI_KINDS,
                     continue
                 if limit is not None and counts[kind] >= limit:
                     break
-                if kind == JobKind.EMBED:
+                if kind == JobKind.FACES:
+                    if not _faces_wanted(item):
+                        continue
+                    session.add(Job(kind=kind, payload=_payload(item, True)))
+                elif kind == JobKind.EMBED:
                     if embed_source(item) is None:
                         continue
                     session.add(Job(kind=kind, payload=_payload(item, True)))
@@ -683,6 +709,13 @@ def run_job(session: Session, job: Job) -> None:
             store_text(session, item.id, source="ocr", text=out.get("text") or "",
                        model=str(out.get("model") or "ocr"), lang=out.get("lang"),
                        boxes=out.get("boxes"))
+    elif job.kind == JobKind.FACES:
+        from . import faces as faces_svc
+
+        src = faces_svc.source(item)
+        if src is None:
+            raise RuntimeError("the item has no image to look for faces in")
+        faces_svc.store(session, item.id, faces_svc.ml_faces(src.read_bytes()))
     else:
         raise ValueError(f"not an AI job: {job.kind}")
 
@@ -742,7 +775,7 @@ def job_for_helper(job: Job) -> dict:
 def helper_claim(session: Session, name: str, kinds: list[str], limit: int,
                  info: dict | None = None) -> list[dict]:
     touch_helper(session, name, info=info)
-    wanted = tuple(k for k in kinds if k in AI_KINDS) or AI_KINDS
+    wanted = tuple(k for k in kinds if k in HELPER_KINDS) or HELPER_KINDS
     # scanned PDFs are read by the server (it has the file and pdfium)
     jobs = claim(session, runner=f"helper:{name}", kinds=wanted, limit=limit,
                  include_pdf=False)
@@ -835,6 +868,7 @@ def status(session: Session) -> dict:
         "window": settings.ai_window or None,
         "window_open": win_open,
         "concurrency": settings.ai_concurrency,
+        "faces": settings.faces,
         "helpers": [
             {"name": h.name, "last_seen": h.last_seen, "jobs_done": h.jobs_done, "info": h.info}
             for h in helpers

@@ -1,11 +1,12 @@
 import json
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
@@ -65,6 +66,9 @@ def list_items(
     cursor: str | None = None,
     # order by meaning: nearest to this text first (needs the ml service)
     semantic: Annotated[str | None, Query(max_length=1000)] = None,
+    # collapse: one entry per stack (its cover), with stack_count
+    stacks: Literal["collapse"] | None = None,
+    person: str | None = None,  # items showing this person (faces)
 ):
     tag_names = list(tags or [])
     semantic_vec, semantic_model = None, None
@@ -83,6 +87,7 @@ def list_items(
         created_after=created_after, created_before=created_before, fixity=fixity,
         limit=limit, cursor=cursor,
         semantic=semantic_vec, semantic_model=semantic_model,
+        stacks=stacks, person=person,
     )
     return ItemPage(
         items=[ItemOut.from_item(i) for i in rows],
@@ -408,3 +413,46 @@ def remove_link(
 ):
     """Remove this item's links to dst_id (only those of `kind`, if given)."""
     return {"removed": links_svc.unlink(session, item_id, dst_id, kind)}
+
+
+# ---------- Milestone 2: tag suggestions and faces ----------
+
+
+class TagFeedbackIn(BaseModel):
+    tag: str
+    accepted: bool
+
+
+@router.get("/{item_id}/tag-suggestions")
+def tag_suggestions(
+    item_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    limit: Annotated[int, Query(ge=1, le=50)] = 10,
+) -> list[dict]:
+    """[{tag, score, why}]: why is "similar items" (tags of the nearest
+    look-alikes) or "matches the image" (zero-shot over the tag names).
+    Never applied by itself; empty until the item has an embedding."""
+    from ..services import suggestions
+
+    return suggestions.suggest(session, item_id, limit)
+
+
+@router.post("/{item_id}/tag-suggestions/feedback")
+def tag_suggestion_feedback(
+    item_id: str, body: TagFeedbackIn, session: Annotated[Session, Depends(get_session)]
+) -> dict:
+    """Remember that a suggestion was accepted or rejected for this item
+    (it isn't suggested for it again). Accepting doesn't add the tag: PATCH
+    /api/items/{id}/tags does."""
+    from ..services import suggestions
+
+    return suggestions.feedback(session, item_id, body.tag, body.accepted)
+
+
+@router.get("/{item_id}/faces")
+def item_faces(item_id: str, session: Annotated[Session, Depends(get_session)]) -> list[dict]:
+    """Faces found in the item (boxes as fractions of the image) and who
+    they are."""
+    from ..services import faces
+
+    return faces.item_faces(session, item_id)
