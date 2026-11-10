@@ -353,6 +353,13 @@ library/
 │                           # tokens.json (hashed tokens), events-purged.jsonl,
 │                           # backup.json, db.sql.gz, checklist.json, retention.json,
 │                           # people.json (names + faces), collections.json (a cache)
+│                           # templates.json (metadata templates),
+│                           # board-events-purged.jsonl
+├── boards/
+│   └── {ulid}/
+│       ├── board.json      # the board: nodes, edges, canvas, version
+│       ├── thumb.webp      # a small rendered snapshot
+│       └── events.jsonl    # the board's history (append-only)
 ├── .staging/               # files on their way in (the worker re-queues strays)
 └── items/
     └── {ulid}/
@@ -361,7 +368,9 @@ library/
         ├── thumb_512.webp  # short side 512 (grid tiles)
         ├── thumb_1024.webp # longest side 1024 (preview, MCP view_item)
         ├── display.webp    # HEIC only: full-resolution copy browsers can show
-        ├── meta.json       # all metadata (incl. links, protected), rewritten on every change
+        ├── meta.json       # all metadata (incl. links, protected, flag, label),
+        │                   # rewritten on every change
+        ├── annotations.json # notes pinned to points, boxes and video times
         ├── events.jsonl    # the item's history, one line per change (append-only)
         ├── fixity.jsonl    # every re-hash of the original: {at, sha256, ok}
         └── ai/             # AI results (rebuild-index loads them, never recomputes)
@@ -471,6 +480,13 @@ claude mcp add --transport http kist http://<host>:8080/mcp \
 | `duplicate_groups`, `resolve_duplicates` | duplicate groups with a suggested keeper; keep one, merge the rest into it and trash them |
 | `suggest_stacks`, `stack_items` | RAW+JPEG, burst and version stacks to propose, and stacking (or `unstack`) |
 | `suggested_collections`, `list_people` | "you seem to collect…" clusters; people found by faces (when on). `search_items` takes `collapse_stacks` and `person` |
+| `list_boards`, `get_board` | boards (moodboards) and their nodes |
+| `create_board(name, item_ids, layout)`, `add_to_board(id, item_ids, layout, notes)` | lay items out as a `grid` or `masonry` board, add more items and notes |
+| `annotate(item_id, text, box?, point?, time?)`, `list_annotations` | pin a note to an area (`box=[x, y, w, h]`, fractions 0–1), a spot or a video time (`time=[start, end]` seconds) |
+
+`update_item` also sets `flag` (`pick`, `reject`) and `label` (`red`,
+`orange`, `yellow`, `green`, `blue`, `purple`; `none` clears either), and
+`search_items` filters by both; its `query` also matches annotation text.
 
 Every item carries `state` (`active` or `trashed`), `preview_status`
 (`ready`, `pending`, `failed` or `none`) and a `web_url` that opens it in the
@@ -649,6 +665,55 @@ POST   /api/client-errors        the web UI reports its crashes here (logged, 30
 GET    /api/health               no auth; the database answers
 ```
 
+Milestone 3 (creative workflows):
+
+```
+GET    /api/items?ids=a,b,c      those items in that order (compare); unknown or
+                                 invisible ids are left out, other filters ignored
+GET    /api/items                also flag=pick|reject|none, label=<colour>|none;
+                                 q also matches annotation text
+PATCH  /api/items/{id}           also flag (pick | reject | null), label (red, orange,
+                                 yellow, green, blue, purple | null); recorded as edits
+GET    /api/items/{id}/annotations        [{id, kind: point|box|range, x, y, w, h,
+POST   /api/items/{id}/annotations         t_start, t_end, text, author, created_at,
+PATCH  /api/items/{id}/annotations/{aid}   resolved}]. x/y/w/h are fractions 0-1 of the
+DELETE /api/items/{id}/annotations/{aid}   image, t_* seconds; every change is an event
+GET    /api/items/{id}/versions  {items (the version_of chain, oldest first), current_id}
+POST   /api/items/{id}/versions  multipart 'file': a new version, linked version_of the
+                                 chain's newest, with its folders and tags
+GET    /api/items/{id}/boards    boards the item is on
+POST   /api/items/rename         {item_ids, pattern, dry_run (default true), start}:
+                                 {name} {ext} {n:3} {date:%Y%m%d} {w} {h} {folder}
+                                 {tag:ns}; collisions get " (2)"; one batch
+                                 -> {items: [{id, before, after, changed}], batch_id}
+GET/POST /api/templates          {name, fields: {tags_add, folder_add, notes_append,
+PUT/DELETE /api/templates/{id}    source_url, rating, label, flag, credit, license}}
+POST   /api/templates/{id}/apply {item_ids}: one batch -> {items, batch_id}
+GET    /api/triage/next          ?view=unfiled|all&after=<id>&prefetch=5&order=
+                                 -> {item, prefetch_ids, remaining}
+GET    /api/palette?q=           [{kind: folder|smart_folder|tag|board|item|action, id,
+                                 title, subtitle}], top 5 of each kind
+GET    /api/boards               ?state=active|trashed&q= -> [{id, name, version,
+                                 item_count, created_at, modified_at, thumb_url}]
+POST   /api/boards               {name, canvas?, nodes?, edges?, item_ids?, layout:
+                                 grid|masonry} -> the board
+GET    /api/boards/{id}          board.json plus state, item_count, missing_item_ids
+PUT    /api/boards/{id}          {base_version, name, canvas, nodes, edges}: 409
+                                 {"detail": {"message", "board"}} if base_version is stale
+PATCH  /api/boards/{id}          {base_version?, name?, canvas?, add, update (JSON merge,
+                                 null removes a key), remove, edges_add, edges_update,
+                                 edges_remove}; without base_version: apply to the latest
+POST   /api/boards/{id}/items    {item_ids, layout}: lay them out below the rest
+DELETE /api/boards/{id}          to the boards trash (purged after the trash retention);
+                                 ?hard=true deletes a trashed board for good
+POST   /api/boards/{id}/restore
+POST   /api/boards/{id}/duplicate
+GET    /api/boards/{id}/thumb    the rendered snapshot (webp)
+GET    /api/boards/{id}/export   ?format=png|pdf|html&scale=1&max_pixels=: PNG/PDF drawn
+                                 from the items' previews (at most 40 MP); HTML is one
+                                 self-contained file with the images inlined
+```
+
 Lists use cursor pagination: pass `next_cursor` back as `cursor` until it is
 `null` (a cursor the server didn't make is a 400).
 
@@ -672,6 +737,17 @@ over 100 characters; folder names that are empty or over 200; notes over
 that isn't a hex colour, `color_tol` outside 0–100, a `text` with no words, a
 caption over 2,000 characters, or `similar` naming an item with no embedding
 yet.
+
+Board nodes are `{id, type: item|note|text|shape|group|link|color, x, y, w,
+h, rot, z, item_id?, crop?, text?, style?, children?}` and edges `{id, from,
+to, label?, style?}`. Every save bumps `version`. A deleted item's node stays
+on the board and is listed in `missing_item_ids` (exports draw a grey box).
+Board edits are batched like item edits: `X-Kist-Batch` groups them and
+`POST /api/batches/{id}/undo` reverts boards and items together (board
+event kinds show as `board_create`, `board_update`, … in `/api/batches`; a
+skipped board change has `"target": "board"`). A folder-limited read token
+sees a board only if every item on it is one it can see (a board with no
+items is hidden from it too).
 
 Every response carries an `X-Request-ID` header (the proxy's, if it sent
 one), every log line names it, and a server error answers

@@ -138,6 +138,10 @@ RESTRICTED_PATHS = [
         r"^/api/people$",
         r"^/api/stacks/(?!suggestions$)[^/]+$",
         r"^/api/faces/[^/]+/thumb$",
+        # Milestone 3: filtered to what the reader sees (services/boards.visible)
+        rf"^{_ITEM}/(annotations|versions|boards)$",
+        r"^/api/boards$",
+        r"^/api/boards/[^/]+(/(thumb|export))?$",
     )
 ]
 HELPER_PREFIX = "/api/ai/jobs"

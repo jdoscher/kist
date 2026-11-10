@@ -130,8 +130,11 @@ def build_filters(
     fixity: str | None = None,
     stacks: str | None = None,
     person: str | None = None,
+    flag: str | None = None,
+    label: str | None = None,
 ) -> list[Any]:
     filters: list[Any] = []
+    filters += _creative_filters(flag, label)
     if fixity is not None:
         if fixity != "failed":
             raise ValidationError(f"unknown fixity {fixity!r}; expected failed")
@@ -154,7 +157,8 @@ def build_filters(
         folder = "none"
     filters.append(Item.deleted_at.isnot(None) if trashed else Item.deleted_at.is_(None))
     if q:
-        # filename, notes, and text in the item (OCR, PDF text, caption)
+        # filename, notes, annotation text, and text in the item (OCR, PDF
+        # text, caption)
         from .ranking import keyword_condition
 
         filters.append(keyword_condition(q))
@@ -213,6 +217,33 @@ def build_filters(
     return filters
 
 
+# ---------- Milestone 3: flags and labels ----------
+
+
+def _creative_filters(flag: str | None, label: str | None) -> list[Any]:
+    """flag= pick | reject | none, label= a colour | none."""
+    from . import validation
+
+    out: list[Any] = []
+    if flag is not None:
+        if flag == "none":
+            out.append(Item.flag.is_(None))
+        elif flag not in validation.FLAGS:
+            raise ValidationError(f"unknown flag {flag!r}; expected pick, reject or none")
+        else:
+            out.append(Item.flag == flag)
+    if label is not None:
+        if label == "none":
+            out.append(Item.label.is_(None))
+        elif label not in validation.LABELS:
+            raise ValidationError(
+                f"unknown label {label!r}; expected one of {', '.join(validation.LABELS)} or none"
+            )
+        else:
+            out.append(Item.label == label)
+    return out
+
+
 SEMANTIC_CURSOR = "~semantic"  # M1's cursor marker (still accepted)
 
 
@@ -244,6 +275,8 @@ def search(
     fixity: str | None = None,
     stacks: str | None = None,
     person: str | None = None,
+    flag: str | None = None,
+    label: str | None = None,
     order: str = "-created",
     limit: int = 100,
     cursor: str | None = None,
@@ -300,6 +333,7 @@ def search(
         preview_status=preview_status,
         created_after=created_after, created_before=created_before, fixity=fixity,
         stacks=None if collapse_ranked else stacks, person=person,
+        flag=flag, label=label,
     )
     if collapse_ranked:
         # the trash lists every trashed item on its own (as build_filters does)

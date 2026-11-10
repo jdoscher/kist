@@ -25,7 +25,8 @@
     kist helper --url URL         run AI jobs on this machine for a Kist
                                    server (token: $KIST_HELPER_TOKEN)
 
-The library on disk (items/*/meta.json + folders.json) is the durable copy;
+The library on disk (items/*/meta.json + folders.json, items/*/annotations.json,
+boards/*/board.json) is the durable copy;
 rebuild-index makes Postgres match it after a database loss or migration to
 new hardware.
 """
@@ -170,6 +171,8 @@ def item_from_meta(session, meta: dict, original: Path, folder_ids: set[str]) ->
         thumbhash=meta.get("thumbhash") if isinstance(meta.get("thumbhash"), str) else None,
         rating=max(0, min(5, int(meta.get("rating") or 0))),
         protected=bool(meta.get("protected")),
+        flag=_known(meta.get("flag"), "flag"),
+        label=_known(meta.get("label"), "label"),
         notes=meta.get("notes") or "",
         source_url=meta.get("source_url"),
         deleted_at=parse_dt(meta.get("deleted_at")),
@@ -184,6 +187,16 @@ def item_from_meta(session, meta: dict, original: Path, folder_ids: set[str]) ->
     item.tags = tags_svc.get_or_create(session, meta.get("tags", []), validate=False)
     item.folders = [session.get(Folder, f) for f in raw_folders if f in folder_ids]
     return item
+
+
+def _known(value, field: str) -> str | None:
+    """A flag/label from meta.json, or None if it isn't one Kist knows."""
+    from .services import validation
+
+    try:
+        return validation.flag(value) if field == "flag" else validation.label(value)
+    except validation.ValidationError:
+        return None
 
 
 def recover_without_meta(session, item_dir: Path) -> str | None:
@@ -260,6 +273,12 @@ def rebuild_index(wipe: bool) -> int:
     with SessionLocal() as session:
         if wipe:
             print("wiping items/tags/folders tables…")
+            # Milestone 3: back from board.json / annotations.json below
+            from .models import Annotation, Board, BoardEvent
+
+            session.execute(sa.delete(BoardEvent))
+            session.execute(sa.delete(Board))  # board_items cascade
+            session.execute(sa.delete(Annotation))
             session.execute(sa.delete(ItemEvent))  # back from events.jsonl below
             session.execute(sa.delete(ItemLink))
             session.execute(sa.delete(ItemTag))
@@ -411,6 +430,7 @@ def rebuild_index(wipe: bool) -> int:
                 warn(f"{item_id}: AI files unreadable: {exc}")
                 warnings += 1
         print(f"AI results loaded from sidecars: {emb} embeddings, {txt} texts")
+        warnings += restore_creative(session)
 
         # faces (ai/faces.json), who they are (people.json), tag feedback
         face_rows = feedback = 0
@@ -436,6 +456,26 @@ def rebuild_index(wipe: bool) -> int:
         print("finished with warnings (see the lines marked !)", file=sys.stderr)
         return 2
     return 0
+
+
+def restore_creative(session) -> int:
+    """Milestone 3: annotations, boards and board history from their files.
+    Returns the number of warnings."""
+    from .services import annotations as annotations_svc
+    from .services import boards as boards_svc
+
+    warnings = 0
+    restored, bad = annotations_svc.restore(session)
+    print(f"annotations: {restored} restored")
+    if bad:
+        warn(f"{bad} annotations.json files unreadable (see the log)")
+        warnings += 1
+    boards, board_events, problems = boards_svc.restore(session)
+    print(f"boards: {boards} restored, {board_events} board events")
+    if problems:
+        warn(f"{problems} board files or event lines unreadable (see the log)")
+        warnings += 1
+    return warnings
 
 
 # ---------- the rest ----------
@@ -470,12 +510,28 @@ def rewrite_meta() -> int:
             sa.select(TagFeedback.item_id).distinct().order_by(TagFeedback.item_id)
         ).scalars().all():
             suggestions_svc.write_feedback_sidecar(session, item_id)
+        failed += rewrite_creative(session)
     if not failed and folders_ok:
         meta_svc.clear_pending()
     print(f"rewrote meta.json for {written} items (+ folders.json, tokens.json, "
           "vocabulary.json, people.json)"
           + (f"; {failed} failed (see the log)" if failed else ""))
     return 0 if not failed and folders_ok else 2
+
+
+def rewrite_creative(session) -> int:
+    """Milestone 3: annotations.json and board files from the database.
+    Returns how many failed."""
+    from .models import Annotation
+    from .services import annotations as annotations_svc
+    from .services import boards as boards_svc
+
+    failed = 0
+    for item_id in session.execute(sa.select(Annotation.item_id).distinct()).scalars().all():
+        if not annotations_svc.sync_file(session, item_id):
+            failed += 1
+    _, board_failed = boards_svc.rewrite_files(session)
+    return failed + board_failed
 
 
 def regen_thumbhashes() -> int:

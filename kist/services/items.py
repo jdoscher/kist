@@ -138,6 +138,10 @@ def update_item(
     elif "folder_id" in fields:
         fid = fields["folder_id"]
         item.folders = resolve_folders(session, [fid]) if fid else []
+    if "flag" in fields:
+        item.flag = validation.flag(fields["flag"])
+    if "label" in fields:
+        item.label = validation.label(fields["label"])
     if fields.get("protected") is not None:
         protect = bool(fields["protected"])
         if item.protected and not protect:

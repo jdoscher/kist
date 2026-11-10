@@ -301,7 +301,10 @@ def purge_expired_trash() -> int:
     from .services import retention
 
     with SessionLocal() as s:
-        return len(retention.purge_expired(s))
+        n = len(retention.purge_expired(s))
+        from .services import boards  # Milestone 3: the boards trash too
+
+        return n + len(boards.purge_expired(s))
 
 
 def check_fixity() -> tuple[int, int]:

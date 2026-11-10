@@ -12,6 +12,7 @@ failed (a bare ValueError reaches it as just "Error executing tool").
 """
 
 import functools
+import json
 from typing import Any
 
 from mcp.server.mcpserver import Image, MCPServer
@@ -24,8 +25,12 @@ from .db import SessionLocal
 from .lifecycle import PreviewStatus, TransitionError
 from .schemas import ItemOut
 from .services import ai as ai_svc
+from .services import annotations as annotations_svc
+from .services import boards as boards_svc
 from .services import captions as captions_svc
+from .services import collections as collections_svc
 from .services import events as events_svc
+from .services import faces as faces_svc
 from .services import folders as folders_svc
 from .services import ingest, library
 from .services import items as items_svc
@@ -33,7 +38,9 @@ from .services import jobs as jobs_svc
 from .services import links as links_svc
 from .services import search as search_svc
 from .services import smart_folders as smart_svc
+from .services import stacks as stacks_svc
 from .services import tags as tags_svc
+from .services import templates as templates_svc
 
 mcp = MCPServer(
     name="kist",
@@ -72,6 +79,13 @@ EXPECTED_ERRORS = (
     jobs_svc.NotFound,
     smart_svc.NotFound,
     events_svc.NotFound,
+    stacks_svc.NotFound,  # Milestone 2 organise
+    faces_svc.NotFound,
+    collections_svc.NotFound,
+    boards_svc.NotFound,  # Milestone 3
+    boards_svc.Conflict,
+    annotations_svc.NotFound,
+    templates_svc.NotFound,
     folders_svc.FolderError,
     TransitionError,
     ValueError,  # validation.ValidationError, BadCursor, NotMediaError, ...
@@ -150,6 +164,9 @@ item_out = ItemOut.for_agent
     "'brand:*' matches any tag in that namespace. collapse_stacks=true shows "
     "one item per stack (in a ranked search, the stack's best match). person "
     "is a person id from list_people. "
+    "flag is pick, reject or none; label is a colour (red, orange, yellow, green, "
+    "blue, purple) or none; both filter ranked searches too. query also matches "
+    "annotation text. "
     "Pass the returned next_cursor to fetch the following page.",
     restricted_ok=True,
 )
@@ -175,6 +192,8 @@ def search_items(
     cursor: str | None = None,
     collapse_stacks: bool = False,
     person: str | None = None,
+    flag: str | None = None,
+    label: str | None = None,
 ) -> dict[str, Any]:
     limit = max(1, min(limit, 100))
     with SessionLocal() as session:
@@ -187,6 +206,7 @@ def search_items(
             semantic=semantic, similar=similar_to, color=color, color_tol=color_tol,
             text=text, has_text=has_text,
             stacks="collapse" if collapse_stacks else None, person=person,
+            flag=flag, label=label,
         )
         return _page(result)
 
@@ -216,6 +236,8 @@ def search_by_image(
     type: str | None = None,
     rating_min: int | None = None,
     color: str | None = None,
+    flag: str | None = None,
+    label: str | None = None,
     limit: int = 25,
     cursor: str | None = None,
 ) -> dict[str, Any]:
@@ -231,7 +253,8 @@ def search_by_image(
     with SessionLocal() as session:
         return _page(search_svc.search(
             session, image_vector=vec, q=query, tags=tags, folder=folder, kind=type,
-            rating_min=rating_min, color=color, limit=max(1, min(limit, 100)), cursor=cursor,
+            rating_min=rating_min, color=color, flag=flag, label=label,
+            limit=max(1, min(limit, 100)), cursor=cursor,
         ))
 
 
@@ -320,7 +343,8 @@ def add_item(
     "http(s) URL; empty string clears it). folder_id ADDS the item to that "
     "folder and keeps its other folders; use set_folders to remove one. "
     "protected=true stops the item being trashed or deleted (only a write "
-    "or admin token can unprotect). "
+    "or admin token can unprotect). flag is pick or reject, label a colour (red, "
+    "orange, yellow, green, blue, purple); 'none' clears either. "
     "Only the fields you pass change. Returns the updated item.",
     needs=Action.EDIT,
 )
@@ -333,10 +357,16 @@ def update_item(
     source_url: str | None = None,
     protected: bool | None = None,
     caption: str | None = None,
+    flag: str | None = None,
+    label: str | None = None,
 ) -> dict[str, Any]:
     fields: dict[str, Any] = {}
     if caption is not None:
         fields["caption"] = caption
+    if flag is not None:
+        fields["flag"] = flag
+    if label is not None:
+        fields["label"] = label
     if protected is not None:
         fields["protected"] = protected
     if rating is not None:
@@ -725,9 +755,119 @@ def list_people() -> list[dict[str, Any]]:
 
 
 def json_safe(value):
-    import json
-
     return json.loads(json.dumps(value, default=str))
+
+
+# ---------- Milestone 3: boards and annotations ----------
+
+
+
+def board_out(session, board) -> dict[str, Any]:
+    out = json.loads(json.dumps(boards_svc.out(session, board), default=str))
+    out["web_url"] = f"{get_settings().public_url.rstrip('/')}/boards/{board.id}"
+    return out
+
+
+@tool(
+    "List boards (moodboards: canvases of library items, notes and arrows), "
+    "newest first: id, name, version, item_count. state='trashed' lists the "
+    "boards trash.",
+    restricted_ok=True,
+)
+def list_boards(state: str = "active", query: str | None = None) -> list[dict[str, Any]]:
+    with SessionLocal() as session:
+        return [json.loads(json.dumps(boards_svc.summary(b), default=str))
+                for b in boards_svc.list_boards(session, state=state, q=query)]
+
+
+@tool(
+    "Get one board's document: nodes (type item|note|text|shape|group|link|"
+    "color, x, y, w, h, item_id for items), edges (arrows from -> to), canvas, "
+    "version, and missing_item_ids (items that were deleted).",
+    restricted_ok=True,
+)
+def get_board(id: str) -> dict[str, Any]:
+    with SessionLocal() as session:
+        return board_out(session, boards_svc.get_board(session, id))
+
+
+@tool(
+    "Create a board from items, laid out as a grid or masonry columns "
+    "(layout='grid'|'masonry'). Use search_items first to pick the items. "
+    "Returns the board (open it with its web_url).",
+    needs=Action.EDIT,
+)
+def create_board(name: str, item_ids: list[str] | None = None,
+                 layout: str = "grid") -> dict[str, Any]:
+    with SessionLocal() as session:
+        return board_out(session, boards_svc.create_board(
+            session, name, item_ids=item_ids or [], layout=layout))
+
+
+@tool(
+    "Add items to a board, laid out below what is already there (grid or "
+    "masonry), and/or notes: each note is a text placed under them. Returns the board.",
+    needs=Action.EDIT,
+)
+def add_to_board(id: str, item_ids: list[str] | None = None, layout: str = "grid",
+                 notes: list[str] | None = None) -> dict[str, Any]:
+    if not item_ids and not notes:
+        raise ToolError("pass item_ids and/or notes")
+    with SessionLocal() as session:
+        board = boards_svc.get_board(session, id)
+        if item_ids:
+            board = boards_svc.add_items(session, id, item_ids, layout)
+        if notes:
+            nodes = board.doc.get("nodes") or []
+            top = max((n["y"] + n["h"] for n in nodes), default=0) + 40
+            left = min((n["x"] for n in nodes), default=0)
+            board = boards_svc.patch_board(session, id, {"add": [
+                {"type": "note", "text": t, "x": left + i * 260, "y": top, "w": 240, "h": 160}
+                for i, t in enumerate(notes)
+            ]})
+        return board_out(session, board)
+
+
+@tool(
+    "Pin a note to part of an item. box=[x, y, w, h] as fractions of the image "
+    "(0-1, from the top left) marks an area; point=[x, y] a spot; time=[start, "
+    "end] seconds marks a stretch of a video. With none of them the note is "
+    "about the whole image. Annotation text is found by search_items(query=...). "
+    "Returns the item's annotations.",
+    needs=Action.EDIT,
+)
+def annotate(item_id: str, text: str, box: list[float] | None = None,
+             point: list[float] | None = None,
+             time: list[float] | None = None) -> list[dict[str, Any]]:
+    data: dict[str, Any] = {"text": text}
+    if box is not None:
+        if len(box) != 4:
+            raise ToolError("box is [x, y, w, h]")
+        data.update(kind="box", x=box[0], y=box[1], w=box[2], h=box[3])
+    elif point is not None:
+        if len(point) != 2:
+            raise ToolError("point is [x, y]")
+        data.update(kind="point", x=point[0], y=point[1])
+    elif time is None:
+        data.update(kind="box", x=0.0, y=0.0, w=1.0, h=1.0)
+    else:
+        data["kind"] = "range"
+    if time is not None:
+        if not 1 <= len(time) <= 2:
+            raise ToolError("time is [start] or [start, end] in seconds")
+        data.update(t_start=time[0], t_end=time[-1])
+    with SessionLocal() as session:
+        annotations_svc.create(session, item_id, data)
+        return [json.loads(json.dumps(annotations_svc.as_dict(a), default=str))
+                for a in annotations_svc.list_for(session, item_id)]
+
+
+@tool("List an item's annotations (notes pinned to areas, points or video times).",
+      restricted_ok=True)
+def list_annotations(item_id: str) -> list[dict[str, Any]]:
+    with SessionLocal() as session:
+        return [json.loads(json.dumps(annotations_svc.as_dict(a), default=str))
+                for a in annotations_svc.list_for(session, item_id)]
 
 
 # Mounted by kist.app at /mcp; streamable_http_path="/" so the endpoint is

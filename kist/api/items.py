@@ -74,6 +74,9 @@ def search_filters(
     # collapse: one entry per stack (its cover), with stack_count
     stacks: Literal["collapse"] | None = None,
     person: str | None = None,  # items showing this person (faces)
+    # pick | reject | none ; a colour | none
+    flag: str | None = None,
+    label: str | None = None,
 ) -> dict:
     """The filters GET /api/items and POST /api/search/image share, as
     services.search.search() keyword arguments."""
@@ -88,7 +91,7 @@ def search_filters(
         preview_status=preview_status, order=order,
         created_after=created_after, created_before=created_before, fixity=fixity,
         limit=limit, cursor=cursor, has_text=has_text, color=color, color_tol=color_tol,
-        text=text, stacks=stacks, person=person,
+        text=text, stacks=stacks, person=person, flag=flag, label=label,
     )
 
 
@@ -108,11 +111,30 @@ def list_items(
     semantic: Annotated[str | None, Query(max_length=1000)] = None,
     # more like this: nearest to that item's embedding
     similar: Annotated[str | None, Query(max_length=26)] = None,
+    # compare: these items, in this order; every other parameter is ignored
+    ids: Annotated[str | None, Query(max_length=3000)] = None,
 ):
     """Search. q, tags, folder, type and the rest filter; semantic, similar,
     color and text rank (services/ranking.py), and each ranked item carries
-    `match` {kind, score, snippet?}."""
+    `match` {kind, score, snippet?}. ids=a,b,c fetches those items instead."""
+    if ids is not None:
+        return _items_by_ids(session, ids)
     return page_out(search.search(session, semantic=semantic, similar=similar, **filters))
+
+
+def _items_by_ids(session: Session, raw: str) -> ItemPage:
+    """GET /api/items?ids=a,b,c: those items in that order (any state);
+    ids that don't exist or the caller can't see are left out."""
+    wanted = list(dict.fromkeys(i.strip() for i in raw.split(",") if i.strip()))
+    if len(wanted) > 100:
+        raise HTTPException(422, "at most 100 ids")
+    out = []
+    for item_id in wanted:
+        try:
+            out.append(ItemOut.from_item(items_svc.get_item(session, item_id)))
+        except items_svc.NotFound:
+            continue
+    return ItemPage(items=out, next_cursor=None, total=len(out))
 
 
 @router.post("", response_model=ItemCreateResponse, status_code=201)

@@ -17,6 +17,8 @@ from .mcp_server import mcp, mcp_http_app
 from .observability import RequestContext, configure_logging
 from .schemas import ItemOut
 from .services import ai as ai_svc
+from .services import annotations as annotations_svc
+from .services import boards as boards_svc
 from .services import collections as collections_svc
 from .services import events as events_svc
 from .services import faces as faces_svc
@@ -25,6 +27,7 @@ from .services import items as items_svc
 from .services import jobs as jobs_svc
 from .services import smart_folders as smart_svc
 from .services import stacks as stacks_svc
+from .services import templates as templates_svc
 from .services import tokens as tokens_svc
 from .services.search import BadCursor
 from .services.validation import ValidationError
@@ -98,6 +101,9 @@ def _error(status: int, detail) -> JSONResponse:
 @app.exception_handler(stacks_svc.NotFound)
 @app.exception_handler(faces_svc.NotFound)
 @app.exception_handler(collections_svc.NotFound)
+@app.exception_handler(boards_svc.NotFound)
+@app.exception_handler(annotations_svc.NotFound)
+@app.exception_handler(templates_svc.NotFound)
 async def not_found(request: Request, exc: Exception):
     return _error(404, str(exc))
 
@@ -141,6 +147,16 @@ async def conflict(request: Request, exc: items_svc.Conflict):
             "item": ItemOut.from_item(exc.item).model_dump(mode="json"),
         },
     )
+
+
+@app.exception_handler(boards_svc.Conflict)
+async def board_conflict(request: Request, exc: boards_svc.Conflict):
+    from .db import SessionLocal
+
+    with SessionLocal() as session:
+        board = session.get(boards_svc.Board, exc.board.id)
+        current = boards_svc.out(session, board) if board is not None else None
+    return _error(409, {"message": exc.message, "board": current})
 
 
 if WEB_DIST.is_dir():

@@ -24,10 +24,11 @@ RESULT_FILE = "verify.json"
 COMPARED = (
     "filename", "rating", "notes", "source_url", "tags", "folder_ids", "sha256",
     "preview_status", "preview_rev", "thumbhash", "protected", "links", "stack",
+    "flag", "label",
 )
 COMPARED_TIMES = ("created_at", "modified_at", "deleted_at")
 # keys older meta.json files don't have yet, and what their absence means
-MISSING_MEANS = {"protected": False, "links": [], "stack": None}
+MISSING_MEANS = {"protected": False, "links": [], "stack": None, "flag": None, "label": None}
 FIXES = (
     "fixes: kist rewrite-meta (meta.json or folders.json out of date; safe while Kist "
     "runs, it re-reads each item as it writes it), kist rebuild-index (rows missing "
@@ -193,6 +194,16 @@ def check_ai(session: Session, report: Report) -> None:
             )
 
 
+def check_creative(session: Session, report: Report) -> None:
+    """Milestone 3: annotations.json, boards/*/board.json + events.jsonl,
+    and .kist/templates.json."""
+    from . import annotations, boards, templates
+
+    report.problems.extend(annotations.check_files(session))
+    report.problems.extend(boards.check_files(session))
+    report.problems.extend(templates.check_file(session))
+
+
 def run(session: Session) -> Report:
     from . import events as events_svc
     from . import tokens as tokens_svc
@@ -210,6 +221,7 @@ def run(session: Session) -> Report:
     report.problems.extend(vocabulary.check_file(session))
     report.problems.extend(faces_svc.check(session))
     report.problems.extend(suggestions_svc.check_feedback_files(session))
+    check_creative(session, report)
     for key in meta_svc.pending():
         report.problems.append(f"{key}: an earlier write to disk failed")
     return report

@@ -100,7 +100,14 @@ kist/
 │   ├── ai.py        ml client, embed/ocr/caption jobs and their budget,
 │   │                embed batches, sidecars, helper claim/report, status
 │   ├── pdftext.py   a PDF's text layer / page renders (child process)
-│   └── health.py    /api/health/deep checks, worker heartbeat file
+│   ├── health.py    /api/health/deep checks, worker heartbeat file
+│   ├── boards.py    boards: document, versioned saves, trash, board events, undo
+│   ├── board_render.py  PNG/PDF (Pillow) and self-contained HTML export
+│   ├── annotations.py   point/box/range notes on items (annotations.json)
+│   ├── templates.py metadata templates (.kist/templates.json) and bulk rename
+│   ├── versions.py  the version_of chain and new-version uploads
+│   ├── triage.py    the triage cursor over a view
+│   └── palette.py   Cmd+K search across folders, tags, boards, items
 ├── mcp_server.py    MCP tools (thin wrappers over services/; no queries)
 ├── worker.py        job loop, inbox scanner, staging sweep, daily verify,
 │                    trash retention, fixity, scheduled backups (thread),
@@ -158,6 +165,17 @@ stacks        id, cover_item_id                   + items.stack_id
 faces         id, item_id, idx, box (jsonb: x, y, w, h fractions + landmarks),
               score, model, embedding (halfvec(128), HNSW cosine), person_id
 people        id, name (null = unnamed), cover_face_id
+-- Milestone 3 (migration 0401)
+items         + flag (pick | reject | null), label (red ... purple | null), checked
+boards        id, name, created_at, modified_at, version, item_count, deleted_at,
+              doc (jsonb: the board.json document)
+board_items   board_id, item_id          ("used in boards"; a purged item's row goes,
+                                          its node stays on the board as missing)
+board_events  id, board_id, at, actor, source, batch_id, kind, before, after
+              (no foreign key; kinds create, update, trash, restore, purge)
+annotations   id, item_id, kind (point | box | range), x, y, w, h (0-1),
+              t_start, t_end (seconds), text (trigram index), author,
+              created_at, resolved
 ```
 
 Every list order has a partial `(column, id)` index over live items, so
@@ -213,6 +231,10 @@ by `rebuild-index`:
 | backups, checklist, retention start | `library/.kist/backup.json`, `checklist.json`, `retention.json` |
 | embeddings, OCR/PDF text, captions | `items/{id}/ai/embed-<model>.f16` + `.json`, `ai/ocr.json`, `ai/caption.json` |
 | palettes (`item_colors`) | `dominant_colors` in each `meta.json`; the trigger refills the table as rows come back |
+| flag, colour label | each item's `meta.json` |
+| annotations | `items/{id}/annotations.json`, rewritten from the rows after each change under the item's annotation lock |
+| boards | `library/boards/{id}/board.json` (the whole document, incl. `version` and `deleted_at`) + `thumb.webp`; history in `boards/{id}/events.jsonl`, a purged board's in `library/.kist/board-events-purged.jsonl` |
+| metadata templates | `library/.kist/templates.json` only (no table: nothing to rebuild; verify checks it parses and its folders exist) |
 
 `kist verify` also checks that `tokens.json` matches the database and that
 every item's `events.jsonl` has all of its events; `kist rewrite-meta`
@@ -250,7 +272,8 @@ request to the token's scopes before any route runs (403 for a missing scope;
 404 for any path outside a folder-limited reader's view). The principal stays
 in a context variable for the request, so services apply the few
 caller-dependent rules themselves: a folder-limited reader's searches, item
-fetches (`items.get_item`, hence file, thumb, history, links) and folder tree
+fetches (`items.get_item`, hence file, thumb, history, links, annotations,
+versions) and folder tree
 only see live items in its folders; unprotecting needs `write`. MCP tools
 declare the action they need and fail closed without a principal. Routes
 that need more than the path mapping gives use the `auth.require_scope()`
@@ -273,6 +296,39 @@ and applies the inverse through the services, as a new batch; an event is
 skipped when a later event outside both batches touched the same field
 (edit fields, tag names, folder ids, state, the link), so undo never
 overwrites newer work.
+
+Milestone 3 adds two extension points in `services/events.py`, so new kinds
+of change plug into the same history without touching the undo core:
+
+- `EXTRA_KINDS`: item event kinds defined elsewhere, with what they touch
+  and how to revert them. Annotations register `annotation` (before/after
+  are the annotation or null; the conflict key is the annotation id).
+- `UNDO_SOURCES`: other event tables batched with item events. Board edits
+  are **board-level events in their own `board_events` table** (not
+  `item_events` with a null item: an item event always belongs to an item,
+  and a board edit can touch none). They carry the same actor, source and
+  batch id, so `GET /api/batches` lists both (board kinds prefixed `board_`)
+  and `POST /api/batches/{id}/undo` reverts both in one new batch. A board
+  update is undone by saving the earlier document as a new version; it is
+  skipped when a later board event outside the batch exists.
+
+## Boards (Milestone 3)
+
+`services/boards.py` owns the document, `services/board_render.py` draws
+it. Saves are whole-document (`PUT`) or node ops (`PATCH`), both checked
+against `base_version` under a row lock (409 with the current board when
+stale), then written to `board.json` from the committed row under an
+advisory lock, like `meta.json`. Item nodes point at items, never copies;
+a purge removes the `board_items` row and leaves the node, reported in
+`missing_item_ids`. Exports composite the items' preview copies (the
+smallest one big enough for the requested scale, capped at 40 MP) with
+Pillow; PDF is Pillow's writer; HTML is one file with inlined base64
+images, absolutely positioned, served with a sandboxing CSP.
+
+Who sees a board: a folder-limited read token sees a board only if it shows
+at least one item and every item node is visible to it; otherwise the board
+answers 404 (list, get, thumb, export, `/items/{id}/boards`). Hiding the
+nodes it can't see instead would still leak the board's notes and layout.
 
 ## AI jobs
 

@@ -14,7 +14,15 @@ build_filters, including what a folder-limited token may see):
     text=<words>       only items whose OCR / PDF text has every word (word
                        prefixes match), ranked by ts_rank
     q=<words> together with a meaning signal: keyword hits are a signal of
-                       their own instead of a filter ("hybrid")
+                       their own instead of a filter ("hybrid"). Keyword
+                       hits are filename, notes, annotation text, and OCR /
+                       PDF / caption text
+
+Every filter build_filters knows applies to every mode alike: tags (with
+the vocabulary's aliases, implied tags and ns:* namespaces), folders,
+flag / label, person, has_text, a folder-limited reader's scope.
+stacks=collapse is applied after ranking (ranked_page): a stack shows once,
+as its best-ranked member.
 
 One signal orders by its own score. Several are merged with reciprocal rank
 fusion: score = sum(1 / (60 + rank in each signal)). Every item carries
@@ -182,6 +190,14 @@ def _vector_signal(base, model: str, vec: list[float], name: str):
     return _ranked(inner.c.id, inner.c.score, name)
 
 
+def annotation_match(pattern: str):
+    """EXISTS: one of the item's annotations has this ILIKE pattern
+    (the annotations trigram index, migration 0401)."""
+    from ..models import Annotation
+
+    return sa.exists().where(Annotation.item_id == Item.id, Annotation.text.ilike(pattern))
+
+
 def _keyword_score(q: str, tsq: str | None):
     pattern = f"%{q}%"
     text_rank = sa.literal(0.0)
@@ -196,6 +212,7 @@ def _keyword_score(q: str, tsq: str | None):
         sa.func.similarity(Item.filename, q)
         + sa.case((Item.filename.ilike(pattern), 0.5), else_=0.0)
         + sa.case((Item.notes.ilike(pattern), 0.3), else_=0.0)
+        + sa.case((annotation_match(pattern), 0.3), else_=0.0)
         + text_rank
     )
 
@@ -207,6 +224,7 @@ def keyword_condition(q: str):
         Item.filename.ilike(pattern),
         sa.func.similarity(Item.filename, q) > 0.25,
         Item.notes.ilike(pattern),
+        annotation_match(pattern),
     ]
     tsq = tsquery(q)
     if tsq:

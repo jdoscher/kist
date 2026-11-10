@@ -2,6 +2,8 @@ from fastapi import APIRouter
 
 from . import (
     ai,
+    boards,
+    creative,
     folders,
     history,
     items,
@@ -26,3 +28,5 @@ api_router.include_router(history.router)
 api_router.include_router(ai.router)
 api_router.include_router(search.router)
 api_router.include_router(organise.router)
+api_router.include_router(boards.router)
+api_router.include_router(creative.router)

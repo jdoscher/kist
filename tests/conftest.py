@@ -28,7 +28,8 @@ if TEST_DB:
 TABLES = (
     "item_tags, item_folders, item_links, item_embeddings, item_text, items, tags, "
     "smart_folders, folders, jobs, api_tokens, item_events, ai_helpers, tag_aliases, "
-    "tag_implies, tag_embeddings, tag_feedback, faces, people, stacks"
+    "tag_implies, tag_embeddings, tag_feedback, faces, people, stacks, "
+    "annotations, board_items, boards, board_events"
 )
 
 

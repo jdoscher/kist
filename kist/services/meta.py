@@ -70,6 +70,8 @@ def to_meta(item: Item) -> dict:
         "folder_paths": [folder_path(f) for f in item.folders],
         "rating": item.rating,
         "protected": bool(item.protected),
+        "flag": item.flag,
+        "label": item.label,
         "links": _links(item),
         "stack": _stack(item),
         "notes": item.notes,

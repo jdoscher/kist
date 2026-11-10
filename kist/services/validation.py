@@ -123,3 +123,31 @@ def timestamp(value: datetime | None, field: str = "created_at") -> datetime | N
     if value > datetime.now(UTC) + FUTURE_SLACK:
         raise ValidationError(f"{field} is in the future")
     return value
+
+
+# ---------- Milestone 3: culling flags and colour labels ----------
+
+FLAGS = ("pick", "reject")
+LABELS = ("red", "orange", "yellow", "green", "blue", "purple")
+
+
+def flag(value: str | None) -> str | None:
+    """pick | reject, or None ("" and "none" clear it too)."""
+    if value is None or str(value).strip().lower() in ("", "none"):
+        return None
+    v = str(value).strip().lower()
+    if v not in FLAGS:
+        raise ValidationError(f"unknown flag {value!r}; expected pick, reject or none")
+    return v
+
+
+def label(value: str | None) -> str | None:
+    """A colour label, or None ("" and "none" clear it too)."""
+    if value is None or str(value).strip().lower() in ("", "none"):
+        return None
+    v = str(value).strip().lower()
+    if v not in LABELS:
+        raise ValidationError(
+            f"unknown label {value!r}; expected one of {', '.join(LABELS)} or none"
+        )
+    return v
