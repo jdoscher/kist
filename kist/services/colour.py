@@ -132,7 +132,9 @@ def lab_box(lab, max_de: float) -> tuple[tuple[float, float], ...]:
     """
     light, a, b = lab
     c = math.hypot(a, b)
-    dl = max_de * 1.8 * 1.6
+    # exact: dE00 >= |dL| / S_L (the rotation term only couples chroma and
+    # hue), and S_L is at most 1 + 0.015 * 2500 / sqrt(2520) = 1.7476
+    dl = max_de * 1.75
     # mean chroma can be at most (c + c2)/2 with c2 <= c + reach; solve the
     # reach for the worst case S_C = 1 + 0.045 * (c + reach/2)
     reach = max_de * (1 + 0.045 * c) * 2.4

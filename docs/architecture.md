@@ -292,10 +292,13 @@ old and new text, which undo reverts through the same service.
 ## Ranked search
 
 `search.search()` builds the filters exactly as before (so a folder-limited
-reader only ever ranks its own items), adds `has_text`, `text` (an EXISTS
-on `item_text` with the `to_tsvector('simple', text)` expression the GIN
-index is built on) and `color` (an EXISTS on `item_colors`), and, when a
-ranking parameter is present, hands them to `ranking.ranked_page`:
+reader only ever ranks its own items), adds `has_text`, and, when a ranking
+parameter is present, hands them to `ranking.ranked_page`, which adds
+`text` (an EXISTS on `item_text` with the `to_tsvector('simple', text)`
+expression the GIN index is built on) and `color` (a `colour_hits` CTE:
+the palette rows in the Lab box, CIEDE2000 computed once per row, summed
+per item; it is both the filter and the colour signal). The first page's
+`total` is `count(*) OVER ()` in the same query:
 
 ```
 base CTE = SELECT id FROM items WHERE <filters>
@@ -321,8 +324,12 @@ pass over 100k halfvecs.
 Colour: `kist_hex_lab` and `kist_ciede2000` (plpgsql, IMMUTABLE) mirror
 `services/colour.py`; tests compare them on random colours and the Sharma
 reference pairs. The tolerance maps to a CIEDE2000 limit of
-2 + 0.48 * tol (default 30 -> 16.4). The Lab box widens with the query's
-chroma so it never drops a real match (a randomized test checks that).
+2 + 0.48 * tol (default 30 -> 16.4). The box's lightness bound is exact
+(dE00 >= |dL| / S_L, S_L <= 1.75); its a*/b* bound widens with the query's
+chroma so it never drops a real match (a randomized test checks that), which
+also means it narrows little for saturated colours. Measured on 20k
+synthetic items (40k palette rows, M6): colour search 43 ms, meaning or
+similar 43 ms, both together 65 ms, plain list 2 ms.
 
 ## AI results on disk
 

@@ -272,14 +272,15 @@ def search(
     )
     if has_text is not None:
         filters.append(ranking.has_text_filter(has_text))
-    if sig.text:
-        filters.append(ranking.text_match(sig.text, ranking.READ_SOURCES))
-    if sig.colour is not None:
-        filters.append(ranking.colour_filter(sig.colour))
     if similar:
         filters.append(Item.id != similar)  # more like it, not itself
     if order not in ORDERS:
         raise ValidationError(f"unknown order {order!r}; expected one of {', '.join(ORDERS)}")
+
+    if sig.active:  # colour and text filter inside, and it counts the first page
+        rows, next_cursor, matches, total = ranking.ranked_page(
+            session, filters, sig, limit, cursor)
+        return SearchResult(rows, next_cursor, total, matches)
 
     # counting re-scans every match: only the first page pays for it (the
     # client keeps that total and adjusts it as items change)
@@ -288,10 +289,6 @@ def search(
         total = session.execute(
             sa.select(sa.func.count()).select_from(Item).where(*filters)
         ).scalar_one()
-
-    if sig.active:
-        rows, next_cursor, matches = ranking.ranked_page(session, filters, sig, limit, cursor)
-        return SearchResult(rows, next_cursor, total, matches)
 
     rows, next_cursor = _keyset_page(session, filters, order, limit, cursor)
     matches = ranking.keyword_matches(session, rows, q.strip()) if q and q.strip() else {}

@@ -111,25 +111,31 @@ class ColourQuery:
             raise ValidationError("color_tol must be between 0 and 100")
         return cls(h, colour.hex_to_lab(h), colour.max_delta(tol))
 
-    def near(self):
-        """item_colors rows within the tolerance: the Lab box (index) first,
-        then CIEDE2000."""
-        (l0, l1), (a0, a1), (b0, b1) = colour.lab_box(self.lab, self.max_de)
-        return [
-            ItemColor.a.between(a0, a1),
-            ItemColor.b.between(b0, b1),
-            ItemColor.l.between(l0, l1),
-            self.delta() <= self.max_de,
-        ]
-
     def delta(self):
         light, a, b = self.lab
         return sa.func.kist_ciede2000(ItemColor.l, ItemColor.a, ItemColor.b, light, a, b,
                                       type_=sa.Float)
 
 
-def colour_filter(cq: ColourQuery):
-    return sa.exists().where(ItemColor.item_id == Item.id, *cq.near())
+def colour_hits(cq: ColourQuery):
+    """CTE (id, score): items with a palette colour within the tolerance and
+    how much of their palette is near it. CIEDE2000 runs once per candidate
+    row (the OFFSET 0 keeps Postgres from evaluating it again for the score)."""
+    (l0, l1), (a0, a1), (b0, b1) = colour.lab_box(cq.lab, cq.max_de)
+    rows = (
+        sa.select(ItemColor.item_id, ItemColor.pct, cq.delta().label("de"))
+        .where(ItemColor.a.between(a0, a1), ItemColor.b.between(b0, b1),
+               ItemColor.l.between(l0, l1))
+        .offset(0)
+        .subquery("colour_rows")
+    )
+    return (
+        sa.select(rows.c.item_id.label("id"),
+                  sa.func.sum(rows.c.pct * (1 - rows.c.de / cq.max_de)).label("score"))
+        .where(rows.c.de <= cq.max_de)
+        .group_by(rows.c.item_id)
+        .cte("colour_hits")
+    )
 
 
 # ---------- the query ----------
@@ -218,13 +224,9 @@ def _keyword_signal(base, q: str):
     return _ranked(inner.c.id, inner.c.score, "keyword")
 
 
-def _colour_signal(base, cq: ColourQuery):
-    weight = ItemColor.pct * (1 - cq.delta() / cq.max_de)
+def _colour_signal(base, hits):
     inner = (
-        sa.select(ItemColor.item_id.label("id"), sa.func.sum(weight).label("score"))
-        .join(base, base.c.id == ItemColor.item_id)
-        .where(*cq.near())
-        .group_by(ItemColor.item_id)
+        sa.select(hits.c.id, hits.c.score).join(base, base.c.id == hits.c.id)
         .subquery("color_raw")
     )
     return _ranked(inner.c.id, inner.c.score, "color")
@@ -253,12 +255,21 @@ def decode_offset(cursor: str | None) -> int:
     return value
 
 
-def ranked_page(session: Session, filters: list, sig: Signals, limit: int,
-                cursor: str | None) -> tuple[list[Item], str | None, dict[str, dict]]:
-    """One page of a ranked search: (items, next_cursor, {item_id: match})."""
+def ranked_page(
+    session: Session, filters: list, sig: Signals, limit: int, cursor: str | None
+) -> tuple[list[Item], str | None, dict[str, dict], int | None]:
+    """One page of a ranked search: (items, next_cursor, {item_id: match},
+    total). total is counted in the same query, on the first page only."""
     from .search import encode_cursor
 
     offset = decode_offset(cursor)
+    filters = list(filters)
+    hits = None
+    if sig.colour is not None:
+        hits = colour_hits(sig.colour)
+        filters.append(Item.id.in_(sa.select(hits.c.id)))
+    if sig.text:
+        filters.append(text_match(sig.text, READ_SOURCES))
     base = sa.select(Item.id.label("id")).where(*filters).cte("base")
     signals: list[tuple[str, Any]] = []
     if sig.meaning is not None:
@@ -267,8 +278,8 @@ def ranked_page(session: Session, filters: list, sig: Signals, limit: int,
         signals.append((KIND_SIMILAR, _vector_signal(base, sig.model, sig.similar, "similar")))
     if sig.keyword:
         signals.append((KIND_KEYWORD, _keyword_signal(base, sig.keyword)))
-    if sig.colour is not None:
-        signals.append((KIND_COLOR, _colour_signal(base, sig.colour)))
+    if hits is not None:
+        signals.append((KIND_COLOR, _colour_signal(base, hits)))
     if sig.text:
         signals.append((KIND_TEXT, _text_signal(base, sig.text)))
 
@@ -282,6 +293,8 @@ def ranked_page(session: Session, filters: list, sig: Signals, limit: int,
         order_value = sa.literal(0.0)
         for _, sub in signals:
             order_value = order_value + sa.func.coalesce(1.0 / (RRF_K + sub.c.rk), 0.0)
+    if offset == 0:
+        cols.append(sa.func.count().over().label("total"))
     stmt = sa.select(*cols, order_value.label("fused")).join(base, base.c.id == Item.id)
     for _, sub in signals:
         stmt = stmt.outerjoin(sub, sub.c.id == Item.id)
@@ -291,6 +304,9 @@ def ranked_page(session: Session, filters: list, sig: Signals, limit: int,
         .limit(limit + 1)
     )
     rows = session.execute(stmt).all()
+    total = None
+    if offset == 0:
+        total = rows[0].total if rows else 0
     next_cursor = None
     if len(rows) > limit:
         rows = rows[:limit]
@@ -317,7 +333,7 @@ def ranked_page(session: Session, filters: list, sig: Signals, limit: int,
                                       sources).items():
             if item_id in matches:
                 matches[item_id]["snippet"] = snip
-    return items, next_cursor, matches
+    return items, next_cursor, matches, total
 
 
 def keyword_matches(session: Session, items: list[Item], q: str) -> dict[str, dict]:
