@@ -320,6 +320,32 @@ def test_exif_from_a_heic_reads_through_libvips(tmp_path):
     assert data["lon"] == pytest.approx(-117.24, abs=1e-4)
 
 
+def test_heic_exif_prefers_exiftool_and_never_pillow_heif(tmp_path, monkeypatch):
+    """Current iPhone HEICs that Debian's libheif refuses still get their
+    date, GPS and camera through exiftool (its own process)."""
+    import shutil
+
+    p = tmp_path / "original.heic"
+    p.write_bytes(b"not decoded here")
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/exiftool")
+    monkeypatch.setattr(media, "exif_exiftool",
+                        lambda path: {"camera": "Apple iPhone 17 Pro", "lat": 34.02})
+
+    def boom(*a, **k):
+        raise AssertionError("pillow_heif/libvips must not be used when exiftool answered")
+
+    monkeypatch.setattr(media, "_exif_blob_vips", boom)
+    assert media.exif_pillow(p) == {"camera": "Apple iPhone 17 Pro", "lat": 34.02}
+    # exiftool found nothing and libvips can't read it: no EXIF, no crash
+    monkeypatch.setattr(media, "exif_exiftool", lambda path: {})
+
+    def refuse(path):
+        raise RuntimeError("heif: Metadata not correctly assigned to image")
+
+    monkeypatch.setattr(media, "_exif_blob_vips", refuse)
+    assert media.exif_pillow(p) == {}
+
+
 # ---------- design files ----------
 
 

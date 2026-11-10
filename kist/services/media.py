@@ -491,12 +491,29 @@ def exif_pillow(path: Path) -> dict:
     from PIL import Image
 
     if path.suffix.lower() in HEIF_EXIF_EXTS:
-        # HEIF: read the EXIF block through libvips, never pillow_heif. The
-        # preview child has already decoded the photo with libvips (the
-        # system libheif); opening it again with pillow_heif loads its own
-        # bundled libheif into the same process, and that segfaults (exit
-        # -11 on every iPhone photo in the Docker image, Kist 2.0 M5).
-        blob = _exif_blob_vips(path)
+        # HEIF: never pillow_heif here. The preview child has already tried
+        # the photo with libvips (the system libheif); opening it again with
+        # pillow_heif loads its own bundled libheif into the same process,
+        # and that segfaults (exit -11 on every iPhone photo in the Docker
+        # image, Kist 2.0 M5). exiftool runs in its own process and reads
+        # current iPhone HEICs, which Debian's libheif 1.15 refuses
+        # ("Metadata not correctly assigned to image"); libvips is the
+        # fallback when exiftool is off or missing.
+        import shutil as _sh
+
+        if get_settings().exiftool and _sh.which("exiftool"):
+            try:
+                found = exif_exiftool(path)
+            except Exception as exc:
+                log.debug("exiftool failed for %s: %s", path, exc)
+                found = {}
+            if found:
+                return found
+        try:
+            blob = _exif_blob_vips(path)
+        except Exception as exc:
+            log.debug("libvips can't read HEIF EXIF of %s: %s", path, exc)
+            return {}
         if not blob:
             return {}
         exif = Image.Exif()
