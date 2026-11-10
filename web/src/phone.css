@@ -72,6 +72,7 @@
   font-size: var(--fs-3);
 }
 .mobile .phone-tags ul,
+.mobile .sheet-body ul.tag-chips,
 .mobile .move-recent ul,
 .mobile .move-tree,
 .mobile .phone-tag-suggest {
@@ -218,20 +219,23 @@
 }
 
 /* ---------- the preview's edit bar ---------- */
+/* stars over Tags / Move / Trash at the bottom, clear of the notices (they
+   sit at the top on a phone) and between the previous/next arrows */
 .mobile .preview-overlay.phone-editing figure {
-  padding-top: 44px;
+  padding-bottom: 104px;
 }
 .mobile .preview-overlay.phone-editing img,
 .mobile .preview-overlay.phone-editing video {
-  max-height: calc(100dvh - 190px);
+  max-height: calc(100dvh - 230px);
 }
 .mobile .preview-overlay.phone-editing iframe {
-  height: calc(100dvh - 190px);
+  height: calc(100dvh - 230px);
 }
 .mobile .phone-edit-top {
   position: fixed;
-  top: max(8px, env(safe-area-inset-top));
-  left: max(8px, env(safe-area-inset-left));
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(62px + env(safe-area-inset-bottom));
   z-index: 101;
 }
 .mobile .phone-edit-bottom {

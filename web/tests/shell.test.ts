@@ -88,6 +88,8 @@ const IPHONE_CHROME =
 const IPAD_DESKTOP_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15'
 const ANDROID = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Mobile Safari/537.36'
+const MAC_CHROME = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36'
+const IPHONE_WEBVIEW = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148'
 
 test('install hint: mobile Safari only, not installed, not dismissed', () => {
   assert.equal(isIosSafari(IPHONE_SAFARI), true)
@@ -95,6 +97,8 @@ test('install hint: mobile Safari only, not installed, not dismissed', () => {
   assert.equal(isIosSafari(ANDROID), false)
   assert.equal(isIosSafari(IPAD_DESKTOP_UA, 5), true) // iPadOS asks for the desktop site
   assert.equal(isIosSafari(IPAD_DESKTOP_UA, 0), false) // a Mac
+  assert.equal(isIosSafari(MAC_CHROME, 5), false) // Chrome on a touch Mac (or emulating touch)
+  assert.equal(isIosSafari(IPHONE_WEBVIEW), false) // an app's web view
   const env = { ua: IPHONE_SAFARI, maxTouchPoints: 5, standalone: false, dismissed: false }
   assert.equal(shouldShowInstallHint(env), true)
   assert.equal(shouldShowInstallHint({ ...env, standalone: true }), false)

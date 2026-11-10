@@ -58,7 +58,7 @@ export function PhoneStars({ item }: { item: Item }) {
 
 /** The item's tags with ✕ to remove, and a field that adds (comma-separated)
  * with matching existing tags offered as you type. */
-export function PhoneTags({ item, autoFocus = false }: { item: Item; autoFocus?: boolean }) {
+export function PhoneTags({ item, autoFocus = false, titled = false }: { item: Item; autoFocus?: boolean; titled?: boolean }) {
   const { write, busy } = useItemWrite(item.id)
   const { data: allTags } = useTags()
   const [text, setText] = useState('')
@@ -76,7 +76,8 @@ export function PhoneTags({ item, autoFocus = false }: { item: Item; autoFocus?:
 
   return (
     <div className="detail-section phone-tags">
-      <label htmlFor={`${uid}-tag`} className="section-label">
+      {/* in the Tags sheet the sheet's title says it already */}
+      <label htmlFor={`${uid}-tag`} className={titled ? 'sr-only' : 'section-label'}>
         Tags
       </label>
       {item.tags.length > 0 && (
@@ -278,8 +279,8 @@ export function PhoneItemEdit({ item }: { item: Item }) {
   )
 }
 
-/** The preview's edit bar on a phone: stars along the top, Tags / Move /
- * Trash along the bottom (between the previous/next arrows). */
+/** The preview's edit bar on a phone: stars above Tags / Move / Trash,
+ * along the bottom between the previous/next arrows. */
 export function PhoneEditBar({ item, onTrashed }: { item: Item; onTrashed: () => void }) {
   const move = useMoveItem(item)
   const { trash, busy } = useTrashItem()
@@ -307,7 +308,7 @@ export function PhoneEditBar({ item, onTrashed }: { item: Item; onTrashed: () =>
       </div>
       {sheet === 'tags' && (
         <Modal title="Tags" className="phone-sheet" onClose={() => setSheet(null)}>
-          <PhoneTags item={item} />
+          <PhoneTags item={item} titled />
         </Modal>
       )}
       {sheet === 'move' && <MoveToSheet item={item} recent={readRecent()} onPick={move} onClose={() => setSheet(null)} />}

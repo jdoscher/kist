@@ -153,7 +153,10 @@ export const INSTALL_HINT_TEXT = 'Add Kist to your Home Screen: Share → Add to
 export function isIosSafari(ua: string, maxTouchPoints = 0): boolean {
   const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && maxTouchPoints > 1)
   if (!ios) return false
-  if (!/AppleWebKit/.test(ua) || !/Safari\//.test(ua)) return false // in-app web views
+  // Safari says Version/… Safari/…; desktop-class Chrome or Edge (a touch
+  // Mac would pass the iPad test) and in-app web views don't
+  if (!/AppleWebKit/.test(ua) || !/Version\/[\d.]+.*Safari\//.test(ua)) return false
+  if (/Chrome\/|Chromium|Edg\//.test(ua)) return false
   return !/CriOS|FxiOS|EdgiOS|OPiOS|OPT\/|GSA\/|YaBrowser|DuckDuckGo|Brave/.test(ua)
 }
 
