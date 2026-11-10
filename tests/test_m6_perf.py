@@ -169,6 +169,7 @@ def _legacy_patches():
         (tags, "list_with_counts", legacy_list_with_counts),
         (folders, "list_folders", legacy_list_folders),
         (ranking, "keyword_condition", legacy_keyword_condition),
+        (ranking, "ranked_page", legacy_ranked_page),
     ]
 
 
@@ -178,6 +179,211 @@ def legacy(monkeypatch):
         for module, name, fn in _legacy_patches():
             m.setattr(module, name, fn)
         yield
+
+
+# ---------- ranked search as it was (f4cc6d5) ----------
+
+from typing import Any  # noqa: E402
+
+from sqlalchemy.orm import Session  # noqa: E402
+
+from kist.models import HalfVec, Item, ItemColor, ItemEmbedding, ItemText  # noqa: E402
+from kist.services import colour  # noqa: E402
+from kist.services.ranking import (  # noqa: E402
+    KIND_COLOR,
+    KIND_HYBRID,
+    KIND_KEYWORD,
+    KIND_MEANING,
+    KIND_SIMILAR,
+    KIND_TEXT,
+    RANKED_CURSOR,
+    READ_SOURCES,
+    RRF_K,
+    ColourQuery,
+    Signals,
+    _keyword_score,
+    _tsq,
+    _tsv,
+    decode_offset,
+    snippets,
+    text_match,
+    tsquery,
+)
+
+
+def legacy_colour_hits(cq: ColourQuery):
+    """CTE (id, score): items with a palette colour within the tolerance and
+    how much of their palette is near it. CIEDE2000 runs once per candidate
+    row (the OFFSET 0 keeps Postgres from evaluating it again for the score)."""
+    (l0, l1), (a0, a1), (b0, b1) = colour.lab_box(cq.lab, cq.max_de)
+    rows = (
+        sa.select(ItemColor.item_id, ItemColor.pct, cq.delta().label("de"))
+        .where(ItemColor.a.between(a0, a1), ItemColor.b.between(b0, b1),
+               ItemColor.l.between(l0, l1))
+        .offset(0)
+        .subquery("colour_rows")
+    )
+    return (
+        sa.select(rows.c.item_id.label("id"),
+                  sa.func.sum(rows.c.pct * (1 - rows.c.de / cq.max_de)).label("score"))
+        .where(rows.c.de <= cq.max_de)
+        .group_by(rows.c.item_id)
+        .cte("colour_hits")
+    )
+
+
+def legacy_ranked(sub_id, score, name: str):
+    """(id, score, rk) for one signal."""
+    return sa.select(
+        sub_id.label("id"),
+        score.label("score"),
+        sa.func.row_number().over(order_by=(score.desc(), sub_id.asc())).label("rk"),
+    ).subquery(name)
+
+
+def legacy_vector_signal(base, model: str, vec: list[float], name: str):
+    dim = len(vec)
+    distance = sa.cast(ItemEmbedding.vector, HalfVec(dim)).op("<=>", return_type=sa.Float)(
+        sa.cast(sa.bindparam(f"{name}_vec", vec, type_=HalfVec()), HalfVec(dim))
+    )
+    inner = (
+        sa.select(base.c.id.label("id"), (1 - distance).label("score"))
+        .join(ItemEmbedding, sa.and_(ItemEmbedding.item_id == base.c.id,
+                                     ItemEmbedding.model == model))
+    )
+    inner = inner.subquery(f"{name}_raw")
+    return legacy_ranked(inner.c.id, inner.c.score, name)
+
+
+def legacy_keyword_signal(base, q: str):
+    inner = (
+        sa.select(Item.id.label("id"), _keyword_score(q, tsquery(q)).label("score"))
+        .join(base, base.c.id == Item.id)
+        .where(legacy_keyword_condition(q))
+        .subquery("keyword_raw")
+    )
+    return legacy_ranked(inner.c.id, inner.c.score, "keyword")
+
+
+def legacy_colour_signal(base, hits):
+    inner = (
+        sa.select(hits.c.id, hits.c.score).join(base, base.c.id == hits.c.id)
+        .subquery("color_raw")
+    )
+    return legacy_ranked(inner.c.id, inner.c.score, "color")
+
+
+def legacy_text_signal(base, tsq: str):
+    inner = (
+        sa.select(ItemText.item_id.label("id"),
+                  sa.func.max(sa.func.ts_rank_cd(_tsv(ItemText.text), _tsq(tsq))).label("score"))
+        .join(base, base.c.id == ItemText.item_id)
+        .where(ItemText.source.in_(READ_SOURCES), _tsv(ItemText.text).op("@@")(_tsq(tsq)))
+        .group_by(ItemText.item_id)
+        .subquery("text_raw")
+    )
+    return legacy_ranked(inner.c.id, inner.c.score, "text")
+
+
+def legacy_ranked_page(
+    session: Session, filters: list, sig: Signals, limit: int, cursor: str | None,
+    *, collapse_stacks: bool = False,
+) -> tuple[list[Item], str | None, dict[str, dict], int | None]:
+    """One page of a ranked search: (items, next_cursor, {item_id: match},
+    total). total is counted in the same query, on the first page only.
+
+    collapse_stacks (stacks=collapse) collapses after ranking: each stack
+    keeps only its best-ranked member the caller can see, at that member's
+    place (the member that matched, so its match and snippet are true; its
+    stack_id and stack_count say there is more). The plain search shows
+    the cover instead, because there nothing ranks."""
+    from kist.services.search import encode_cursor
+
+    offset = decode_offset(cursor)
+    filters = list(filters)
+    hits = None
+    if sig.colour is not None:
+        hits = legacy_colour_hits(sig.colour)
+        filters.append(Item.id.in_(sa.select(hits.c.id)))
+    if sig.text:
+        filters.append(text_match(sig.text, READ_SOURCES))
+    base = sa.select(Item.id.label("id")).where(*filters).cte("base")
+    signals: list[tuple[str, Any]] = []
+    if sig.meaning is not None:
+        signals.append((KIND_MEANING,
+                        legacy_vector_signal(base, sig.model, sig.meaning, "meaning")))
+    if sig.similar is not None:
+        signals.append((KIND_SIMILAR,
+                        legacy_vector_signal(base, sig.model, sig.similar, "similar")))
+    if sig.keyword:
+        signals.append((KIND_KEYWORD, legacy_keyword_signal(base, sig.keyword)))
+    if hits is not None:
+        signals.append((KIND_COLOR, legacy_colour_signal(base, hits)))
+    if sig.text:
+        signals.append((KIND_TEXT, legacy_text_signal(base, sig.text)))
+
+    inner_cols: list[Any] = [Item.id.label("ranked_id")]
+    for kind, sub in signals:
+        inner_cols += [sub.c.score.label(f"{kind}_score"), sub.c.rk.label(f"{kind}_rk")]
+    if len(signals) == 1:
+        sub = signals[0][1]
+        order_value = sub.c.score
+    else:
+        order_value = sa.literal(0.0)
+        for _, sub in signals:
+            order_value = order_value + sa.func.coalesce(1.0 / (RRF_K + sub.c.rk), 0.0)
+    inner_cols.append(order_value.label("fused"))
+    if collapse_stacks:
+        inner_cols.append(sa.func.row_number().over(
+            partition_by=sa.func.coalesce(Item.stack_id, Item.id),
+            order_by=(order_value.desc().nulls_last(), Item.id.asc()),
+        ).label("stack_pos"))
+    inner = sa.select(*inner_cols).join(base, base.c.id == Item.id)
+    for _, sub in signals:
+        inner = inner.outerjoin(sub, sub.c.id == Item.id)
+    ranked = inner.subquery("ranked")
+    cols: list[Any] = [Item, *(c for c in ranked.c if c.key not in ("ranked_id", "stack_pos"))]
+    if offset == 0:
+        cols.append(sa.func.count().over().label("total"))
+    stmt = sa.select(*cols).join(ranked, ranked.c.ranked_id == Item.id)
+    if collapse_stacks:
+        stmt = stmt.where(ranked.c.stack_pos == 1)
+    stmt = (
+        stmt.order_by(ranked.c.fused.desc().nulls_last(), Item.id.asc())
+        .offset(offset)
+        .limit(limit + 1)
+    )
+    rows = session.execute(stmt).all()
+    total = None
+    if offset == 0:
+        total = rows[0].total if rows else 0
+    next_cursor = None
+    if len(rows) > limit:
+        rows = rows[:limit]
+        next_cursor = encode_cursor(offset + limit, RANKED_CURSOR)
+
+    items: list[Item] = []
+    matches: dict[str, dict] = {}
+    for row in rows:
+        item = row[0]
+        items.append(item)
+        hit = [kind for kind, _ in signals if getattr(row, f"{kind}_rk") is not None]
+        if not hit:
+            continue
+        if len(signals) == 1:
+            kind, score = hit[0], getattr(row, f"{hit[0]}_score")
+        else:
+            kind = hit[0] if len(hit) == 1 else KIND_HYBRID
+            score = row.fused
+        matches[item.id] = {"kind": kind, "score": round(float(score or 0.0), 6)}
+    snippet_q = sig.text or sig.snippet_q
+    if snippet_q:
+        sources = READ_SOURCES if sig.text else None
+        for item_id, snip in snippets(session, [i.id for i in items], snippet_q,
+                                      sources).items():
+            if item_id in matches:
+                matches[item_id]["snippet"] = snip
+    return items, next_cursor, matches, total
 
 
 # ---------- a seeded library ----------
@@ -456,3 +662,103 @@ def test_sidebar_and_listing_reads_match_the_old_queries(seeded, client, monkeyp
         assert new == old and new
     counts = {f["id"]: f["item_count"] for f in client.get("/api/folders").json()}
     assert counts[seeded["reader_root"]] > 0
+
+
+def _ranked_cases(s, lib):
+    from kist.services import ai
+
+    model = ai.active_model()
+    embedded = [r[0] for r in s.execute(sa.text(
+        "SELECT e.item_id FROM item_embeddings e JOIN items i ON i.id = e.item_id "
+        "WHERE e.model = :m AND i.deleted_at IS NULL ORDER BY e.item_id LIMIT 3"), {"m": model})]
+    assert len(embedded) == 3
+    vec = ai.item_vector(s, embedded[2], model)
+    tags, folders = lib["tags"], lib["folders"]
+    return [
+        {"color": "#3366cc"},
+        {"color": "#808080", "color_tol": 100},
+        {"color": "#ff0000", "color_tol": 10},
+        {"color": "#3366cc", "tags": [tags[0]], "kind": "image"},
+        {"text": "invoice"},
+        {"text": "hotel logo"},
+        {"text": "zzzqqq"},
+        {"text": "screenshot", "folder": folders[0]},
+        {"similar": embedded[0]},
+        {"similar": embedded[1], "tags": [lib["implied"]]},
+        {"image_vector": vec},
+        {"similar": embedded[0], "q": "invoice"},
+        {"image_vector": vec, "q": "hotel", "color": "#808080", "color_tol": 60},
+        {"similar": embedded[1], "text": "update", "color": "#3366cc"},
+        {"color": "#808080", "color_tol": 60, "text": "logo"},
+    ]
+
+
+def test_ranked_results_match_the_old_queries(seeded, monkeypatch):
+    """Colour, text, more-like-this, search by image and their fusions
+    (with q as a hybrid signal): the same pages, scores, match kinds,
+    snippets and totals as the f4cc6d5 ranked query, plain and
+    stacks=collapse, for the owner and a folder-limited reader."""
+    from kist import access
+    from kist.db import SessionLocal
+
+    checked = 0
+    with SessionLocal() as s:
+        cases = _ranked_cases(s, seeded)
+        vec = cases[10]["image_vector"]
+        reader = _reader(s, seeded["reader_root"])
+        for who in (None, reader):
+            with access.acting_as(who):
+                for case in cases:
+                    if who is not None and "similar" in case:  # it may not see that item
+                        case = {k: v for k, v in case.items() if k != "similar"} | {
+                            "image_vector": vec}
+                    for stacks in (None, "collapse"):
+                        for limit in (37, 100_000):
+                            params = dict(case, stacks=stacks)
+                            new = _pages_full(s, params, limit)
+                            with legacy(monkeypatch):
+                                old = _pages_full(s, params, limit)
+                            assert new == old, (who and who.name, params, limit)
+                            checked += 1
+                            if limit > 1000 and not who and not case.get("text") == "zzzqqq":
+                                assert new[0][1], params  # something matched
+    assert checked == 2 * len(cases) * 2 * 2
+
+
+def _pages_full(session, params, limit):
+    """Every page of a search with the full match dicts."""
+    from kist.services import search
+
+    out, cursor = [], None
+    for _ in range(10_000):
+        r = search.search(session, **params, limit=limit, cursor=cursor)
+        out.append(([i.id for i in r.items], r.total, r.matches))
+        cursor = r.next_cursor
+        if not cursor:
+            return out
+    raise AssertionError("too many pages")
+
+
+def test_colour_prefilter_keeps_every_match(seeded):
+    """colour_hits' lightness bound drops only colours CIEDE2000 would
+    reject: 60k random palette colours, queries from black to white and
+    saturated blues (CIEDE2000's rotation term) at tolerances 0-100, the
+    same hits and scores as the old candidate box alone."""
+    from kist.db import SessionLocal
+    from kist.services.ranking import ColourQuery, colour_hits
+
+    with SessionLocal() as s:
+        s.execute(sa.text(
+            "INSERT INTO item_colors (item_id, idx, l, a, b, pct) "
+            "SELECT i.id, 100 + g, random() * 100, random() * 256 - 128, random() * 256 - 128, "
+            "random() FROM (SELECT id FROM items ORDER BY id LIMIT 1500) i, "
+            "generate_series(1, 40) g"))
+        for hex_ in ("#000000", "#ffffff", "#3366cc", "#1030e8", "#0047ab", "#ff0000",
+                     "#808080", "#2e9e44", "#ffd60a", "#7b2cbf"):
+            for tol in (0, 30, 70, 100):
+                cq = ColourQuery.parse(hex_, tol)
+                new = dict(s.execute(sa.select(colour_hits(cq))).all())
+                old = dict(s.execute(sa.select(legacy_colour_hits(cq))).all())
+                assert new == old, (hex_, tol)
+                assert new or tol == 0, (hex_, tol)
+        s.rollback()

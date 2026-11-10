@@ -171,29 +171,6 @@ class Signals:
         return any(v is not None for v in (self.meaning, self.similar, self.colour, self.text))
 
 
-def _ranked(sub_id, score, name: str):
-    """(id, score, rk) for one signal."""
-    return sa.select(
-        sub_id.label("id"),
-        score.label("score"),
-        sa.func.row_number().over(order_by=(score.desc(), sub_id.asc())).label("rk"),
-    ).subquery(name)
-
-
-def _vector_signal(base, model: str, vec: list[float], name: str):
-    dim = len(vec)
-    distance = sa.cast(ItemEmbedding.vector, HalfVec(dim)).op("<=>", return_type=sa.Float)(
-        sa.cast(sa.bindparam(f"{name}_vec", vec, type_=HalfVec()), HalfVec(dim))
-    )
-    inner = (
-        sa.select(base.c.id.label("id"), (1 - distance).label("score"))
-        .join(ItemEmbedding, sa.and_(ItemEmbedding.item_id == base.c.id,
-                                     ItemEmbedding.model == model))
-    )
-    inner = inner.subquery(f"{name}_raw")
-    return _ranked(inner.c.id, inner.c.score, name)
-
-
 def annotation_match(pattern: str):
     """EXISTS: one of the item's annotations has this ILIKE pattern
     (the annotations trigram index, migration 0401)."""
@@ -260,34 +237,35 @@ def keyword_condition(q: str):
     return Item.id.in_(sa.union(*arms)).is_(True)
 
 
-def _keyword_signal(base, q: str):
-    inner = (
+def _vector_source(model: str, vec: list[float], name: str):
+    """(embeddings alias, join condition, score): the item's embedding for
+    `model` and its cosine similarity to `vec`."""
+    emb = aliased(ItemEmbedding, name=f"{name}_emb")
+    dim = len(vec)
+    distance = sa.cast(emb.vector, HalfVec(dim)).op("<=>", return_type=sa.Float)(
+        sa.cast(sa.bindparam(f"{name}_vec", vec, type_=HalfVec()), HalfVec(dim))
+    )
+    return emb, sa.and_(emb.item_id == Item.id, emb.model == model), 1 - distance
+
+
+def _keyword_scores(q: str, filters: list):
+    """(id, score) of the items q matches (a hybrid's keyword signal)."""
+    return (
         sa.select(Item.id.label("id"), _keyword_score(q, tsquery(q)).label("score"))
-        .join(base, base.c.id == Item.id)
-        .where(keyword_condition(q))
+        .where(keyword_condition(q), *filters)
         .subquery("keyword_raw")
     )
-    return _ranked(inner.c.id, inner.c.score, "keyword")
 
 
-def _colour_signal(base, hits):
-    inner = (
-        sa.select(hits.c.id, hits.c.score).join(base, base.c.id == hits.c.id)
-        .subquery("color_raw")
-    )
-    return _ranked(inner.c.id, inner.c.score, "color")
-
-
-def _text_signal(base, tsq: str):
-    inner = (
+def _text_scores(tsq: str):
+    """(id, score) of the items whose OCR / PDF text has every word."""
+    return (
         sa.select(ItemText.item_id.label("id"),
                   sa.func.max(sa.func.ts_rank_cd(_tsv(ItemText.text), _tsq(tsq))).label("score"))
-        .join(base, base.c.id == ItemText.item_id)
         .where(ItemText.source.in_(READ_SOURCES), _tsv(ItemText.text).op("@@")(_tsq(tsq)))
         .group_by(ItemText.item_id)
         .subquery("text_raw")
     )
-    return _ranked(inner.c.id, inner.c.score, "text")
 
 
 def decode_offset(cursor: str | None) -> int:
@@ -312,79 +290,114 @@ def ranked_page(
     keeps only its best-ranked member the caller can see, at that member's
     place (the member that matched, so its match and snippet are true; its
     stack_id and stack_count say there is more). The plain search shows
-    the cover instead, because there nothing ranks."""
+    the cover instead, because there nothing ranks.
+
+    How (M6 perf; tests/test_m6_perf.py compares it with the query it
+    replaced): one narrow row per matching item (id, stack_id, each
+    signal's score and whether it hit), the colour and text signals joined
+    in as the filters they are; each signal's rank (only when several are
+    fused) and the stack position as window functions over those rows,
+    the stack window over stacked rows only; ordering, OFFSET/LIMIT and
+    the count on the narrow rows; full items fetched for the page alone.
+    It used to join every signal to a CTE of matching ids, rank each
+    signal separately, partition every row by stack and fetch every
+    matching item's full row before the LIMIT (similar= on 250k items:
+    245k full rows, 3.4 s on dev0)."""
     from .search import encode_cursor
 
     offset = decode_offset(cursor)
-    filters = list(filters)
-    hits = None
+    # (kind, what to join, on, score, hit, inner join?): colour and text are
+    # filters as well as signals, so they join; the others outer-join
+    sources: list[tuple[str, Any, Any, Any, Any, bool]] = []
+    if sig.meaning is not None:
+        emb, on, score = _vector_source(sig.model, sig.meaning, "meaning")
+        sources.append((KIND_MEANING, emb, on, score, emb.item_id.isnot(None), False))
+    if sig.similar is not None:
+        emb, on, score = _vector_source(sig.model, sig.similar, "similar")
+        sources.append((KIND_SIMILAR, emb, on, score, emb.item_id.isnot(None), False))
+    if sig.keyword:
+        kw = _keyword_scores(sig.keyword, filters)
+        sources.append((KIND_KEYWORD, kw, kw.c.id == Item.id, kw.c.score, kw.c.id.isnot(None),
+                        False))
     if sig.colour is not None:
         hits = colour_hits(sig.colour)
-        filters.append(Item.id.in_(sa.select(hits.c.id)))
+        sources.append((KIND_COLOR, hits, hits.c.id == Item.id, hits.c.score, sa.true(), True))
     if sig.text:
-        filters.append(text_match(sig.text, READ_SOURCES))
-    base = sa.select(Item.id.label("id")).where(*filters).cte("base")
-    signals: list[tuple[str, Any]] = []
-    if sig.meaning is not None:
-        signals.append((KIND_MEANING, _vector_signal(base, sig.model, sig.meaning, "meaning")))
-    if sig.similar is not None:
-        signals.append((KIND_SIMILAR, _vector_signal(base, sig.model, sig.similar, "similar")))
-    if sig.keyword:
-        signals.append((KIND_KEYWORD, _keyword_signal(base, sig.keyword)))
-    if hits is not None:
-        signals.append((KIND_COLOR, _colour_signal(base, hits)))
-    if sig.text:
-        signals.append((KIND_TEXT, _text_signal(base, sig.text)))
+        txt = _text_scores(sig.text)
+        sources.append((KIND_TEXT, txt, txt.c.id == Item.id, txt.c.score, sa.true(), True))
+    kinds = [s[0] for s in sources]
+    several = len(sources) > 1
 
-    inner_cols: list[Any] = [Item.id.label("ranked_id")]
-    for kind, sub in signals:
-        inner_cols += [sub.c.score.label(f"{kind}_score"), sub.c.rk.label(f"{kind}_rk")]
-    if len(signals) == 1:
-        sub = signals[0][1]
-        order_value = sub.c.score
-    else:
+    cols: list[Any] = [Item.id.label("id"), Item.stack_id.label("stack_id")]
+    stmt = sa.select().select_from(Item)
+    for kind, src, on, score, hit, inner in sources:
+        stmt = stmt.join(src, on) if inner else stmt.outerjoin(src, on)
+        cols += [score.label(f"{kind}_score"), hit.label(f"{kind}_hit")]
+    rows = stmt.add_columns(*cols).where(*filters).subquery("signal_rows")
+
+    ranked_cols: list[Any] = list(rows.c)
+    if several:  # reciprocal rank fusion needs each signal's rank among the matches
         order_value = sa.literal(0.0)
-        for _, sub in signals:
-            order_value = order_value + sa.func.coalesce(1.0 / (RRF_K + sub.c.rk), 0.0)
-    inner_cols.append(order_value.label("fused"))
+        for kind in kinds:
+            hit, score = rows.c[f"{kind}_hit"], rows.c[f"{kind}_score"]
+            rk = sa.case((hit, sa.func.row_number().over(
+                partition_by=hit, order_by=(score.desc(), rows.c.id.asc()))))
+            ranked_cols.append(rk.label(f"{kind}_rk"))
+        ranked = sa.select(*ranked_cols).subquery("ranked_signals")
+        for kind in kinds:
+            order_value = order_value + sa.func.coalesce(1.0 / (RRF_K + ranked.c[f"{kind}_rk"]),
+                                                         0.0)
+    else:
+        ranked = rows
+        order_value = rows.c[f"{kinds[0]}_score"]
+    fused_rows = sa.select(*ranked.c, order_value.label("fused")).cte("fused_rows")
+
     if collapse_stacks:
-        inner_cols.append(sa.func.row_number().over(
-            partition_by=sa.func.coalesce(Item.stack_id, Item.id),
-            order_by=(order_value.desc().nulls_last(), Item.id.asc()),
-        ).label("stack_pos"))
-    inner = sa.select(*inner_cols).join(base, base.c.id == Item.id)
-    for _, sub in signals:
-        inner = inner.outerjoin(sub, sub.c.id == Item.id)
-    ranked = inner.subquery("ranked")
-    cols: list[Any] = [Item, *(c for c in ranked.c if c.key not in ("ranked_id", "stack_pos"))]
+        # a stack keeps its best-ranked member; items outside stacks all stay
+        stack_pos = sa.func.row_number().over(
+            partition_by=fused_rows.c.stack_id,
+            order_by=(fused_rows.c.fused.desc().nulls_last(), fused_rows.c.id.asc()),
+        )
+        stacked = (sa.select(*fused_rows.c, stack_pos.label("stack_pos"))
+                   .where(fused_rows.c.stack_id.isnot(None)).subquery("stacked"))
+        listed = sa.union_all(
+            sa.select(*fused_rows.c).where(fused_rows.c.stack_id.is_(None)),
+            sa.select(*(stacked.c[c.key] for c in fused_rows.c)).where(stacked.c.stack_pos == 1),
+        ).subquery("listed")
+    else:
+        listed = fused_rows
+    page_cols: list[Any] = list(listed.c)
     if offset == 0:
-        cols.append(sa.func.count().over().label("total"))
-    stmt = sa.select(*cols).join(ranked, ranked.c.ranked_id == Item.id)
-    if collapse_stacks:
-        stmt = stmt.where(ranked.c.stack_pos == 1)
-    stmt = (
-        stmt.order_by(ranked.c.fused.desc().nulls_last(), Item.id.asc())
+        page_cols.append(sa.func.count().over().label("total"))
+    page = (
+        sa.select(*page_cols)
+        .order_by(listed.c.fused.desc().nulls_last(), listed.c.id.asc())
         .offset(offset)
         .limit(limit + 1)
+        .subquery("page")
     )
-    rows = session.execute(stmt).all()
+    out_cols = [Item, *(c for c in page.c if c.key not in ("id", "stack_id"))]
+    rows_out = session.execute(
+        sa.select(*out_cols).join(page, page.c.id == Item.id)
+        .order_by(page.c.fused.desc().nulls_last(), Item.id.asc())
+    ).all()
     total = None
     if offset == 0:
-        total = rows[0].total if rows else 0
+        total = rows_out[0].total if rows_out else 0
     next_cursor = None
-    if len(rows) > limit:
-        rows = rows[:limit]
+    if len(rows_out) > limit:
+        rows_out = rows_out[:limit]
         next_cursor = encode_cursor(offset + limit, RANKED_CURSOR)
 
     items: list[Item] = []
     matches: dict[str, dict] = {}
-    for row in rows:
+    for row in rows_out:
         item = row[0]
         items.append(item)
-        hit = [kind for kind, _ in signals if getattr(row, f"{kind}_rk") is not None]
+        hit = [kind for kind in kinds if getattr(row, f"{kind}_hit")]
         if not hit:
             continue
-        if len(signals) == 1:
+        if not several:
             kind, score = hit[0], getattr(row, f"{hit[0]}_score")
         else:
             kind = hit[0] if len(hit) == 1 else KIND_HYBRID
@@ -392,9 +405,9 @@ def ranked_page(
         matches[item.id] = {"kind": kind, "score": round(float(score or 0.0), 6)}
     snippet_q = sig.text or sig.snippet_q
     if snippet_q:
-        sources = READ_SOURCES if sig.text else None
+        sources_ = READ_SOURCES if sig.text else None
         for item_id, snip in snippets(session, [i.id for i in items], snippet_q,
-                                      sources).items():
+                                      sources_).items():
             if item_id in matches:
                 matches[item_id]["snippet"] = snip
     return items, next_cursor, matches, total
