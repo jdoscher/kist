@@ -43,6 +43,10 @@ def upgrade() -> None:
         sa.Column("view_count", sa.BigInteger, nullable=False, server_default="0"),
         sa.Column("last_viewed_at", sa.DateTime(timezone=True), nullable=True),
     )
+    # page snapshots' readable text is searchable item text too
+    op.drop_constraint("item_text_source_check", "item_text", type_="check")
+    op.create_check_constraint("item_text_source_check", "item_text",
+                               "source IN ('ocr', 'pdf', 'page')")
     op.add_column("items", sa.Column("provenance", postgresql.JSONB, nullable=True))
     op.add_column("items", sa.Column("source_status", sa.Text, nullable=True))
     op.add_column("items", sa.Column("source_checked_at", sa.DateTime(timezone=True),
@@ -77,4 +81,7 @@ def downgrade() -> None:
     op.drop_column("items", "source_checked_at")
     op.drop_column("items", "source_status")
     op.drop_column("items", "provenance")
+    op.execute("DELETE FROM item_text WHERE source = 'page'")
+    op.drop_constraint("item_text_source_check", "item_text", type_="check")
+    op.create_check_constraint("item_text_source_check", "item_text", "source IN ('ocr', 'pdf')")
     op.drop_table("shares")
