@@ -88,11 +88,15 @@ class JobKind(StrEnum):
     REGEN_PREVIEW = "regen_preview"  # retry an item's previews
     EMBED = "embed"  # image embedding (the ml service or a helper)
     OCR = "ocr"  # text in screenshots and PDFs
+    CAPTION = "caption"  # a sentence describing an image (services/captions.py)
 
 
 # the heavy kinds: they wait while any light job (ingest, previews) is
 # pending, and backfilled ones wait for KIST_AI_WINDOW
-AI_KINDS = (JobKind.EMBED, JobKind.OCR)
+AI_KINDS = (JobKind.EMBED, JobKind.OCR, JobKind.CAPTION)
+# what `kist ai-backfill` and a helper take when no kind is named: captions
+# are opt-in (they are slow, or leave the house)
+DEFAULT_AI_KINDS = (JobKind.EMBED, JobKind.OCR)
 
 
 MAX_ATTEMPTS = 3

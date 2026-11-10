@@ -1,7 +1,13 @@
-"""Cursor-paginated item queries (keyset pagination, stable under inserts)."""
+"""Cursor-paginated item queries (keyset pagination, stable under inserts).
+
+Ranked searches (meaning, more like this, colour, text in images, hybrid)
+are built in services/ranking.py on top of the same filters; `search()`
+picks one or the other.
+"""
 
 import base64
 import json
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
@@ -9,7 +15,7 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from .. import access
-from ..filetypes import KINDS, OCTET_STREAM, VIDEO_EXTS
+from ..filetypes import FONT_EXTS, FONT_MIMES, KINDS, OCTET_STREAM, VIDEO_EXTS
 from ..lifecycle import ItemState, PreviewStatus
 from ..models import Folder, Item, ItemFolder, ItemTag, Tag
 from .validation import ValidationError
@@ -41,11 +47,16 @@ _VIDEO = sa.or_(
     sa.and_(Item.mime == OCTET_STREAM, sa.func.lower(Item.ext).in_(sorted(VIDEO_EXTS))),
 )
 _IMAGE = Item.mime.like("image/%")
+_FONT = sa.or_(
+    Item.mime.in_(sorted(FONT_MIMES)),
+    sa.and_(Item.mime == OCTET_STREAM, sa.func.lower(Item.ext).in_(sorted(FONT_EXTS))),
+)
 KIND_FILTERS = {
     "pdf": _PDF,
     "video": _VIDEO,
     "image": _IMAGE,
-    "other": sa.and_(sa.not_(_PDF), sa.not_(_VIDEO), sa.not_(_IMAGE)),
+    "font": _FONT,
+    "other": sa.and_(sa.not_(_PDF), sa.not_(_VIDEO), sa.not_(_IMAGE), sa.not_(_FONT)),
 }
 
 
@@ -119,14 +130,10 @@ def build_filters(
         folder = "none"
     filters.append(Item.deleted_at.isnot(None) if trashed else Item.deleted_at.is_(None))
     if q:
-        pattern = f"%{q}%"
-        filters.append(
-            sa.or_(
-                Item.filename.ilike(pattern),
-                sa.func.similarity(Item.filename, q) > 0.25,
-                Item.notes.ilike(pattern),
-            )
-        )
+        # filename, notes, and text in the item (OCR, PDF text, caption)
+        from .ranking import keyword_condition
+
+        filters.append(keyword_condition(q))
     if tags:
         for name in tags:  # AND semantics: item must carry every tag
             filters.append(
@@ -183,41 +190,19 @@ def build_filters(
     return filters
 
 
-SEMANTIC_CURSOR = "~semantic"
+SEMANTIC_CURSOR = "~semantic"  # M1's cursor marker (still accepted)
 
 
-def _semantic_page(session, filters, vec, model, limit, cursor):
-    from ..models import HalfVec, ItemEmbedding
-
-    offset = 0
-    if cursor:
-        value, marker = decode_cursor(cursor)
-        if marker != SEMANTIC_CURSOR or not isinstance(value, int) or value < 0:
-            raise BadCursor("invalid cursor for a semantic search; start again without one")
-        offset = value
-    dim = len(vec)
-    # the same expression and predicate as the model's partial HNSW index
-    distance = sa.cast(ItemEmbedding.vector, HalfVec(dim)).op("<=>", return_type=sa.Float)(
-        sa.cast(sa.bindparam("semantic_q", vec, type_=HalfVec()), HalfVec(dim))
-    )
-    stmt = (
-        sa.select(Item)
-        .outerjoin(ItemEmbedding, sa.and_(ItemEmbedding.item_id == Item.id,
-                                          ItemEmbedding.model == model))
-        .where(*filters)
-        .order_by(distance.asc().nulls_last(), Item.id.asc())
-        .offset(offset)
-        .limit(limit + 1)
-    )
-    rows = list(session.execute(stmt).scalars())
-    next_cursor = None
-    if len(rows) > limit:
-        rows = rows[:limit]
-        next_cursor = encode_cursor(offset + limit, SEMANTIC_CURSOR)
-    return rows, next_cursor
+@dataclass
+class SearchResult:
+    items: list[Item]
+    next_cursor: str | None
+    total: int | None
+    # item id -> {kind, score, snippet?} for ranked and keyword searches
+    matches: dict[str, dict] = field(default_factory=dict)
 
 
-def search_items(
+def search(
     session: Session,
     *,
     q: str | None = None,
@@ -237,27 +222,64 @@ def search_items(
     order: str = "-created",
     limit: int = 100,
     cursor: str | None = None,
-    semantic: list[float] | None = None,
-    semantic_model: str | None = None,
-) -> tuple[list[Item], str | None, int | None]:
-    """total is counted on the first page only (no cursor); later pages
-    return None.
+    semantic: str | None = None,
+    similar: str | None = None,
+    image_vector: list[float] | None = None,
+    color: str | None = None,
+    color_tol: float | None = None,
+    text: str | None = None,
+    has_text: bool | None = None,
+) -> SearchResult:
+    """One page of items. total is counted on the first page only (no
+    cursor); later pages return None.
 
-    semantic: a query vector (services/ai.query_vector). Items are then
-    ordered by cosine distance to it, nearest first, items without an
-    embedding for `semantic_model` last; `order` is ignored and the cursor
-    is an offset (still opaque to the client, and only valid for a semantic
-    search). M2 builds the real hybrid search on top of this."""
+    Without semantic / similar / image_vector / color / text this is the
+    plain search: ordered by `order`, keyset cursor. With any of them it is
+    ranked (services/ranking.py): `order` is ignored and the cursor is an
+    offset (still opaque, and only valid for a ranked search).
+    semantic=<words> needs the ml service once items have embeddings
+    (ai.AiUnavailable otherwise); before then it is ignored."""
+    from . import ranking
+
+    sig = ranking.Signals()
+    if semantic and semantic.strip() or similar or image_vector is not None:
+        from . import ai
+
+        sig.model = ai.active_model()
+        if similar:
+            sig.similar = ai.item_vector(session, similar, sig.model)
+        elif image_vector is not None:
+            sig.similar = image_vector
+        if semantic and semantic.strip() and ai.has_embeddings(session):
+            sig.meaning = ai.query_vector(semantic)  # AiUnavailable -> 503
+    hybrid = bool(q and q.strip()) and (sig.meaning is not None or sig.similar is not None)
+    if hybrid:
+        sig.keyword = q.strip()  # type: ignore[union-attr]
+        sig.snippet_q = ranking.tsquery(q)
+    if color:
+        sig.colour = ranking.ColourQuery.parse(color, color_tol)
+    if text is not None:
+        sig.text = ranking.tsquery(text)
+        if sig.text is None:
+            raise ValidationError("text needs at least one word to look for")
+
     filters = build_filters(
-        q=q, tags=tags, tags_any=tags_any, untagged=untagged,
+        q=None if hybrid else q, tags=tags, tags_any=tags_any, untagged=untagged,
         folder=folder, kind=kind,
         rating_min=rating_min, deleted=deleted, state=state, view=view,
         preview_status=preview_status,
         created_after=created_after, created_before=created_before, fixity=fixity,
     )
+    if has_text is not None:
+        filters.append(ranking.has_text_filter(has_text))
+    if sig.text:
+        filters.append(ranking.text_match(sig.text, ranking.READ_SOURCES))
+    if sig.colour is not None:
+        filters.append(ranking.colour_filter(sig.colour))
+    if similar:
+        filters.append(Item.id != similar)  # more like it, not itself
     if order not in ORDERS:
         raise ValidationError(f"unknown order {order!r}; expected one of {', '.join(ORDERS)}")
-    col, desc = ORDERS[order]
 
     # counting re-scans every match: only the first page pays for it (the
     # client keeps that total and adjusts it as items change)
@@ -267,11 +289,20 @@ def search_items(
             sa.select(sa.func.count()).select_from(Item).where(*filters)
         ).scalar_one()
 
-    if semantic is not None and semantic_model:
-        return _semantic_page(session, filters, semantic, semantic_model, limit, cursor) + (
-            total,
-        )
+    if sig.active:
+        rows, next_cursor, matches = ranking.ranked_page(session, filters, sig, limit, cursor)
+        return SearchResult(rows, next_cursor, total, matches)
 
+    rows, next_cursor = _keyset_page(session, filters, order, limit, cursor)
+    matches = ranking.keyword_matches(session, rows, q.strip()) if q and q.strip() else {}
+    return SearchResult(rows, next_cursor, total, matches)
+
+
+def _keyset_page(session: Session, filters: list, order: str, limit: int,
+                 cursor: str | None) -> tuple[list[Item], str | None]:
+    from .ranking import RANKED_CURSOR
+
+    col, desc = ORDERS[order]
     stmt = sa.select(Item).where(*filters)
     if desc:
         stmt = stmt.order_by(col.desc(), Item.id.desc())
@@ -280,8 +311,8 @@ def search_items(
 
     if cursor:
         value, last_id = decode_cursor(cursor)
-        if last_id == SEMANTIC_CURSOR:
-            raise BadCursor("that cursor belongs to a semantic search; start again without one")
+        if last_id in (SEMANTIC_CURSOR, RANKED_CURSOR):
+            raise BadCursor("that cursor belongs to a ranked search; start again without one")
         if desc:
             stmt = stmt.where(
                 sa.or_(col < value, sa.and_(col == value, Item.id < last_id))
@@ -297,4 +328,11 @@ def search_items(
         rows = rows[:limit]
         last = rows[-1]
         next_cursor = encode_cursor(getattr(last, col.key), last.id)
-    return rows, next_cursor, total
+    return rows, next_cursor
+
+
+def search_items(session: Session, **kwargs) -> tuple[list[Item], str | None, int | None]:
+    """search() as (items, next_cursor, total), for callers that don't show
+    why an item matched."""
+    result = search(session, **kwargs)
+    return result.items, result.next_cursor, result.total

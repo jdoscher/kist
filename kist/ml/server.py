@@ -1,14 +1,17 @@
 """The `ml` service: a small FastAPI app on the compose network only.
 
     POST /embed/image   body: image bytes      -> {model, dim, vector}
+    POST /embed/images  multipart, up to 32 files named "images"
+                                                -> {model, dim, results: [{vector} | {error}]}
     POST /embed/text    {"text": "..."}         -> {model, dim, vector}
     POST /ocr           body: image bytes      -> {model, lang, text, boxes}
     GET  /health                                -> {status, model, dim, device, loaded}
 
 Vectors are L2-normalised float32 lists, so cosine distance is 1 - dot.
 At most KIST_ML_CONCURRENCY requests run inference at once (the rest wait),
-which keeps memory flat however many workers or helpers call it. Run with
-`uvicorn kist.ml.server:app`.
+which keeps memory flat however many workers or helpers call it. Images
+are decoded and resized before a request waits for that gate, so decoding
+overlaps another request's inference. Run with `uvicorn kist.ml.server:app`.
 """
 
 import logging
@@ -27,6 +30,7 @@ from .models import ModelError
 log = logging.getLogger("kist.ml.server")
 
 MAX_BYTES = int(os.environ.get("KIST_ML_MAX_BYTES", str(64 * 1024 * 1024)))
+MAX_BATCH = 32
 
 
 class State:
@@ -84,16 +88,30 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="kist-ml", lifespan=lifespan)
 
 
+def _call(fn, *args):
+    try:
+        return fn(*args)
+    except ModelError as exc:
+        raise HTTPException(503, str(exc)) from exc
+    except (OSError, ValueError) as exc:  # PIL can't read it, a bad request
+        raise HTTPException(422, f"can't process this input: {exc}") from exc
+
+
 def _run(fn, *args):
     with state.gate:
         t0 = time.perf_counter()
-        try:
-            out = fn(*args)
-        except ModelError as exc:
-            raise HTTPException(503, str(exc)) from exc
-        except (OSError, ValueError) as exc:  # PIL can't read it, a bad request
-            raise HTTPException(422, f"can't process this input: {exc}") from exc
+        out = _call(fn, *args)
         return out, (time.perf_counter() - t0) * 1000
+
+
+def _embed_one(data: bytes):
+    prepared = _call(state.clip.prepare, data)  # outside the gate
+    return _run(state.clip.embed_prepared, prepared)
+
+
+def _embed_batch(datas: list[bytes]):
+    prepared = _call(state.clip.prepare_many, datas)  # outside the gate
+    return _run(state.clip.embed_many, prepared)
 
 
 async def _body(request: Request) -> bytes:
@@ -131,8 +149,31 @@ def health() -> dict:
 @app.post("/embed/image")
 async def embed_image(request: Request) -> dict:
     data = await _body(request)
-    vec, ms = await run_in_threadpool(_run, state.clip.embed_image, data)
+    vec, ms = await run_in_threadpool(_embed_one, data)
     return {"model": state.clip.model, "dim": len(vec), "vector": vec, "ms": round(ms, 1)}
+
+
+@app.post("/embed/images")
+async def embed_images(request: Request) -> dict:
+    """Several images in one request (multipart, each part named "images").
+    Results come back in the same order; an image that can't be read gets
+    {"error": ...} and the others still get their vectors."""
+    declared = request.headers.get("content-length", "")
+    if declared.isdigit() and int(declared) > MAX_BYTES:
+        raise HTTPException(413, "too large")
+    form = await request.form(max_files=MAX_BATCH + 1, max_fields=10)
+    files = [f for f in form.getlist("images") if hasattr(f, "read")]
+    if not files:
+        raise HTTPException(422, "send the images as multipart parts named 'images'")
+    if len(files) > MAX_BATCH:
+        raise HTTPException(413, f"at most {MAX_BATCH} images per request")
+    datas = [await f.read() for f in files]
+    if sum(len(d) for d in datas) > MAX_BYTES:
+        raise HTTPException(413, "too large")
+    out, ms = await run_in_threadpool(_embed_batch, datas)
+    results = [{"vector": r} if not isinstance(r, str) else {"error": r} for r in out]
+    return {"model": state.clip.model, "dim": state.clip.dim, "results": results,
+            "ms": round(ms, 1)}
 
 
 class TextIn(BaseModel):

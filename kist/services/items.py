@@ -144,6 +144,10 @@ def update_item(
             access.require(access.Action.UNPROTECT)
         item.protected = protect
     events.record_changes(session, item.id, before, events.state(item))
+    if fields.get("caption") is not None:  # "" removes it; its own event
+        from . import captions
+
+        captions.apply_caption(session, item, fields["caption"])
     if fields.get("modified_at") is not None:
         # an explicit modified_at (e.g. an import) wins over the touch
         item.modified_at = validation.timestamp(fields["modified_at"], "modified_at")

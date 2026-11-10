@@ -226,6 +226,50 @@ def dominant_colors(image_path: Path, count: int = 5) -> list[dict]:
         return out
 
 
+SPECIMEN_SIZE = (1600, 1000)
+SPECIMEN_SAMPLE = "Aa Bb Cc 0123 The quick brown fox"
+
+
+def font_specimen(path: Path, out_png: Path) -> str:
+    """Render a font file's specimen (its family name and a sample) with
+    Pillow/FreeType. Returns "Family Style". Raises if it isn't a font
+    FreeType can read."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    def font(size: int):
+        return ImageFont.truetype(str(path), size, index=0)
+
+    family, style = font(48).getname()
+    name = " ".join(p for p in (family, style) if p and p.lower() != "regular") or path.stem
+    w, h = SPECIMEN_SIZE
+    im = Image.new("RGB", (w, h), (250, 250, 247))
+    d = ImageDraw.Draw(im)
+    ink, muted = (24, 24, 27), (110, 110, 118)
+    margin = 80
+
+    def fit(text: str, size: int):
+        """The largest size up to `size` at which `text` fits the width."""
+        while size > 12:
+            f = font(size)
+            if d.textlength(text, font=f) <= w - 2 * margin:
+                return f
+            size = int(size * 0.9)
+        return font(12)
+
+    d.text((margin, 70), name, font=fit(name, 64), fill=muted)
+    # the sample, in two sizes: "Aa Bb Cc" big, the rest below it
+    big, rest = SPECIMEN_SAMPLE[:8], SPECIMEN_SAMPLE[9:]
+    d.text((margin, 190), big, font=fit(big, 300), fill=ink)
+    d.text((margin, 560), rest, font=fit(rest, 110), fill=ink)
+    lines = ("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz 0123456789 &?!")
+    y = 760
+    for line in lines:
+        d.text((margin, y), line, font=fit(line, 56), fill=ink)
+        y += 90
+    im.save(out_png)
+    return name
+
+
 def generate_previews(original: Path, item_dir: Path, mime: str, ext: str) -> Probe:
     """Produce thumbnails + probe data for the original file.
 
@@ -245,6 +289,11 @@ def generate_previews(original: Path, item_dir: Path, mime: str, ext: str) -> Pr
         with tempfile.TemporaryDirectory() as td:
             poster = Path(td) / "page1.png"
             pdf_poster(original, poster)
+            probe.width, probe.height = make_thumbs_from(poster, item_dir)
+    elif kind == "font":
+        with tempfile.TemporaryDirectory() as td:
+            poster = Path(td) / "specimen.png"
+            font_specimen(original, poster)
             probe.width, probe.height = make_thumbs_from(poster, item_dir)
     elif kind == "image":
         is_heif = ext.lower() in HEIF_EXTS and ext.lower() != "avif"

@@ -65,10 +65,33 @@ class Settings(BaseSettings):
     # when backfill jobs may run, local time "HH:MM-HH:MM" (may wrap past
     # midnight); empty = any time. New items' jobs don't wait for it
     ai_window: str = ""
-    # AI jobs one worker runs at once (threads; ingest never waits for them)
-    ai_concurrency: int = 1
+    # AI jobs one worker runs at once (threads; ingest never waits for them).
+    # Two keep the ml service busy while the other thread reads files and
+    # writes results
+    ai_concurrency: int = 2
+    # embed jobs one worker thread sends to the ml service in one request
+    # (POST /embed/images, at most 32); 1 sends them one at a time
+    ai_embed_batch: int = 16
     # scanned PDFs: OCR at most this many pages (text layers are read in full)
     ai_ocr_pdf_pages: int = 5
+
+    # ---- captions (services/captions.py; off unless a provider is set) ----
+    # ollama | openai | anthropic | gemini. The last three send each image
+    # captioned to that company (bring your own key)
+    caption_provider: str = ""
+    # ollama: its address (e.g. http://ollama:11434); empty with ollama means
+    # a `kist helper --kinds caption` on a Mac runs them. For openai, an
+    # OpenAI-compatible server's /v1 address instead of api.openai.com
+    caption_url: str = ""
+    # e.g. qwen2.5vl:3b (ollama), gpt-4o-mini, claude-haiku-4-5, gemini-2.5-flash
+    caption_model: str = ""
+    caption_api_key: str = ""
+    # the instruction sent with each image (empty: services/captions.DEFAULT_PROMPT)
+    caption_prompt: str = ""
+    caption_timeout_seconds: float = 180.0
+    # caption every new item automatically (otherwise only on demand and by
+    # `kist ai-backfill --kind caption`)
+    caption_auto: bool = False
 
     @property
     def items_dir(self) -> Path:

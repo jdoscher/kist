@@ -163,6 +163,21 @@ class Item(Base):
     folders: Mapped[list[Folder]] = relationship(
         secondary="item_folders", lazy="selectin"
     )
+    # the caption (services/captions.py), if any: only the caption row is
+    # loaded, never an item's (possibly long) OCR text
+    caption_row: Mapped["ItemText | None"] = relationship(
+        "ItemText",
+        primaryjoin="and_(ItemText.item_id == Item.id, ItemText.source == 'caption')",
+        foreign_keys="ItemText.item_id",
+        uselist=False,
+        viewonly=True,
+        lazy="selectin",
+    )
+
+    @property
+    def caption(self) -> str | None:
+        row = self.caption_row
+        return row.text if row is not None and row.text else None
 
 
 class ItemLink(Base):
@@ -237,15 +252,32 @@ class ApiToken(Base):
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class ItemColor(Base):
+    """One dominant colour of an item in CIE Lab, kept in step with
+    items.dominant_colors by a database trigger (migration 0201)."""
+
+    __tablename__ = "item_colors"
+
+    item_id: Mapped[str] = mapped_column(
+        String(26), ForeignKey("items.id", ondelete="CASCADE"), primary_key=True
+    )
+    idx: Mapped[int] = mapped_column(Integer, primary_key=True)
+    l: Mapped[float] = mapped_column(Float)  # noqa: E741
+    a: Mapped[float] = mapped_column(Float)
+    b: Mapped[float] = mapped_column(Float)
+    pct: Mapped[float] = mapped_column(Float)
+
+
 class ItemText(Base):
-    """Text found in an item: OCR of a screenshot, or a PDF's text layer."""
+    """Text found in or written about an item: OCR of a screenshot, a PDF's
+    text layer, or a caption (source ocr | pdf | caption)."""
 
     __tablename__ = "item_text"
 
     item_id: Mapped[str] = mapped_column(
         String(26), ForeignKey("items.id", ondelete="CASCADE"), primary_key=True
     )
-    source: Mapped[str] = mapped_column(Text, primary_key=True)  # ocr | pdf
+    source: Mapped[str] = mapped_column(Text, primary_key=True)  # ocr | pdf | caption
     text: Mapped[str] = mapped_column(Text)
     lang: Mapped[str | None] = mapped_column(Text, nullable=True)
     model: Mapped[str] = mapped_column(Text)

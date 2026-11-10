@@ -34,11 +34,32 @@ def colour_vector(rgb) -> list[float]:
     return vec
 
 
+def mean_colour_vector(data: bytes) -> list[float]:
+    im = Image.open(io.BytesIO(data)).convert("RGB").resize((8, 8))
+    px = list(im.get_flattened_data()) if hasattr(im, "get_flattened_data") else list(
+        im.getdata())
+    if px and not isinstance(px[0], tuple):  # flattened: r, g, b, r, g, b, ...
+        px = [tuple(px[i:i + 3]) for i in range(0, len(px), 3)]
+    rgb = [sum(p[i] for p in px) / len(px) / 255 for i in range(3)]
+    return colour_vector(rgb)
+
+
+def multipart_parts(request: httpx.Request) -> list[bytes]:
+    """The file parts of a multipart request, in order."""
+    from email.parser import BytesParser
+    from email.policy import HTTP
+
+    head = f"Content-Type: {request.headers['content-type']}\r\n\r\n".encode()
+    msg = BytesParser(policy=HTTP).parsebytes(head + request.content)
+    return [part.get_payload(decode=True) for part in msg.iter_parts()]
+
+
 class FakeMl:
     def __init__(self):
         self.calls: list[str] = []
         self.down = False
         self.model = "ViT-B-32__openai"
+        self.batch = True  # False: an older ml service without /embed/images
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         path = request.url.path
@@ -48,11 +69,19 @@ class FakeMl:
         if path == "/health":
             return httpx.Response(200, json={"status": "ok", "model": self.model})
         if path == "/embed/image":
-            im = Image.open(io.BytesIO(request.content)).convert("RGB").resize((8, 8))
-            px = list(im.getdata())
-            rgb = [sum(p[i] for p in px) / len(px) / 255 for i in range(3)]
             return httpx.Response(200, json={"model": self.model, "dim": DIM,
-                                             "vector": colour_vector(rgb)})
+                                             "vector": mean_colour_vector(request.content)})
+        if path == "/embed/images":
+            if not self.batch:
+                return httpx.Response(404)
+            results = []
+            for part in multipart_parts(request):
+                try:
+                    results.append({"vector": mean_colour_vector(part)})
+                except OSError as exc:
+                    results.append({"error": f"can't process this image: {exc}"})
+            return httpx.Response(200, json={"model": self.model, "dim": DIM,
+                                             "results": results})
         if path == "/embed/text":
             text = json.loads(request.content)["text"]
             rgb = COLOURS.get(text.strip().lower(), (0.3, 0.3, 0.3))

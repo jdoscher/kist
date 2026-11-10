@@ -616,12 +616,18 @@ def ai_sidecars() -> int:
 
 
 def ai_backfill(kind: str | None, limit: int | None) -> int:
-    from .lifecycle import AI_KINDS
-    from .services import ai
+    from .lifecycle import DEFAULT_AI_KINDS
+    from .services import ai, captions
 
-    kinds = (kind,) if kind else AI_KINDS
+    kinds = (kind,) if kind else DEFAULT_AI_KINDS
     with SessionLocal() as session:
-        counts = ai.backfill(session, kinds, limit)
+        try:
+            counts = ai.backfill(session, kinds, limit)
+        except captions.CaptionsOff as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+    if "caption" in kinds and captions.warning():
+        print(f"note: {captions.warning()}")
     settings = get_settings()
     print("queued: " + ", ".join(f"{n} {k}" for k, n in counts.items()))
     print(f"they run {'inside ' + settings.ai_window if settings.ai_window else 'now'}"
@@ -742,7 +748,8 @@ def main() -> None:
     p_fix.add_argument("--limit", type=int, default=100,
                        help="how many originals to check (default 100)")
     p_backfill = sub.add_parser("ai-backfill", help="queue AI jobs for items without results")
-    p_backfill.add_argument("--kind", choices=["embed", "ocr"], default=None)
+    p_backfill.add_argument("--kind", choices=["embed", "ocr", "caption"], default=None,
+                            help="embed and ocr when not given; caption only when named")
     p_backfill.add_argument("--limit", type=int, default=None,
                             help="at most this many jobs per kind")
     sub.add_parser("ai-sidecars", help="write missing AI sidecar files from the database")

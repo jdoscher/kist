@@ -11,6 +11,15 @@ from .models import Item
 from .services import validation
 
 
+class MatchOut(BaseModel):
+    """Why an item is in a ranked (or keyword) search, and how strongly."""
+
+    kind: Literal["keyword", "meaning", "text", "color", "similar", "hybrid"]
+    score: float
+    # the item's text around the hit, the words marked << >>
+    snippet: str | None = None
+
+
 class ItemOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -33,6 +42,8 @@ class ItemOut(BaseModel):
     notes: str
     source_url: str | None
     tags: list[str]
+    # a sentence describing the image (generated or edited; services/captions.py)
+    caption: str | None = None
     protected: bool = False  # can't be trashed or purged until unprotected
     state: str  # lifecycle.ItemState: active | trashed
     preview_status: str  # lifecycle.PreviewStatus: pending | ready | failed | none
@@ -43,9 +54,11 @@ class ItemOut(BaseModel):
     created_at: datetime
     modified_at: datetime
     deleted_at: datetime | None
+    # only in search results: why this item matched (ranked and keyword searches)
+    match: MatchOut | None = None
 
     @classmethod
-    def from_item(cls, item: Item) -> "ItemOut":
+    def from_item(cls, item: Item, match: dict | None = None) -> "ItemOut":
         status = item.preview_status or PreviewStatus.PENDING
         # a pending retry keeps serving the old thumbnails until it finishes
         has_thumb = status == PreviewStatus.READY or (
@@ -70,6 +83,7 @@ class ItemOut(BaseModel):
             notes=item.notes,
             source_url=item.source_url,
             tags=sorted(t.name for t in item.tags),
+            caption=item.caption,
             protected=bool(item.protected),
             state=item_state(item).value,
             preview_status=str(status),
@@ -82,15 +96,18 @@ class ItemOut(BaseModel):
             created_at=item.created_at,
             modified_at=item.modified_at,
             deleted_at=item.deleted_at,
+            match=MatchOut(**match) if match else None,
         )
 
     @classmethod
-    def for_agent(cls, item: Item) -> dict[str, Any]:
+    def for_agent(cls, item: Item, match: dict | None = None) -> dict[str, Any]:
         """What MCP tools return: the same item, minus the bulky internals
         (phash, dominant_colors), plus links an agent can use or hand on."""
-        out = cls.from_item(item).model_dump(mode="json")
+        out = cls.from_item(item, match).model_dump(mode="json")
         out.pop("phash", None)
         out.pop("dominant_colors", None)
+        if out.get("match") is None:
+            out.pop("match", None)
         out["file_url"] = f"/api/items/{item.id}/file"
         out["web_url"] = web_url(item)
         return out
@@ -136,6 +153,8 @@ class ItemPatch(BaseModel):
     # protected items can't be trashed or purged; unprotecting needs the
     # write or admin scope
     protected: bool | None = None
+    # the item's caption; "" removes it (recorded as a caption event)
+    caption: str | None = Field(default=None, max_length=2000)
     # the modified_at the client last saw; a mismatch answers 409
     base_modified_at: datetime | None = None
 
@@ -205,7 +224,7 @@ class TagOut(BaseModel):
 
 
 OrderName = Literal["-created", "created", "filename", "-size", "-rating", "-modified"]
-KindName = Literal["image", "video", "pdf", "other"]
+KindName = Literal["image", "video", "pdf", "font", "other"]
 PreviewName = Literal["pending", "ready", "failed", "none"]
 
 
@@ -229,6 +248,33 @@ class SmartFolderQuery(BaseModel):
     deleted: bool = False
     created_after: datetime | None = None
     created_before: datetime | None = None
+    # M2 search: a smart folder can be "meaning", colour or text-in-image
+    semantic: str | None = Field(default=None, max_length=1000)
+    color: str | None = Field(default=None, pattern=r"^#?([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$")
+    color_tol: int | None = Field(default=None, ge=0, le=100)
+    text: str | None = Field(default=None, max_length=500)
+    has_text: bool | None = None
+
+
+class PaletteColour(BaseModel):
+    hex: str
+    pct: float
+    name: str
+
+
+class SearchPage(BaseModel):
+    """POST /api/search/image: the same page shape as GET /api/items."""
+
+    items: list[ItemOut]
+    next_cursor: str | None
+    total: int | None = None
+
+
+class CaptionJob(BaseModel):
+    job_id: int
+    status: str
+    provider: str | None
+    warning: str | None = None
 
 
 class SmartFolderOut(BaseModel):

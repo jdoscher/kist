@@ -145,7 +145,18 @@ def check_ai(session: Session, report: Report) -> None:
         sa.select(ItemEmbedding.item_id, ItemEmbedding.model)
     ).all():
         rows.setdefault(item_id, set()).add(model)
-    texts = set(session.execute(sa.select(ItemText.item_id)).scalars())
+    texts = set(session.execute(
+        sa.select(ItemText.item_id).where(ItemText.source.in_(ai.READ_SOURCES))
+    ).scalars())
+    captions = set(session.execute(
+        sa.select(ItemText.item_id).where(ItemText.source == "caption")
+    ).scalars())
+    for item_id in sorted(captions):
+        if not (ai.ai_dir(item_id) / "caption.json").is_file():
+            report.problems.append(
+                f"{item_id}: caption has no sidecar file ai/caption.json "
+                "(kist ai-sidecars writes it from the database)"
+            )
     for item_id, models in sorted(rows.items()):
         for model in sorted(models):
             f16, js = ai.embed_paths(item_id, model)
@@ -173,6 +184,11 @@ def check_ai(session: Session, report: Report) -> None:
         if (ai_dir / ai.OCR_FILE).is_file() and item_id not in texts:
             report.problems.append(
                 f"{item_id}: AI sidecar ocr.json is not in the database "
+                "(kist rebuild-index loads it)"
+            )
+        if (ai_dir / "caption.json").is_file() and item_id not in captions:
+            report.problems.append(
+                f"{item_id}: AI sidecar caption.json is not in the database "
                 "(kist rebuild-index loads it)"
             )
 

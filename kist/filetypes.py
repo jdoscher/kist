@@ -1,10 +1,14 @@
 """Type classification.
 
-An item's kind (image | video | pdf | other) comes from the MIME type
+An item's kind (image | video | pdf | font | other) comes from the MIME type
 libmagic sniffed from its bytes, never from the name it arrived with: an
 HTML page saved as "invoice.pdf" is "other". The one exception is a video
 extension whose content libmagic can't name at all (application/octet-
-stream), which some valid MP4/MOV files sniff as.
+stream), which some valid MP4/MOV files sniff as; font files are treated the
+same way (older libmagic builds don't know WOFF2).
+
+Font files (TTF/OTF/WOFF/WOFF2) get a specimen preview: the family name and
+a sample line rendered with Pillow (services/thumbs.font_specimen).
 
 Files of kind "other" are still stored (content is king) but get no preview;
 the UI shows a generic icon.
@@ -25,11 +29,29 @@ MIME_TO_EXT = {
     "video/quicktime": "mov",
     "video/webm": "webm",
     "application/pdf": "pdf",
+    "font/ttf": "ttf",
+    "font/otf": "otf",
+    "font/woff": "woff",
+    "font/woff2": "woff2",
+    "font/sfnt": "ttf",
+    "font/collection": "ttc",
+    "application/vnd.ms-opentype": "otf",
+    "application/font-woff": "woff",
+    "application/x-font-ttf": "ttf",
 }
 
 VIDEO_EXTS = {"mp4", "mov", "webm"}
 
-KINDS = ("image", "video", "pdf", "other")
+# keep in step with migrations/versions/0201_search.py
+FONT_MIMES = frozenset({
+    "font/ttf", "font/otf", "font/woff", "font/woff2", "font/sfnt", "font/collection",
+    "application/font-woff", "application/font-woff2", "application/font-sfnt",
+    "application/x-font-ttf", "application/x-font-otf", "application/x-font-truetype",
+    "application/x-font-opentype", "application/vnd.ms-opentype",
+})
+FONT_EXTS = {"ttf", "otf", "woff", "woff2", "ttc"}
+
+KINDS = ("image", "video", "pdf", "font", "other")
 
 
 def kind_for(mime: str, ext: str) -> str:
@@ -41,6 +63,8 @@ def kind_for(mime: str, ext: str) -> str:
         return "video"
     if mime.startswith("image/"):
         return "image"
+    if mime in FONT_MIMES or (mime == OCTET_STREAM and ext.lower() in FONT_EXTS):
+        return "font"
     return "other"
 
 

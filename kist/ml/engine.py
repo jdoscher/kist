@@ -202,10 +202,50 @@ class ClipEngine:
         return ((a - mean) / std).transpose(2, 0, 1)[None].astype(np.float32)
 
     def embed_image(self, data: bytes) -> list[float]:
-        sess, pre = self.visual.get(self._load_visual)
-        x = self.preprocess(data, pre)
+        return self.embed_prepared(self.prepare(data))
+
+    def prepare(self, data: bytes):
+        """Decode and preprocess one image (no inference: callers run this
+        outside the inference gate, so decoding overlaps other requests)."""
+        _sess, pre = self.visual.get(self._load_visual)
+        return self.preprocess(data, pre)
+
+    def embed_prepared(self, x) -> list[float]:
+        sess, _pre = self.visual.get(self._load_visual)
         out = sess.run(None, {sess.get_inputs()[0].name: x})[0]
         return _normalize(out).tolist()
+
+    def prepare_many(self, datas: list[bytes]) -> list:
+        """prepare() for several images on a few threads; an image that
+        can't be read gives its error message instead of an array."""
+        from concurrent.futures import ThreadPoolExecutor
+
+        def one(data: bytes):
+            try:
+                return self.prepare(data)
+            except (OSError, ValueError) as exc:  # PIL can't read it
+                return f"can't process this image: {exc}"
+
+        if len(datas) <= 1:
+            return [one(d) for d in datas]
+        with ThreadPoolExecutor(max_workers=min(4, len(datas)),
+                                thread_name_prefix="ml-decode") as pool:
+            return list(pool.map(one, datas))
+
+    def embed_many(self, prepared: list) -> list[list[float] | str]:
+        """Vectors for prepare_many()'s output. The ONNX exports take one
+        image per run (their batch dimension is fixed at 1), so this loops;
+        the saving is in one request, one load check and decoding in
+        parallel. Errors pass through as strings."""
+        sess, _pre = self.visual.get(self._load_visual)
+        name = sess.get_inputs()[0].name
+        out: list[list[float] | str] = []
+        for x in prepared:
+            if isinstance(x, str):
+                out.append(x)
+                continue
+            out.append(_normalize(sess.run(None, {name: x})[0]).tolist())
+        return out
 
     # ---------- text ----------
 

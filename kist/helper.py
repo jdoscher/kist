@@ -1,6 +1,7 @@
 """`kist helper`: lend another machine's CPU/GPU (a Mac) to the AI backlog.
 
     kist helper --url https://kist.example.com [--kinds embed,ocr] [--batch 16]
+    kist helper --url ... --kinds caption [--caption-url http://localhost:11434]
 
 The token comes from KIST_HELPER_TOKEN (or --token, which other users of
 the machine can see in the process list). The helper claims jobs over
@@ -11,6 +12,11 @@ that stops mid-batch loses nothing: its jobs go back to the queue when
 their lease runs out.
 
 Needs the model extras on the helper machine: pip install 'kist[ml]'.
+
+Captions (--kinds caption) go to an Ollama on this machine instead
+(--caption-url, default http://localhost:11434; --caption-model, default the
+server's KIST_CAPTION_MODEL). Use it when the server's caption provider is
+ollama and Ollama runs on the Mac rather than the NAS.
 """
 
 import logging
@@ -35,7 +41,8 @@ def default_cache() -> Path:
 class Helper:
     def __init__(self, url: str, token: str, *, name: str, kinds: list[str], batch: int,
                  device: str, threads: int, cache_dir: Path, idle_sleep: float = 15.0,
-                 transport: httpx.BaseTransport | None = None):
+                 transport: httpx.BaseTransport | None = None,
+                 caption_url: str = "http://localhost:11434", caption_model: str = ""):
         self.http = httpx.Client(
             base_url=url.rstrip("/"),
             headers={"Authorization": f"Bearer {token}", "X-Kist-Helper": name,
@@ -53,6 +60,8 @@ class Helper:
         self.ocr = None
         self.stopping = False
         self.done = 0
+        self.caption_url = caption_url
+        self.caption_model = caption_model
 
     def _engines(self, model: str):
         from .ml.engine import ClipEngine, EngineConfig, OcrEngine
@@ -74,15 +83,30 @@ class Helper:
         body = r.json()
         return body["model"], body["jobs"]
 
+    def caption(self, job: dict, image: bytes) -> dict:
+        from .services.captions import DEFAULT_PROMPT, OllamaProvider, ProviderConfig, to_jpeg
+
+        model = self.caption_model or job.get("model") or ""
+        if not model:
+            raise RuntimeError("no caption model: pass --caption-model or set "
+                               "KIST_CAPTION_MODEL on the server")
+        provider = OllamaProvider(ProviderConfig(
+            provider="ollama", model=model, url=self.caption_url,
+            prompt=job.get("prompt") or DEFAULT_PROMPT))
+        return {"text": provider.caption(to_jpeg(image), "image/jpeg"), "model": model}
+
     def run_job(self, model: str, job: dict) -> None:
-        clip, ocr = self._engines(model)
         t0 = time.perf_counter()
         try:
             img = self.http.get(job["image_url"])
             img.raise_for_status()
-            if job["kind"] == "embed":
+            if job["kind"] == "caption":
+                result = self.caption(job, img.content)
+            elif job["kind"] == "embed":
+                clip, _ocr = self._engines(model)
                 result = {"vector": clip.embed_image(img.content), "model": clip.model}
             else:
+                _clip, ocr = self._engines(model)
                 out = ocr.ocr(img.content)
                 result = {"text": out["text"], "model": out["model"], "lang": out["lang"],
                           "boxes": out["boxes"]}
@@ -146,6 +170,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--cache", type=Path,
                    default=Path(os.environ.get("KIST_ML_CACHE") or default_cache()),
                    help="where model files are kept (default ~/.cache/kist-ml)")
+    p.add_argument("--caption-url", default=os.environ.get("KIST_CAPTION_URL")
+                   or "http://localhost:11434",
+                   help="the Ollama that writes captions (--kinds caption)")
+    p.add_argument("--caption-model", default=os.environ.get("KIST_CAPTION_MODEL", ""),
+                   help="the Ollama vision model (default: the server's KIST_CAPTION_MODEL)")
     p.add_argument("--once", action="store_true", help="stop when the queue is empty")
     p.add_argument("-v", "--verbose", action="store_true")
     args = p.parse_args(argv)
@@ -157,16 +186,19 @@ def main(argv: list[str] | None = None) -> int:
     if not token:
         print("set KIST_HELPER_TOKEN (or pass --token)", file=sys.stderr)
         return 2
-    try:
-        import onnxruntime  # noqa: F401
-        import tokenizers  # noqa: F401
-    except ImportError:
-        print("the helper needs the model libraries: pip install 'kist[ml]'", file=sys.stderr)
-        return 2
-    helper = Helper(args.url, token, name=args.name,
-                    kinds=[k.strip() for k in args.kinds.split(",") if k.strip()],
+    kinds = [k.strip() for k in args.kinds.split(",") if k.strip()]
+    if set(kinds) & {"embed", "ocr"}:
+        try:
+            import onnxruntime  # noqa: F401
+            import tokenizers  # noqa: F401
+        except ImportError:
+            print("the helper needs the model libraries: pip install 'kist[ml]'",
+                  file=sys.stderr)
+            return 2
+    helper = Helper(args.url, token, name=args.name, kinds=kinds,
                     batch=max(1, min(args.batch, 64)), device=args.device,
-                    threads=args.threads, cache_dir=args.cache)
+                    threads=args.threads, cache_dir=args.cache,
+                    caption_url=args.caption_url, caption_model=args.caption_model)
 
     def stop(*_):
         helper.stopping = True

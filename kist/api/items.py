@@ -17,6 +17,7 @@ from ..db import get_session
 from ..filetypes import serve_inline
 from ..ids import new_ulid
 from ..schemas import (
+    CaptionJob,
     EventOut,
     FoldersPut,
     ItemCreateResponse,
@@ -27,10 +28,11 @@ from ..schemas import (
     LinkCreate,
     LinkOut,
     MembershipPatch,
+    PaletteColour,
     TagsPut,
     UrlAdd,
 )
-from ..services import ai, ingest, search, thumbs, validation
+from ..services import captions, colour, ingest, search, thumbs, validation
 from ..services import events as events_svc
 from ..services import items as items_svc
 from ..services import jobs as jobs_svc
@@ -42,9 +44,7 @@ from ..services import links as links_svc
 router = APIRouter(prefix="/items", tags=["items"])
 
 
-@router.get("", response_model=ItemPage)
-def list_items(
-    session: Annotated[Session, Depends(get_session)],
+def search_filters(
     q: str | None = None,
     tags: Annotated[list[str] | None, Query(alias="tags[]")] = None,
     tags_csv: Annotated[str | None, Query(alias="tags")] = None,
@@ -63,32 +63,52 @@ def list_items(
     fixity: str | None = None,  # failed: originals whose fixity check failed
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
     cursor: str | None = None,
-    # order by meaning: nearest to this text first (needs the ml service)
-    semantic: Annotated[str | None, Query(max_length=1000)] = None,
-):
+    # only items whose OCR found text (true) or found none (false)
+    has_text: bool | None = None,
+    # colour search: a hex colour, tolerance 0-100 (default 30)
+    color: Annotated[str | None, Query(max_length=9)] = None,
+    color_tol: Annotated[int | None, Query(ge=0, le=100)] = None,
+    # only matches inside images and PDFs (OCR / PDF text), ranked
+    text: Annotated[str | None, Query(max_length=500)] = None,
+) -> dict:
+    """The filters GET /api/items and POST /api/search/image share, as
+    services.search.search() keyword arguments."""
     tag_names = list(tags or [])
-    semantic_vec, semantic_model = None, None
-    if semantic and semantic.strip() and ai.has_embeddings(session):
-        semantic_model = ai.active_model()
-        semantic_vec = ai.query_vector(semantic)  # AiUnavailable -> 503
     if tags_csv:
         tag_names += [t.strip() for t in tags_csv.split(",") if t.strip()]
-    rows, next_cursor, total = search.search_items(
-        session,
+    return dict(
         q=q, tags=tag_names or None,
         tags_any=[t.strip() for t in tags_any.split(",") if t.strip()] if tags_any else None,
         untagged=untagged, folder=folder, kind=type,
         rating_min=rating, deleted=deleted, state=state, view=view,
         preview_status=preview_status, order=order,
         created_after=created_after, created_before=created_before, fixity=fixity,
-        limit=limit, cursor=cursor,
-        semantic=semantic_vec, semantic_model=semantic_model,
+        limit=limit, cursor=cursor, has_text=has_text, color=color, color_tol=color_tol,
+        text=text,
     )
+
+
+def page_out(result: search.SearchResult) -> ItemPage:
     return ItemPage(
-        items=[ItemOut.from_item(i) for i in rows],
-        next_cursor=next_cursor,
-        total=total,
+        items=[ItemOut.from_item(i, result.matches.get(i.id)) for i in result.items],
+        next_cursor=result.next_cursor,
+        total=result.total,
     )
+
+
+@router.get("", response_model=ItemPage)
+def list_items(
+    session: Annotated[Session, Depends(get_session)],
+    filters: Annotated[dict, Depends(search_filters)],
+    # rank by meaning: nearest to this text first (needs the ml service)
+    semantic: Annotated[str | None, Query(max_length=1000)] = None,
+    # more like this: nearest to that item's embedding
+    similar: Annotated[str | None, Query(max_length=26)] = None,
+):
+    """Search. q, tags, folder, type and the rest filter; semantic, similar,
+    color and text rank (services/ranking.py), and each ranked item carries
+    `match` {kind, score, snippet?}."""
+    return page_out(search.search(session, semantic=semantic, similar=similar, **filters))
 
 
 @router.post("", response_model=ItemCreateResponse, status_code=201)
@@ -204,6 +224,23 @@ def _parse_dt(raw) -> datetime | None:
 @router.get("/{item_id}", response_model=ItemOut)
 def get_item(item_id: str, session: Annotated[Session, Depends(get_session)]):
     return ItemOut.from_item(items_svc.get_item(session, item_id))
+
+
+@router.get("/{item_id}/palette", response_model=list[PaletteColour])
+def get_palette(item_id: str, session: Annotated[Session, Depends(get_session)]):
+    """The item's dominant colours, largest share first, each with the
+    nearest everyday colour name. Search one with ?color=<hex>."""
+    return colour.palette(items_svc.get_item(session, item_id).dominant_colors)
+
+
+@router.post("/{item_id}/caption", response_model=CaptionJob, status_code=202)
+def request_caption(item_id: str, session: Annotated[Session, Depends(get_session)]):
+    """Queue a caption for this item now (KIST_CAPTION_PROVIDER). It
+    replaces the current caption; PATCH {caption} edits it instead."""
+    job = captions.request(session, item_id)
+    return CaptionJob(job_id=job.id, status=job.status,
+                      provider=get_settings().caption_provider or None,
+                      warning=captions.warning())
 
 
 @router.patch("/{item_id}", response_model=ItemOut)
