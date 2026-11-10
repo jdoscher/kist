@@ -92,6 +92,20 @@ const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFi
 const str = (v: unknown): string | null => (typeof v === 'string' && v ? v : null)
 
 /** Rows of [label, value] for the media details panel. */
+/**
+ * "Taken" as the person saw the clock. A photo's EXIF time is the camera's
+ * wall clock with no zone (kist/services/media.py stores it as if it were
+ * UTC, and keeps the zone apart in exif.offset), so it is shown in UTC: an
+ * iPhone shot at 6:13 in Los Angeles reads 6:13, not 23:13 the day before
+ * in a browser on Pacific time. A video's time is a real UTC instant
+ * (QuickTime creation_time), so it is shown in the browser's zone.
+ */
+export function takenText(takenAt: string, wallClock: boolean, locale?: string): string {
+  const d = new Date(takenAt)
+  if (Number.isNaN(d.getTime())) return takenAt
+  return wallClock ? d.toLocaleString(locale, { timeZone: 'UTC' }) : d.toLocaleString(locale)
+}
+
 export function mediaRows(media: Media | null | undefined, takenAt?: string | null): [string, string][] {
   const out: [string, string][] = []
   if (!media) return out
@@ -106,7 +120,7 @@ export function mediaRows(media: Media | null | undefined, takenAt?: string | nu
   if (shutter) settings.push(`${shutter} s`)
   if (num(exif.iso)) settings.push(`ISO ${num(exif.iso)}`)
   if (settings.length) out.push(['Exposure', settings.join(' · ')])
-  if (takenAt) out.push(['Taken', new Date(takenAt).toLocaleString()])
+  if (takenAt) out.push(['Taken', takenText(takenAt, !!str(exif.taken_at))])
   const v = (media.video ?? null) as Record<string, unknown> | null
   const a = (media.audio ?? null) as Record<string, unknown> | null
   const av = v ?? a

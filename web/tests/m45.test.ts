@@ -7,7 +7,7 @@ import { test } from 'node:test'
 import { emptyQuery, itemsParams } from '../src/api.ts'
 import { addErrorText, addPayload, BOOKMARKLET_SRC, bookmarkletFor, hostOf, normalizeKistBase, parseAddParams, plainText, safeHttpUrl } from '../src/m45/add.ts'
 import { bboxString, cleanFilter, clearedM45, filterChipLabel, m45Filters, parseBbox } from '../src/m45/filters.ts'
-import { clipErrors, fmtLatLon, fmtTime, mediaGps, mediaRows, parseTime, scrubFrameIndex, scrubFrameStyle, scrubFrameTime, scrubOf, shutterText, svgColors, waveformBars } from '../src/m45/media.ts'
+import { clipErrors, fmtLatLon, fmtTime, mediaGps, mediaRows, parseTime, scrubFrameIndex, scrubFrameStyle, scrubFrameTime, scrubOf, shutterText, svgColors, takenText, waveformBars } from '../src/m45/media.ts'
 import { formToPreset, presetErrors, presetSummary, presetToForm } from '../src/m45/presets.ts'
 import { aiChoice, aiValue, digitalSourceText, provenanceDiff, provenanceErrors, sourceStatusText } from '../src/m45/provenance.ts'
 import { defaultShareForm, shareFormErrors, shareLink, sharePayload, shareStatusText } from '../src/m45/share.ts'
@@ -344,6 +344,20 @@ test('media details read the media block', () => {
   assert.equal(shutterText(2), '2')
   assert.equal(shutterText(0.0125), '1/80')
   assert.deepEqual(svgColors({ svg: { colors: [{ hex: '#1d3557' }, { hex: 'url(#x)' }] } }), ['#1d3557'])
+})
+
+test('a photo\'s Taken is its wall clock, whatever zone the browser is in', () => {
+  // iPhone HEIC on dev0: EXIF 2025-03-17 06:13:30, offset -07:00, stored as ...Z
+  const media = { exif: { camera: 'Apple iPhone 16 Pro', taken_at: '2025-03-17T06:13:30', offset: '-07:00' } }
+  const rows = Object.fromEntries(mediaRows(media, '2025-03-17T06:13:30Z'))
+  const wall = new Date(Date.UTC(2025, 2, 17, 6, 13, 30)).toLocaleString(undefined, { timeZone: 'UTC' })
+  assert.equal(rows.Taken, wall)
+  assert.equal(takenText('2025-03-17T06:13:30Z', true, 'en-US'), '3/17/2025, 6:13:30 AM')
+  // a video's creation time is a real instant: the browser's own zone
+  const local = new Date('2024-05-01T12:00:00Z').toLocaleString('en-US')
+  assert.equal(takenText('2024-05-01T12:00:00Z', false, 'en-US'), local)
+  assert.equal(Object.fromEntries(mediaRows({ video: { duration: 2 } }, '2024-05-01T12:00:00Z')).Taken, new Date('2024-05-01T12:00:00Z').toLocaleString())
+  assert.equal(takenText('nonsense', true), 'nonsense')
 })
 
 test('waveform peaks become bar heights', () => {
