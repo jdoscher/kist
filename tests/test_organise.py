@@ -64,9 +64,10 @@ def test_alias_rewrites_items_as_one_undoable_batch(client, upload):
         {"alias": "Fashion", "tag": "Clothing"}]
     # undo the alias batch: the items carry Fashion again
     undo = client.post(f"/api/batches/{batch}/undo").json()
-    assert undo["undone"] == 2 and not undo["skipped"]
+    assert undo["undone"] == 3 and not undo["skipped"]  # 2 items + the alias
     assert tags_of(client, a["id"]) == ["Fashion"]
     assert tags_of(client, b["id"]) == ["Clothing", "Fashion"]
+    assert client.get("/api/vocabulary").json()["aliases"] == []
 
 
 @pytest.mark.parametrize("body, message", [
@@ -211,15 +212,105 @@ def test_merge_is_one_batch_with_a_dry_run(client, upload):
     vocab = client.get("/api/vocabulary").json()
     assert {a["alias"] for a in vocab["aliases"]} == {"Restaurants", "restaurante"}
     # one batch: undo puts every item back
+    # one batch: undo puts every item back, and the aliases and smart folder
     batches = client.get("/api/batches").json()
-    assert batches[0]["count"] == 2 and batches[0]["kinds"] == ["tags"]
+    assert batches[0]["count"] == 3 and batches[0]["kinds"] == ["tags", "vocab_rules"]
     undo = client.post(f"/api/batches/{batches[0]['batch_id']}/undo").json()
-    assert undo["undone"] == 2
+    assert undo["undone"] == 3 and not undo["skipped"]
     assert tags_of(client, a["id"]) == ["Restaurants"]
     assert tags_of(client, c["id"]) == ["restaurante"]
+    assert client.get("/api/vocabulary").json()["aliases"] == []
+    assert client.get("/api/smart-folders").json()[0]["query"]["tags_any"] == [
+        "Restaurants", "Food"]
     # merging into itself is refused
     assert client.post("/api/tags/merge",
                        json={"from": ["Food"], "into": "food"}).status_code == 422
+
+
+def _merge(client, batch, from_, into):
+    res = client.post("/api/tags/merge", json={"from": from_, "into": into, "keep_alias": True},
+                      headers={"X-Kist-Batch": batch})
+    assert res.status_code == 200, res.text
+    return res.json()
+
+
+def _aliases(client):
+    return {a["alias"]: a["tag"] for a in client.get("/api/vocabulary").json()["aliases"]}
+
+
+def test_merge_undo_takes_the_alias_back(client, upload):
+    """Recent changes' undo (the batch endpoint) reverses the merge's alias,
+    not just the retag, so a later "Accesories" isn't silently rewritten."""
+    a = upload("a.png", tags="Accesories")["item"]
+    upload("b.png", tags="Accessories")
+    _merge(client, "cleanup-1", ["Accesories"], "Accessories")
+    assert _aliases(client) == {"Accesories": "Accessories"}
+    assert "vocab_rules" in client.get("/api/batches").json()[0]["kinds"]
+    undo = client.post("/api/batches/cleanup-1/undo").json()
+    assert undo["undone"] == 2 and not undo["skipped"], undo
+    assert tags_of(client, a["id"]) == ["Accesories"]
+    assert _aliases(client) == {}
+    vocab = json.loads((get_settings().library_dir / "vocabulary.json").read_text())
+    assert vocab["aliases"] == {}
+    # the old spelling is kept as typed again
+    c = upload("c.png", tags="Accesories")["item"]
+    assert c["tags"] == ["Accesories"]
+    # the undo is a batch too: undoing it merges again, alias and all
+    client.post(f"/api/batches/{undo['batch_id']}/undo")
+    assert tags_of(client, a["id"]) == ["Accessories"]
+    assert _aliases(client) == {"Accesories": "Accessories"}
+    assert cli.verify() == 0
+
+
+def test_merge_undo_through_mcp_takes_the_alias_back(client, upload):
+    a = upload("a.png", tags="Interior")["item"]
+    _merge(client, "cleanup-mcp", ["Interior"], "Interiors")
+    out = mcp_result(client, "undo_batch", {"batch_id": "cleanup-mcp"})
+    assert not out.get("isError"), out
+    body = json.loads(out["content"][0]["text"])
+    assert body["undone"] == 2 and not body["skipped"]
+    assert tags_of(client, a["id"]) == ["Interior"]
+    assert _aliases(client) == {}
+
+
+def test_merge_undo_keeps_an_alias_changed_later(client, upload):
+    """The same conflict rule as item undo: an alias someone changed after
+    the merge is left alone, and the undo says why."""
+    a = upload("a.png", tags="Bagz")["item"]
+    _merge(client, "cleanup-2", ["Bagz"], "Bags")
+    assert client.delete("/api/vocabulary/aliases", params={"alias": "Bagz"},
+                         headers={"X-Kist-Batch": "later-1"}).json() == {"removed": True}
+    assert client.post("/api/vocabulary/aliases", json={"alias": "Bagz", "tag": "Luggage"},
+                       headers={"X-Kist-Batch": "later-2"}).status_code == 201
+    undo = client.post("/api/batches/cleanup-2/undo").json()
+    assert undo["undone"] == 1  # the item's tags
+    assert [(s["target"], s["reason"]) for s in undo["skipped"]] == [
+        ("vocabulary", "changed later: alias:bagz")]
+    assert tags_of(client, a["id"]) == ["Bagz"]
+    assert _aliases(client) == {"Bagz": "Luggage"}
+    # the latest change itself still undoes
+    assert client.post("/api/batches/later-2/undo").json()["undone"] == 1
+    assert _aliases(client) == {}
+    assert cli.verify() == 0
+
+
+def test_merge_stays_undoable_after_rebuild_index(client, upload):
+    a = upload("a.png", tags="Shoe")["item"]
+    _merge(client, "cleanup-3", ["Shoe"], "Shoes")
+    assert cli.verify() == 0
+    from kist.db import SessionLocal
+    from kist.models import VocabEvent
+
+    assert cli.rebuild_index(wipe=True) == 0
+    with SessionLocal() as s:  # the wipe emptied it; the file brought it back
+        assert s.query(VocabEvent).count() == 1
+    assert _aliases(client) == {"Shoe": "Shoes"}
+    assert "vocab_rules" in {k for b in client.get("/api/batches").json() for k in b["kinds"]}
+    undo = client.post("/api/batches/cleanup-3/undo").json()
+    assert undo["undone"] == 2 and not undo["skipped"], undo
+    assert tags_of(client, a["id"]) == ["Shoe"]
+    assert _aliases(client) == {}
+    assert cli.verify() == 0
 
 
 def test_rename_and_case_change(client, upload):

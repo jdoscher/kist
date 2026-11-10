@@ -139,7 +139,8 @@ export const org = {
   addAlias: (alias: string, tag: string, batch?: string) =>
     request<{ alias: string; tag: string; items: number }>('/api/vocabulary/aliases', withBatch(json({ alias, tag }), batch)),
   removeAlias: (alias: string) => request<{ removed: boolean }>(`/api/vocabulary/aliases?alias=${enc(alias)}`, { method: 'DELETE' }),
-  addImplies: (tag: string, implied: string) => request<unknown>('/api/vocabulary/implies', json({ tag, implied })),
+  addImplies: (tag: string, implied: string, batch?: string) =>
+    request<unknown>('/api/vocabulary/implies', withBatch(json({ tag, implied }), batch)),
   removeImplies: (tag: string, implied: string) =>
     request<{ removed: boolean }>(`/api/vocabulary/implies?tag=${enc(tag)}&implied=${enc(implied)}`, { method: 'DELETE' }),
 

@@ -475,10 +475,10 @@ class BatchOut(BaseModel):
 
 
 class UndoSkip(BaseModel):
-    item_id: str  # the board id when target is "board"
+    item_id: str  # the board id when target is "board"; "vocabulary" for tag rules
     event_id: int
     reason: str
-    target: Literal["item", "board"] = "item"
+    target: Literal["item", "board", "vocabulary"] = "item"
 
 
 class UndoOut(BaseModel):

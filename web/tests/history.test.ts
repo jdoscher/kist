@@ -152,6 +152,20 @@ test('undo results and conflicts read plainly', () => {
   )
 })
 
+test('a tag merge undone with its alias reads plainly', () => {
+  assert.equal(
+    batchSummary({ actor: 'owner', source: 'web', count: 3, kinds: ['tags', 'vocab_rules'] }),
+    'You in the web app made 3 changes (tags, tag rules)',
+  )
+  const r = undoReport({
+    undone: 1,
+    skipped: [{ item_id: 'vocabulary', event_id: 9, reason: 'changed later: alias:bagz', target: 'vocabulary' }],
+    batch_id: 'X',
+  })
+  assert.equal(r.message, 'Undid 1 change. 1 skipped: it was changed again later (the alias “bagz”).')
+  assert.equal(reasonText('changed later: implies:boots>shoes'), 'it was changed again later (an implied-tag rule)')
+})
+
 test('link labels depend on direction', () => {
   assert.equal(linkLabel('derived_from', 'out'), 'Derived from')
   assert.equal(linkLabel('derived_from', 'in'), 'Source of')

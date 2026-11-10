@@ -293,9 +293,10 @@ def rebuild_index(wipe: bool) -> int:
         if wipe:
             print("wiping items/tags/folders tables…")
             # Milestone 3: back from board.json / annotations.json below
-            from .models import Annotation, Board, BoardEvent
+            from .models import Annotation, Board, BoardEvent, VocabEvent
 
             session.execute(sa.delete(BoardEvent))
+            session.execute(sa.delete(VocabEvent))  # back from vocabulary-events.jsonl
             session.execute(sa.delete(Board))  # board_items cascade
             session.execute(sa.delete(Annotation))
             session.execute(sa.delete(ItemEvent))  # back from events.jsonl below
@@ -340,6 +341,12 @@ def rebuild_index(wipe: bool) -> int:
             warnings += 1
         elif restored_rules:
             print(f"vocabulary: {restored_rules} aliases and implied tags restored")
+        vocab_events, vocab_bad = vocabulary.restore_events(session)
+        if vocab_bad:
+            warn(f"{vocab_bad} unreadable lines in {vocabulary.EVENTS_FILE}")
+            warnings += 1
+        if vocab_events:
+            print(f"vocabulary history: {vocab_events} events restored")
 
         if data is not None:
             folder_ids, folder_warnings = restore_folders(session, data)
@@ -543,6 +550,7 @@ def rewrite_meta() -> int:
         folders_ok = meta_svc.sync_folders(session)
         folders_ok = tokens_svc.sync_file(session) and folders_ok
         folders_ok = vocabulary.sync_file(session) and folders_ok
+        folders_ok = vocabulary.rewrite_events_file(session) and folders_ok
         folders_ok = faces_svc.sync_people_file(session) and folders_ok
         for item_id in session.execute(
             sa.select(TagFeedback.item_id).distinct().order_by(TagFeedback.item_id)

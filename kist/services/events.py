@@ -404,7 +404,7 @@ UNDO_SOURCES: list[UndoSource] = []
 
 def _register() -> None:
     """Import the modules that register extra kinds and undo sources."""
-    from . import annotations, boards  # noqa: F401
+    from . import annotations, boards, vocabulary  # noqa: F401
 
 
 def event_keys(kind: str, before, after) -> set[str]:

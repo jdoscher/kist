@@ -454,6 +454,24 @@ class TagAlias(Base):
     )
 
 
+class VocabEvent(Base):
+    """One change to the tag vocabulary (services/vocabulary.py): the aliases,
+    implied-tag rules and smart-folder filters it changed, before and after.
+    Batched like item events, so undoing a tag merge also takes back the
+    alias it left. library/vocabulary-events.jsonl is the durable copy."""
+
+    __tablename__ = "vocab_events"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    actor: Mapped[str] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(Text)
+    batch_id: Mapped[str] = mapped_column(Text)
+    kind: Mapped[str] = mapped_column(Text)
+    before: Mapped[Any] = mapped_column(JSONB, nullable=True)
+    after: Mapped[Any] = mapped_column(JSONB, nullable=True)
+
+
 class TagImplies(Base):
     """`tag` implies `implied` (boots -> shoes): searching the implied tag
     finds items carrying `tag`. Never written to items."""

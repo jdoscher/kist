@@ -259,6 +259,7 @@ by `rebuild-index`:
 | fixity dates | the last line of `items/{id}/fixity.jsonl` |
 | named tokens (hashed) | `library/.kist/tokens.json` |
 | tag aliases and implied tags | `library/vocabulary.json` |
+| their history (undoable with the batch that changed them, e.g. a tag merge) | `library/vocabulary-events.jsonl` |
 | stack membership and cover | each member's `meta.json` (`"stack": {id, cover}`) |
 | faces | `items/{id}/ai/faces.json` (a face is `<item>:<idx>` across rebuilds) |
 | people, their names and faces | `library/.kist/people.json` |

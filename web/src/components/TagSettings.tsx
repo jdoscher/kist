@@ -8,7 +8,7 @@ import { useId, useMemo, useState } from 'react'
 import { api, emptyQuery, newBatchId } from '../api'
 import { useAfterUndo, useSmartFolders, useTags } from '../data'
 import { plural } from '../format'
-import { timeAgo } from '../history'
+import { timeAgo, undoReport } from '../history'
 import { org, type CleanupKind, type CleanupSuggestion, type MergeResult } from '../organiseApi'
 import { useAppState } from '../state'
 import { namespaceWildcard } from '../tagNs'
@@ -26,29 +26,29 @@ function useTagRefresh() {
   }
 }
 
-/** Undo for a tag change: revert its batch, then refresh. */
+/** Undo for a tag change: revert its batch on the server, then refresh.
+ * The batch holds the rule changes too (an alias a merge left, a new
+ * implied tag), so this is the same undo as Recent changes and MCP. */
 function useUndoNotice() {
   const { notify } = useNotices()
   const afterUndo = useAfterUndo()
   const refresh = useTagRefresh()
-  return (key: string, message: string, batch: string, extra?: () => Promise<unknown>) =>
+  return (key: string, message: string, batch: string) =>
     notify({
       key,
       message,
       action: {
         label: 'Undo',
         run: () =>
-          void api
-            .undoBatch(batch)
-            .then(() => extra?.())
-            .then(
-              () => {
-                afterUndo()
-                refresh()
-                notify({ key, message: 'Undone.' })
-              },
-              (e) => notify({ key, tone: 'error', message: `Couldn't undo: ${describeError(e)}` }),
-            ),
+          void api.undoBatch(batch).then(
+            (r) => {
+              afterUndo()
+              refresh()
+              const rep = undoReport(r, 'Undid')
+              notify({ key, tone: rep.tone, message: rep.tone === 'info' ? 'Undone.' : rep.message })
+            },
+            (e) => notify({ key, tone: 'error', message: `Couldn't undo: ${describeError(e)}` }),
+          ),
       },
     })
 }
@@ -88,7 +88,6 @@ export function VocabularySection() {
         'vocab',
         `“${r.alias}” now means “${r.tag}”${r.items ? `: ${plural(r.items, 'item')} retagged` : ''}.`,
         batch,
-        () => org.removeAlias(r.alias),
       )
     } catch (err) {
       setAliasErr(describeError(err))
@@ -104,15 +103,12 @@ export function VocabularySection() {
     setBusy(true)
     setImpErr('')
     try {
-      await org.addImplies(a, b)
+      const batch = newBatchId()
+      await org.addImplies(a, b, batch)
       setImpTag('')
       setImpTo('')
       refresh()
-      notify({
-        key: 'vocab',
-        message: `Searching #${b} now also finds items tagged ${a}.`,
-        action: { label: 'Undo', run: () => void org.removeImplies(a, b).then(refresh) },
-      })
+      undoNotice('vocab', `Searching #${b} now also finds items tagged ${a}.`, batch)
     } catch (err) {
       setImpErr(describeError(err))
     } finally {
@@ -365,10 +361,9 @@ function useMerge() {
         const batch = newBatchId()
         const r = await org.mergeTags(from, into, { keepAlias, batch })
         refresh()
-        // undo puts the tags back; the aliases the merge left go too
-        undoNotice('cleanup', `Merged into “${r.into}”: ${plural(r.items, 'item')} retagged.`, batch, keepAlias
-          ? () => Promise.all(r.from.map((f) => org.removeAlias(f).catch(() => null)))
-          : undefined)
+        // the server's undo of the batch puts the tags back and drops the
+        // aliases the merge left (they're in the same batch)
+        undoNotice('cleanup', `Merged into “${r.into}”: ${plural(r.items, 'item')} retagged.`, batch)
       } catch (e) {
         notify({ key: 'cleanup', tone: 'error', message: `Couldn't merge: ${describeError(e)}` })
       }

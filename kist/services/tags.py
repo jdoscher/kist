@@ -166,8 +166,9 @@ def merge(
         item = session.get(Item, item_id)
         have = [t.name for t in item.tags if t.name.lower() in {o.lower() for o in olds}]
         items_svc.set_tags(session, item_id, add=[into], remove=have, resolve=False)
-    vocabulary.rename_in_rules(session, olds, into, keep_alias)
-    vocabulary.rename_in_smart_folders(session, olds, into)
+    with vocabulary.recorded(session):  # in this batch: undo takes the alias back
+        vocabulary.rename_in_rules(session, olds, into, keep_alias)
+        vocabulary.rename_in_smart_folders(session, olds, into)
     session.execute(sa.delete(TagFeedback).where(TagFeedback.tag.in_(olds)))
     if existing:
         session.execute(sa.delete(Tag).where(
@@ -213,8 +214,9 @@ def rename(session: Session, old: str, new: str, *, dry_run: bool = False) -> di
         session.refresh(item, ["tags"])
         events.record_changes(session, item_id, befores[item_id], events.state(item))
         item.modified_at = datetime.now(UTC)
-    vocabulary.rename_in_rules(session, [previous], new, keep_alias=False)
-    vocabulary.rename_in_smart_folders(session, [previous], new)
+    with vocabulary.recorded(session):
+        vocabulary.rename_in_rules(session, [previous], new, keep_alias=False)
+        vocabulary.rename_in_smart_folders(session, [previous], new)
     session.commit()
     for item_id in item_ids:
         meta_svc.sync_item(session, item_id)

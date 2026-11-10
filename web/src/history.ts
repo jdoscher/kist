@@ -242,6 +242,7 @@ const KIND_NOUN: Record<string, string> = {
   protect: 'protection',
   link: 'links',
   unlink: 'links',
+  vocab_rules: 'tag rules',
 }
 
 /** "Claude via MCP tagged 12 items", "You in the web app made 5 changes
@@ -274,6 +275,9 @@ export function reasonText(reason: string, names: Names = {}): string {
       return n ? `folder “${n}”` : 'a folder'
     }
     if (k.startsWith('link:')) return 'a link'
+    if (k.startsWith('alias:')) return `the alias “${k.slice(6)}”`
+    if (k.startsWith('implies:')) return 'an implied-tag rule'
+    if (k.startsWith('smart_folder:')) return 'a smart folder'
     if (k === 'state') return 'Trash state'
     if (k === 'protected') return 'protection'
     if (k === 'source_url') return 'source'

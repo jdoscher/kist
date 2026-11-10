@@ -243,7 +243,7 @@ export interface Batch {
 
 export interface UndoResult {
   undone: number
-  skipped: { item_id: string; event_id: number; reason: string }[]
+  skipped: { item_id: string; event_id: number; reason: string; target?: 'item' | 'board' | 'vocabulary' }[]
   /** the batch the undo was recorded as (undo it to redo) */
   batch_id: string
 }

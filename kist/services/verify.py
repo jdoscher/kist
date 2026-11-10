@@ -234,6 +234,7 @@ def run(session: Session) -> Report:
     from . import vocabulary
 
     report.problems.extend(vocabulary.check_file(session))
+    report.problems.extend(vocabulary.check_events_file(session))
     report.problems.extend(faces_svc.check(session))
     report.problems.extend(suggestions_svc.check_feedback_files(session))
     check_creative(session, report)

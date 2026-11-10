@@ -560,6 +560,7 @@ library/
 ├── failed/                 # inbox files whose import failed, under their own names
 ├── folders.json            # folder tree (with descriptions) + smart folders snapshot
 ├── vocabulary.json         # tag aliases and implied tags
+├── vocabulary-events.jsonl # their history, so undoing a tag merge drops its alias
 ├── exports/                # portable exports ({id}.zip + {id}.json), auto-deleted
 ├── .kist/                  # worker heartbeat, last verify result, failed-write notes,
 │                           # tokens.json (hashed tokens), events-purged.jsonl,
@@ -632,7 +633,8 @@ protection, links, stacks, flags, labels, ThumbHash and preview versions,
 each item's history from its `events.jsonl` (and purged items' from
 `.kist/events-purged.jsonl`), fixity dates from `fixity.jsonl`, AI results
 (embeddings, OCR text, captions, faces, tag feedback) from `ai/`,
-annotations from `annotations.json`, the vocabulary from `vocabulary.json`,
+annotations from `annotations.json`, the vocabulary from `vocabulary.json`
+(and its history from `vocabulary-events.jsonl`),
 people from `.kist/people.json`, templates from `.kist/templates.json`, and
 boards with their history from `boards/`. Nothing is recomputed. `--wipe` clears the tables first, and
 refuses to start if `folders.json` can't be read. Nothing on disk is skipped
@@ -643,7 +645,7 @@ parent loop is restored at the top level, and each of these is printed with
 `!` and makes the exit code 2. Other maintenance commands:
 
 - `kist rewrite-meta`: rewrites every `meta.json`, `events.jsonl`,
-  `folders.json`, `tokens.json`, `vocabulary.json`, `.kist/people.json`,
+  `folders.json`, `tokens.json`, `vocabulary.json`, `vocabulary-events.jsonl`, `.kist/people.json`,
   tag feedback, `annotations.json` and the board files from the database.
   Safe while Kist is running: it re-reads each item as it writes it.
 - `kist regen-previews [--all]`: generates missing or failed previews, or all of them.
