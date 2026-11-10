@@ -9,7 +9,7 @@ import { AppearanceMenu } from './Appearance'
 import { Mark, Wordmark } from './Brand'
 import { PasteButton } from './PasteButton'
 import { useUploads } from './UploadManager'
-import { buildSearch, isRanked, modeOf, searchText, type SearchMode } from '../search'
+import { buildSearch, isRanked, modeOf, searchText, tagTokens, type SearchMode } from '../search'
 import { ColourPicker, hasSearchChips, SearchChips, SearchModeMenu, useImageSearch, useSearchMode } from './SearchModes'
 import { useCreative } from './m3/Creative'
 import { labelName } from '../cull'
@@ -25,7 +25,7 @@ const PLACEHOLDER: Record<SearchMode, string> = {
 
 // every kind the server has (Milestone 5 added audio, 3D models, design
 // files and bundles)
-const TYPES: [ItemKind, string][] = [
+export const TYPES: [ItemKind, string][] = [
   ['image', 'Images'],
   ['video', 'Videos'],
   ['pdf', 'PDFs'],
@@ -104,8 +104,11 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
     const t = setTimeout(() => {
       if (text === searchText(query)) return
       // words typed over an image search narrow it
-      if (query.image) setQuery({ q: text.trim() })
-      else setQuery(buildSearch(text, prefMode))
+      // #tags become tag chips on Enter; until then they don't search as words
+      const words = tagTokens(text).rest
+      if (words === searchText(query)) return
+      if (query.image) setQuery({ q: words })
+      else setQuery(buildSearch(words, prefMode))
     }, 300)
     return () => clearTimeout(t)
   }, [text]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -119,7 +122,8 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
 
   const suggestions = useMemo(() => {
     if (!text.trim() || !tags) return []
-    const needle = text.trim().toLowerCase()
+    const needle = text.trim().replace(/^#/, '').toLowerCase()
+    if (!needle) return []
     return tags
       .filter((t) => t.name.toLowerCase().includes(needle) && !query.tags.includes(t.name))
       .slice(0, 8)
@@ -142,6 +146,17 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
   }
 
   const onKeyDown = (e: React.KeyboardEvent) => {
+    // Enter on "#tag" words (implied tags and "#brand:*" too, which the
+    // suggestions don't list) adds them as tag chips
+    const typed = tagTokens(text)
+    if (e.key === 'Enter' && typed.tags.length && !(open && suggestions[hilite])) {
+      e.preventDefault()
+      const add = typed.tags.filter((t) => !query.tags.includes(t))
+      setQuery({ ...buildSearch(typed.rest, prefMode), tags: [...query.tags, ...add] })
+      setText(typed.rest)
+      setOpen(false)
+      return
+    }
     if (!open || suggestions.length === 0) {
       if (e.key === 'Backspace' && !text && query.tags.length) {
         setQuery({ tags: query.tags.slice(0, -1) })

@@ -57,6 +57,25 @@ export function looksLikeKeyword(text: string): boolean {
   return t.split(/\s+/).some((w) => /^\d+$/.test(w) || (/\d/.test(w) && /[a-z]/i.test(w)))
 }
 
+/** `#tag` words typed in the box ("#watch", "#brand:*", "#shoes red"):
+ * the tags to filter by and the rest of the text. A lone hex colour
+ * ("#2f4f3a") is a colour search, not a tag; a trailing "#" alone is
+ * ignored. Settings → Vocabulary tells people to search "#Shoes" and
+ * "#brand:*", which used to search the literal text and find nothing. */
+export function tagTokens(text: string): { tags: string[]; rest: string } {
+  const t = text.trim()
+  if (!t || hexColor(t)) return { tags: [], rest: t }
+  const tags: string[] = []
+  const rest: string[] = []
+  for (const w of t.split(/\s+/)) {
+    const m = /^#([^\s#]+)$/.exec(w)
+    if (m) {
+      if (!tags.includes(m[1])) tags.push(m[1])
+    } else rest.push(w)
+  }
+  return { tags, rest: rest.join(' ') }
+}
+
 /** The fields the search box owns: cleared whenever it searches again. */
 const BOX_FIELDS = { q: '', semantic: '', text: '', color: null, similar: null, image: null } satisfies Partial<Query>
 

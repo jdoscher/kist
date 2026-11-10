@@ -7,6 +7,7 @@ import { firstImage, imageFor, registerImage } from '../src/imageSearch.ts'
 import { emptyState, hasNarrowing, normalizeSaved, smartFolderQuery } from '../src/query.ts'
 import {
   buildSearch,
+  tagTokens,
   colourSearch,
   hexColor,
   isRanked,
@@ -157,4 +158,12 @@ test('a ranked search that can’t run says why', () => {
   assert.equal(rankedErrorText(503, q({ q: 'dog' })), null)
   assert.match(rankedErrorText(410, q({ image: 'x' })) ?? '', /drop or paste/i)
   assert.equal(rankedErrorText(500, q({ semantic: 'dog' })), null)
+})
+
+test('#tag words typed in the box are tags, not text', () => {
+  assert.deepEqual(tagTokens('#watch'), { tags: ['watch'], rest: '' })
+  assert.deepEqual(tagTokens('#brand:* red dial #watch #watch'), { tags: ['brand:*', 'watch'], rest: 'red dial' })
+  assert.deepEqual(tagTokens('#2f4f3a'), { tags: [], rest: '#2f4f3a' }) // a colour
+  assert.deepEqual(tagTokens('dog on grass'), { tags: [], rest: 'dog on grass' })
+  assert.deepEqual(tagTokens('C# #'), { tags: [], rest: 'C# #' })
 })

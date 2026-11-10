@@ -9,6 +9,7 @@ import { ItemHistory } from './ItemHistory'
 import { ItemLinks } from './ItemLinks'
 import { ItemMeta } from './ItemMeta'
 import { ItemStatus } from './ItemStatus'
+import { TYPES } from './TopBar'
 import { ReadOnlyItem } from './DetailSheet'
 import { CaptionField, ImpliedTags, ItemFaces, MatchWhy, MoreLikeThisButton, PaletteSwatches, StackInfo, TagSuggestions, TagText } from './ItemAI'
 import { ItemBoards, ItemCull, ItemVersions } from './m3/ItemCreative'
@@ -255,10 +256,11 @@ function LibrarySummary() {
               <span>{stats.total_items.toLocaleString()}</span>
             </div>
             {Object.entries(stats.by_kind)
+              .filter(([, n]) => n > 0)
               .sort((a, b) => b[1] - a[1])
               .map(([kind, n]) => (
                 <div key={kind}>
-                  <span>{kind}</span>
+                  <span>{TYPES.find(([k]) => k === kind)?.[1] ?? kind}</span>
                   <span>{n.toLocaleString()}</span>
                 </div>
               ))}
