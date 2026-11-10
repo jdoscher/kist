@@ -162,6 +162,15 @@ def test_configuration_rules(monkeypatch):
     assert captions.worker_can_run()
     st = captions.status()
     assert st["leaves_house"] and "sent to OpenAI" in st["warning"]
+    # an OpenAI-compatible server: named, and at home it isn't a warning at all
+    monkeypatch.setattr(settings, "caption_url", "https://openrouter.ai/api/v1")
+    assert "sent to that server" in captions.warning() and "openrouter.ai" in captions.warning()
+    for home in ("http://127.0.0.1:8899/v1", "http://192.168.1.20:1234/v1", "http://vllm:8000/v1",
+                 "http://studio.local:1234/v1", "http://[::1]:8000/v1"):
+        monkeypatch.setattr(settings, "caption_url", home)
+        assert captions.warning() is None and not captions.status()["leaves_house"], home
+    monkeypatch.setattr(settings, "caption_url", "https://api.openai.com/v1")
+    assert "sent to OpenAI" in captions.warning()
     monkeypatch.setattr(settings, "caption_provider", "ollama")
     monkeypatch.setattr(settings, "caption_url", "")
     assert captions.enabled() and not captions.worker_can_run()  # waits for a helper

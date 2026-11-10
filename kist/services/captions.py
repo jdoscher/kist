@@ -70,6 +70,12 @@ LEAVES_HOUSE = (
     "described. Use ollama to keep images at home."
 )
 COMPANIES = {"openai": "OpenAI", "anthropic": "Anthropic", "gemini": "Google"}
+OFFICIAL_HOSTS = {"openai": "api.openai.com", "anthropic": "api.anthropic.com",
+                  "gemini": "generativelanguage.googleapis.com"}
+LEAVES_HOUSE_TO = (
+    "Captions use {provider} at {host}: every image captioned is sent to that server to be "
+    "described. Use ollama, or a server on your own network, to keep images at home."
+)
 
 
 class CaptionError(RuntimeError):
@@ -273,12 +279,38 @@ def worker_can_run() -> bool:
         return False
 
 
-def warning(provider: str | None = None) -> str | None:
-    provider = provider if provider is not None else (get_settings().caption_provider or "")
+def _own_network(host: str) -> bool:
+    """A server on this machine or the home network (an OpenAI-compatible
+    LM Studio / vLLM / llama.cpp server, a compose service name)."""
+    import ipaddress
+
+    host = host.strip("[]").lower()
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return host == "localhost" or "." not in host or host.endswith(
+            (".local", ".lan", ".home.arpa", ".internal", ".localhost"))
+    return ip.is_private or ip.is_loopback or ip.is_link_local
+
+
+def warning(provider: str | None = None, url: str | None = None) -> str | None:
+    """What to tell the owner when captions send images out of the house,
+    or None when they don't (ollama, or an OpenAI-compatible server on the
+    home network via KIST_CAPTION_URL)."""
+    from urllib.parse import urlsplit
+
+    s = get_settings()
+    provider = provider if provider is not None else (s.caption_provider or "")
     provider = provider.strip().lower()
-    if provider in CLOUD:
-        return LEAVES_HOUSE.format(provider=provider, company=COMPANIES[provider])
-    return None
+    if provider not in CLOUD:
+        return None
+    url = url if url is not None else (s.caption_url or "")
+    host = urlsplit(url).hostname if url.strip() else None
+    if host and _own_network(host):
+        return None
+    if host and host not in OFFICIAL_HOSTS.values():
+        return LEAVES_HOUSE_TO.format(provider=provider, host=host)
+    return LEAVES_HOUSE.format(provider=provider, company=COMPANIES[provider])
 
 
 def status() -> dict:
@@ -289,7 +321,7 @@ def status() -> dict:
         "model": s.caption_model or None,
         "auto": s.caption_auto,
         "runs_on": None if provider is None else ("server" if worker_can_run() else "helper"),
-        "leaves_house": provider in CLOUD,
+        "leaves_house": warning(provider or "") is not None,
         "warning": warning(provider or ""),
     }
 

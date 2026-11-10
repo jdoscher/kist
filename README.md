@@ -73,7 +73,7 @@ Open `http://<host>:8080`, paste your token, and drop files in.
 | `KIST_AI_CONCURRENCY` | `2` | AI jobs the worker runs at once (on their own threads: imports never wait behind them) |
 | `KIST_AI_EMBED_BATCH` | `16` | Embed jobs one worker thread sends to the ml service in one request (at most 32; `1` sends them one by one) |
 | `KIST_CAPTION_PROVIDER` | — | Captions (off when empty): `ollama`, or bring your own key for `openai`, `anthropic` or `gemini`. **The last three send every image you caption to that company** |
-| `KIST_CAPTION_URL` | — | `ollama`: its address, e.g. `http://ollama:11434` (empty: a `kist helper --kinds caption` on a Mac with Ollama does them). `openai`: an OpenAI-compatible server's `/v1` address instead of api.openai.com |
+| `KIST_CAPTION_URL` | — | `ollama`: its address, e.g. `http://ollama:11434` (empty: a `kist helper --kinds caption` on a Mac with Ollama does them). `openai`: an OpenAI-compatible server's `/v1` address instead of api.openai.com (on your own network, e.g. LM Studio or vLLM, images stay at home and Kist doesn't warn) |
 | `KIST_CAPTION_MODEL` | — | e.g. `qwen2.5vl:3b` (Ollama), `gpt-4o-mini`, `claude-haiku-4-5`, `gemini-2.5-flash` |
 | `KIST_CAPTION_API_KEY` | — | The key for `openai`, `anthropic` or `gemini` |
 | `KIST_CAPTION_AUTO` | `false` | Caption every new item automatically (otherwise only on request and by `kist ai-backfill --kind caption`) |
