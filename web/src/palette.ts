@@ -136,3 +136,11 @@ export function moveActive(i: number, delta: number, n: number): number {
   if (n <= 0) return -1
   return (((i + delta) % n) + n) % n
 }
+
+/** What an add action opens: the file picker, or a box for a link (an
+ * image or a page URL). "Add from URL" once opened the file picker. */
+export function addActionOpens(id: string): 'files' | 'url' | null {
+  if (id === 'upload') return 'files'
+  if (id === 'add-url') return 'url'
+  return null
+}

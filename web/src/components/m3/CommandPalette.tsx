@@ -30,7 +30,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { emptyQuery, type Query } from '../../api'
 import { api3 } from '../../creativeApi'
 import { useCaps, useSmartFolders } from '../../data'
-import { KIND_LABEL, mergeResults, moveActive, pushRecent, readRecent, type PaletteEntry, type PaletteKind } from '../../palette'
+import { addActionOpens, KIND_LABEL, mergeResults, moveActive, pushRecent, readRecent, type PaletteEntry, type PaletteKind } from '../../palette'
 import { unfiledQuery } from '../../query'
 import { useAppState } from '../../state'
 import { Modal, useDialog } from '../Dialog'
@@ -182,6 +182,7 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
         return setTheme(id.slice(6) as 'dark' | 'light' | 'gallery' | 'system')
       case 'upload':
       case 'add-url': {
+        if (addActionOpens(id) === 'url') return uploads.askUrl()
         const input = document.createElement('input')
         input.type = 'file'
         input.multiple = true

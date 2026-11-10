@@ -10,16 +10,19 @@ import {
   type ReactNode,
 } from 'react'
 import { api, uploadFile } from '../api'
-import { jobLabel, jobsFromDataTransfer, type AddJob } from '../clipboard'
+import { jobLabel, jobsFromDataTransfer, jobsFromText, type AddJob } from '../clipboard'
 import { useApplyItems, useRefresh } from '../data'
 import { useAppState } from '../state'
 import { nextQueued, uploadsReducer, visibleUploads } from '../uploads'
 import { useWrite } from '../useWrite'
 import { describeError } from '../writes'
+import { Modal } from './Dialog'
 
 interface UploadsApi {
   enqueue: (files: File[]) => void
   addJobs: (jobs: AddJob[]) => void
+  /** ask for an image or page URL to add (⌘K Add from URL) */
+  askUrl: () => void
 }
 
 const Ctx = createContext<UploadsApi | null>(null)
@@ -35,6 +38,7 @@ let nextKey = 1
 export function UploadManager({ children }: { children: ReactNode }) {
   const [entries, dispatch] = useReducer(uploadsReducer<AddJob>, [])
   const [dragging, setDragging] = useState(false)
+  const [urlOpen, setUrlOpen] = useState(false)
   const refresh = useRefresh()
   const apply = useApplyItems()
   const w = useWrite()
@@ -192,8 +196,17 @@ export function UploadManager({ children }: { children: ReactNode }) {
   const toasts = visibleUploads(entries)
 
   return (
-    <Ctx.Provider value={{ enqueue, addJobs }}>
+    <Ctx.Provider value={{ enqueue, addJobs, askUrl: () => setUrlOpen(true) }}>
       {children}
+      {urlOpen && (
+        <AddUrlDialog
+          onClose={() => setUrlOpen(false)}
+          onAdd={(jobs) => {
+            setUrlOpen(false)
+            addJobs(jobs)
+          }}
+        />
+      )}
       {dragging && (
         <div className="drop-overlay">
           <div>Drop files to add them to the library</div>
@@ -262,5 +275,52 @@ export function UploadManager({ children }: { children: ReactNode }) {
           )}
       </div>
     </Ctx.Provider>
+  )
+}
+
+/** Add from URL: an image URL is downloaded; a page URL saves the page's
+ * preview image. Several URLs (one per line or space) add each. */
+function AddUrlDialog({ onAdd, onClose }: { onAdd: (jobs: AddJob[]) => void; onClose: () => void }) {
+  const [text, setText] = useState('')
+  const [hint, setHint] = useState('')
+  return (
+    <Modal title="Add from URL" onClose={onClose} className="dialog">
+      <form
+        className="dialog-form"
+        onSubmit={(e) => {
+          e.preventDefault()
+          const jobs = jobsFromText(text)
+          if (jobs.length) onAdd(jobs)
+          else setHint('Enter a URL starting with http:// or https://')
+        }}
+      >
+        <label htmlFor="add-url-input">Image or page URL</label>
+        <input
+          id="add-url-input"
+          data-autofocus
+          inputMode="url"
+          autoComplete="off"
+          placeholder="https://"
+          value={text}
+          aria-invalid={!!hint}
+          aria-describedby="add-url-hint"
+          onChange={(e) => {
+            setText(e.target.value)
+            setHint('')
+          }}
+        />
+        <p id="add-url-hint" className={hint ? 'error' : 'hint'} aria-live="polite">
+          {hint || 'An image URL is downloaded; a page URL saves the page’s preview image.'}
+        </p>
+        <div className="dialog-actions">
+          <button type="button" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="submit" className="primary" disabled={!text.trim()}>
+            Add
+          </button>
+        </div>
+      </form>
+    </Modal>
   )
 }
