@@ -1,6 +1,8 @@
 import {
+  CalendarDays,
   ChevronRight,
   Copy,
+  Map as MapIcon,
   Library,
   Users,
   FolderSearch,
@@ -34,6 +36,7 @@ import { useAiFlags } from './ItemAI'
 import type { Query } from '../api'
 import { SidebarBoards, SidebarCull } from './m3/Boards'
 import { SetupChecklist } from './m3/FirstRun'
+import { hasM45Filters } from '../m45/filters'
 
 interface TreeNode extends Folder {
   children: TreeNode[]
@@ -350,7 +353,7 @@ function PhoneUpload() {
 }
 
 export function Sidebar({ mobile = false }: { mobile?: boolean }) {
-  const { query, setQuery, smartId, applySmartFolder, setJobsOpen, setRecentOpen, openSettings, settings, closeDrawer, organise, openOrganise } = useAppState()
+  const { query, setQuery, smartId, applySmartFolder, setJobsOpen, setRecentOpen, openSettings, settings, closeDrawer, organise, openOrganise, screen, openScreen } = useAppState()
   const aiFlags = useAiFlags()
   const caps = useCaps()
   const folderDialog = useFolderDialog()
@@ -440,13 +443,15 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
     !smartId &&
     !settings &&
     !organise &&
+    !screen &&
+    !hasM45Filters(query) &&
     !query.similar &&
     !query.color &&
     !query.image &&
     !query.person &&
     query.tags.length === 0 &&
     query.tags_any.length === 0
-  const attention = (stats?.failed_jobs ?? 0) + (stats?.preview_failed ?? 0) + (stats?.fixity_failed ?? 0)
+  const attention = (stats?.failed_jobs ?? 0) + (stats?.preview_failed ?? 0) + (stats?.fixity_failed ?? 0) + (stats?.source_gone ?? 0)
 
   const visibleTags = (tags ?? []).filter(
     (t) => !tagFilter || t.name.toLowerCase().includes(tagFilter.toLowerCase()),
@@ -511,6 +516,20 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
             )}
           </>
         )}
+        <Row
+          icon={<CalendarDays {...ROW_ICON} />}
+          name="Timeline"
+          active={screen?.kind === 'timeline'}
+          onActivate={() => openScreen({ kind: 'timeline', group: 'month' })}
+          title="Everything by the date it was taken, with On this day"
+        />
+        <Row
+          icon={<MapIcon {...ROW_ICON} />}
+          name="Map"
+          active={screen?.kind === 'map'}
+          onActivate={() => openScreen({ kind: 'map' })}
+          title="Photos and videos with a location, on a map"
+        />
         {attention > 0 && (
           <Row
             className="attention-row"
@@ -519,7 +538,7 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
             count={attention}
             active={false}
             onActivate={() => setJobsOpen(true)}
-            title="Imports, previews and fixity checks that failed"
+            title="Imports, previews and fixity checks that failed, and source pages that are gone"
           />
         )}
         {mobile && caps.canEdit && (

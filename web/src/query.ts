@@ -1,5 +1,6 @@
 // Query helpers shared by the sidebar, top bar and app state (no React).
 import { emptyQuery, type Item, type Query } from './api.ts'
+import { hasM45Filters, m45Filters } from './m45/filters.ts'
 
 // "Unfiled" is the inbox: items in no folder AND with no tags. The server
 // defines it (GET /api/items?view=unfiled, MCP search_items(view="unfiled")),
@@ -112,6 +113,8 @@ export function smartFolderQuery(q: Query): Partial<Query> {
     person: q.person,
     flag: q.flag ?? null,
     label: q.label ?? null,
+    // Milestones 4 and 5 (the server saves them under the same names)
+    ...m45Filters(q),
   }
 }
 
@@ -149,7 +152,8 @@ export function hasNarrowing(q: Query): boolean {
     !!q.person ||
     !!q.image ||
     !!q.flag ||
-    !!q.label
+    !!q.label ||
+    hasM45Filters(q)
   )
 }
 

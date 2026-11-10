@@ -1,4 +1,5 @@
 import { imageFor } from './imageSearch.ts'
+import { addM45Params, type M45Filters } from './m45/filters.ts'
 
 // Server-defined states (kist/lifecycle.py); the UI never derives these itself.
 type ItemState = 'active' | 'trashed'
@@ -127,9 +128,11 @@ export interface Stats {
   preview_failed: number
   /** originals whose last fixity check failed (Kist 2.0) */
   fixity_failed?: number
+  /** items whose source page is gone (the link-rot watch, Milestone 4) */
+  source_gone?: number
 }
 
-export interface Query {
+export interface Query extends M45Filters {
   q: string
   tags: string[]
   tags_any: string[]
@@ -481,6 +484,8 @@ export function itemsParams(query: Query, cursor?: string, limit = 120): URLSear
   if (!query.deleted) p.set('stacks', 'collapse')
   if (query.flag) p.set('flag', query.flag)
   if (query.label) p.set('label', query.label)
+  // Milestones 4 and 5: provenance and media filters (m45/filters.ts)
+  addM45Params(query, p)
   p.set('order', query.order)
   p.set('limit', String(limit))
   if (cursor) p.set('cursor', cursor)

@@ -22,6 +22,8 @@ import { Mark, Wordmark } from './components/Brand'
 import { useAppState } from './state'
 import { bannerText, describeError, hasDrafts } from './writes'
 import { CreativeProvider } from './components/m3/Creative'
+import { M45Provider } from './components/m45/M45'
+import { inLibraryFrame } from './url'
 
 // Screens past the library load on first use, so the first load is the
 // library alone (Settings, the boards list, a board, triage, Organise;
@@ -30,6 +32,12 @@ const SettingsScreen = lazy(() => import('./components/Settings').then((m) => ({
 const BoardsScreen = lazy(() => import('./components/m3/BoardsScreen').then((m) => ({ default: m.BoardsScreen })))
 const BoardEditor = lazy(() => import('./components/m3/board/BoardEditor'))
 const Triage = lazy(() => import('./components/m3/Triage'))
+// Milestones 4 and 5: the timeline, the map (MapLibre loads with it), the
+// bookmarklet's /add card and its /bookmarklet generator
+const TimelineScreen = lazy(() => import('./components/m45/TimelineScreen'))
+const MapScreen = lazy(() => import('./components/m45/MapScreen'))
+const AddPage = lazy(() => import('./components/m45/AddPage'))
+const BookmarkletPage = lazy(() => import('./components/m45/BookmarkletPage'))
 
 function TokenGate({ onDone, overlay = false }: { onDone: () => void; overlay?: boolean }) {
   const [value, setValue] = useState('')
@@ -162,9 +170,10 @@ function Screens({ mobile }: { mobile: boolean }) {
     )
   // the board editor and triage take the whole window (focus); the boards
   // list sits in the library's frame, in place of the grid
-  if (screen && screen.kind !== 'boards')
+  if (screen && !inLibraryFrame(screen))
     return (
       <Suspense fallback={<main className="center" role="status">Loading…</main>}>
+        {screen.kind === 'add' && <AddPage search={screen.search} />}
         {screen.kind === 'board' && <BoardEditor key={screen.id} id={screen.id} />}
         {screen.kind === 'triage' && <Triage key={`${screen.view}:${screen.folder ?? ''}`} screen={screen} />}
       </Suspense>
@@ -174,9 +183,11 @@ function Screens({ mobile }: { mobile: boolean }) {
       <TopBar mobile={mobile} />
       <div className="app-body">
         {mobile ? <Drawer /> : <DesktopSidebar />}
-        {screen?.kind === 'boards' ? (
+        {inLibraryFrame(screen) ? (
           <Suspense fallback={<main className="grid-area center" role="status">Loading…</main>}>
-            <BoardsScreen trash={!!screen.trash} />
+            {screen?.kind === 'boards' && <BoardsScreen trash={!!screen.trash} />}
+            {screen?.kind === 'timeline' && <TimelineScreen group={screen.group} />}
+            {screen?.kind === 'map' && <MapScreen />}
           </Suspense>
         ) : (
           <>
@@ -248,6 +259,14 @@ export default function App() {
     return () => window.removeEventListener('beforeunload', onUnload)
   }, [])
 
+  // the bookmarklet generator needs no token (it never holds one)
+  if (window.location.pathname === '/bookmarklet')
+    return (
+      <Suspense fallback={<main className="center" role="status">Loading…</main>}>
+        <BookmarkletPage />
+      </Suspense>
+    )
+
   if (!authed && !shown) return <TokenGate onDone={recheck} />
 
   return (
@@ -256,6 +275,7 @@ export default function App() {
         <AppStateProvider mobile={mobile}>
           <UploadManager>
             <CreativeProvider>
+              <M45Provider>
               <div className={`app-shell${mobile ? ' mobile' : ''}`}>
                 <ServerBanner />
                 <Screens mobile={mobile} />
@@ -265,6 +285,7 @@ export default function App() {
                 <UndoShortcut />
                 {!authed && <TokenGate onDone={recheck} overlay />}
               </div>
+              </M45Provider>
             </CreativeProvider>
           </UploadManager>
         </AppStateProvider>

@@ -7,6 +7,7 @@ import { useAppState } from '../state'
 import { ItemHistory } from './ItemHistory'
 import { ItemLinks } from './ItemLinks'
 import { ItemMeta } from './ItemMeta'
+import { ItemSections } from './m45/lazy'
 import { ItemStatus } from './ItemStatus'
 import { CaptionField, ImpliedTags, ItemFaces, MatchWhy, MoreLikeThisButton, PaletteSwatches, StackInfo, TagText } from './ItemAI'
 
@@ -79,6 +80,7 @@ export function ReadOnlyItem({ item, withThumb = false }: { item: Item; withThum
       <StackInfo item={item} editable={false} />
       <ItemLinks item={item} editable={false} />
       <ItemMeta item={item} />
+      <ItemSections item={item} />
       <a className="open-original" href={fileUrl(item)} target="_blank" rel="noreferrer">
         Open original <ExternalLink size={13} strokeWidth={1.75} aria-hidden="true" />
         <span className="sr-only"> (new tab)</span>

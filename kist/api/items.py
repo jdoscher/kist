@@ -95,6 +95,10 @@ def search_filters(
     vertical: bool | None = None,
     has_audio: bool | None = None,
     place: Annotated[str | None, Query(max_length=200)] = None,
+    # the timeline's date (taken, else added) and a map area w,s,e,n
+    date_after: datetime | None = None,
+    date_before: datetime | None = None,
+    bbox: Annotated[str | None, Query(max_length=200)] = None,
 ) -> dict:
     """The filters GET /api/items and POST /api/search/image share, as
     services.search.search() keyword arguments."""
@@ -114,7 +118,7 @@ def search_filters(
         media=dict(taken_after=taken_after, taken_before=taken_before, has_gps=has_gps,
                    camera=camera, lens=lens, duration_min=duration_min,
                    duration_max=duration_max, vertical=vertical, has_audio=has_audio,
-                   place=place),
+                   place=place, date_after=date_after, date_before=date_before, bbox=bbox),
     )
 
 

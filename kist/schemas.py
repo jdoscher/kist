@@ -335,6 +335,9 @@ class SmartFolderQuery(BaseModel):
     vertical: bool | None = None
     has_audio: bool | None = None
     place: str | None = Field(default=None, max_length=200)
+    date_after: datetime | None = None
+    date_before: datetime | None = None
+    bbox: str | None = Field(default=None, max_length=200)
 
 
 class PaletteColour(BaseModel):

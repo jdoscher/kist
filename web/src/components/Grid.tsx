@@ -26,6 +26,7 @@ import { ItemContextMenu, RankedError, rankedErrorText, SearchNote, usePersonNam
 import { searchTitle } from '../search'
 import { CullBadges, cullText } from './m3/CullControls'
 import { FirstRun } from './m3/FirstRun'
+import { ScrubHover } from './m45/ScrubHover'
 
 const KIND_ICONS: Record<string, LucideIcon> = {
   image: ImageIcon,
@@ -138,6 +139,7 @@ const Tile = memo(function Tile({
           </span>
         </div>
       )}
+      {thumb && item.media?.scrub ? <ScrubHover item={item} width={width} height={height} /> : null}
       {item.kind === 'video' && item.duration_s != null && (
         <span className="badge" aria-hidden="true">
           {fmtDuration(item.duration_s)}

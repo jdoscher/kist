@@ -9,6 +9,7 @@ import { useFocusInOut, useFocusTrap, useInertBackground } from '../useInert'
 import { useLayer, useShortcut } from '../useShortcuts'
 import { tileDomId } from './Grid'
 import { MoreLikeThisButton } from './ItemAI'
+import { hasMediaView, MediaView } from './m45/lazy'
 
 // notes on the image (Milestone 3) load apart from the first page, and are
 // fetched once the app is idle so opening a preview doesn't wait for them
@@ -106,7 +107,8 @@ export function Preview() {
   if (!item) return null
 
   const onTouchStart = (e: React.TouchEvent) => {
-    if ((e.target as HTMLElement).closest('video')) return // scrubbing
+    // scrubbing, turning a model, typing a font sample, picking a file
+    if ((e.target as HTMLElement).closest('video, audio, model-viewer, .waveform, .font-stage, .bundle-tree, .media-tools')) return
     const t = e.touches[0]
     touch.current = { x: t.clientX, y: t.clientY, n: e.touches.length }
   }
@@ -125,8 +127,10 @@ export function Preview() {
   // the item itself; notes (Annotated) wrap it once their code is here
   const media = (
     <>
-      {item.kind === 'video' ? (
-        <video src={fileUrl(item)} controls autoPlay />
+      {hasMediaView(item) ? (
+        // Milestone 5: video and audio players, SVG, fonts, bundles,
+        // design files and 3D (components/m45/MediaView.tsx)
+        <MediaView key={item.id} item={item} fallback={<div className="preview-fallback" role="status">Loading…</div>} />
       ) : item.kind === 'pdf' ? (
         <PdfFrame item={item} />
       ) : item.has_thumb && item.kind === 'image' && item.ext !== 'svg' ? (

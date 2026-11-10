@@ -11,6 +11,7 @@ import { useDialog } from './Dialog'
 import { useNotices } from './Notices'
 import { StackActions } from './BulkStack'
 import { BulkCreative } from './m3/BulkCreative'
+import { BulkM45 } from './m45/BulkM45'
 
 // actions that take the items out of this view: clear the selection after
 const LEAVES_VIEW = new Set(['trash', 'restore', 'hardDelete'])
@@ -213,6 +214,7 @@ export function BulkBar() {
             Trash
           </button>
           <BulkCreative ids={ids} busy={busy} />
+          <BulkM45 ids={ids} busy={busy} />
         </>
       )}
 

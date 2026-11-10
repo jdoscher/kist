@@ -13,6 +13,8 @@ import { buildSearch, isRanked, modeOf, searchText, type SearchMode } from '../s
 import { ColourPicker, hasSearchChips, SearchChips, SearchModeMenu, useImageSearch, useSearchMode } from './SearchModes'
 import { useCreative } from './m3/Creative'
 import { labelName } from '../cull'
+import { hasM45Filters } from '../m45/filters'
+import { FiltersButton, M45Chips, ViewShareMenu } from './m45/TopBarExtras'
 
 const PLACEHOLDER: Record<SearchMode, string> = {
   auto: 'Search, or describe it…',
@@ -97,7 +99,8 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
     !!query.created_after ||
     !!query.created_before ||
     !!query.flag ||
-    !!query.label
+    !!query.label ||
+    hasM45Filters(query)
 
   // debounce free-text search; what it sends depends on the mode
   useEffect(() => {
@@ -231,6 +234,7 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
                 onClear={() => setQuery({ created_before: null })}
               />
             )}
+            <M45Chips query={query} setQuery={setQuery} />
           </div>
         )}
         <input
@@ -364,6 +368,8 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
         ))}
       </select>
 
+      <FiltersButton mobile={mobile} />
+
       <select
         value={query.rating}
         onChange={(e) => setQuery({ rating: Number(e.target.value) })}
@@ -448,6 +454,7 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
           <History size={17} strokeWidth={1.75} aria-hidden="true" />
         </button>
       )}
+      <ViewShareMenu />
       <AppearanceMenu />
       {caps.isAdmin && (
         <button className="icon-btn topbar-icon" onClick={() => openSettings()} aria-label="Settings" title="Settings: tokens, archive health, AI">

@@ -8,6 +8,7 @@ import { useDraftField, useItemWrite, useTextSave } from '../useWrite'
 import { ItemHistory } from './ItemHistory'
 import { ItemLinks } from './ItemLinks'
 import { ItemMeta } from './ItemMeta'
+import { ItemSections, OnThisDay } from './m45/lazy'
 import { ItemStatus } from './ItemStatus'
 import { ReadOnlyItem } from './DetailSheet'
 import { CaptionField, ImpliedTags, ItemFaces, MatchWhy, MoreLikeThisButton, PaletteSwatches, StackInfo, TagSuggestions, TagText } from './ItemAI'
@@ -225,6 +226,7 @@ function SingleItem({ item }: { item: Item }) {
       <ItemBoards item={item} />
 
       <ItemMeta item={item} />
+      <ItemSections item={item} />
 
       <a className="open-original" href={fileUrl(item)} target="_blank" rel="noreferrer">
         Open original <ExternalLink size={13} strokeWidth={1.75} aria-hidden="true" />
@@ -246,6 +248,7 @@ function LibrarySummary() {
       <p className="hint-text">
         Click an item to see {canEdit ? 'and edit ' : ''}its details. Double-click (or Enter) opens it full screen.
       </p>
+      <OnThisDay />
       {stats && (
         <div className="detail-section">
           <h3 className="section-label">Library</h3>

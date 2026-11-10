@@ -162,7 +162,11 @@ export function AppStateProvider({ children, mobile }: { children: ReactNode; mo
       setOrganise(null)
       organiseFromApp.current = false
       setScreen(p.screen ?? null)
-      if (p.screen) return
+      if (p.screen) {
+        // the timeline and the map carry the library's filters
+        if (p.screen.kind === 'timeline' || p.screen.kind === 'map') setQueryRaw(p.query)
+        return
+      }
       settingsFromApp.current = false
       setQueryRaw(p.query)
       setSmartId(p.smartId)

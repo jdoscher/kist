@@ -174,6 +174,39 @@ def create_import(body: ImportCreate, session: Annotated[Session, Depends(get_se
     return _import_out(job)
 
 
+@router.post("/imports/upload", tags=["imports"],
+             dependencies=[Depends(require_scope("write"))])
+async def upload_import(request: Request):
+    """An export file (a zip, CSV or HTML) sent from the browser, kept in
+    library/import/uploads/<id>/ so POST /api/imports can read it; answers
+    {source}. Multipart field 'file'."""
+    import re
+    import shutil
+
+    from ..ids import new_ulid
+
+    settings = get_settings()
+    declared = request.headers.get("content-length", "")
+    if declared.isdigit() and int(declared) > settings.max_upload_bytes:
+        raise HTTPException(413, "that file is larger than Kist accepts")
+    form = await request.form(max_files=1)
+    file = form.get("file")
+    if file is None or isinstance(file, str):
+        raise HTTPException(422, "multipart field 'file' is required")
+    name = re.sub(r"[^A-Za-z0-9._ -]+", "_", (file.filename or "upload").rsplit("/", 1)[-1]).strip(" .")
+    name = (name or "upload")[:200]
+    dest_dir = settings.library_dir / "import" / "uploads" / new_ulid()
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest = dest_dir / name
+
+    def _copy():
+        with dest.open("wb") as out:
+            shutil.copyfileobj(file.file, out, 1024 * 1024)
+
+    await run_in_threadpool(_copy)
+    return {"source": str(dest), "size_bytes": dest.stat().st_size, "filename": name}
+
+
 @router.get("/imports/{job_id}", tags=["imports"])
 def get_import(job_id: int, session: Annotated[Session, Depends(get_session)]):
     job = jobs_svc.get_job(session, job_id)
