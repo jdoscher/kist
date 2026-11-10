@@ -1,6 +1,7 @@
 import { imageFor } from './imageSearch.ts'
 import { addM45Params, type M45Filters } from './m45/filters.ts'
 import { bucketParams, scrubSort, type Buckets } from './scrub.ts'
+import { reportNetwork } from './shell.ts'
 
 // Server-defined states (kist/lifecycle.py); the UI never derives these itself.
 type ItemState = 'active' | 'trashed'
@@ -131,6 +132,9 @@ export interface Stats {
   fixity_failed?: number
   /** items whose source page is gone (the link-rot watch, Milestone 4) */
   source_gone?: number
+  /** items in no folder and with no tags (the Unfiled view; Milestone 6
+   * badge). Older servers leave it out: the badge then asks the view. */
+  unfiled?: number
 }
 
 export interface Query extends M45Filters {
@@ -414,8 +418,10 @@ export async function request<T>(
   } catch (e) {
     if (e instanceof DOMException && (e.name === 'TimeoutError' || e.name === 'AbortError'))
       throw new ApiError(408, 'The server took too long')
+    reportNetwork(false) // no answer at all: the Offline banner (shell.ts)
     throw new ApiError(0, 'No connection to the server')
   }
+  reportNetwork(true)
   if (res.status === 401) {
     notifyUnauthorized()
     throw new ApiError(401, 'unauthorized')

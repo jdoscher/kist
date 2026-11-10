@@ -1,7 +1,7 @@
 import { ExternalLink, Lock, Maximize2, Star, X } from 'lucide-react'
 import { useRef, useState, type ReactNode } from 'react'
 import { emptyQuery, fileUrl, thumbUrl, type Item } from '../api'
-import { useCurrentItems, useFolderNames, useItem } from '../data'
+import { useCaps, useCurrentItems, useFolderNames, useItem } from '../data'
 import { swipeDirection } from '../mobile'
 import { useAppState } from '../state'
 import { ItemHistory } from './ItemHistory'
@@ -10,12 +10,24 @@ import { ItemMeta } from './ItemMeta'
 import { ItemSections } from './m45/lazy'
 import { SheetVersions } from './m3/ItemCreative'
 import { ItemStatus } from './ItemStatus'
+import { PhoneItemEdit, PhoneStars } from './PhoneEdit'
 import { CaptionField, ImpliedTags, ItemFaces, MatchWhy, MoreLikeThisButton, PaletteSwatches, StackInfo, TagText } from './ItemAI'
 
 /** An item's details without edit controls: the phone sheet's body, and
  * the info panel for a read-only token. Tags and folders are links to
- * their views. */
-export function ReadOnlyItem({ item, withThumb = false, afterStack }: { item: Item; withThumb?: boolean; afterStack?: ReactNode }) {
+ * their views (left out when the phone sheet shows them editable). */
+export function ReadOnlyItem({
+  item,
+  withThumb = false,
+  afterStack,
+  editing = false,
+}: {
+  item: Item
+  withThumb?: boolean
+  afterStack?: ReactNode
+  /** the phone's edit controls show tags and folders instead */
+  editing?: boolean
+}) {
   const { query, setQuery, setPreviewId } = useAppState()
   const folderName = useFolderNames()
   const thumb = thumbUrl(item, 512)
@@ -41,7 +53,8 @@ export function ReadOnlyItem({ item, withThumb = false, afterStack }: { item: It
           <Lock size={13} strokeWidth={1.75} aria-hidden="true" /> Protected: it can’t be trashed or deleted.
         </p>
       )}
-      {item.tags.length > 0 && (
+      {editing && <ImpliedTags item={item} />}
+      {!editing && item.tags.length > 0 && (
         <div className="detail-section">
           <h3 className="section-label">Tags</h3>
           <div className="tag-chips">
@@ -54,7 +67,7 @@ export function ReadOnlyItem({ item, withThumb = false, afterStack }: { item: It
           <ImpliedTags item={item} />
         </div>
       )}
-      {item.folder_ids.length > 0 && (
+      {!editing && item.folder_ids.length > 0 && (
         <div className="detail-section">
           <h3 className="section-label">Folders</h3>
           <div className="tag-chips">
@@ -93,15 +106,17 @@ export function ReadOnlyItem({ item, withThumb = false, afterStack }: { item: It
 }
 
 /**
- * Phone layout: a read-only sheet that slides up over the grid when one item
- * is tapped. Tap the picture (or View) for the full-screen preview; swipe the
- * handle down or tap ✕ to close.
+ * Phone layout: a sheet that slides up over the grid when one item is
+ * tapped. Tap the picture (or View) for the full-screen preview; swipe the
+ * handle down or tap ✕ to close. A token that may edit gets stars, tags,
+ * Move to… and Trash here (PhoneEdit.tsx); everything else is read-only.
  */
 export function DetailSheet() {
   const { selection, clearSelection, setPreviewId } = useAppState()
   const { items } = useCurrentItems()
   const start = useRef<{ x: number; y: number } | null>(null)
   const [drag, setDrag] = useState(0)
+  const { canEdit } = useCaps()
 
   const item = useItem(selection.size === 1 ? [...selection][0] : null, items)
   if (!item) return null
@@ -146,7 +161,9 @@ export function DetailSheet() {
         )}
         <div className="sheet-title">
           <h2 className="fname">{item.filename}</h2>
-          {item.rating > 0 && (
+          {canEdit ? (
+            <PhoneStars item={item} />
+          ) : item.rating > 0 && (
             <div className="sheet-stars" role="img" aria-label={`${item.rating} of 5 stars`}>
               {Array.from({ length: item.rating }, (_, i) => (
                 <Star key={i} size={14} fill="currentColor" strokeWidth={0} aria-hidden="true" />
@@ -163,7 +180,8 @@ export function DetailSheet() {
       </div>
 
       <div className="sheet-body">
-        <ReadOnlyItem item={item} afterStack={<SheetVersions item={item} />} />
+        {canEdit && <PhoneItemEdit key={item.id} item={item} />}
+        <ReadOnlyItem item={item} editing={canEdit} afterStack={<SheetVersions item={item} />} />
       </div>
     </aside>
   )

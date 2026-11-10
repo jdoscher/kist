@@ -3,12 +3,13 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { fileUrl, thumbUrl, type Item } from '../api'
 import { swipeDirection } from '../mobile'
 import { fullPreviewUrl, pdfFrameProps, previewBoxPx } from '../preview'
-import { useCurrentItems, useItem } from '../data'
+import { useCaps, useCurrentItems, useItem } from '../data'
 import { useAppState } from '../state'
 import { useFocusInOut, useFocusTrap, useInertBackground } from '../useInert'
 import { useLayer, useShortcut } from '../useShortcuts'
 import { tileDomId } from './Grid'
 import { MoreLikeThisButton } from './ItemAI'
+import { PhoneEditBar } from './PhoneEdit'
 import { hasMediaView, MediaView } from './m45/lazy'
 
 // notes on the image (Milestone 3) load apart from the first page, and are
@@ -42,6 +43,9 @@ function PdfFrame({ item }: { item: Item }) {
 
 export function Preview() {
   const { previewId, setPreviewId, selectOnly, mobile } = useAppState()
+  const { canEdit } = useCaps()
+  // phone editing (Milestone 6): stars, tags, Move to…, Trash
+  const phoneEdit = mobile && canEdit
   const { result, items } = useCurrentItems()
   const idx = useMemo(() => items.findIndex((i) => i.id === previewId), [items, previewId])
   // an item opened from a link may not be in the loaded grid: show it alone
@@ -108,7 +112,7 @@ export function Preview() {
 
   const onTouchStart = (e: React.TouchEvent) => {
     // scrubbing, turning a model, typing a font sample, picking a file
-    if ((e.target as HTMLElement).closest('video, audio, model-viewer, .waveform, .font-stage, .bundle-tree, .media-tools')) return
+    if ((e.target as HTMLElement).closest('video, audio, model-viewer, .waveform, .font-stage, .bundle-tree, .media-tools, .phone-edit')) return
     const t = e.touches[0]
     touch.current = { x: t.clientX, y: t.clientY, n: e.touches.length }
   }
@@ -148,7 +152,7 @@ export function Preview() {
   return (
     <div
       ref={overlayRef}
-      className="preview-overlay"
+      className={`preview-overlay${phoneEdit ? ' phone-editing' : ''}`}
       role="dialog"
       aria-modal="true"
       aria-label={`Preview: ${item.filename}`}
@@ -191,6 +195,23 @@ export function Preview() {
           </a>
         </figcaption>
       </figure>
+
+      {phoneEdit && (
+        <PhoneEditBar
+          key={item.id}
+          item={item}
+          onTrashed={() => {
+            // on to the next item (or the previous one at the end); the
+            // last one closes the preview
+            const rest = items.filter((i) => i.id !== item.id)
+            const next = idx >= 0 ? (rest[idx] ?? rest[idx - 1]) : undefined
+            if (next) {
+              setPreviewId(next.id)
+              selectOnly(next.id)
+            } else setPreviewId(null)
+          }}
+        />
+      )}
 
       <button
         className="preview-nav next"
