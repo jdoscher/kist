@@ -129,7 +129,10 @@
   display: inline-flex;
   align-items: stretch;
 }
-.mobile .cols-stepper button {
+/* .cols-toggle.cols-stepper: styles.css's .mobile .cols-toggle button
+   (34 px) loads after this sheet and used to win, so the stepper took
+   84 px of the phone row instead of 70 */
+.mobile .cols-toggle.cols-stepper button {
   min-width: 26px;
   padding: 0 4px;
   display: inline-flex;

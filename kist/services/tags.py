@@ -344,7 +344,8 @@ def cleanup(session: Session, unused_since: datetime | None = None) -> list[dict
     underscores), near (the same stem, or a likely misspelling within a
     namespace: same first letter, one edit apart, two for 8+ letters),
     unused (no item tagged since `unused_since`, default a year ago;
-    includes tags with no live items; old bookkeeping tags stay),
+    includes tags with no live items; old bookkeeping tags stay; a stale
+    tag on one item is listed here and not again as one_off),
     smart_folder (a smart folder names a tag or folder that doesn't exist)."""
     from . import vocabulary
 
@@ -422,18 +423,25 @@ def cleanup(session: Session, unused_since: datetime | None = None) -> list[dict
     def bookkeeping(t: dict) -> bool:
         return (vocabulary.split_namespace(t["name"])[0] or "") in BOOKKEEPING_NAMESPACES
 
-    for t in tags:
-        if t["count"] == 1 and not bookkeeping(t):
-            out.append(suggestion("one_off", [t], {"action": "review"}))
-
     # unused since a date (no live items counts as unused)
     since = unused_since or (datetime.now(UTC) - timedelta(days=365))
     if since.tzinfo is None:
         since = since.replace(tzinfo=UTC)
     used = last_used(session)
+
+    def unused(t: dict) -> bool:
+        at = used.get(t["name"].lower())
+        return t["count"] == 0 or ((at is None or at < since) and not bookkeeping(t))
+
+    # a tag on one item that nobody has used for a year is listed once,
+    # under unused (stale is the stronger hint), not in both lists
+    for t in tags:
+        if t["count"] == 1 and not bookkeeping(t) and not unused(t):
+            out.append(suggestion("one_off", [t], {"action": "review"}))
+
     for t in tags:
         at = used.get(t["name"].lower())
-        if t["count"] == 0 or ((at is None or at < since) and not bookkeeping(t)):
+        if unused(t):
             s = suggestion("unused", [t], {"action": "delete" if t["count"] == 0 else "review"})
             s["last_used"] = at.isoformat() if at else None
             out.append(s)

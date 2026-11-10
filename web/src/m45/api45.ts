@@ -67,6 +67,10 @@ export interface MapCluster {
   count: number
   item_id: string
   bbox: [number, number, number, number]
+  /** the place name most of its items share (null: none named yet) */
+  place?: string | null
+  /** how many different place names its items have */
+  places?: number
 }
 
 export interface MapPage {

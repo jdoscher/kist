@@ -194,6 +194,32 @@ def test_versions_chain_upload_and_ids_fetch(client, upload, clean):
     assert got["total"] == 2 and got["next_cursor"] is None
 
 
+def test_a_trashed_version_is_not_current(client, upload, clean):
+    """Trashing the newest version left it in the chain as 'v2 · current'
+    (seen on dev0); the live one before it is current again, a new upload
+    extends from that, and the trashed one still sees its chain."""
+    v1 = upload("room.png")["item"]
+    v2 = client.post(f"/api/items/{v1['id']}/versions",
+                     files={"file": ("room-v2.png", png_bytes((9, 9, 9)), "image/png")})
+    v2 = v2.json()["item"]
+    assert client.delete(f"/api/items/{v2['id']}").json()["status"] == "trashed"
+    chain = client.get(f"/api/items/{v1['id']}/versions").json()
+    assert [i["id"] for i in chain["items"]] == [v1["id"]]
+    assert chain["current_id"] == v1["id"]
+    own = client.get(f"/api/items/{v2['id']}/versions").json()
+    assert [i["id"] for i in own["items"]] == [v1["id"], v2["id"]] and own["current_id"] == v1["id"]
+    v3 = client.post(f"/api/items/{v1['id']}/versions",
+                     files={"file": ("room-v3.png", png_bytes((7, 7, 7)), "image/png")})
+    v3 = v3.json()["item"]
+    links = client.get(f"/api/items/{v3['id']}/links").json()
+    assert [x["item"]["id"] for x in links if x["kind"] == "version_of"] == [v1["id"]]
+    assert client.get(f"/api/items/{v1['id']}/versions").json()["current_id"] == v3["id"]
+    # restored: it's back in the chain
+    client.post(f"/api/items/{v2['id']}/restore")
+    ids = [i["id"] for i in client.get(f"/api/items/{v1['id']}/versions").json()["items"]]
+    assert set(ids) == {v1["id"], v2["id"], v3["id"]}
+
+
 def test_file_serves_http_range_for_the_loupe(client, upload):
     data = png_bytes(size=(300, 200))
     a = upload("big.png", data=data)["item"]

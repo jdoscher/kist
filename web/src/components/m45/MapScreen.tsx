@@ -14,6 +14,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect, useId, useRef, useState } from 'react'
 import { api45, type MapCluster, type MapPage } from '../../m45/api45'
 import { bboxString } from '../../m45/filters'
+import { clusterPlaceText } from '../../m45/media'
 import { useAppState } from '../../state'
 import { describeError } from '../../writes'
 
@@ -136,8 +137,9 @@ export default function MapScreen() {
       const el = document.createElement('button')
       el.type = 'button'
       el.className = `map-pin${c.count > 1 ? ' cluster' : ''}`
-      el.setAttribute('aria-label', `${c.count} item${c.count === 1 ? '' : 's'} here: show ${c.count === 1 ? 'it' : 'them'}`)
-      el.title = `${c.count} item${c.count === 1 ? '' : 's'}`
+      const where = c.place ? ` in ${clusterPlaceText(c)}` : ' here'
+      el.setAttribute('aria-label', `${c.count} item${c.count === 1 ? '' : 's'}${where}: show ${c.count === 1 ? 'it' : 'them'}`)
+      el.title = `${c.count} item${c.count === 1 ? '' : 's'}${c.place ? ` · ${clusterPlaceText(c)}` : ''}`
       if (c.count === 1) {
         const img = document.createElement('img')
         img.src = `/api/items/${c.item_id}/thumb?size=256`
@@ -203,7 +205,7 @@ export default function MapScreen() {
                   <img src={`/api/items/${c.item_id}/thumb?size=256`} alt="" loading="lazy" />
                   <span>
                     {c.count} item{c.count === 1 ? '' : 's'}
-                    <span className="hint mono"> {c.lat.toFixed(2)}, {c.lon.toFixed(2)}</span>
+                    <span className={`hint${c.place ? '' : ' mono'}`}> {clusterPlaceText(c)}</span>
                   </span>
                 </button>
               </li>

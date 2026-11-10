@@ -11,6 +11,7 @@ import {
   isLocalhost,
   isOffline,
   offlineText,
+  onReconnect,
   reportNetwork,
   setBrowserOnline,
   shouldRegisterSW,
@@ -30,6 +31,26 @@ test('the worker registers only in production, on https or this machine', () => 
   assert.equal(shouldRegisterSW({ ...env, protocol: 'http:', hostname: '127.0.0.1' }), true)
   assert.equal(shouldRegisterSW({ ...env, protocol: 'http:', hostname: '192.168.1.68' }), false)
   assert.ok(isLocalhost('[::1]') && isLocalhost('kist.localhost') && !isLocalhost('localhost.example.com'))
+})
+
+test('back online after an outage calls the reconnect hook once (failed queries refetch)', () => {
+  const store = createStore<NetState>({ browserOnline: true, networkFailed: false })
+  let calls = 0
+  const off = onReconnect(() => calls++, store)
+  reportNetwork(true, store) // online and answering: nothing to do
+  assert.equal(calls, 0)
+  reportNetwork(false, store) // the server stopped answering
+  reportNetwork(false, store)
+  assert.equal(calls, 0)
+  reportNetwork(true, store) // it answers again: the browser never went offline
+  assert.equal(calls, 1)
+  setBrowserOnline(false, store)
+  setBrowserOnline(true, store)
+  assert.equal(calls, 2)
+  off()
+  reportNetwork(false, store)
+  reportNetwork(true, store)
+  assert.equal(calls, 2)
 })
 
 test('offline: browser offline, or a request got no answer; any answer clears it', () => {

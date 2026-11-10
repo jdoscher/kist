@@ -1,5 +1,6 @@
 import { Command, History, ImageUp, Info, Menu, Minus, PanelsLeftRight, Plus, RectangleHorizontal, Settings, Square, Upload, X } from 'lucide-react'
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { chromeOf, fitSelectWidth } from '../fitSelect'
 import { TILE_SIZE_MAX, TILE_SIZE_MIN } from '../layout'
 import { useCaps, useTags } from '../data'
 import { useAppState } from '../state'
@@ -48,6 +49,45 @@ const ORDERS: [string, string][] = [
   ['-taken', 'Date taken'],
 ]
 
+let measureCtx: CanvasRenderingContext2D | null | undefined
+
+/**
+ * A phone toolbar select sized to the label it shows (fitSelect.ts), so
+ * "Rating" isn't cut to "R…". Measured with the select's own font, again
+ * once the web font has loaded (the fallback font is wider). Off on
+ * desktop: the selects keep their natural width there.
+ */
+function useFitSelect(on: boolean, value: string) {
+  const ref = useRef<HTMLSelectElement>(null)
+  const [width, setWidth] = useState<number | undefined>(undefined)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!on || !el) {
+      setWidth(undefined)
+      return
+    }
+    let live = true
+    const measure = () => {
+      if (!live) return
+      if (measureCtx === undefined) measureCtx = document.createElement('canvas').getContext('2d')
+      if (!measureCtx) return
+      const cs = getComputedStyle(el)
+      measureCtx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`
+      const label = el.options[el.selectedIndex]?.text ?? ''
+      setWidth(fitSelectWidth(measureCtx.measureText(label).width, chromeOf(cs)))
+    }
+    measure()
+    const fonts = document.fonts
+    void fonts?.ready.then(measure)
+    fonts?.addEventListener?.('loadingdone', measure)
+    return () => {
+      live = false
+      fonts?.removeEventListener?.('loadingdone', measure)
+    }
+  }, [on, value])
+  return { ref, style: width ? { width } : undefined }
+}
+
 export function TopBar({ mobile = false }: { mobile?: boolean }) {
   const {
     query,
@@ -79,6 +119,10 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
   const [colourOpen, setColourOpen] = useState(false)
   const img = useImageSearch((image) => setQuery({ image, q: '', semantic: '', text: '', similar: null, color: null }))
   const ranked = isRanked(query)
+  // phone: each select as wide as the option it shows (fitSelect.ts)
+  const typeFit = useFitSelect(mobile, query.type ?? '')
+  const ratingFit = useFitSelect(mobile, String(query.rating))
+  const sortFit = useFitSelect(mobile, ranked ? '__best' : query.order)
   const [open, setOpen] = useState(false)
   const [hilite, setHilite] = useState(0)
   const boxRef = useRef<HTMLDivElement>(null)
@@ -319,6 +363,8 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
 
       {mobile && <div className="topbar-break" />}
 
+      {/* one row on a phone (no wrapping; display: contents on desktop) */}
+      <div className="view-row">
       <div className="view-controls">
         <button
           className={`layout-toggle${gridLayout === 'square' ? ' on' : ''}`}
@@ -383,6 +429,7 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
       </div>
 
       <select
+        {...typeFit}
         value={query.type ?? ''}
         onChange={(e) => setQuery({ type: e.target.value || null })}
         title="Type"
@@ -399,6 +446,7 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
       <FiltersButton mobile={mobile} />
 
       <select
+        {...ratingFit}
         value={query.rating}
         onChange={(e) => setQuery({ rating: Number(e.target.value) })}
         title="Minimum rating"
@@ -413,6 +461,7 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
       </select>
 
       <select
+        {...sortFit}
         value={ranked ? '__best' : query.order}
         onChange={(e) => setQuery({ order: e.target.value })}
         title={ranked ? 'Ranked by best match while searching by meaning, colour, text or image' : 'Sort'}
@@ -426,6 +475,7 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
           </option>
         ))}
       </select>
+      </div>
 
       {!mobile && (
         <>

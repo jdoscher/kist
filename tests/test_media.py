@@ -279,6 +279,9 @@ def test_exif_filters_place_timeline_and_map(client, upload, tmp_path):
 
     world = client.get("/api/map?zoom=1").json()
     assert world["total"] == 2 and len(world["clusters"]) == 2
+    # the map list names a group by its place, not just coordinates
+    assert {c["place"] for c in world["clusters"]} == {"Paris, France", "Sydney, Australia"}
+    assert all(c["places"] == 1 for c in world["clusters"])
     europe = client.get("/api/map?bbox=-10,35,30,60&zoom=4").json()
     assert europe["total"] == 1 and europe["clusters"][0]["item_id"] == paris["id"]
     wrap = client.get("/api/map?bbox=150,-40,-170,0&zoom=3").json()  # across 180
