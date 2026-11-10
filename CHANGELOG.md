@@ -821,6 +821,28 @@ Kist now looks inside video, audio, photos, RAW files, design sources, SVG,
 - Fixed: the video notes scrubber had a label without a role, and the
   Notes button pointed `aria-controls` at a panel that wasn't there.
 
+### Milestone 6: phone editing and the app shell (web app)
+- **Editing on a phone.** The item sheet and the full-screen preview now
+  have tap stars, tags (add with suggestions from your existing tags as you
+  type, ✕ to remove), **Move to…** (a bottom sheet with a folder search,
+  your five most recent folders and the whole tree; *Move* makes it the
+  item's only folder, *Also in* adds one) and **Trash** with Undo. Every
+  change is one batch in Recent changes. Notes, renaming, folder management,
+  smart folders and Settings stay on the computer; a read-only token sees
+  no edit controls. The desktop layout is unchanged.
+- **Opens offline.** A service worker keeps the app shell (the page, the
+  built scripts and styles, fonts and icons) so Kist opens without a
+  connection and says it is offline; it never stores anything from the
+  library (`/api/*`, item files, thumbnails), MCP or share pages. A new
+  version installs in the background and shows "Kist was updated" with
+  Reload. It registers only on https (or localhost) in a production build.
+- **Offline banner** when the browser is offline or the server stops
+  answering; it clears by itself when the connection is back.
+- **App badge:** the installed app's icon shows how many items are in
+  Unfiled (where the browser supports it), updated as you file things.
+- **iPhone:** the first visit in Safari shows a one-time hint on adding
+  Kist to the Home Screen.
+
 ### Fixed (2.0 smoke test)
 - Triage: each decision takes the item out of the Unfiled queue, so
   "N left" counts down, and ⌘Z puts it back.
