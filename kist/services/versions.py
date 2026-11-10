@@ -51,7 +51,10 @@ def chain(session: Session, item_id: str) -> list[Item]:
         return max((1 + depth(o, (*stack, i)) for o in older.get(i, ())), default=0)
 
     items = session.execute(sa.select(Item).where(Item.id.in_(seen))).scalars().all()
-    items = [i for i in items if items_svc.visible(i)]
+    # versions in the Trash drop out (the newest live one is current, and a
+    # new upload extends from it); the item asked about always stays, so a
+    # trashed version still shows where it belonged
+    items = [i for i in items if items_svc.visible(i) and (i.deleted_at is None or i.id == item_id)]
     return sorted(items, key=lambda i: (depth(i.id), i.created_at, i.id))
 
 

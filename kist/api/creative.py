@@ -72,8 +72,9 @@ def delete_annotation(item_id: str, ann_id: str,
 @router.get("/items/{item_id}/versions", response_model=VersionsOut)
 def list_versions(item_id: str, session: Annotated[Session, Depends(get_session)]):
     chain = versions_svc.chain(session, item_id)
+    live = [i for i in chain if i.deleted_at is None]
     return VersionsOut(items=[ItemOut.from_item(i) for i in chain],
-                       current_id=chain[-1].id if chain else item_id)
+                       current_id=(live or chain)[-1].id if chain else item_id)
 
 
 @router.post("/items/{item_id}/versions", response_model=ItemCreateResponse, status_code=201)
