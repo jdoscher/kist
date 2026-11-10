@@ -45,6 +45,7 @@ ORDERS: dict[str, tuple[Any, bool]] = {
     "-size": (Item.size_bytes, True),
     "-rating": (Item.rating, True),
     "-modified": (Item.modified_at, True),
+    "modified": (Item.modified_at, False),  # M6: date buckets go both ways
     # Milestone 5: date taken (EXIF / video creation time), else created_at
     "-taken": (Item.taken_sort, True),
     "taken": (Item.taken_sort, False),

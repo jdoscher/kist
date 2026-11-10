@@ -198,6 +198,8 @@ def ingest_file(
         principal = access.current()
         item.added_by_token = principal.token_id if principal is not None else None
         media_svc.apply(item, probe.media)  # metadata + its filter columns
+        if preview_status is not PreviewStatus.FAILED:
+            media_svc.mark_checked(item)  # M6: media-backfill needn't read it again
         # imports preserve original timestamps; otherwise the DB defaults apply
         if created_at is not None:
             item.created_at = created_at

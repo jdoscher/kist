@@ -821,6 +821,36 @@ Kist now looks inside video, audio, photos, RAW files, design sources, SVG,
 - Fixed: the video notes scrubber had a label without a role, and the
   Notes button pointed `aria-controls` at a panel that wasn't there.
 
+### Milestone 6: phone and speed (backend)
+- **Date buckets for the scrubber.** `GET /api/items/buckets` counts the
+  items of a listing per month (UTC, like the timeline), in the list's
+  order, with the same filters as `GET /api/items` (smart folders, tags,
+  colour labels, `text=`, a folder-limited token's scope ...). It takes
+  `sort=created|modified|taken&order=asc|desc` or the list's own
+  `order=-taken`, and answers `{sort, order, item_order, total, buckets:
+  [{key: "2024-06", count, cursor}]}`: each cursor, passed unchanged to
+  `GET /api/items?order=<item_order>&cursor=...`, starts at that month's
+  first item and pages on into the next. MCP: `item_buckets`.
+  `order=modified` (oldest edit first) joins the list orders.
+- **Unfiled count** in `GET /api/stats` (`unfiled`) for the app badge.
+- **`kist media-backfill` only does missing work.** Reading an item's file
+  now leaves `checked_rev` in its media block, also when there was nothing
+  to read (screenshots, PDFs), so later runs skip it; it is in meta.json, so
+  it survives `rebuild-index` and `verify` checks it. A failed read leaves
+  the item for the next run; `--all` still does everything.
+- **First install:** the app, the worker and the container entrypoint check
+  that the library is writable and otherwise stop with one line naming the
+  `chown` to run. The README's quick start creates `library/` owned by uid
+  1000 first.
+- **Speed at 250k items:** migration 0701 adds a live-items `(taken_sort,
+  id)` index, has the created/modified/taken list indexes include
+  `stack_id` (the grid's `stacks=collapse` stays an index-only scan) and
+  gives Postgres statistics on the month expressions, so month counts over
+  250k items take ~10 ms (~30 ms with stacks collapsed) instead of ~60.
+- **Benchmark harness** in `scripts/bench/`: `make_library.py` writes a
+  synthetic library of any size straight into Postgres, `run.py` times
+  every read path (p50/p95, JSON + a markdown table). See its README.
+
 ### Fixed (2.0 smoke test)
 - Triage: each decision takes the item out of the Unfiled queue, so
   "N left" counts down, and ⌘Z puts it back.

@@ -1117,12 +1117,35 @@ def backfill_one(session: Session, item: Item, *, refine: bool = True) -> str:
     return "reclassified + regenerated" if changed else "regenerated"
 
 
+# Milestone 6: a successful read leaves media.checked_rev = MEDIA_REV even
+# when the file had nothing to read (a screenshot, a PDF), so `kist
+# media-backfill` doesn't regenerate those items on every run. It lives in
+# the media block, so meta.json carries it: it survives rebuild-index and
+# `kist verify` compares it. Bump MEDIA_REV when the reader learns something
+# new that older items should get (blocks without the key count as rev 1:
+# Milestone 5 wrote them). A failed read never marks an item.
+MEDIA_REV = 1
+CHECKED_KEY = "checked_rev"
+
+
+def mark_checked(item: Item) -> None:
+    """Record that this item's file was read at MEDIA_REV."""
+    item.media = {**(item.media or {}), CHECKED_KEY: MEDIA_REV}
+
+
+def needs_backfill():
+    """SQL: items whose file hasn't been read at the current MEDIA_REV."""
+    rev = sa.cast(Item.media[CHECKED_KEY].astext, sa.Integer)
+    return sa.or_(Item.media.is_(None), sa.func.coalesce(rev, 1) < MEDIA_REV)
+
+
 def backfill(session: Session, limit: int | None = None, all_items: bool = False,
              progress=None) -> dict:
-    """Items without a media block (or every item with all_items)."""
+    """Items whose file hasn't been read yet (needs_backfill), or every item
+    with all_items."""
     q = sa.select(Item.id).where(Item.deleted_at.is_(None)).order_by(Item.id)
     if not all_items:
-        q = q.where(Item.media.is_(None))
+        q = q.where(needs_backfill())
     if limit:
         q = q.limit(limit)
     ids = session.execute(q).scalars().all()

@@ -17,10 +17,13 @@ from . import (
     tags,
     tokens,
 )
+from . import buckets as buckets_routes  # M6
 from . import media as media_routes
 
 api_router = APIRouter()
 api_router.include_router(misc.router)
+# M6: before items, so /items/buckets isn't read as an item id
+api_router.include_router(buckets_routes.router)
 api_router.include_router(items.router)
 api_router.include_router(folders.router)
 api_router.include_router(smart_folders.router)

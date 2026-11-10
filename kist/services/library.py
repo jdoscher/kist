@@ -39,6 +39,13 @@ def stats(session: Session) -> StatsOut:
             ).label("failed_jobs"),
         ).select_from(Item)
     ).one()
+    # M6: the inbox count (the app badge): its own query, so Postgres plans
+    # the two NOT EXISTS as anti-joins instead of per-row subplans
+    from .search import build_filters
+
+    unfiled = session.execute(
+        sa.select(sa.func.count()).select_from(Item).where(*build_filters(view="unfiled"))
+    ).scalar_one()
     return StatsOut(
         total_items=row.total,
         trashed_items=row.trashed,
@@ -50,6 +57,7 @@ def stats(session: Session) -> StatsOut:
         preview_failed=row.preview_failed,
         fixity_failed=row.fixity_failed,
         source_gone=row.source_gone,
+        unfiled=unfiled,
     )
 
 

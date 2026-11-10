@@ -56,6 +56,8 @@ services:
       KIST_TOKEN: ${KIST_TOKEN:?set KIST_TOKEN in .env}
       KIST_DATABASE_URL: postgresql+psycopg://kist:${KIST_DB_PASSWORD:-kist}@db:5432/kist
       KIST_USER_AGENT: ${KIST_USER_AGENT:-}
+      # the host path, only so a permissions error can name it (kist/preflight.py)
+      KIST_LIBRARY: ${KIST_LIBRARY:-./library}
       KIST_URL_ALLOW_PRIVATE: ${KIST_URL_ALLOW_PRIVATE:-false}
       KIST_URL_ALLOW_HOSTS: ${KIST_URL_ALLOW_HOSTS:-}
       KIST_DOWNLOAD_TIMEOUT_SECONDS: ${KIST_DOWNLOAD_TIMEOUT_SECONDS:-120}
@@ -138,6 +140,8 @@ services:
       KIST_TOKEN: ${KIST_TOKEN:?set KIST_TOKEN in .env}
       KIST_DATABASE_URL: postgresql+psycopg://kist:${KIST_DB_PASSWORD:-kist}@db:5432/kist
       KIST_USER_AGENT: ${KIST_USER_AGENT:-}
+      # the host path, only so a permissions error can name it (kist/preflight.py)
+      KIST_LIBRARY: ${KIST_LIBRARY:-./library}
       KIST_URL_ALLOW_PRIVATE: ${KIST_URL_ALLOW_PRIVATE:-false}
       KIST_URL_ALLOW_HOSTS: ${KIST_URL_ALLOW_HOSTS:-}
       KIST_DOWNLOAD_TIMEOUT_SECONDS: ${KIST_DOWNLOAD_TIMEOUT_SECONDS:-120}

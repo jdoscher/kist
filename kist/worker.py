@@ -433,6 +433,9 @@ def run_organise() -> None:
 def main() -> None:
     configure_logging()
     settings = get_settings()
+    from . import preflight
+
+    preflight.require_writable_library()  # M6: one clear line, exit 1
     for d in (settings.items_dir, settings.inbox_dir, settings.staging_dir,
               settings.state_dir, *settings.import_dirs):
         d.mkdir(parents=True, exist_ok=True)

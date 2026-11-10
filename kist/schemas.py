@@ -125,7 +125,9 @@ class ItemOut(BaseModel):
             stack_id=item.stack_id,
             stack_count=count_for(item),
             **_m4_fields(item),
-            media=item.media,
+            # without the media-backfill bookkeeping (M6: media.CHECKED_KEY)
+            media={k: v for k, v in item.media.items() if k != "checked_rev"} or None
+            if item.media else None,
             taken_at=item.taken_at,
             place=item.place,
         )
@@ -280,7 +282,8 @@ class TagOut(BaseModel):
 
 
 OrderName = Literal[
-    "-created", "created", "filename", "-size", "-rating", "-modified", "-taken", "taken"
+    "-created", "created", "filename", "-size", "-rating", "-modified", "-taken", "taken",
+    "modified",  # M6
 ]
 KindName = Literal[
     "image", "video", "pdf", "audio", "model", "font", "design", "bundle", "other"
@@ -392,6 +395,8 @@ class StatsOut(BaseModel):
     preview_failed: int = 0
     fixity_failed: int = 0  # originals whose last fixity check failed
     source_gone: int = 0  # M4: live items whose source page is gone (link-rot watch)
+    # M6: live items in no folder and with no tags (view=unfiled; the app badge)
+    unfiled: int = 0
 
 
 class JobOut(BaseModel):
@@ -657,3 +662,20 @@ class VersionsOut(BaseModel):
 
     items: list[ItemOut]
     current_id: str
+
+
+# ---------- Milestone 6: date scrubber buckets (services/buckets.py) ----------
+
+
+class BucketOut(BaseModel):
+    key: str | None  # "YYYY-MM" (UTC); None = items with no date (last)
+    count: int
+    cursor: str | None  # GET /api/items?order=<item_order>&cursor=<this>
+
+
+class BucketsOut(BaseModel):
+    sort: str  # created | modified | taken
+    order: str  # asc | desc
+    item_order: str  # the GET /api/items order key these cursors belong to
+    total: int
+    buckets: list[BucketOut]
