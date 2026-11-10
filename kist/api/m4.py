@@ -44,9 +44,15 @@ class ExportCreate(BaseModel):
 def create_export(body: ExportCreate, session: Annotated[Session, Depends(get_session)]):
     """Queue a portable BagIt export; poll GET /api/exports/{id}."""
     access.require(access.Action.EDIT)
-    record = exports.create(session, target=body.target, target_id=body.target_id,
-                            item_ids=body.item_ids, include=body.include,
-                            format=body.format, created_by=_who())
+    record = exports.create(
+        session,
+        target=body.target,
+        target_id=body.target_id,
+        item_ids=body.item_ids,
+        include=body.include,
+        format=body.format,
+        created_by=_who(),
+    )
     return exports.out(record)
 
 
@@ -77,9 +83,12 @@ def download_export(export_id: str):
     path = exports.zip_path(export_id)
     if record.get("status") != "done" or not path.is_file():
         raise HTTPException(409, f"export {export_id} is {record.get('status')}, not ready")
-    return FileResponse(path, media_type="application/zip",
-                        filename=f"kist-export-{export_id}.zip",
-                        headers={"Cache-Control": "private, no-cache"})
+    return FileResponse(
+        path,
+        media_type="application/zip",
+        filename=f"kist-export-{export_id}.zip",
+        headers={"Cache-Control": "private, no-cache"},
+    )
 
 
 @router.delete("/exports/{export_id}", tags=["exports"])
@@ -100,15 +109,19 @@ class ImageExport(BaseModel):
 
 
 @router.post("/items/export-images", tags=["exports"])
-async def export_item_images(body: ImageExport,
-                             session: Annotated[Session, Depends(get_session)]):
+async def export_item_images(body: ImageExport, session: Annotated[Session, Depends(get_session)]):
     """Resized/converted copies (a zip) or a contact sheet (a PDF)."""
     data, media_type, name = await run_in_threadpool(
-        export_images.export, session, body.item_ids, body.preset)
-    return Response(data, media_type=media_type, headers={
-        "Content-Disposition": f'attachment; filename="{name}"',
-        "Cache-Control": "no-store",
-    })
+        export_images.export, session, body.item_ids, body.preset
+    )
+    return Response(
+        data,
+        media_type=media_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{name}"',
+            "Cache-Control": "no-store",
+        },
+    )
 
 
 @router.get("/export-presets", tags=["exports"])
@@ -150,32 +163,43 @@ class ImportCreate(BaseModel):
 def _import_out(job: Job) -> dict:
     payload = job.payload or {}
     return {
-        "id": job.id, "status": job.status, "kind": payload.get("kind"),
-        "source": payload.get("source"), "dry_run": bool(payload.get("dry_run")),
-        "report": payload.get("report"), "last_error": job.last_error,
-        "created_at": job.created_at, "finished_at": job.finished_at,
+        "id": job.id,
+        "status": job.status,
+        "kind": payload.get("kind"),
+        "source": payload.get("source"),
+        "dry_run": bool(payload.get("dry_run")),
+        "report": payload.get("report"),
+        "last_error": job.last_error,
+        "created_at": job.created_at,
+        "finished_at": job.finished_at,
     }
 
 
-@router.post("/imports", status_code=202, tags=["imports"],
-             dependencies=[Depends(require_scope("write"))])
+@router.post(
+    "/imports", status_code=202, tags=["imports"], dependencies=[Depends(require_scope("write"))]
+)
 def create_import(body: ImportCreate, session: Annotated[Session, Depends(get_session)]):
     """Queue an importer run (a job); GET /api/imports/{id} shows progress."""
     from ..importers import base
 
     base.get_importer(body.kind)  # unknown kind -> 422
     base.check_api_source(body.source, body.kind)
-    job = Job(kind=JobKind.IMPORT, payload={
-        "kind": body.kind, "source": body.source, "dry_run": body.dry_run,
-        "folder": body.folder, "filename": f"{body.kind} import",
-    })
+    job = Job(
+        kind=JobKind.IMPORT,
+        payload={
+            "kind": body.kind,
+            "source": body.source,
+            "dry_run": body.dry_run,
+            "folder": body.folder,
+            "filename": f"{body.kind} import",
+        },
+    )
     session.add(job)
     session.commit()
     return _import_out(job)
 
 
-@router.post("/imports/upload", tags=["imports"],
-             dependencies=[Depends(require_scope("write"))])
+@router.post("/imports/upload", tags=["imports"], dependencies=[Depends(require_scope("write"))])
 async def upload_import(request: Request):
     """An export file (a zip, CSV or HTML) sent from the browser, kept in
     library/import/uploads/<id>/ so POST /api/imports can read it; answers
@@ -193,7 +217,9 @@ async def upload_import(request: Request):
     file = form.get("file")
     if file is None or isinstance(file, str):
         raise HTTPException(422, "multipart field 'file' is required")
-    name = re.sub(r"[^A-Za-z0-9._ -]+", "_", (file.filename or "upload").rsplit("/", 1)[-1]).strip(" .")
+    name = re.sub(r"[^A-Za-z0-9._ -]+", "_", (file.filename or "upload").rsplit("/", 1)[-1]).strip(
+        " ."
+    )
     name = (name or "upload")[:200]
     dest_dir = settings.library_dir / "import" / "uploads" / new_ulid()
     dest_dir.mkdir(parents=True, exist_ok=True)
@@ -219,8 +245,9 @@ def get_import(job_id: int, session: Annotated[Session, Depends(get_session)]):
 
 
 @router.post("/items/{item_id}/snapshot", tags=["items"])
-async def save_snapshot(item_id: str, request: Request,
-                        session: Annotated[Session, Depends(get_session)]):
+async def save_snapshot(
+    item_id: str, request: Request, session: Annotated[Session, Depends(get_session)]
+):
     """Body: JSON {html, page_url?, title?, captured_at?} (the browser
     extension) or a raw text/html body. No body: the server fetches page_url
     once (KIST_SNAPSHOTS=1). Needs an edit scope, or an add-only token that
@@ -253,9 +280,17 @@ async def save_snapshot(item_id: str, request: Request,
     if html is not None:
         if html is None or not html.strip():
             raise HTTPException(422, "the snapshot's html is empty")
-        info = await run_in_threadpool(lambda: snapshots.save(
-            session, item_id, html, source="browser", url=extra.get("page_url"),
-            title=extra.get("title"), captured_at=extra.get("captured_at")))
+        info = await run_in_threadpool(
+            lambda: snapshots.save(
+                session,
+                item_id,
+                html,
+                source="browser",
+                url=extra.get("page_url"),
+                title=extra.get("title"),
+                captured_at=extra.get("captured_at"),
+            )
+        )
     else:
         try:
             info = await run_in_threadpool(snapshots.fetch, session, item_id)
@@ -285,9 +320,12 @@ def _may_snapshot(session: Session, item_id: str) -> None:
         return
     if p.can(access.Action.ADD) and p.token_id:
         item = session.get(Item, item_id)
-        if (item is not None and item.deleted_at is None
-                and item.added_by_token == p.token_id
-                and item.created_at >= datetime.now(UTC) - SNAPSHOT_WINDOW):
+        if (
+            item is not None
+            and item.deleted_at is None
+            and item.added_by_token == p.token_id
+            and item.created_at >= datetime.now(UTC) - SNAPSHOT_WINDOW
+        ):
             return
     raise access.Forbidden()
 
@@ -300,12 +338,16 @@ def get_snapshot(item_id: str, session: Annotated[Session, Depends(get_session)]
     if found is None:
         raise HTTPException(404, "no snapshot for this item")
     path, _info = found
-    return FileResponse(path, media_type="text/html; charset=utf-8", headers={
-        "Content-Security-Policy": snapshots.SNAPSHOT_CSP,
-        "X-Content-Type-Options": "nosniff",
-        "Referrer-Policy": "no-referrer",
-        "Cache-Control": "private, no-cache",
-    })
+    return FileResponse(
+        path,
+        media_type="text/html; charset=utf-8",
+        headers={
+            "Content-Security-Policy": snapshots.SNAPSHOT_CSP,
+            "X-Content-Type-Options": "nosniff",
+            "Referrer-Policy": "no-referrer",
+            "Cache-Control": "private, no-cache",
+        },
+    )
 
 
 @router.get("/items/{item_id}/snapshot/text", tags=["items"])
@@ -333,7 +375,7 @@ def shortcut(request: Request):
     return {
         "file_available": False,
         "why": "iOS only opens .shortcut files signed by Apple (`shortcuts sign` on a "
-               "Mac); build it once from these steps instead.",
+        "Mac); build it once from these steps instead.",
         "endpoint": endpoint,
         "token": "make an add-only token: POST /api/tokens {name: 'iPhone', scopes: ['add']}",
         "steps": [
@@ -341,9 +383,9 @@ def shortcut(request: Request):
             "'Show in Share Sheet' and accept Images, Media, Files, PDFs, URLs, Safari web "
             "pages and Text.",
             "If 'Shortcut Input' has no value: Stop and respond 'Nothing to save'.",
-            "Add 'If Shortcut Input has any value', and inside it 'Get URLs from Shortcut "
-            "Input'.",
-            "If URLs has any value: 'Get Contents of URL' → URL " + endpoint
+            "Add 'If Shortcut Input has any value', and inside it 'Get URLs from Shortcut Input'.",
+            "If URLs has any value: 'Get Contents of URL' → URL "
+            + endpoint
             + ", Method POST, Headers Authorization = 'Bearer <add-only token>' and "
             "Accept = 'text/plain', Request Body JSON: url = the URL, title = Shortcut "
             "Input's Name, text = Shortcut Input (as text).",

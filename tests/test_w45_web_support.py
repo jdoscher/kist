@@ -17,8 +17,14 @@ def _ids(client, q):
 
 def test_date_and_bbox_filters(client, upload):
     paris = upload("p.jpg", F.jpeg(exif=F.exif_bytes()), "image/jpeg")["item"]
-    sydney = upload("s.jpg", F.jpeg(color=(1, 2, 3), exif=F.exif_bytes(
-        taken="2021:06:15 08:00:00", gps=(-33.8568, 151.2153))), "image/jpeg")["item"]
+    sydney = upload(
+        "s.jpg",
+        F.jpeg(
+            color=(1, 2, 3),
+            exif=F.exif_bytes(taken="2021:06:15 08:00:00", gps=(-33.8568, 151.2153)),
+        ),
+        "image/jpeg",
+    )["item"]
     plain = upload("plain.png", F.png(), "image/png")["item"]
     assert paris["taken_at"].startswith("2023-06-15")
 
@@ -26,10 +32,14 @@ def test_date_and_bbox_filters(client, upload):
     added = plain["created_at"][:10]
     day = client.get("/api/timeline?group=day").json()
     assert any(b["key"] == added for b in day)
-    assert _ids(client, f"date_after={added}T00:00:00Z&date_before={added}T23:59:59Z") == {plain["id"]}
+    assert _ids(client, f"date_after={added}T00:00:00Z&date_before={added}T23:59:59Z") == {
+        plain["id"]
+    }
     # taken_* stays the date taken only
     assert _ids(client, f"taken_after={added}T00:00:00Z") == set()
-    assert _ids(client, "date_after=2023-06-15T00:00:00Z&date_before=2023-06-15T23:59:59Z") == {paris["id"]}
+    assert _ids(client, "date_after=2023-06-15T00:00:00Z&date_before=2023-06-15T23:59:59Z") == {
+        paris["id"]
+    }
     assert _ids(client, "date_before=2022-01-01T00:00:00Z") == {sydney["id"]}
     # the timeline with the same filter counts the same items
     months = client.get("/api/timeline?group=month&date_before=2022-01-01T00:00:00Z").json()
@@ -45,8 +55,13 @@ def test_date_and_bbox_filters(client, upload):
     assert client.get("/api/map?bbox=-180,-90,180,90&zoom=1").json()["total"] == 2
 
     # a smart folder keeps them, and a share/export of it holds the same
-    sf = client.post("/api/smart-folders", json={"name": "Europe", "query": {
-        "bbox": "-10,35,30,60", "date_after": "2023-01-01T00:00:00Z"}})
+    sf = client.post(
+        "/api/smart-folders",
+        json={
+            "name": "Europe",
+            "query": {"bbox": "-10,35,30,60", "date_after": "2023-01-01T00:00:00Z"},
+        },
+    )
     assert sf.status_code == 201, sf.text
     from kist.db import SessionLocal
     from kist.models import Item
@@ -65,11 +80,16 @@ def test_app_shell_cannot_be_framed(client):
         assert res.headers["x-frame-options"] == "DENY", path
         assert "frame-ancestors 'none'" in res.headers["content-security-policy"], path
     # only the /add card may show images from other sites (its preview)
-    assert "img-src 'self' data: blob: https: http:" in client.get("/add").headers["content-security-policy"]
+    assert (
+        "img-src 'self' data: blob: https: http:"
+        in client.get("/add").headers["content-security-policy"]
+    )
     assert "https:" not in client.get("/all").headers["content-security-policy"]
     # WebAssembly may compile (the 3D viewer's decoder); JS eval may not
     csp = client.get("/all").headers["content-security-policy"]
-    assert "script-src 'self' 'wasm-unsafe-eval';" in csp and "'unsafe-eval'" not in csp.replace("'wasm-unsafe-eval'", "")
+    assert "script-src 'self' 'wasm-unsafe-eval';" in csp and "'unsafe-eval'" not in csp.replace(
+        "'wasm-unsafe-eval'", ""
+    )
     # the API and share pages keep their own rules
     res = client.get("/api/health")
     assert res.headers["x-frame-options"] == "SAMEORIGIN"
@@ -81,7 +101,9 @@ def test_hosted_map_tiles_are_allowed_by_the_csp(client, monkeypatch):
     from kist.headers import app_csp
 
     assert "tiles.example.com" not in client.get("/api/health").headers["content-security-policy"]
-    monkeypatch.setattr(get_settings(), "map_tiles_url", "https://tiles.example.com/{z}/{x}/{y}.png")
+    monkeypatch.setattr(
+        get_settings(), "map_tiles_url", "https://tiles.example.com/{z}/{x}/{y}.png"
+    )
     csp = client.get("/api/health").headers["content-security-policy"]
     assert "img-src 'self' data: blob: https://tiles.example.com" in csp
     assert "connect-src 'self' https://tiles.example.com" in csp
@@ -96,10 +118,13 @@ def test_import_upload_then_dry_run(client):
     from kist import worker
     from kist.config import get_settings
 
-    csv = (b"id,title,note,excerpt,url,folder,tags,created,cover,highlights,favorite\n"
-           b"1,Example,,,https://example.com/a,Unsorted,,2024-01-01T00:00:00Z,,,\n")
-    res = client.post("/api/imports/upload",
-                      files={"file": ("../../evil name?.csv", csv, "text/csv")})
+    csv = (
+        b"id,title,note,excerpt,url,folder,tags,created,cover,highlights,favorite\n"
+        b"1,Example,,,https://example.com/a,Unsorted,,2024-01-01T00:00:00Z,,,\n"
+    )
+    res = client.post(
+        "/api/imports/upload", files={"file": ("../../evil name?.csv", csv, "text/csv")}
+    )
     assert res.status_code == 200, res.text
     body = res.json()
     src = body["source"]
@@ -119,4 +144,7 @@ def test_import_upload_needs_write(client):
     from test_tokens import as_token, make_token
 
     reader = as_token(client, make_token(client, name="r", scopes=["read"])["token"])
-    assert reader.post("/api/imports/upload", files={"file": ("a.csv", b"x", "text/csv")}).status_code == 403
+    assert (
+        reader.post("/api/imports/upload", files={"file": ("a.csv", b"x", "text/csv")}).status_code
+        == 403
+    )
