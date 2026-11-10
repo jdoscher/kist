@@ -110,7 +110,7 @@ export function PaletteSwatches({ item }: { item: Item }) {
   return (
     <div className="detail-section">
       <h3 className="section-label">Colours</h3>
-      <div className="palette" role="group" aria-label="Colours: press one to find items with it">
+      <div className="color-palette" role="group" aria-label="Colours: press one to find items with it">
         {colours.map((c) => {
           const pct = Math.round(c.pct <= 1 ? c.pct * 100 : c.pct)
           const name = c.name ? `${c.name} ` : ''

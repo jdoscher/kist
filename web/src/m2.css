@@ -306,7 +306,7 @@
 .match-snippet {
   line-height: 1.5;
 }
-.palette {
+.color-palette {
   display: flex;
   gap: 3px;
   height: 30px;
@@ -861,7 +861,7 @@ button.danger-outline {
 .mobile .suggest-no {
   min-width: 36px;
 }
-.mobile .palette {
+.mobile .color-palette {
   height: 36px;
 }
 .mobile .link-btn {

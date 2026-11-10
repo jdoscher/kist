@@ -685,9 +685,6 @@ select:focus-visible {
   right: 0;
   display: flex;
 }
-.empty {
-  padding-top: 15vh;
-}
 .error {
   color: var(--danger);
 }
