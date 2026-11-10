@@ -2111,8 +2111,10 @@ body.board-space .board-viewport,
   min-height: 40px;
 }
 .board-screen.mobile .board-name {
-  flex: 1;
-  min-width: 0;
+  /* room for a readable name: the zoom and list buttons wrap below it
+     instead of squeezing it to one letter */
+  flex: 1 1 0;
+  min-width: 7em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

@@ -4,7 +4,7 @@
 
 import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react'
 import { useId, useState } from 'react'
-import { byZ, newNodeId, nodeLabel, removeNodes, reorder, type BoardNode } from '../../../board'
+import { boardListCaption, byZ, newNodeId, nodeLabel, removeNodes, reorder, type BoardNode } from '../../../board'
 import type { Editor } from './BoardEditor'
 
 export function BoardList({ ed }: { ed: Editor }) {
@@ -40,10 +40,7 @@ export function BoardList({ ed }: { ed: Editor }) {
         </div>
       )}
       <table className="board-table">
-        <caption>
-          {c.nodes.length} thing{c.nodes.length === 1 ? '' : 's'} on the board, top first. Select one to edit its position, size, colour and text in
-          the panel beside.
-        </caption>
+        <caption>{boardListCaption(c.nodes.length, ed.canEdit)}</caption>
         <thead>
           <tr>
             <th scope="col">What</th>

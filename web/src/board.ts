@@ -773,3 +773,10 @@ export function boardTakesKey(place: BoardKeyPlace, mod: boolean, key: string): 
   if (!mod) return false
   return ['a', 'z', 'y', 'd', 'g'].includes(key.toLowerCase())
 }
+
+/** The board list's caption: editing words only where the board can be
+ * edited (not on a phone or with a read-only token). */
+export function boardListCaption(n: number, canEdit: boolean): string {
+  const things = `${n} thing${n === 1 ? '' : 's'} on the board, top first.`
+  return canEdit ? `${things} Select one to edit its position, size, colour and text in the panel beside.` : things
+}
