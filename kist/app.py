@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -55,6 +56,12 @@ def check_token(token: str) -> None:
 async def lifespan(app: FastAPI):
     settings = get_settings()
     check_token(settings.token)
+    from . import preflight
+
+    problem = preflight.settings_problem()  # M6: a root-owned ./library on first install
+    if problem:
+        logging.getLogger("kist.preflight").error(problem)
+        raise RuntimeError(problem)
     for d in (settings.items_dir, settings.inbox_dir, settings.staging_dir,
               settings.state_dir, *settings.import_dirs):
         d.mkdir(parents=True, exist_ok=True)

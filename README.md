@@ -25,8 +25,13 @@ Single user, one shared token. MIT licensed.
 git clone https://github.com/jdoscher/kist.git && cd kist
 cp .env.example .env
 # set KIST_TOKEN in .env, e.g. to the output of: openssl rand -hex 24
+mkdir library && sudo chown 1000:1000 library   # Kist runs as uid 1000
 docker compose up -d --build
 ```
+
+Kist runs as uid/gid 1000 (`KIST_UID`/`KIST_GID` in `.env` change that). If
+Docker creates `./library` itself it belongs to root, and the app and worker
+stop at start with one line saying which `chown` to run.
 
 Open `http://<host>:8080`, paste your token, and drop files in.
 
