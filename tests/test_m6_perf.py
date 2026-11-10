@@ -762,3 +762,32 @@ def test_colour_prefilter_keeps_every_match(seeded):
                 assert new == old, (hex_, tol)
                 assert new or tol == 0, (hex_, tol)
         s.rollback()
+
+
+def test_rating_order_pages_through_the_library_with_real_cursors(seeded, client):
+    """The dev0 benchmark's "deep page order=-rating" came back empty: its
+    crafted cursor used "~" as an id past every ULID, which holds in the C
+    collation but not in en_US (punctuation sorts first). Real cursors page
+    through every live item exactly once, and the bench's new sentinel works
+    in either collation."""
+    from kist.db import SessionLocal
+
+    seen, cursor = [], None
+    while True:
+        page = client.get("/api/items", params={"order": "-rating", "limit": 113,
+                                                **({"cursor": cursor} if cursor else {})}).json()
+        seen += [i["id"] for i in page["items"]]
+        cursor = page["next_cursor"]
+        if not cursor:
+            break
+    with SessionLocal() as s:
+        live = s.execute(sa.text("SELECT count(*) FROM items WHERE deleted_at IS NULL")).scalar()
+        # what the benchmark's crafted cursor asks for, in a non-C collation too
+        for coll in ('"C"', '"und-x-icu"'):
+            n = s.execute(sa.text(
+                f"SELECT count(*) FROM items WHERE deleted_at IS NULL AND (rating, id COLLATE "
+                f"{coll}) < (0, 'ZZZZZZZZZZZZZZZZZZZZZZZZZZ' COLLATE {coll})")).scalar()
+            zero = s.execute(sa.text(
+                "SELECT count(*) FROM items WHERE deleted_at IS NULL AND rating = 0")).scalar()
+            assert n == zero > 0, coll
+    assert len(seen) == len(set(seen)) == live

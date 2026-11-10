@@ -366,5 +366,6 @@ def test_bench_run_helpers():
     run = _bench_module("run")
     assert decode_cursor(run.crafted_cursor("m", "")) == ("m", "")
     assert decode_cursor(run.crafted_cursor(0, "~")) == (0, "~")
+    assert run.ID_AFTER_ALL > "7ZZZZZZZZZZZZZZZZZZZZZZZZZ"  # the largest ULID
     assert run.pct([5, 1, 3, 2, 4], 50) == 3 and run.pct(list(range(1, 101)), 95) == 95
     assert run.main(["--url", "https://kist.example.com", "--token", "x"]) == 2
