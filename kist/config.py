@@ -105,9 +105,12 @@ class Settings(BaseSettings):
     # POST /api/items/{id}/snapshot with no body fetches page_url on the
     # server (through the SSRF guard). Off: only browser-sent snapshots
     snapshots: bool = False
-    # the link-rot watch re-checks each item's page_url this often (days);
-    # 0 turns it off. Requests are spaced KIST_LINK_CHECK_DELAY_SECONDS apart
-    link_check_days: float = 7.0
+    # the link-rot watch re-checks each item's page_url this often (days).
+    # Off (0) by default since 2.0: once Kist has its copy, the page it came
+    # from is the other site's business, and re-requesting it costs that
+    # site requests (and gets rate-limited). Requests are spaced
+    # KIST_LINK_CHECK_DELAY_SECONDS apart when it's on
+    link_check_days: float = 0.0
     link_check_delay_seconds: float = 2.0
     # ask the Wayback Machine (archive.org, an outside service) for an
     # archived copy of sources that are gone. Off by default: it tells

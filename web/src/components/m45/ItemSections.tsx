@@ -31,7 +31,8 @@ import { useM45 } from './M45'
 
 function SourceBadge({ item }: { item: Item }) {
   const s = item.source_status
-  if (!item.source_url && !item.provenance?.page_url) return null
+  // the link-rot watch is off by default: nothing to say until it checked
+  if (!s || (!item.source_url && !item.provenance?.page_url)) return null
   const wayback = linkableUrl(item.source_wayback_url)
   return (
     <div className="prov-status">

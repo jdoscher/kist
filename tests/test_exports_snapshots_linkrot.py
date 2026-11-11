@@ -306,7 +306,15 @@ def test_snapshot_text_survives_a_rebuild(client, upload):
 # ---------- link-rot watch ----------
 
 
-def test_link_check_records_status(client, upload, public_dns):
+@pytest.fixture
+def link_check_on(monkeypatch):
+    """The link-rot watch is opt-in since 2.0 (KIST_LINK_CHECK_DAYS=0)."""
+    from kist.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "link_check_days", 7.0)
+
+
+def test_link_check_records_status(client, upload, public_dns, link_check_on):
     urls = {
         "https://ok.test/a": httpx.Response(200, text="fine"),
         "https://gone.test/b": httpx.Response(404),
@@ -348,7 +356,7 @@ def _stamp(client, item_id):
     return client.get(f"/api/items/{item_id}").json()["modified_at"]
 
 
-def test_link_check_leaves_modified_at(client, upload, public_dns):
+def test_link_check_leaves_modified_at(client, upload, public_dns, link_check_on):
     """A source check is bookkeeping: it must not reorder "recently
     modified" or move the base an open editor will send."""
     item = upload("k.png", source_url="https://ok.test/k")["item"]
@@ -390,7 +398,7 @@ def test_background_bookkeeping_keeps_modified_at_and_edits_move_it(client, uplo
         assert row.modified_at > datetime.fromisoformat(base)
 
 
-def test_wayback_is_opt_in(client, upload, monkeypatch, public_dns):
+def test_wayback_is_opt_in(client, upload, monkeypatch, public_dns, link_check_on):
     calls = []
 
     def handler(request: httpx.Request):
@@ -416,7 +424,7 @@ def test_wayback_is_opt_in(client, upload, monkeypatch, public_dns):
     assert got["source_wayback_url"] == "https://web.archive.org/web/2019/https://gone.test/"
 
 
-def test_link_check_refuses_private_addresses(client, upload):
+def test_link_check_refuses_private_addresses(client, upload, link_check_on):
     item = upload("l.png", source_url="http://127.0.0.1:5432/")["item"]
     from kist.db import SessionLocal
 
@@ -444,3 +452,18 @@ def test_mcp_export_and_snapshot_tools(client, upload):
     client.post(f"/api/items/{item['id']}/snapshot", json={"html": "<p>agent can read</p>"})
     found = mcp_result(client, "get_page_snapshot", {"id": item["id"]})
     assert "agent can read" in json.dumps(found)
+
+
+def test_link_check_is_off_by_default(client, upload, public_dns):
+    """Since 2.0 Kist leaves source sites alone once it has the copy: no
+    link checks unless KIST_LINK_CHECK_DAYS is set (Jay, 2026-11-10)."""
+    from kist import worker
+    from kist.config import Settings
+    from kist.db import SessionLocal
+    from kist.services import linkrot
+
+    assert Settings.model_fields["link_check_days"].default == 0
+    upload("a.png", source_url="https://gone.test/x")
+    with SessionLocal() as s:
+        assert linkrot.due_ids(s) == []
+    assert worker.start_link_check() is False

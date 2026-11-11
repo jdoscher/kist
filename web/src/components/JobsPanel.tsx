@@ -39,13 +39,6 @@ export function JobsPanel() {
     setQuery({ ...emptyQuery, fixity: 'failed' })
   }
   const fixityFailed = stats?.fixity_failed ?? 0
-  const gone = stats?.source_gone ?? 0
-  const showGone = () => {
-    setJobsOpen(false)
-    if (mobile) closeDrawer()
-    setQuery({ ...emptyQuery, view: null, source_status: 'gone' })
-  }
-
   return (
     <Modal title="Needs attention" onClose={() => setJobsOpen(false)}>
       {fixityFailed > 0 && (
@@ -56,16 +49,6 @@ export function JobsPanel() {
               : `${fixityFailed} originals no longer match their fingerprints: the files on disk changed or are missing. Restore them from a backup.`}
           </p>
           <button onClick={showFixityFailed}>Show them</button>
-        </div>
-      )}
-      {gone > 0 && (
-        <div className="attention-block">
-          <p>
-            {gone === 1
-              ? 'The page 1 item came from is gone (the link-rot check found it missing). Your copy is safe; the item keeps its saved page if there is one.'
-              : `The pages ${gone} items came from are gone (the link-rot check found them missing). Your copies are safe; items keep their saved pages if they have them.`}
-          </p>
-          <button onClick={showGone}>Show them</button>
         </div>
       )}
       {(stats?.preview_failed ?? 0) > 0 && (

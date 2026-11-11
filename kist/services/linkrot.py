@@ -1,7 +1,8 @@
 """Link-rot watch: is the page each item came from still there?
 
-The worker re-checks every item's page_url (source_url) about once every
-KIST_LINK_CHECK_DAYS (default 7; 0 turns it off), a small batch at a time,
+Off by default (KIST_LINK_CHECK_DAYS=0): once Kist has its copy, it leaves
+the source site alone. With KIST_LINK_CHECK_DAYS set, the worker re-checks
+every item's page_url (source_url) about that often, a small batch at a time,
 one request every KIST_LINK_CHECK_DELAY_SECONDS and never the same host
 twice within 10 seconds. Requests go through the SSRF guard. Each check
 records items.source_status and source_checked_at (kept in meta.json):
@@ -15,8 +16,9 @@ records items.source_status and source_checked_at (kept in meta.json):
 With KIST_WAYBACK=1 (off by default: it tells archive.org which pages you
 kept) a gone or failing source is looked up in the Wayback Machine's
 availability API and the archived copy's URL is kept as
-source_wayback_url. Gone sources show up in /api/stats (Needs attention)
-and with GET /api/items?source_status=gone.
+source_wayback_url. The result is informational: the item's info panel
+and GET /api/items?source_status=gone (/api/stats still counts source_gone),
+never "Needs attention" in the web app, because the copy is what matters.
 """
 
 import logging

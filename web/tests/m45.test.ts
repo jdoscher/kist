@@ -155,7 +155,7 @@ test('a provenance edit sends only what changed, null for cleared fields', () =>
   })
   assert.equal(digitalSourceText('http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia'), 'Made by generative AI')
   assert.equal(digitalSourceText(null), null)
-  assert.equal(sourceStatusText('gone'), 'Gone')
+  assert.equal(sourceStatusText('gone'), 'Page gone (your copy is safe)')
   assert.equal(sourceStatusText(null), 'Not checked yet')
 })
 

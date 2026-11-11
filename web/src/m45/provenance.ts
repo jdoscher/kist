@@ -108,7 +108,7 @@ export function sourceStatusText(s: SourceStatus): string {
     case 'ok':
       return 'Online'
     case 'gone':
-      return 'Gone'
+      return 'Page gone (your copy is safe)'
     case 'moved':
       return 'Moved'
     case 'error':

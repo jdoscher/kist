@@ -37,6 +37,7 @@ import type { Query } from '../api'
 import { SidebarBoards, SidebarCull } from './m3/Boards'
 import { SetupChecklist } from './m3/FirstRun'
 import { hasM45Filters } from '../m45/filters'
+import { attentionCount } from '../attention'
 
 interface TreeNode extends Folder {
   children: TreeNode[]
@@ -453,7 +454,7 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
     !query.person &&
     query.tags.length === 0 &&
     query.tags_any.length === 0
-  const attention = (stats?.failed_jobs ?? 0) + (stats?.preview_failed ?? 0) + (stats?.fixity_failed ?? 0) + (stats?.source_gone ?? 0)
+  const attention = attentionCount(stats)
 
   const visibleTags = (tags ?? []).filter(
     (t) => !tagFilter || t.name.toLowerCase().includes(tagFilter.toLowerCase()),

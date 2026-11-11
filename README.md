@@ -178,7 +178,7 @@ history shows its name. All tools: [MCP](#mcp-claude-and-other-agents).
 | `KIST_COLLECTIONS_INTERVAL_HOURS` | `24` | How often the worker recomputes suggested collections; `0` = only on request (`?refresh=1`) |
 | `KIST_EXPORT_RETENTION_DAYS` | `7` | Finished portable exports (`library/exports/`) are deleted after this many days; `0` keeps them |
 | `KIST_SNAPSHOTS` | `false` | Let `POST /api/items/{id}/snapshot` with no body fetch the item's page on the server (through the same SSRF guard as URL adds). Off: only snapshots the browser sends |
-| `KIST_LINK_CHECK_DAYS` | `7` | The link-rot watch re-checks every item's source page this often; `0` turns it off |
+| `KIST_LINK_CHECK_DAYS` | `0` | Off by default. Set a number of days to have the link-rot watch re-check every item's source page that often; what it finds is shown in the item's info panel only, never as something that needs attention |
 | `KIST_LINK_CHECK_DELAY_SECONDS` | `2` | Pause between two link checks (and never the same host within 10 s) |
 | `KIST_WAYBACK` | `false` | Ask the Wayback Machine (archive.org, an outside service) for an archived copy of sources that are gone. Off by default: it tells archive.org which pages you kept |
 | `KIST_XMP_SIDECARS` | `true` | Write `items/<id>/original.xmp` (rating, keywords, notes, label, creator, rights, provenance) for images on every change, for Lightroom, darktable and digiKam |
@@ -838,10 +838,13 @@ The extension's add-only token may snapshot an item it added itself in the
 last 10 minutes; anything else needs a write, agent or admin token. A
 folder-limited reader doesn't see snapshots.
 
-**Link-rot watch.** The worker re-checks every source page weekly, politely,
-and records `source_status` (`ok`, `moved`, `gone`, `error`) and
-`source_checked_at`; `/api/stats` counts `source_gone` (Needs attention) and
-`GET /api/items?source_status=gone` lists them. `kist link-check` runs a
+**Link-rot watch (off by default).** With `KIST_LINK_CHECK_DAYS` set, the
+worker re-checks every source page that often, politely, and records
+`source_status` (`ok`, `moved`, `gone`, `error`) and `source_checked_at`.
+It's informational: the item's info panel shows it and
+`GET /api/items?source_status=gone` lists them (`/api/stats` still counts
+`source_gone`), but a page that moved or went away is never shown as
+something that needs attention, because your copy is what matters. `kist link-check` runs a
 batch now. `KIST_WAYBACK=1` also records an archived copy's URL.
 
 **Importers.** `kist import <kind> <path|url> [--dry-run] [--folder NAME]`,

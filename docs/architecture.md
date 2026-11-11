@@ -124,7 +124,7 @@ kist/
 │   ├── provenance.py the provenance block, C2PA detection, filters
 │   ├── xmp.py       XMP reader/writer on xml.etree; original.xmp sidecars
 │   ├── snapshots.py page snapshots (page/), cleaned HTML, readable text
-│   ├── linkrot.py   the weekly source check (netguard) and opt-in Wayback
+│   ├── linkrot.py   the opt-in source check (netguard) and Wayback
 │   ├── media.py     Milestone 5: previews + metadata of the new kinds (in the
 │   │                preview child), items.media and its columns, cover/frame/
 │   │                clip/proxy/poster actions, filters, media-backfill

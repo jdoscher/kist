@@ -120,11 +120,12 @@ From 1.5.0, in this order:
   `/dev/dri` `devices` and `group_add` lines in `docker-compose.yml`; a
   failed GPU encode falls back to the CPU. `KIST_FFMPEG_THREADS` (2) caps
   every ffmpeg run, which also runs under `nice`.
-- The worker now checks each item's source page about once a week (a
-  request every 2 s, never the same host twice in 10 s). Set
-  `KIST_LINK_CHECK_DAYS=0` to keep Kist from contacting those sites.
-  `KIST_WAYBACK=1` (off) also asks archive.org, an outside service, about
-  gone sources.
+- The link-rot watch is **off by default**: once Kist has its copy it leaves
+  the source site alone (re-requesting pages costs those sites requests and
+  gets rate-limited). Set `KIST_LINK_CHECK_DAYS` (e.g. `7`) to turn it on;
+  what it finds shows in the item's info panel and the "Source page" filter,
+  never as "Needs attention". `KIST_WAYBACK=1` (off) also asks archive.org,
+  an outside service, about gone sources.
 - **Share links are Kist's first pages without a token.** Only `/s/<slug>`
   (and `/robots.txt`) are public; they serve only that share's items,
   never originals unless the share allows it, with no script, a sandboxing
