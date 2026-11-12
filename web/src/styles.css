@@ -1247,22 +1247,41 @@ select:focus-visible {
   opacity: 1;
 }
 
-/* ---------- bulk bar ---------- */
+/* ---------- bulk bar ----------
+   Two or more selected (B5): one 40 px row docked under the grid, in the
+   flow (the grid gets shorter, nothing hides under it), on the canvas
+   with a hairline above; no float, no shadow. */
 .bulkbar {
-  position: absolute;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
+  flex: none;
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 8px 12px;
-  box-shadow: 0 8px 30px var(--shadow);
-  z-index: 40;
+  gap: 4px;
+  height: 40px;
+  padding: 0 12px 0 calc(8px + var(--tile-gap) / 2);
+  background: var(--chrome);
+  border-top: 1px solid var(--chrome-line);
+  color: var(--text);
   white-space: nowrap;
+  z-index: 4;
+}
+.bulkbar .sel-count {
+  margin-right: 2px;
+}
+.bulkbar .bulk-tags {
+  width: 110px;
+  min-width: 72px;
+}
+.bulkbar select {
+  width: 104px;
+  min-width: 0;
+}
+.bulk-grow {
+  flex: 1;
+}
+.bulkbar .bulk-more .menu {
+  top: auto;
+  bottom: calc(100% + 4px);
+  animation-name: float-up;
 }
 .sel-count {
   font-weight: 600;
@@ -2270,7 +2289,10 @@ select:focus-visible {
   .app-shell:not(.mobile) .bulkbar {
     flex-wrap: wrap;
     white-space: normal;
-    width: calc(100% - 24px);
+    height: auto;
+    min-height: 40px;
+    padding-top: 4px;
+    padding-bottom: 4px;
   }
 }
 @media (max-width: 600px) {

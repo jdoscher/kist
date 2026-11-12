@@ -289,6 +289,12 @@ One height, three kinds. Nothing else.
   header stays while a new list loads, so a control keeps focus.
 - The phone keeps its own two-row bar (`ViewControls mobile` in the top
   bar).
+- The selection bar (`.bulkbar`) shows only with two or more selected (one
+  selected: the info panel has every action). It is one 40 px row docked
+  under the grid, in the flow, on `--chrome` with a `--chrome-line` rule
+  above: no float, no shadow. Order: count, clear, Tag field, Folder,
+  Board, Pick, Reject, Label, then More (everything else, opening upward)
+  and Trash last in `--danger`.
 
 ### Settings and Appearance layout
 

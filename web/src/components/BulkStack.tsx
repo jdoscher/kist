@@ -11,8 +11,10 @@ import { useAppState } from '../state'
 import { describeError } from '../writes'
 import { useAfterStackChange } from './GridExtras'
 import { useNotices } from './Notices'
+import type { BulkMenuItem } from './BulkBar'
 
-export function StackActions({ disabled }: { disabled?: boolean }) {
+/** Stack / Unstack for the bulk bar's More menu (B5). */
+export function useStackActions(disabled?: boolean): BulkMenuItem[] {
   const { selection, selectAll } = useAppState()
   const { items } = useCurrentItems()
   const { notify } = useNotices()
@@ -64,20 +66,10 @@ export function StackActions({ disabled }: { disabled?: boolean }) {
     }
   }
 
-  return (
-    <>
-      {canStack(selected) && (
-        <button className="btn-icon" disabled={disabled || busy} onClick={() => void stack()} title="Show these as one item, the first as its cover">
-          <Layers size={14} aria-hidden="true" />
-          Stack
-        </button>
-      )}
-      {stacks.length > 0 && (
-        <button className="btn-icon" disabled={disabled || busy} onClick={() => void unstack()} title="Show every item of the stack on its own again">
-          <Layers2 size={14} aria-hidden="true" />
-          Unstack
-        </button>
-      )}
-    </>
-  )
+  const out: BulkMenuItem[] = []
+  if (canStack(selected))
+    out.push({ key: 'stack', label: 'Stack', icon: Layers, disabled: disabled || busy, title: 'Show these as one item, the first as its cover', run: () => void stack() })
+  if (stacks.length > 0)
+    out.push({ key: 'unstack', label: 'Unstack', icon: Layers2, disabled: disabled || busy, title: 'Show every item of the stack on its own again', run: () => void unstack() })
+  return out
 }

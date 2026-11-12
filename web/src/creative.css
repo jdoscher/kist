@@ -150,14 +150,11 @@ button.on,
   gap: 8px;
 }
 .bulk-sep {
+  flex: none;
   width: 1px;
-  align-self: stretch;
-  background: var(--border);
-  margin: 0 2px;
-}
-.bulkbar {
-  flex-wrap: wrap;
-  max-width: calc(100% - 24px);
+  height: 20px;
+  background: var(--chrome-line);
+  margin: 0 4px;
 }
 
 /* ---------- versions, boards in the info panel ---------- */

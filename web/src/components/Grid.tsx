@@ -640,7 +640,8 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
           {!result.isLoading && !result.isError && (
             <span className="title-count" role="status">
               {countText}
-              {selection.size > 1 ? `, ${selection.size} selected` : ''}
+              {/* the bulk bar shows the selection; screen readers hear it here */}
+              {selection.size > 1 && <span className="sr-only">, {selection.size} selected</span>}
             </span>
           )}
           <span className="grid-refreshing" aria-hidden="true">
