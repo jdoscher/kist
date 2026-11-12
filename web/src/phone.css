@@ -457,3 +457,100 @@
 .mobile .drawer-head .menu {
   min-width: max-content;
 }
+
+/* ---------- preview: floating capsules (B18) ---------- */
+/* one surface for every control over the image: dark glass, a hairline and
+   a soft shadow, so the controls hold on a light picture too. Solid
+   --preview-capsule when the device asks for less transparency or more
+   contrast. Light theme's brass (#8C5A00) is too dark on it: the preview
+   uses --preview-star. */
+.mobile .preview-overlay {
+  --star: var(--preview-star);
+  --capsule-line: color-mix(in srgb, var(--preview-text) 16%, transparent);
+}
+.mobile .preview-overlay :is(.phone-edit-top, .phone-edit-bottom, .preview-close, .preview-nav, .ann-toggle) {
+  background: color-mix(in srgb, var(--preview-capsule) 72%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  backdrop-filter: blur(20px) saturate(1.4);
+  border: 1px solid var(--capsule-line);
+  box-shadow: 0 6px 24px var(--shadow);
+  color: var(--preview-text);
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .mobile .preview-overlay :is(.phone-edit-top, .phone-edit-bottom, .preview-close, .preview-nav, .ann-toggle) {
+    background: var(--preview-capsule);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+@media (prefers-contrast: more) {
+  .mobile .preview-overlay :is(.phone-edit-top, .phone-edit-bottom, .preview-close, .preview-nav, .ann-toggle) {
+    border-color: var(--preview-line);
+  }
+}
+/* the edit bar: Tags / Move / Trash in a 30 px-radius capsule, the stars
+   in their own capsule above it, the arrows as 48 px circles on the same
+   line at the sides */
+.mobile .preview-overlay .phone-edit-bottom {
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  border-radius: 30px;
+  padding: 0 6px;
+  gap: 0;
+}
+.mobile .preview-overlay .phone-edit-bottom button {
+  min-width: 64px;
+  min-height: 54px;
+  border-radius: 26px;
+  background: none;
+}
+.mobile .preview-overlay .phone-edit-top {
+  bottom: calc(14px + 56px + 10px + env(safe-area-inset-bottom));
+  border-radius: 24px;
+  padding: 2px 8px;
+}
+.mobile .preview-overlay .phone-edit-top .phone-stars {
+  margin-left: 0;
+}
+.mobile .preview-overlay .preview-nav {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border-radius: 50%;
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  align-items: center;
+  justify-content: center;
+}
+.mobile .preview-overlay .preview-nav.prev {
+  left: 12px;
+}
+.mobile .preview-overlay .preview-nav.next {
+  right: 12px;
+}
+.mobile .preview-overlay .preview-nav svg {
+  width: 20px;
+  height: 20px;
+}
+.mobile .preview-overlay .preview-nav:disabled {
+  opacity: 0.4;
+}
+.mobile .preview-overlay .preview-close {
+  width: 44px;
+  height: 44px;
+  right: 12px;
+}
+.mobile .preview-overlay .ann-toggle {
+  min-height: 44px;
+  border-radius: 22px;
+  right: 64px;
+}
+/* room for the two capsules under the image */
+.mobile .preview-overlay.phone-editing figure {
+  padding-bottom: 136px;
+}
+.mobile .preview-overlay.phone-editing img,
+.mobile .preview-overlay.phone-editing video {
+  max-height: calc(100dvh - 260px);
+}
+.mobile .preview-overlay.phone-editing iframe {
+  height: calc(100dvh - 260px);
+}

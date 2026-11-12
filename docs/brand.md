@@ -455,6 +455,15 @@ desktop shrunk down.
   the sheet shows the brass corners only, no multi-select check.
 - **Drawer head.** Mark and wordmark on the left, Share/Export and a 44 px
   borderless ✕ on the right, on `--chrome` with the pinstripe below.
+- **Preview capsules.** Everything over the full-screen image (Notes,
+  close, the arrows, the stars, Tags / Move / Trash) floats in one glass
+  surface: `--preview-capsule` at 72 % with `backdrop-filter: blur(20px)
+  saturate(1.4)`, a 16 % hairline and a soft shadow. Under
+  `prefers-reduced-transparency` or `prefers-contrast: more` it is the solid
+  `--preview-capsule`. Stars sit in their own 24 px-radius capsule above a
+  30 px-radius bar of 64 × 54 buttons; the arrows are 48 px circles on the
+  bar's line. Stars there use `--preview-star` (light's #8C5A00 brass is
+  too dark on the capsule). Blur is kept to these few elements.
 
 ## Voice
 
