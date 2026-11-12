@@ -739,8 +739,8 @@ a.button.primary {
   gap: 12px;
   flex-wrap: wrap;
   padding: 10px 16px;
-  background: var(--bg-raised);
-  border-bottom: 1px solid var(--border);
+  background: var(--chrome);
+  border-bottom: 1px solid var(--chrome-line);
 }
 .screen-head h1 {
   margin: 0;
@@ -878,9 +878,9 @@ a.button.primary {
 .map-list {
   width: 260px;
   overflow-y: auto;
-  border-left: 1px solid var(--border);
+  border-left: 1px solid var(--chrome-line);
   padding: 8px;
-  background: var(--bg-raised);
+  background: var(--chrome);
 }
 .map-list ul {
   list-style: none;
@@ -982,7 +982,7 @@ a.button.primary {
   .map-list {
     width: 100%;
     border-left: none;
-    border-top: 1px solid var(--border);
+    border-top: 1px solid var(--chrome-line);
     max-height: 30vh;
   }
   .timeline-row {

@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [2.1.0] – unreleased
+
+The aesthetic pass: one grey, one control language, one type system.
+
+- Screen headers (Timeline, Map, Organise, Settings, Boards, Triage) and the board bar sit on the same chrome grey as the top bar and sidebar, with the same light pinstripe; no more second grey band.
+
 ## [Unreleased]
 
 Kist 2.0, milestones 1 to 5: the platform and AI infrastructure; finding

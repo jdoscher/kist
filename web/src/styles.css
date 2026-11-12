@@ -578,7 +578,7 @@ select:focus-visible {
   color: var(--text-dim);
   font-size: var(--fs-1);
   padding: 8px 16px 2px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--chrome-line);
 }
 .sidebar .stats .version {
   margin-top: 2px;
@@ -1413,7 +1413,7 @@ select:focus-visible {
   display: flex;
   justify-content: flex-end;
   padding: max(6px, env(safe-area-inset-top)) 8px 0;
-  background: var(--bg-raised);
+  background: var(--chrome);
 }
 .mobile .drawer {
   flex-direction: column;
@@ -1874,7 +1874,7 @@ select:focus-visible {
     max-height: 32vh;
     flex-shrink: 0;
     border-right: none;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--chrome-line);
   }
   .app-shell:not(.mobile) .grid-area {
     min-height: 60vh;
@@ -1882,7 +1882,7 @@ select:focus-visible {
   .app-shell:not(.mobile) .detail-panel {
     width: auto;
     border-left: none;
-    border-top: 1px solid var(--border);
+    border-top: 1px solid var(--chrome-line);
     overflow: visible;
   }
 }
@@ -2224,8 +2224,8 @@ button.small {
   gap: 10px;
   padding: 8px 12px;
   padding-top: max(8px, env(safe-area-inset-top));
-  background: var(--bg-raised);
-  border-bottom: 1px solid var(--border);
+  background: var(--chrome);
+  border-bottom: 1px solid var(--chrome-line);
 }
 .settings-title {
   margin: 0;
@@ -2245,8 +2245,8 @@ button.small {
   flex-direction: column;
   gap: 2px;
   padding: 12px 8px;
-  background: var(--bg-raised);
-  border-right: 1px solid var(--border);
+  background: var(--chrome);
+  border-right: 1px solid var(--chrome-line);
 }
 .settings-nav button {
   display: flex;
