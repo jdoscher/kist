@@ -142,7 +142,8 @@
   border-radius: 14px 14px 0 0;
   border-bottom: none;
   padding: 12px 14px calc(14px + env(safe-area-inset-bottom));
-  animation: sheet-up var(--dur-2) var(--ease);
+  /* B12: the iOS sheet curve */
+  animation: sheet-up var(--dur-sheet) var(--ease-sheet);
 }
 .mobile .modal.phone-sheet .modal-head .icon-btn {
   min-width: 44px;
@@ -270,4 +271,471 @@
   border: none;
   color: var(--text);
   font-size: var(--fs-1);
+}
+
+/* ==================================================================
+   Kist 2.0 design pass (B18, A8): the phone. Everything below is under
+   .mobile; the desktop layout is untouched. Shared primitives come from
+   docs/brand.md (--chrome / --chrome-line, --chip-*, --dur-sheet /
+   --ease-sheet); --phone-fill, --phone-sunken and --preview-capsule are
+   themes.css tokens with contrast pairs.
+   ================================================================== */
+
+/* ---------- top bar (B18) ---------- */
+/* a phone has no ⌘ key; Share/Export moved to the drawer head */
+.mobile .topbar .palette-btn,
+.mobile .searchbox kbd {
+  display: none;
+}
+.mobile .menu-btn {
+  min-width: 44px;
+  height: 44px;
+  border: none;
+  background: none;
+}
+/* a sunken pill, like the iOS search field */
+.mobile .searchbox {
+  min-height: 44px;
+  border-radius: 22px;
+  border-color: transparent;
+  background: var(--phone-sunken);
+  padding: 2px 4px 2px 4px;
+}
+.mobile .searchbox:focus-within {
+  border-color: var(--focus);
+}
+.mobile .searchbox .search-mode-btn {
+  border-radius: 18px;
+}
+.mobile .searchbox .search-image-btn {
+  border-radius: 18px;
+}
+/* row two: one borderless filled style for every control. Widths and
+   paddings stay as styles.css sets them (fitSelect.ts PHONE_ROW). */
+.mobile .view-row :is(.layout-toggle, .filters-btn),
+.mobile .view-row .cols-stepper,
+.mobile .topbar .view-row select {
+  border-color: transparent;
+  background-color: var(--phone-fill);
+  border-radius: 10px;
+}
+.mobile .topbar .view-row select {
+  background-image: var(--chevron);
+  background-repeat: no-repeat;
+  background-position: right 3px center;
+  background-size: 10px 10px;
+}
+.mobile .view-row .filters-btn.on,
+.mobile .view-row .layout-toggle.on {
+  background-color: var(--phone-fill);
+  box-shadow: inset 0 -3px 0 var(--accent);
+}
+/* − n + reads as one control: the group carries the fill */
+.mobile .cols-toggle.cols-stepper button {
+  border: none;
+  background: none;
+  border-radius: 10px;
+  position: relative;
+}
+.mobile .cols-stepper .cols-now {
+  border: none;
+  background: none;
+}
+/* A8: 44 px tall hit areas without changing the look; − and + split the
+   count between them (it isn't a control) */
+.mobile .cols-toggle.cols-stepper button:first-child::after,
+.mobile .cols-toggle.cols-stepper button:last-child::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+}
+.mobile .cols-toggle.cols-stepper button:first-child::after {
+  left: -2px;
+  right: -9px;
+}
+.mobile .cols-toggle.cols-stepper button:last-child::after {
+  left: -9px;
+  right: -2px;
+}
+.mobile .view-row :is(.layout-toggle, .filters-btn) {
+  position: relative;
+}
+.mobile .view-row :is(.layout-toggle, .filters-btn)::after {
+  content: '';
+  position: absolute;
+  inset: -5px -2px;
+}
+/* the iOS large title, in Kist's display face; counts in Inter tabular */
+.mobile .grid-meta {
+  padding: 14px 16px 10px;
+  align-items: baseline;
+}
+.mobile .grid-meta :is(.grid-title, .view-title, .page-title) {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: var(--fs-6);
+  line-height: 1;
+  letter-spacing: -0.01em;
+  color: var(--canvas-text);
+}
+.mobile .grid-meta > [role='status'] {
+  font-family: var(--font-ui);
+  font-size: var(--fs-1);
+  font-variant-numeric: tabular-nums;
+  color: var(--canvas-dim);
+}
+
+/* ---------- the open tile (B18) ---------- */
+/* one item open in the sheet: the brass corners mark it; the check is for
+   real multi-select */
+.mobile .grid-area.sheet-open .tile .sel-check {
+  display: none;
+}
+.mobile .grid-area.sheet-open .tile.selected .badge:not(.rating) {
+  right: 6px;
+}
+
+/* ---------- item sheet (B18, B12) ---------- */
+.mobile .detail-sheet {
+  border: 1px solid var(--chrome-line);
+  border-bottom: none;
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -12px 40px var(--shadow);
+  padding: 0 16px calc(12px + env(safe-area-inset-bottom));
+  /* B12: the iOS sheet curve, on the phone only */
+  transition: transform var(--dur-sheet) var(--ease-sheet);
+  animation: sheet-up var(--dur-sheet) var(--ease-sheet);
+}
+.mobile .sheet-grab {
+  padding: 8px 0 12px;
+}
+.mobile .sheet-grab span {
+  width: 36px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--field-border);
+}
+.mobile .sheet-head {
+  gap: 14px;
+}
+.mobile .sheet-head img,
+.mobile .sheet-icon {
+  width: 96px;
+  height: 96px;
+  border-radius: var(--tile-radius);
+}
+.mobile .sheet-title .fname {
+  font-size: var(--fs-3);
+  word-break: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.3;
+}
+.mobile .sheet-close {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: var(--phone-fill);
+  position: relative;
+}
+.mobile .phone-actions button {
+  border: none;
+  background: var(--phone-fill);
+  border-radius: 10px;
+}
+.mobile .phone-actions .phone-trash {
+  flex: 0 0 52px;
+  padding: 0;
+  color: var(--danger);
+}
+.mobile .phone-tag-add button {
+  border-radius: 10px;
+}
+
+/* A8: 44 px hit areas in the sheet without changing the look (:where keeps
+   the list at low specificity so the per-control insets below win) */
+.mobile .detail-sheet :where(
+    .sheet-close,
+    .sheet-title .btn-primary,
+    .palette-swatch,
+    .more-like,
+    .collapse-btn,
+    button.small
+  ) {
+  position: relative;
+}
+.mobile .detail-sheet :where(
+    .sheet-close,
+    .sheet-title .btn-primary,
+    .palette-swatch,
+    .more-like,
+    .collapse-btn,
+    button.small
+  )::after {
+  content: '';
+  position: absolute;
+  inset: -5px 0;
+}
+.mobile .detail-sheet .sheet-close::after {
+  inset: -4px;
+}
+.mobile .detail-sheet .collapse-btn::after {
+  inset: -10px -4px;
+}
+.mobile .detail-sheet button.small::after {
+  inset: -8px -3px;
+}
+.mobile .detail-sheet .more-like::after {
+  inset: -8px 0;
+}
+.mobile .detail-sheet .palette-swatch::after {
+  inset: -4px 0;
+}
+.mobile .detail-sheet .sheet-title .btn-primary::after {
+  inset: -6px 0;
+}
+
+/* ---------- drawer (B18, B12) ---------- */
+/* slides and fades at the sheet's pace */
+.mobile .drawer {
+  transition: transform var(--dur-sheet) var(--ease-sheet);
+}
+.mobile .drawer-backdrop {
+  transition: opacity var(--dur-sheet) var(--ease-sheet);
+}
+.mobile .drawer-head {
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  padding: max(6px, env(safe-area-inset-top)) 4px 6px 16px;
+  border-bottom: 1px solid var(--chrome-line);
+}
+.mobile .drawer-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: auto;
+  color: var(--text);
+}
+.mobile .drawer-brand .brand-mark {
+  width: 24px;
+  height: 24px;
+}
+.mobile .drawer-brand .wordmark {
+  height: 24px;
+}
+.mobile .drawer-head .drawer-close,
+.mobile .drawer-head .menu-wrap > .icon-btn {
+  width: 44px;
+  height: 44px;
+  border: none;
+  background: none;
+  border-radius: 50%;
+}
+.mobile .drawer-head .menu {
+  min-width: max-content;
+}
+
+/* ---------- bottom sheets (B18, B12) ---------- */
+.mobile .modal.phone-sheet {
+  border-radius: 20px 20px 0 0;
+}
+/* the scrim fades in at the sheet's pace (only the colour, so the sheet
+   itself stays opaque while it slides) */
+.mobile .modal-overlay:has(> .modal.phone-sheet) {
+  animation: phone-scrim-in var(--dur-sheet) var(--ease-sheet);
+}
+@keyframes phone-scrim-in {
+  from {
+    background-color: transparent;
+  }
+}
+
+/* ---------- preview: floating capsules (B18) ---------- */
+/* one surface for every control over the image: dark glass, a hairline and
+   a soft shadow, so the controls hold on a light picture too. Solid
+   --preview-capsule when the device asks for less transparency or more
+   contrast. Light theme's brass (#8C5A00) is too dark on it: the preview
+   uses --preview-star. */
+.mobile .preview-overlay {
+  --star: var(--preview-star);
+  --capsule-line: color-mix(in srgb, var(--preview-text) 16%, transparent);
+}
+.mobile .preview-overlay :is(.phone-edit-top, .phone-edit-bottom, .preview-close, .preview-nav, .ann-toggle) {
+  background: color-mix(in srgb, var(--preview-capsule) 72%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  backdrop-filter: blur(20px) saturate(1.4);
+  border: 1px solid var(--capsule-line);
+  box-shadow: 0 6px 24px var(--shadow);
+  color: var(--preview-text);
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .mobile .preview-overlay :is(.phone-edit-top, .phone-edit-bottom, .preview-close, .preview-nav, .ann-toggle) {
+    background: var(--preview-capsule);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+@media (prefers-contrast: more) {
+  .mobile .preview-overlay :is(.phone-edit-top, .phone-edit-bottom, .preview-close, .preview-nav, .ann-toggle) {
+    border-color: var(--preview-line);
+  }
+}
+/* the edit bar: Tags / Move / Trash in a 30 px-radius capsule, the stars
+   in their own capsule above it, the arrows as 48 px circles on the same
+   line at the sides */
+.mobile .preview-overlay .phone-edit-bottom {
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  border-radius: 30px;
+  padding: 0 6px;
+  gap: 0;
+}
+.mobile .preview-overlay .phone-edit-bottom button {
+  min-width: 64px;
+  min-height: 54px;
+  border-radius: 26px;
+  background: none;
+}
+.mobile .preview-overlay .phone-edit-top {
+  bottom: calc(14px + 56px + 10px + env(safe-area-inset-bottom));
+  border-radius: 24px;
+  padding: 2px 8px;
+}
+.mobile .preview-overlay .phone-edit-top .phone-stars {
+  margin-left: 0;
+}
+.mobile .preview-overlay .preview-nav {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border-radius: 50%;
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  align-items: center;
+  justify-content: center;
+}
+.mobile .preview-overlay .preview-nav.prev {
+  left: 12px;
+}
+.mobile .preview-overlay .preview-nav.next {
+  right: 12px;
+}
+.mobile .preview-overlay .preview-nav svg {
+  width: 20px;
+  height: 20px;
+}
+.mobile .preview-overlay .preview-nav:disabled {
+  opacity: 0.4;
+}
+.mobile .preview-overlay .preview-close {
+  width: 44px;
+  height: 44px;
+  right: 12px;
+}
+.mobile .preview-overlay .ann-toggle {
+  min-height: 44px;
+  border-radius: 22px;
+  right: 64px;
+}
+/* room for the two capsules under the image */
+.mobile .preview-overlay.phone-editing figure {
+  padding-bottom: 136px;
+}
+.mobile .preview-overlay.phone-editing img,
+.mobile .preview-overlay.phone-editing video {
+  max-height: calc(100dvh - 260px);
+}
+.mobile .preview-overlay.phone-editing iframe {
+  height: calc(100dvh - 260px);
+}
+
+/* ---------- board on a phone (B18) ---------- */
+/* one row: back, the name in serif, Saved (11 px dim), •••; List / Export / Share live
+   in the ••• menu (PhoneBoardMenu.tsx) and the zoom floats at the bottom */
+.board-screen.mobile .board-bar {
+  flex-wrap: nowrap;
+  gap: 2px;
+  padding: max(6px, env(safe-area-inset-top)) 4px 6px;
+  min-height: 57px;
+}
+.board-screen.mobile .board-bar > .grow,
+.board-screen.mobile .board-bar > :is(.btn-icon, .icon-btn, .board-menu):not(:first-child, .board-more) {
+  display: none;
+}
+.board-screen.mobile .board-bar > :first-child,
+.board-screen.mobile .board-more > summary {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  border-radius: 50%;
+}
+.board-screen.mobile .board-bar .board-name {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: var(--fs-5);
+  line-height: 1.1;
+  padding-left: 2px;
+}
+.board-screen.mobile .board-bar .save-state {
+  flex: none;
+  font-family: var(--font-ui);
+  font-size: var(--fs-1);
+  color: var(--text-dim);
+  margin-right: 4px;
+}
+.board-screen.mobile .board-more {
+  flex: none;
+  margin-left: auto;
+}
+.board-screen.mobile .board-more .board-menu-pop {
+  min-width: 240px;
+}
+.board-screen.mobile .board-more .board-menu-pop :is(a, button) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+}
+/* the zoom: a floating capsule at the bottom centre, the preview's glass
+   on the board's own float surface */
+.board-screen.mobile .board-bar > .seg {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 30;
+  display: flex;
+  gap: 0;
+  padding: 0 6px;
+  border-radius: 28px;
+  border: 1px solid var(--float-line);
+  background: color-mix(in srgb, var(--bg-float) 78%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  backdrop-filter: blur(20px) saturate(1.4);
+  box-shadow: var(--float-shadow);
+}
+.board-screen.mobile .board-bar > .seg button {
+  min-width: 48px;
+  min-height: 44px;
+  border: none;
+  background: none;
+  border-radius: 22px;
+  box-shadow: none;
+}
+.board-screen.mobile .board-bar > .seg .zoom-pct {
+  min-width: 56px;
+  font-variant-numeric: tabular-nums;
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .board-screen.mobile .board-bar > .seg {
+    background: var(--bg-float);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }

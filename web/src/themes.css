@@ -30,7 +30,13 @@
  *
  * --bg-float / --float-* are things that float over the page (menus,
  * popovers, dialogs, the command palette, toasts): one darker surface, a
- * hairline, a layered shadow (styles.css --float-shadow) over a 40 % scrim. */
+ * hairline, a layered shadow (styles.css --float-shadow) over a 40 % scrim.
+ *
+ * Phone only (phone.css): --phone-fill is the one borderless fill of the
+ * phone's controls (the top bar's second row, the item sheet's actions),
+ * --phone-sunken the pill search field; --preview-capsule is the solid
+ * surface of the preview's floating control capsules (glass over it when
+ * the device allows transparency) and --preview-star the stars on it. */
 
 :root,
 [data-theme='dark'] {
@@ -88,6 +94,10 @@
   --float-sheen: #ffffff0d;
   --float-shadow-far: #000000a0;
   --float-shadow-near: #00000066;
+  --phone-fill: #2c2c29;
+  --phone-sunken: #121211;
+  --preview-capsule: #262624;
+  --preview-star: #e8b04b;
   --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239c9a93' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
 
@@ -146,6 +156,10 @@
   --float-sheen: #ffffff00;
   --float-shadow-far: #1c1b1929;
   --float-shadow-near: #1c1b191a;
+  --phone-fill: #efede8;
+  --phone-sunken: #ebe9e4;
+  --preview-capsule: #2a2a2a;
+  --preview-star: #f6cf7e;
   --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235f5d57' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
 
@@ -204,6 +218,10 @@
   --float-sheen: #ffffff14;
   --float-shadow-far: #00000080;
   --float-shadow-near: #00000040;
+  --phone-fill: #6a6a6a;
+  --phone-sunken: #4b4b4b;
+  --preview-capsule: #2a2a2a;
+  --preview-star: #f6cf7e;
   --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23dadada' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
 

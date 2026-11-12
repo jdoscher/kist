@@ -64,6 +64,7 @@ import { BoardLibrary } from './BoardLibrary'
 import { BoardList } from './BoardList'
 import { useBoardKeys } from './keys'
 import { useM45 } from '../../m45/M45'
+import { PhoneBoardMenu } from './PhoneBoardMenu'
 
 export type Tool = 'select' | 'hand' | 'connect'
 type SaveState = 'saved' | 'unsaved' | 'saving' | 'error' | 'conflict'
@@ -545,6 +546,15 @@ export default function BoardEditor({ id }: { id: string }) {
           >
             <Share2 size={16} aria-hidden="true" />
           </button>
+        )}
+        {mobile && (
+          <PhoneBoardMenu
+            id={id}
+            name={content.name}
+            listOn={view === 'list'}
+            onToggleList={() => setView(view === 'list' ? 'canvas' : 'list')}
+            onShare={caps.canEdit ? () => m45.openShare({ kind: 'board', id, itemIds: [], name: content.name }) : undefined}
+          />
         )}
       </div>
 

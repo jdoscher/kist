@@ -246,12 +246,19 @@ export function PhoneItemEdit({ item }: { item: Item }) {
   return (
     <>
       <div className="phone-actions">
-        <button onClick={() => setMoving(true)}>
+        <button className="phone-move" onClick={() => setMoving(true)}>
           <FolderInput size={16} aria-hidden="true" /> Move to…
         </button>
+        {/* demoted to an icon (the bin is the iOS convention); the name stays */}
         {!item.protected && item.state !== 'trashed' && (
-          <button className="danger" disabled={busy(item.id)} onClick={() => void trash(item, clearSelection)}>
-            <Trash2 size={16} aria-hidden="true" /> Trash
+          <button
+            className="danger phone-trash"
+            aria-label="Trash"
+            title="Move to Trash"
+            disabled={busy(item.id)}
+            onClick={() => void trash(item, clearSelection)}
+          >
+            <Trash2 size={20} aria-hidden="true" />
           </button>
         )}
       </div>

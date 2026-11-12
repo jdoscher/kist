@@ -1,4 +1,4 @@
-import { Columns3, Command, History, ImageUp, Info, LayoutGrid, Menu, Minus, PanelsLeftRight, Plus, Rows3, Settings, Upload, X } from 'lucide-react'
+import { Columns3, History, ImageUp, Info, LayoutGrid, Menu, Minus, PanelsLeftRight, Plus, Rows3, Settings, Upload, X } from 'lucide-react'
 import { GRID_LAYOUTS, type GridLayout } from '../layout'
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { chromeOf, fitSelectWidth } from '../fitSelect'
@@ -374,13 +374,9 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
         )}
       </div>
 
-      {mobile && (
-        <button className="icon-btn topbar-icon palette-btn" onClick={creative.openPalette} aria-label="Go to or do anything (⌘K)" title="Go to or do anything (⌘K)" aria-keyshortcuts="Meta+K Control+K">
-          <Command size={16} aria-hidden="true" />
-        </button>
-      )}
-      {/* a phone's second row is full: share/export sits beside the palette */}
-      {mobile && <ViewShareMenu />}
+      {/* the palette opens from the keycap in the search box on desktop; a
+          phone has no ⌘ key, and its share/export sits in the drawer head
+          (Sidebar.tsx) */}
 
       {mobile && <div className="topbar-break" />}
 

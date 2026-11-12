@@ -103,6 +103,9 @@ which also replaces the old star yellow. All colours are CSS variables in
 | chrome line (chrome / images edge) | #34332F | #E2DFD8 | white 28 % (#FFFFFF47) |
 | canvas (image surround) | #131312 | #ECECEC | #5C5C5C |
 | preview surround (`preview-bg`) | #0D0D0C | #5C5C5C | #5C5C5C |
+| phone-fill (phone controls) | #2C2C29 | #EFEDE8 | #6A6A6A |
+| phone-sunken (phone search pill) | #121211 | #EBE9E4 | #4B4B4B |
+| preview-capsule / preview-star (phone preview capsules) | #262624 / #E8B04B | #2A2A2A / #F6CF7E | #2A2A2A / #F6CF7E |
 
 - **Gallery grey** is for judging colour: one neutral mid-grey (#5C5C5C)
   behind everything, top bar, side panels, grid and full-screen preview
@@ -208,6 +211,12 @@ parts and focus indicators (1.4.11, 2.4.11/2.4.13).
 | tag / folder / board chips (`chip-text` on `chip-bg`) | 4.5 | 10.97 | 13.43 | 8.13 |
 | counts on chips (`text-dim` on `chip-bg`) | 4.5 | 4.69 | 5.14 | 6.34 |
 | tile selection check (`on-accent` on `canvas-focus`) | 4.5 | 9.36 | 5.87 | 12.33 |
+| phone: filled controls (top bar row two, sheet actions) (`text` on `phone-fill`) | 4.5 | 11.64 | 14.71 | 4.96 |
+| phone: the sheet's Trash icon (`danger` on `phone-fill`) | 3 | 4.90 | 5.62 | 3.90 |
+| phone: search pill text (`text` on `phone-sunken`) | 4.5 | 15.58 | 14.18 | 8.00 |
+| phone: search pill placeholder (`text-dim` on `phone-sunken`) | 4.5 | 6.66 | 5.43 | 6.24 |
+| phone preview: capsule buttons (`preview-text` on `preview-capsule`) | 4.5 | 12.60 | 14.35 | 14.35 |
+| phone preview: stars in their capsule (`preview-star` on `preview-capsule`) | 3 | 7.76 | 9.67 | 9.67 |
 | text on menus, dialogs, palette (`text` on `bg-float`) | 4.5 | 13.41 | 17.21 | 8.79 |
 | secondary text on menus and dialogs (`text-dim` on `bg-float`) | 4.5 | 5.73 | 6.58 | 6.86 |
 | links on menus and dialogs (`accent` on `bg-float`) | 4.5 | 8.25 | 5.87 | 6.46 |
@@ -232,7 +241,7 @@ parts and focus indicators (1.4.11, 2.4.11/2.4.13).
 | selected chip in the preview (`preview-text` on `preview-soft`) | 4.5 | 10.64 | 7.46 | 7.46 |
 | counts on a selected chip in the preview (`preview-soft-dim` on `preview-soft`) | 4.5 | 7.08 | 7.46 | 7.46 |
 
-all 177 pairs pass
+all 195 pairs pass
 
 Selected tiles use brass corners (`--canvas-focus`) with a 1 px black halo
 plus a check badge (`--on-accent` on `--canvas-focus`, #1A1408 outline), so
@@ -496,6 +505,12 @@ Easings: `--ease` `cubic-bezier(.2, .8, .2, 1)` for state changes,
 `--ease-sheet` `cubic-bezier(.32, .72, 0, 1)` (the iOS sheet curve) for the
 phone sheet and drawer only.
 
+- On a phone the item sheet slides up, the drawer slides in, its backdrop
+  fades, and the Move to… / Tags bottom sheets rise with their scrim, all
+  over `--dur-sheet` 380 ms on `--ease-sheet` (phone.css; the sheet's
+  drag-release snaps back on the same curve). Desktop never uses these
+  tokens (`tests/motion.test.ts`).
+
 - Menus, popovers, dialogs and the palette fade in and slide 4 px down
   (`@keyframes float-in`); toasts and notices rise 4 px (`float-up`).
   Keep it under 150 ms: no bounce, no scale-up.
@@ -528,6 +543,53 @@ palette, toasts, notices) uses one recipe, so it reads as one family:
 New floating things use the `.float-surface` class (styles.css), which
 also brings the `float-in` animation. The palette's footer shows its keys
 as keycaps (`<kbd>`).
+
+## Phone
+
+The phone is its own layout (`.app-shell.mobile`, rules in `phone.css`),
+built to sit next to Photos on a home screen rather than look like the
+desktop shrunk down.
+
+- **Top bar.** Row one: a 44 px borderless menu button, the mark, and a
+  44 px pill search field sunk into the chrome (`--phone-sunken`, 22 px
+  radius). No ⌘K button (a phone has no ⌘ key) and no Export button: Share
+  and Export sit in the drawer head. Row two: every control (tile shape,
+  − n +, Type, Filters, Rating, Sort) has one borderless fill
+  (`--phone-fill`, 10 px radius); widths stay as `fitSelect.ts PHONE_ROW`
+  measures them.
+- **Large title.** The view title is Instrument Serif 34 px (`--fs-6`) on
+  the canvas, its count Inter 11 px tabular.
+- **Item sheet.** `--bg-raised` with the `--chrome-line` pinstripe on its
+  top edge, 20 px top corners and a long soft shadow, so it lifts off the
+  grid; a visible 36 × 5 grabber (`--field-border`); neutral chips;
+  Move to… fills the action row and Trash is a 52 px icon button in
+  `--danger` (its accessible name stays "Trash"). The tile that is open in
+  the sheet shows the brass corners only, no multi-select check.
+- **Drawer head.** Mark and wordmark on the left, Share/Export and a 44 px
+  borderless ✕ on the right, on `--chrome` with the pinstripe below.
+- **Preview capsules.** Everything over the full-screen image (Notes,
+  close, the arrows, the stars, Tags / Move / Trash) floats in one glass
+  surface: `--preview-capsule` at 72 % with `backdrop-filter: blur(20px)
+  saturate(1.4)`, a 16 % hairline and a soft shadow. Under
+  `prefers-reduced-transparency` or `prefers-contrast: more` it is the solid
+  `--preview-capsule`. Stars sit in their own 24 px-radius capsule above a
+  30 px-radius bar of 64 × 54 buttons; the arrows are 48 px circles on the
+  bar's line. Stars there use `--preview-star` (light's #8C5A00 brass is
+  too dark on the capsule). Blur is kept to these few elements.
+- **Board header.** One 57 px row: a 44 px back button, the board name in
+  Instrument Serif 24 px, "Saved" 11 px dim, and a 44 px ••• menu
+  (`PhoneBoardMenu.tsx`) holding List, Export (PNG, PDF, HTML) and Share.
+  The zoom (−, %, +, fit) floats in a capsule at the bottom centre on the
+  `--bg-float` glass (solid under reduced transparency), with 48 × 44
+  buttons.
+- **44 px hit areas (A8).** Small phone controls keep their look and get a
+  transparent `::after` that grows the tap target: −/+ and the other
+  row-two controls to 44 px tall (−/+ share the count between them: about
+  36 × 44, the row has no more width), and in the item sheet the close
+  button, View, the colour swatches, More like this, Edit and History to
+  about 44 px tall (40–44 where two neighbours' areas meet; neither steals
+  the other's tap). The list in phone.css uses `:where()` so each
+  control's own inset wins.
 
 ## Voice
 

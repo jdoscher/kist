@@ -22,6 +22,24 @@ test('reduced motion zeroes every motion token and the press scale', () => {
   assert.match(block, /button:active:not\(:disabled\) \{\s*transform: none;/)
 })
 
+test('the phone sheet, drawer and bottom sheets move on the sheet curve (B12)', () => {
+  const phone = readFileSync(new URL('../src/phone.css', import.meta.url), 'utf8')
+  const rule = (sel: string) => {
+    const esc = sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    return [...phone.matchAll(new RegExp(`^${esc} \\{([^}]*)\\}`, 'gm'))].map((m) => m[1]).join('\n')
+  }
+  assert.match(rule('.mobile .detail-sheet'), /animation: sheet-up var\(--dur-sheet\) var\(--ease-sheet\)/)
+  assert.match(rule('.mobile .detail-sheet'), /transition: transform var\(--dur-sheet\) var\(--ease-sheet\)/)
+  assert.match(rule('.mobile .drawer'), /transition: transform var\(--dur-sheet\) var\(--ease-sheet\)/)
+  assert.match(rule('.mobile .drawer-backdrop'), /transition: opacity var\(--dur-sheet\) var\(--ease-sheet\)/)
+  assert.match(rule('.mobile .modal.phone-sheet'), /animation: sheet-up var\(--dur-sheet\) var\(--ease-sheet\)/)
+  // desktop motion stays on the short curve: the sheet tokens are phone-only
+  for (const f of ['styles.css', 'm2.css', 'creative.css', 'm45.css', 'm6grid.css']) {
+    const other = readFileSync(new URL(`../src/${f}`, import.meta.url), 'utf8')
+    for (const m of other.matchAll(/^([^{}\n]*)\{[^}]*var\(--ease-sheet\)/gm)) assert.match(m[1], /\.mobile|:root/, `${f}: ${m[1].trim()}`)
+  }
+})
+
 test('a closing panel stays for the exit, unless motion is reduced', () => {
   assert.equal(exitDelay(false), DUR_OUT_MS)
   assert.equal(exitDelay(true), 0)
