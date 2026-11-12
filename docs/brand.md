@@ -399,6 +399,12 @@ Easings: `--ease` `cubic-bezier(.2, .8, .2, 1)` for state changes,
 `--ease-sheet` `cubic-bezier(.32, .72, 0, 1)` (the iOS sheet curve) for the
 phone sheet and drawer only.
 
+- On a phone the item sheet slides up, the drawer slides in, its backdrop
+  fades, and the Move to… / Tags bottom sheets rise with their scrim, all
+  over `--dur-sheet` 380 ms on `--ease-sheet` (phone.css; the sheet's
+  drag-release snaps back on the same curve). Desktop never uses these
+  tokens (`tests/motion.test.ts`).
+
 - Menus, popovers, dialogs and the palette fade in and slide 4 px down
   (`@keyframes float-in`); toasts and notices rise 4 px (`float-up`).
   Keep it under 150 ms: no bounce, no scale-up.

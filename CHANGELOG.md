@@ -969,6 +969,7 @@ The aesthetic pass: one grey, one control language, one type system.
   default. On a phone the tile-shape button steps Rows, Square, Columns.
 - Phone polish: the top bar drops the desktop-only ⌘K and Export buttons (Share and Export are in the drawer now), search is a 44 px pill, the second row is one calm filled style, and each view gets a large serif title. The item sheet lifts off the grid with a light top edge, rounder corners and a visible grabber, tags and folders are neutral chips, Trash is a bin icon beside a full-width Move to…, and the tile you opened shows its brass corners without the multi-select check. The drawer opens with the Kist mark and name. In the full-screen preview the stars, Tags / Move / Trash, the arrows, Notes and close float in dark glass capsules that stay readable over any picture (solid when Reduce Transparency or Increase Contrast is on). A board on the phone gets a one-row header (back, its name in serif, a ••• menu with List, Export and Share) and the zoom floats in a capsule at the bottom, so the board has about 95 px more room.
 - Easier tapping on the phone: the column −/+, the sheet's close button, View, the colour swatches, Edit, History and More like this answer to a thumb-sized area around them (about 44 px tall) without looking any bigger.
+- On the phone the item sheet, the folder drawer and the Move to… and Tags sheets glide in on the iPhone's own sheet curve (a little slower and softer than desktop menus), with the backdrop fading at the same pace. Reduce Motion turns it off.
 
 ## [1.5.0] - 2026-11-09
 

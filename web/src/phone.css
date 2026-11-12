@@ -142,7 +142,8 @@
   border-radius: 14px 14px 0 0;
   border-bottom: none;
   padding: 12px 14px calc(14px + env(safe-area-inset-bottom));
-  animation: sheet-up var(--dur-2) var(--ease);
+  /* B12: the iOS sheet curve */
+  animation: sheet-up var(--dur-sheet) var(--ease-sheet);
 }
 .mobile .modal.phone-sheet .modal-head .icon-btn {
   min-width: 44px;
@@ -395,13 +396,16 @@
   right: 6px;
 }
 
-/* ---------- item sheet (B18) ---------- */
+/* ---------- item sheet (B18, B12) ---------- */
 .mobile .detail-sheet {
   border: 1px solid var(--chrome-line);
   border-bottom: none;
   border-radius: 20px 20px 0 0;
   box-shadow: 0 -12px 40px var(--shadow);
   padding: 0 16px calc(12px + env(safe-area-inset-bottom));
+  /* B12: the iOS sheet curve, on the phone only */
+  transition: transform var(--dur-sheet) var(--ease-sheet);
+  animation: sheet-up var(--dur-sheet) var(--ease-sheet);
 }
 .mobile .sheet-grab {
   padding: 8px 0 12px;
@@ -492,7 +496,14 @@
   inset: -6px 0;
 }
 
-/* ---------- drawer (B18) ---------- */
+/* ---------- drawer (B18, B12) ---------- */
+/* slides and fades at the sheet's pace */
+.mobile .drawer {
+  transition: transform var(--dur-sheet) var(--ease-sheet);
+}
+.mobile .drawer-backdrop {
+  transition: opacity var(--dur-sheet) var(--ease-sheet);
+}
 .mobile .drawer-head {
   align-items: center;
   justify-content: space-between;
@@ -524,6 +535,21 @@
 }
 .mobile .drawer-head .menu {
   min-width: max-content;
+}
+
+/* ---------- bottom sheets (B18, B12) ---------- */
+.mobile .modal.phone-sheet {
+  border-radius: 20px 20px 0 0;
+}
+/* the scrim fades in at the sheet's pace (only the colour, so the sheet
+   itself stays opaque while it slides) */
+.mobile .modal-overlay:has(> .modal.phone-sheet) {
+  animation: phone-scrim-in var(--dur-sheet) var(--ease-sheet);
+}
+@keyframes phone-scrim-in {
+  from {
+    background-color: transparent;
+  }
 }
 
 /* ---------- preview: floating capsules (B18) ---------- */
