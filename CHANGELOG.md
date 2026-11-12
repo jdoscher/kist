@@ -967,6 +967,7 @@ The aesthetic pass: one grey, one control language, one type system.
   column width; it works with the date scrubber, stacks, every density and
   on a phone (2 columns or more; 1 column stays the feed). Rows stays the
   default. On a phone the tile-shape button steps Rows, Square, Columns.
+- The rating stars in the info panel and in Triage are plain stars again, with no box behind the filled ones.
 
 ## [1.5.0] - 2026-11-09
 

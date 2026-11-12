@@ -1123,7 +1123,7 @@ select:focus-visible {
   align-items: center;
   justify-content: center;
 }
-.stars button.on {
+.stars button.star-lit {
   color: var(--star);
 }
 .detail-section {
