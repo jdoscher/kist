@@ -147,7 +147,7 @@ export function SidebarCull() {
             <span className="icon" aria-hidden="true">
               <ListChecks {...ICON} />
             </span>
-            <span className="name">Triage Unfiled</span>
+            <span className="name">Triage unfiled</span>
           </button>
         </div>
       )}

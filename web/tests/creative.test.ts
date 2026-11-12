@@ -95,7 +95,7 @@ test('palette ranking: exact, prefix, word start, contains, fuzzy', () => {
   assert.equal(matchScore('zzz', 'New board'), null)
   assert.equal(matchScore('dark', 'Toggle theme', 'dark light'), 2)
   const entries: PaletteEntry[] = [
-    { kind: 'action', id: 'a', title: 'Go to Trash' },
+    { kind: 'action', id: 'a', title: 'Go to trash' },
     { kind: 'action', id: 'b', title: 'Trash selected' },
     { kind: 'action', id: 'c', title: 'Settings' },
   ]

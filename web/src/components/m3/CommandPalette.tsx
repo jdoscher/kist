@@ -113,16 +113,16 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
   const sel = [...selection]
   const local: PaletteEntry[] = useMemo(() => {
     const a: PaletteEntry[] = [
-      { kind: 'action', id: 'all', title: 'Go to All items', keywords: 'library everything' },
-      { kind: 'action', id: 'unfiled', title: 'Go to Unfiled', keywords: 'inbox' },
-      { kind: 'action', id: 'boards', title: 'Go to Boards', keywords: 'moodboard canvas' },
-      { kind: 'action', id: 'trash', title: 'Go to Trash' },
+      { kind: 'action', id: 'all', title: 'Go to all items', keywords: 'library everything' },
+      { kind: 'action', id: 'unfiled', title: 'Go to unfiled', keywords: 'inbox' },
+      { kind: 'action', id: 'boards', title: 'Go to boards', keywords: 'moodboard canvas' },
+      { kind: 'action', id: 'trash', title: 'Go to trash' },
       { kind: 'action', id: 'picks', title: 'Show picks', keywords: 'flag pick filter' },
     ]
     if (caps.canEdit) {
       a.push(
         { kind: 'action', id: 'new-board', title: 'New board', subtitle: 'Start a moodboard', keywords: 'create canvas' },
-        { kind: 'action', id: 'triage', title: 'Triage Unfiled', subtitle: 'One by one: pick, rate, tag, file', keywords: 'cull inbox' },
+        { kind: 'action', id: 'triage', title: 'Triage unfiled', subtitle: 'One by one: pick, rate, tag, file', keywords: 'cull inbox' },
         { kind: 'action', id: 'upload', title: 'Add files', subtitle: 'Upload from this device', keywords: 'upload import' },
         { kind: 'action', id: 'history', title: 'Recent changes', subtitle: 'Undo', keywords: 'history undo' },
       )

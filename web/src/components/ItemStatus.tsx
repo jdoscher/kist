@@ -16,7 +16,7 @@ export function ItemStatus({ item }: { item: Item }) {
     <div className="item-status" aria-live="polite">
       {item.state === 'trashed' && (
         <div className="status-row trashed">
-          <span>In Trash</span>
+          <span>In trash</span>
           {canEdit && <button disabled={busy()} onClick={() => void write('restore', () => api.restoreItem(item.id))}>
             Restore
           </button>}

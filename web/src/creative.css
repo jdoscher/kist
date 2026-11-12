@@ -228,9 +228,11 @@ button.on,
 }
 .palette-group-label {
   font-size: var(--fs-1);
+  font-weight: 600;
   color: var(--text-dim);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
+  font-feature-settings: 'cv11', 'ss01', 'case';
   padding: 8px 8px 4px;
 }
 .palette-option {
@@ -265,12 +267,14 @@ button.on,
   color: var(--text-dim);
 }
 .palette-empty {
+  max-width: none;
   color: var(--text-dim);
   padding: 16px;
   margin: 0;
 }
 .palette-hint {
   margin: 0;
+  max-width: none;
   padding: 8px 14px;
   border-top: 1px solid var(--float-line);
   color: var(--text-dim);

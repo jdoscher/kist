@@ -91,7 +91,7 @@ which also replaces the old star yellow. All colours are CSS variables in
 | bg | #131312 | #FAF9F6 | #5C5C5C |
 | bg-raised | #1C1C1A | #FFFFFF | #565656 |
 | text | #ECEAE4 | #1C1B19 | #F5F5F5 |
-| text-dim | #9C9A93 | #5F5D57 | #E4E4E4 |
+| text-dim | #9C9A93 | #5F5D57 | #DADADA |
 | accent / focus / stars | #E8B04B | #8C5A00 | #F6CF7E |
 | on-accent | #1A1408 | #FFFFFF | #1A1408 |
 | field outline | #6E6C66 | #8A877F | #BDBDBD |
@@ -165,11 +165,11 @@ parts and focus indicators (1.4.11, 2.4.11/2.4.13).
 | text on panels (`text` on `bg-raised`) | 4.5 | 14.19 | 17.21 | 6.73 |
 | text on buttons (`text` on `bg-hover`) | 4.5 | 12.44 | 14.84 | 7.40 |
 | text on pressed buttons (`text` on `bg-active`) | 4.5 | 10.97 | 13.43 | 8.13 |
-| secondary text (`text-dim` on `bg`) | 4.5 | 6.60 | 6.25 | 5.26 |
-| secondary text on panels (`text-dim` on `bg-raised`) | 4.5 | 6.06 | 6.58 | 5.77 |
-| secondary text on hover (`text-dim` on `bg-hover`) | 4.5 | 5.31 | 5.68 | 6.34 |
+| secondary text (`text-dim` on `bg`) | 4.5 | 6.60 | 6.25 | 4.78 |
+| secondary text on panels (`text-dim` on `bg-raised`) | 4.5 | 6.06 | 6.58 | 5.25 |
+| secondary text on hover (`text-dim` on `bg-hover`) | 4.5 | 5.31 | 5.68 | 5.77 |
 | text in the top bar and side panels (`text` on `chrome`) | 4.5 | 14.19 | 17.21 | 6.13 |
-| secondary text in the top bar and side panels (`text-dim` on `chrome`) | 4.5 | 6.06 | 6.58 | 5.26 |
+| secondary text in the top bar and side panels (`text-dim` on `chrome`) | 4.5 | 6.06 | 6.58 | 4.78 |
 | links in the top bar and side panels (`accent` on `chrome`) | 4.5 | 8.73 | 5.87 | 4.50 |
 | links (`accent` on `bg`) | 4.5 | 9.51 | 5.58 | 4.50 |
 | links on panels (`accent` on `bg-raised`) | 4.5 | 8.73 | 5.87 | 4.94 |
@@ -190,20 +190,20 @@ parts and focus indicators (1.4.11, 2.4.11/2.4.13).
 | warning icon (`warn` on `bg-raised`) | 3 | 8.73 | 5.87 | 4.94 |
 | info text (`info` on `bg-raised`) | 4.5 | 7.90 | 6.09 | 5.25 |
 | grid heading on the canvas (`canvas-text` on `canvas`) | 4.5 | 15.45 | 14.57 | 6.13 |
-| grid counts on the canvas (`canvas-dim` on `canvas`) | 4.5 | 6.60 | 5.57 | 5.26 |
+| grid counts on the canvas (`canvas-dim` on `canvas`) | 4.5 | 6.60 | 5.57 | 4.78 |
 | tile focus ring (`canvas-focus` on `canvas`) | 3 | 9.51 | 4.97 | 4.50 |
 | bar on a pressed toggle / selected section (`accent` on `bg-active`) | 3 | 6.75 | 4.58 | 5.97 |
 | tag / folder / board chips (`chip-text` on `chip-bg`) | 4.5 | 10.97 | 13.43 | 8.13 |
-| counts on chips (`text-dim` on `chip-bg`) | 4.5 | 4.69 | 5.14 | 6.97 |
+| counts on chips (`text-dim` on `chip-bg`) | 4.5 | 4.69 | 5.14 | 6.34 |
 | tile selection check (`on-accent` on `canvas-focus`) | 4.5 | 9.36 | 5.87 | 12.33 |
 | text on menus, dialogs, palette (`text` on `bg-float`) | 4.5 | 13.41 | 17.21 | 8.79 |
-| secondary text on menus and dialogs (`text-dim` on `bg-float`) | 4.5 | 5.73 | 6.58 | 7.54 |
+| secondary text on menus and dialogs (`text-dim` on `bg-float`) | 4.5 | 5.73 | 6.58 | 6.86 |
 | links on menus and dialogs (`accent` on `bg-float`) | 4.5 | 8.25 | 5.87 | 6.46 |
 | focus ring on menus and dialogs (`focus` on `bg-float`) | 3 | 8.25 | 5.87 | 6.46 |
 | field outline in dialogs (`field-border` on `bg-float`) | 3 | 3.07 | 3.59 | 5.10 |
 | error text in dialogs (`danger` on `bg-float`) | 4.5 | 5.64 | 6.57 | 6.92 |
 | hovered / active menu row (`text` on `float-hover`) | 4.5 | 10.97 | 14.84 | 7.17 |
-| secondary text on a hovered menu row (`text-dim` on `float-hover`) | 4.5 | 4.69 | 5.68 | 6.15 |
+| secondary text on a hovered menu row (`text-dim` on `float-hover`) | 4.5 | 4.69 | 5.68 | 5.59 |
 | active-row bar in the palette (`accent` on `float-hover`) | 3 | 6.75 | 5.06 | 5.26 |
 | text in the full-screen preview (`preview-text` on `preview-bg`) | 4.5 | 16.16 | 6.69 | 6.69 |
 | secondary text in the preview (`preview-dim` on `preview-bg`) | 4.5 | 9.16 | 6.69 | 6.69 |
@@ -290,6 +290,19 @@ body size. Counts and sizes use tabular figures.
 - `h1`–`h6` are reset (no browser margins; 15 px / 600, h3–h6 13 px / 600),
   so a heading never picks up the browser's 1.5em/1.17em sizes.
 - `.mono` is 11 px.
+- **Prose** (paragraphs, hints, notes, descriptions, view subtitles):
+  line-height 1.5, at most 64 characters a line (`max-width: 64ch`).
+- **Small labels and section heads** (`.section-label`, sidebar heads,
+  palette groups, Appearance legends): 11 px / 600, uppercase,
+  `letter-spacing: .08em`, `font-feature-settings: 'case'`, `--text-dim`.
+  Caps only for these labels, never inside content.
+- **Sentence case** for every UI string: "Triage unfiled", "In trash",
+  "Go to all items". The copy carries the case; no `text-transform:
+  capitalize`. A view's name used as a name stays as written ("Nothing in
+  Unfiled").
+- **Secondary text is a visible step dimmer**: `--text-dim` / `--canvas-dim`
+  is #DADADA in gallery (4.78:1 on the grey, against 6.13:1 for `--text`);
+  dark and light already step from ~15–16:1 down to ~6:1.
 
 ## Icons
 

@@ -101,6 +101,34 @@ h6 {
 .stats {
   font-variant-numeric: tabular-nums;
 }
+/* prose (anything that's a sentence): 1.5 leading and at most 64
+   characters a line */
+p,
+.hint,
+.hint-text,
+.settings-intro,
+.view-subtitle,
+textarea {
+  line-height: 1.5;
+}
+p,
+.hint-text,
+.settings-intro,
+.view-subtitle {
+  max-width: 64ch;
+}
+/* small labels and section heads: one voice. 11 px / 600 caps with even
+   tracking; 'case' lifts punctuation and arrows to cap height */
+.section-label {
+  margin: 0;
+  font-size: var(--fs-1);
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-feature-settings: 'cv11', 'ss01', 'case';
+  color: var(--text-dim);
+}
 /* machine strings (hash, MIME, URL, hex): 11 px JetBrains Mono */
 .mono {
   font-family: var(--font-mono);
@@ -552,8 +580,9 @@ select:focus-visible {
   color: var(--text-dim);
   text-transform: uppercase;
   font-size: var(--fs-1);
-  font-weight: 500;
-  letter-spacing: 0.06em;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  font-feature-settings: 'cv11', 'ss01', 'case';
   padding: 6px 8px 4px;
 }
 .section-head h2 {
@@ -1055,11 +1084,12 @@ select:focus-visible {
 .detail-section label,
 .detail-section .section-label {
   margin: 0;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-dim);
   font-size: var(--fs-1);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
+  font-feature-settings: 'cv11', 'ss01', 'case';
 }
 .tag-chips {
   display: flex;
@@ -1171,9 +1201,6 @@ select:focus-visible {
 }
 .multi-summary .hint-text {
   margin-bottom: 14px;
-}
-.meta-list span:first-child {
-  text-transform: capitalize;
 }
 /* a pressed toggle: neutral fill and a 3 px brass bar, never a brass
    outline (that reads like a second primary button) */
@@ -2069,9 +2096,10 @@ select:focus-visible {
   padding: 0 0 4px;
   color: var(--text-dim);
   font-size: var(--fs-1);
-  font-weight: 500;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
+  font-feature-settings: 'cv11', 'ss01', 'case';
 }
 .appearance label {
   display: flex;
