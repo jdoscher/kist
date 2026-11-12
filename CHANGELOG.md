@@ -970,6 +970,8 @@ The aesthetic pass: one grey, one control language, one type system.
 - Quiet tiles: a tile shows its rating only on hover, keyboard focus or selection, as one star and a number ("★ 5") on the caption strip; every tile shows it while you filter or sort by rating. Phone tiles show no ratings (the item sheet does).
 - Loading tiles look like tiles: a placeholder one step off the canvas with a faint, slow sheen (off with Reduce Motion), and no badges until the picture has arrived.
 - Stacks look like stacks: a closed stack shows a second sheet peeking out behind its cover instead of a "⧉ 2" pill; the count appears on hover or focus (compact density keeps the badge).
+- One-line top bar: the bar is 48 px and holds the logo, a one-line search box with the ⌘K shortcut shown inside it (click it to open the palette), Paste, Upload (the only brass button) and the quiet icons. Tile shape, size, type, filters, rating and sort moved into the grid's header, next to the title they change.
+- The grid's title is set in the serif like every other view; a folder or tag page gets a larger title with its parent folder (or "Tag") as a small line above it.
 
 ## [1.5.0] - 2026-11-09
 

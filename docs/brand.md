@@ -273,6 +273,23 @@ One height, three kinds. Nothing else.
 - Links inside a sentence (`.linkish`, `.link-btn`, `.btn-link`,
   `.link-like`) are underlined `--text`, sized like text, not 28 px tall.
 
+### Top bar and grid header (desktop)
+
+- The top bar is one 48 px line: brand, the search box (32 px, one line,
+  starting over the grid's left edge, the palette's `⌘K` / `Ctrl K` as a
+  keycap inside it that opens the palette), a spacer, Paste and Upload (the
+  only brass control), a `--chrome-line` hairline (`.topbar-sep`), then the
+  quiet icons (Info, Recent changes, Share, Appearance, Settings). Filter
+  chips stay on the line and scroll sideways.
+- The view controls (tile shape, size, type, filters, rating, sort) sit in
+  the grid header (`.grid-meta`) on the right, next to what they change;
+  the title (`.view-title`, or `.page-title` with a `.title-eyebrow` on a
+  folder or tag page) and its count on the left, on the tiles' left edge.
+  Narrow grids (container query) drop the Size and Filters words. The
+  header stays while a new list loads, so a control keeps focus.
+- The phone keeps its own two-row bar (`ViewControls mobile` in the top
+  bar).
+
 ### Settings and Appearance layout
 
 - Settings content is one 640 px column (`--settings-col`); a section's

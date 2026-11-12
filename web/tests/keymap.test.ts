@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import { triageKey } from '../src/cull.ts'
-import { duplicateBindings, KEYMAP, keymapMarkdown, normalizeKey, type KeyContext } from '../src/keymap.ts'
+import { duplicateBindings, KEYMAP, keymapMarkdown, modKeyLabel, normalizeKey, type KeyContext } from '../src/keymap.ts'
 
 const src = (p: string) => readFileSync(new URL(`../src/${p}`, import.meta.url), 'utf8')
 
@@ -74,4 +74,11 @@ test('the README keyboard section is the table', () => {
   assert.ok(start >= 0 && end > start, 'README needs <!-- keymap:start --> … <!-- keymap:end -->')
   const body = readme.slice(start + '<!-- keymap:start -->'.length, end).trim() + '\n'
   assert.equal(body, keymapMarkdown(), 'regenerate the README table from keymapMarkdown()')
+})
+
+test('the search box keycap shows ⌘ on Apple devices and Ctrl elsewhere', () => {
+  assert.equal(modKeyLabel('MacIntel'), '⌘')
+  assert.equal(modKeyLabel('iPhone'), '⌘')
+  assert.equal(modKeyLabel('Win32'), 'Ctrl ')
+  assert.equal(modKeyLabel('Linux x86_64'), 'Ctrl ')
 })

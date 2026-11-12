@@ -43,6 +43,8 @@
   --ctl-radius: 6px;
   --ctl-pad-x: 8px;
   --settings-col: 640px;
+  /* the desktop sidebar; the top bar's search starts over the grid's edge */
+  --sidebar-w: 230px;
 }
 [data-density='compact'] {
   --tile-gap: 2px;
@@ -461,6 +463,83 @@ select:focus-visible {
   background: var(--chrome);
   border-bottom: 1px solid var(--chrome-line);
 }
+/* Desktop: one 48 px line (B2). Brand, then the search starting over the
+   grid's left edge (the sidebar's width plus the tiles' inset), a spacer,
+   Paste and Upload (the one brass control), a hairline, then the quiet
+   icons. The view controls live in the grid header. */
+.app-shell:not(.mobile) .topbar {
+  height: 48px;
+  padding: 0 12px;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+}
+.app-shell:not(.mobile) .topbar .brand {
+  flex: none;
+  width: calc(var(--sidebar-w) + 8px + var(--tile-gap) / 2 - 20px);
+  margin-right: 0;
+}
+.app-shell:not(.mobile) .topbar.no-sidebar .brand {
+  width: auto;
+  margin-right: 8px;
+}
+.app-shell:not(.mobile) .searchbox {
+  flex: 0 1 480px;
+  min-width: 200px;
+  flex-wrap: nowrap;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 4px 0 4px;
+}
+/* filter chips stay on the one line and scroll sideways */
+.app-shell:not(.mobile) .searchbox .chips {
+  display: flex;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 55%;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.app-shell:not(.mobile) .searchbox .chips::-webkit-scrollbar {
+  display: none;
+}
+.app-shell:not(.mobile) .searchbox input {
+  min-width: 80px;
+  height: 28px;
+}
+.topbar-spacer {
+  flex: 1;
+}
+.topbar-sep {
+  flex: none;
+  width: 1px;
+  height: 20px;
+  margin: 0 4px;
+  background: var(--chrome-line);
+}
+/* the palette's shortcut, a keycap inside the search box: opens it */
+.search-kbd {
+  flex: none;
+  height: 24px;
+  min-height: 24px;
+  padding: 0 2px;
+  background: none;
+  border: none;
+}
+.search-kbd kbd {
+  margin: 0;
+  padding: 0 5px;
+  border: 1px solid var(--chrome-line);
+  border-radius: 4px;
+  font-size: var(--fs-1);
+  line-height: 18px;
+  color: var(--text-dim);
+  background: none;
+}
+.search-kbd:hover kbd {
+  color: var(--text);
+  border-color: var(--field-border);
+}
 .brand {
   display: flex;
   align-items: center;
@@ -608,7 +687,7 @@ select:focus-visible {
 
 /* ---------- sidebar ---------- */
 .sidebar {
-  width: 230px;
+  width: var(--sidebar-w);
   flex-shrink: 0;
   background: var(--chrome);
   border-right: 1px solid var(--chrome-line);
@@ -836,24 +915,77 @@ select:focus-visible {
 .grid-area.center {
   color: var(--canvas-dim);
 }
+/* The grid header (B2, B7): the view's serif title and its count on the
+   left, the view controls (tile shape, size, type, filters, rating, sort)
+   on the right, on the tiles' left edge (scroll padding + half a gap). */
+.grid-area {
+  container: grid-area / inline-size;
+}
 .grid-meta {
-  padding: 6px 14px;
+  padding: 12px 12px 10px calc(8px + var(--tile-gap) / 2);
   color: var(--canvas-dim);
-  font-size: var(--fs-1);
+  font-size: var(--fs-2);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 6px 16px;
+}
+.grid-heading {
+  min-width: 0;
+}
+.grid-title-row {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 0 8px;
+  gap: 0 10px;
 }
-.grid-title {
-  margin: 0;
-  font-size: var(--fs-2);
-  font-weight: 600;
+.grid-meta .grid-title {
   color: var(--canvas-text);
+  overflow-wrap: anywhere;
+}
+.grid-meta .title-count,
+.grid-meta .title-eyebrow,
+.grid-refreshing {
+  color: var(--canvas-dim);
+}
+.grid-refreshing {
+  font-size: var(--fs-1);
+}
+.grid-meta .view-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px 6px;
+  margin-left: auto;
+  color: var(--text);
+}
+/* narrow (info panel open on a small window): icons and values only */
+@container grid-area (max-width: 760px) {
+  .grid-meta .size-label > span,
+  .grid-meta .filters-btn .btn-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .grid-meta .size-slider {
+    width: 64px;
+  }
+}
+.grid-status {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--canvas-dim);
 }
 .view-subtitle {
   flex-basis: 100%;
   margin: 2px 0 0;
+  font-size: var(--fs-1);
 }
 .grid-scroll {
   flex: 1;
@@ -1557,9 +1689,6 @@ select:focus-visible {
    Each select is as wide as the option it shows (TopBar useFitSelect,
    fitSelect.ts PHONE_ROW keeps the same numbers): at the defaults the row
    is 372 of 374 px; longer picks shrink the selects, never wrap the row */
-.view-row {
-  display: contents;
-}
 .mobile .view-row {
   display: flex;
   align-items: center;

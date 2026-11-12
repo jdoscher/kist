@@ -2,7 +2,7 @@ import { defaultRangeExtractor, useVirtualizer, type Range } from '@tanstack/rea
 import { Check, File, FileText, Film, Hourglass, Image as ImageIcon, Lock, Star, TriangleAlert, type LucideIcon } from 'lucide-react'
 import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { emptyQuery, thumbUrl, type Item } from '../api'
-import { fmtDuration, plural, tileLabel } from '../format'
+import { fmtDuration, tileLabel } from '../format'
 import {
   feedRows,
   isNavKey,
@@ -17,7 +17,7 @@ import {
   typicalAspect,
 } from '../layout'
 import { useCaps, useCurrentItems, useFolderNames, useFolders, useItem, useSmartFolders, useStats } from '../data'
-import { emptyState, everywhere, isUnfiledView, ratingsShown, viewTitle } from '../query'
+import { emptyState, everywhere, gridCountText, isUnfiledView, ratingsShown, sidebarCount, viewTitle } from '../query'
 import { placeholderFor, placeholderStyle } from '../placeholder'
 import { markOnce, onceSeen } from '../settings'
 import { densityGap, densityTileSize } from '../theme'
@@ -32,6 +32,7 @@ import { CullBadges, cullText } from './m3/CullControls'
 import { FirstRun } from './m3/FirstRun'
 import { ScrubHover } from './m45/ScrubHover'
 import { Scrubber } from './Scrubber'
+import { ViewControls } from './TopBar'
 import { usePinchColumns, useWheelSize } from '../useGridZoom'
 import { useScrubWindow, type Anchor } from '../useScrubWindow'
 import { anchoredScrollTop } from '../zoom'
@@ -593,11 +594,11 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
 
   // first visit with an empty Unfiled: show the library instead (the URL /
   // stays Unfiled for everyone who has been here before)
-  const total = result.data?.pages[0]?.total ?? items.length
+  const firstTotal = result.data?.pages[0]?.total ?? items.length
   useEffect(() => {
     if (!result.isSuccess || onceSeen('visited')) return
     markOnce('visited')
-    if (isUnfiledView(query) && total === 0 && !query.q && window.location.pathname === '/')
+    if (isUnfiledView(query) && firstTotal === 0 && !query.q && window.location.pathname === '/')
       setQuery({ ...emptyQuery, order: query.order })
   }, [result.isSuccess]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -616,28 +617,79 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
   const similarTo = useItem(query.similar, items)
   const personName = usePersonName(query.person)
   const smartName = smartId ? (smartFolders ?? []).find((s) => s.id === smartId)?.name : null
-  const title =
-    searchTitle(query, { item: () => similarTo?.filename, person: () => personName ?? undefined }) ??
-    viewTitle(query, { folder: (id) => folderNames.get(id), smart: smartName })
+  const searchName = searchTitle(query, { item: () => similarTo?.filename, person: () => personName ?? undefined })
+  const title = searchName ?? viewTitle(query, { folder: (id) => folderNames.get(id), smart: smartName })
+  // a folder or tag page gets the large title with a small eyebrow above
+  // it (B7): the parent folder's name, or what the page is
+  const folderPage = !searchName && !smartId && !query.deleted && !!query.folder && query.folder !== 'none'
+  const tagPage =
+    !searchName && !smartId && !query.deleted && !query.folder && !query.view && query.tags.length === 1
+  const parentId = folderPage ? (folders ?? []).find((f) => f.id === query.folder)?.parent_id : null
+  const eyebrow = folderPage ? ((parentId && folderNames.get(parentId)) || 'Folder') : tagPage ? 'Tag' : null
+  const total = result.data?.pages[0]?.total ?? items.length
+  const countText = gridCountText(total, sidebarCount(query, { smart: !!smartId, stats, folders }))
+
+  // the header stays while a new list loads, so the view controls in it
+  // keep focus when they change the query (B2)
+  const head = (
+    <div className="grid-meta">
+      <div className="grid-heading">
+        {eyebrow && <span className="title-eyebrow">{eyebrow}</span>}
+        <div className="grid-title-row">
+          <h2 className={`grid-title ${eyebrow ? 'page-title' : 'view-title'}`}>{tagPage ? query.tags[0] : title}</h2>
+          {!result.isLoading && !result.isError && (
+            <span className="title-count" role="status">
+              {countText}
+              {selection.size > 1 ? `, ${selection.size} selected` : ''}
+            </span>
+          )}
+          <span className="grid-refreshing" aria-hidden="true">
+            {result.isFetching && !result.isLoading ? 'Refreshing…' : ''}
+          </span>
+        </div>
+      </div>
+      {!mobile && <ViewControls />}
+      <SearchNote />
+      {folderDescription && <p className="view-subtitle folder-description">{folderDescription}</p>}
+      {query.fixity === 'failed' && (
+        <p className="view-subtitle">
+          These originals no longer match the fingerprint (SHA-256) Kist took when they were added: the file on disk
+          changed or vanished. Restore each from a backup: Settings, Archive health lists the fingerprint to look for.
+        </p>
+      )}
+      {isUnfiledView(query) && items.length > 0 && (
+        <p className="view-subtitle">
+          Items with no folder and no tag. Tag or file them to clear this list; they stay in All items.
+        </p>
+      )}
+    </div>
+  )
 
   if (result.isLoading)
     return (
-      <main className="grid-area center" role="status">
-        Loading library…
+      <main className="grid-area">
+        {head}
+        <div className="grid-status" role="status">
+          Loading library…
+        </div>
       </main>
     )
   const status = (result.error as { status?: number } | null)?.status
   if (result.isError && rankedErrorText(status, query))
     return (
-      <main className="grid-area center">
+      <main className="grid-area">
+        {head}
         <RankedError status={status} />
       </main>
     )
   if (result.isError)
     return (
-      <main className="grid-area center">
-        <div role="alert" className="error">
-          Failed to load: {describeError(result.error)}
+      <main className="grid-area">
+        {head}
+        <div className="grid-status">
+          <div role="alert" className="error">
+            Failed to load: {describeError(result.error)}
+          </div>
         </div>
       </main>
     )
@@ -659,27 +711,7 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
 
   return (
     <main className={`grid-area${mobile && selection.size === 1 ? ' sheet-open' : ''}`}>
-      <div className="grid-meta">
-        <h2 className="grid-title">{title}</h2>
-        <span role="status">
-          {plural(total, 'item')}
-          {selection.size > 1 ? `, ${selection.size} selected` : ''}
-        </span>
-        <span aria-hidden="true">{result.isFetching ? ' · refreshing…' : ''}</span>
-        <SearchNote />
-        {folderDescription && <p className="view-subtitle folder-description">{folderDescription}</p>}
-        {query.fixity === 'failed' && (
-          <p className="view-subtitle">
-            These originals no longer match the fingerprint (SHA-256) Kist took when they were added: the file on disk
-            changed or vanished. Restore each from a backup: Settings, Archive health lists the fingerprint to look for.
-          </p>
-        )}
-        {isUnfiledView(query) && (
-          <p className="view-subtitle">
-            Items with no folder and no tag. Tag or file them to clear this list; they stay in All items.
-          </p>
-        )}
-      </div>
+      {head}
       <span id={hintId} className="sr-only">
         Arrow keys move and select, Space adds or removes one item, Shift with arrows extends the selection,
         Control with arrows moves without selecting, Enter opens full screen, S opens or closes a stack, C compares and N surveys the selection
@@ -690,7 +722,7 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
         ref={attachScroll}
         role={items.length ? 'listbox' : undefined}
         aria-multiselectable={items.length ? 'true' : undefined}
-        aria-label={items.length ? `${title}, ${plural(total, 'item')}` : undefined}
+        aria-label={items.length ? `${title}, ${countText}` : undefined}
         aria-describedby={items.length ? hintId : undefined}
         onKeyDown={(e) => {
           if (!(e.target as HTMLElement).closest('[role=option]')) return

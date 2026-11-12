@@ -132,8 +132,6 @@ export function viewTitle(
   return 'All items'
 }
 
-/** Filters that narrow the view (search text, type, rating...) as opposed
- * to the view itself (Unfiled, a folder, tags, the trash). */
 /** Quiet tiles (B1): a tile shows its rating on hover, focus and
  * selection, and every tile shows it while the grid is filtered or sorted
  * by rating (the moment ratings are what you're looking at). */
@@ -141,6 +139,8 @@ export function ratingsShown(q: Pick<Query, 'rating' | 'order'>): boolean {
   return q.rating > 0 || q.order === '-rating'
 }
 
+/** Filters that narrow the view (search text, type, rating...) as opposed
+ * to the view itself (Unfiled, a folder, tags, the trash). */
 export function hasNarrowing(q: Query): boolean {
   return (
     !!q.q ||
@@ -202,4 +202,34 @@ export function emptyState(
   if (q.view === 'unfiled')
     return { text: 'Nothing in Unfiled: every item has a folder or a tag.', action: 'all' }
   return { text: `Nothing in ${opts.title} yet.`, action: narrowView ? 'all' : null }
+}
+
+/**
+ * The sidebar's count for the view on screen, when it has one: All items
+ * and Trash (library stats) and a folder (its item_count, subfolders
+ * included, as the grid shows them). Every item counts one, while the grid
+ * shows a closed stack as one tile, so the two can differ. null for any
+ * search, filter, tag or smart folder (no sidebar number to agree with).
+ */
+export function sidebarCount(
+  q: Query,
+  src: { smart?: boolean; stats?: { total_items: number; trashed_items: number } | null; folders?: { id: string; item_count: number }[] | null },
+): number | null {
+  if (src.smart || hasNarrowing(q) || q.view !== null || q.tags.length > 0) return null
+  if (q.deleted) return q.folder ? null : (src.stats?.trashed_items ?? null)
+  if (q.folder === 'none') return null
+  if (q.folder) return src.folders?.find((f) => f.id === q.folder)?.item_count ?? null
+  return src.stats?.total_items ?? null
+}
+
+/**
+ * The grid header's count (A6). It leads with the same number as the
+ * sidebar (every item), and says how many tiles that is when closed stacks
+ * make fewer: "43 items · 41 tiles". With no sidebar count (a search) it's
+ * the number of results.
+ */
+export function gridCountText(tiles: number, items: number | null): string {
+  const n = (v: number, w: string) => `${v.toLocaleString('en-US')} ${w}${v === 1 ? '' : 's'}`
+  if (items === null || items <= tiles) return n(tiles, 'item')
+  return `${n(items, 'item')} · ${n(tiles, 'tile')}`
 }
