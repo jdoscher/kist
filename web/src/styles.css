@@ -1038,7 +1038,7 @@ select:focus-visible {
 /* ---------- preview ---------- */
 .preview-overlay {
   /* the preview keeps a dark surround even in light mode (photo apps do
-     the same), and the 18 % grey in gallery mode */
+     the same), and the mid-grey in gallery mode */
   --text: #eceae4;
   --text-dim: #b4b2ab;
   --accent: #e8b04b;
