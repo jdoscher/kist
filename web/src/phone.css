@@ -554,3 +554,94 @@
 .mobile .preview-overlay.phone-editing iframe {
   height: calc(100dvh - 260px);
 }
+
+/* ---------- board on a phone (B18) ---------- */
+/* one row: back, the name in serif, Saved (11 px dim), •••; List / Export / Share live
+   in the ••• menu (PhoneBoardMenu.tsx) and the zoom floats at the bottom */
+.board-screen.mobile .board-bar {
+  flex-wrap: nowrap;
+  gap: 2px;
+  padding: max(6px, env(safe-area-inset-top)) 4px 6px;
+  min-height: 57px;
+}
+.board-screen.mobile .board-bar > .grow,
+.board-screen.mobile .board-bar > :is(.btn-icon, .icon-btn, .board-menu):not(:first-child, .board-more) {
+  display: none;
+}
+.board-screen.mobile .board-bar > :first-child,
+.board-screen.mobile .board-more > summary {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  border-radius: 50%;
+}
+.board-screen.mobile .board-bar .board-name {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: var(--fs-5);
+  line-height: 1.1;
+  padding-left: 2px;
+}
+.board-screen.mobile .board-bar .save-state {
+  flex: none;
+  font-family: var(--font-ui);
+  font-size: var(--fs-1);
+  color: var(--text-dim);
+  margin-right: 4px;
+}
+.board-screen.mobile .board-more {
+  flex: none;
+  margin-left: auto;
+}
+.board-screen.mobile .board-more .board-menu-pop {
+  min-width: 240px;
+}
+.board-screen.mobile .board-more .board-menu-pop :is(a, button) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+}
+/* the zoom: a floating capsule at the bottom centre, the preview's glass
+   on the board's own float surface */
+.board-screen.mobile .board-bar > .seg {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 30;
+  display: flex;
+  gap: 0;
+  padding: 0 6px;
+  border-radius: 28px;
+  border: 1px solid var(--float-line);
+  background: color-mix(in srgb, var(--bg-float) 78%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  backdrop-filter: blur(20px) saturate(1.4);
+  box-shadow: var(--float-shadow);
+}
+.board-screen.mobile .board-bar > .seg button {
+  min-width: 48px;
+  min-height: 44px;
+  border: none;
+  background: none;
+  border-radius: 22px;
+  box-shadow: none;
+}
+.board-screen.mobile .board-bar > .seg .zoom-pct {
+  min-width: 56px;
+  font-variant-numeric: tabular-nums;
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .board-screen.mobile .board-bar > .seg {
+    background: var(--bg-float);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}

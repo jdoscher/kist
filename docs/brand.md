@@ -464,6 +464,12 @@ desktop shrunk down.
   30 px-radius bar of 64 × 54 buttons; the arrows are 48 px circles on the
   bar's line. Stars there use `--preview-star` (light's #8C5A00 brass is
   too dark on the capsule). Blur is kept to these few elements.
+- **Board header.** One 57 px row: a 44 px back button, the board name in
+  Instrument Serif 24 px, "Saved" 11 px dim, and a 44 px ••• menu
+  (`PhoneBoardMenu.tsx`) holding List, Export (PNG, PDF, HTML) and Share.
+  The zoom (−, %, +, fit) floats in a capsule at the bottom centre on the
+  `--bg-float` glass (solid under reduced transparency), with 48 × 44
+  buttons.
 
 ## Voice
 
