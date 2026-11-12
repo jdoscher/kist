@@ -104,8 +104,8 @@ export default function TimelineScreen({ group }: { group: TimelineGroup }) {
         {sections.map((s) => (
           <section key={s.section || 'all'} id={s.section ? `tl-${s.section.replace(/\s+/g, '-')}` : undefined} className="timeline-section" aria-label={s.section || 'Years'}>
             {s.section && (
-              <h2 className="timeline-section-h">
-                {s.section} <span className="hint">{s.total.toLocaleString()}</span>
+              <h2 className="timeline-section-h view-title">
+                {s.section} <span className="title-count">{s.total.toLocaleString()}</span>
               </h2>
             )}
             <ul className="timeline-list">

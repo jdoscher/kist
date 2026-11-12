@@ -972,6 +972,7 @@ The aesthetic pass: one grey, one control language, one type system.
 - Photo details read like a camera: exposure shows as a four-cell readout (focal length, aperture, shutter, ISO) under the camera name, and an image's colours are one continuous strip, each as wide as its share, with no outlines and the hex code printed under the big ones. The duplicate thin colour bar further down the panel is gone.
 - The info panel breathes on a steady 16 px rhythm, the stars and Protect sit on one line, colour labels are small 16 px dots, the file name is a size larger, and suggested tags read "Textiles · similar" instead of shouting the reason in capitals.
 - Boards: the toolbar is one quiet row in the chrome grey that never wraps (labels fold to icons on narrow windows, Share stays on the right), the board name is set as the page title, the active tool has a brass underline, and pictures sit on the board like prints with a soft shadow. New boards take the theme's own background ("Theme" in the background menu), so a board looks like the rest of Kist in every theme; existing boards keep their colour, and exports of a Theme board use the gallery grey.
+- Timeline: the month bars are a quiet grey that turns brass only on the row you point at, years are serif headings over a hairline, and the year index is plain dim figures instead of a row of brass links.
 
 ## [1.5.0] - 2026-11-09
 
