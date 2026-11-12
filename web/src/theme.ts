@@ -35,11 +35,22 @@ export function resolveTheme(pref: ThemePref, systemDark: boolean): Theme {
   return pref
 }
 
-/** Browser chrome colour (meta theme-color) per theme: each theme's --bg-raised. */
+/** Browser chrome colour (meta theme-color, the phone status bar) per
+ * theme: each theme's --chrome, so the status bar and the top bar are one
+ * surface (tests/theme.test.ts checks them against themes.css). */
 export const THEME_COLOR: Record<Theme, string> = {
   dark: '#1C1C1A',
   light: '#FFFFFF',
-  gallery: '#3D3D3D',
+  gallery: '#5C5C5C',
+}
+
+/** The page colour before the stylesheet paints: each theme's --bg.
+ * public/theme-init.js sets the same on <html> at first paint, so a
+ * gallery or light launch never flashes the dark #131312. */
+export const THEME_BG: Record<Theme, string> = {
+  dark: '#131312',
+  light: '#FAF9F6',
+  gallery: '#5C5C5C',
 }
 
 /** Grid spacing per density. `gap` is the space between tiles (px) and must
@@ -72,6 +83,7 @@ export function applyAppearance(pref: ThemePref, density: Density, doc: Document
   root.dataset.theme = theme
   root.dataset.density = density
   root.style.colorScheme = theme === 'light' ? 'light' : 'dark'
+  root.style.backgroundColor = THEME_BG[theme]
   // two metas (one per OS scheme) follow the OS; an override pins both
   for (const meta of doc.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')) {
     const fallback = meta.dataset.default ?? meta.content

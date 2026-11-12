@@ -947,6 +947,7 @@ The aesthetic pass: one grey, one control language, one type system.
 - Screen headers (Timeline, Map, Organise, Settings, Boards, Triage) and the board bar sit on the same chrome grey as the top bar and sidebar, with the same light pinstripe; no more second grey band.
 - Real italics: Inter's italic face is loaded, and the browser never fakes a slanted or bold style again.
 - Every text size sits on Kist's six-step type scale (11/13/15/18/24/34 px); headings no longer pick up the browser's own sizes ("On this day" was 19.5 px bold). A test keeps it that way.
+- Gallery grey's phone status bar is the same grey as the top bar (it was a leftover darker grey), and the app opens in its theme's colour with no dark flash in gallery or light.
 
 ## [1.5.0] - 2026-11-09
 

@@ -112,6 +112,12 @@ which also replaces the old star yellow. All colours are CSS variables in
   one surface there would have cost the brass links and coloured error text.)
 - The full-screen preview stays dark in the light theme, the way photo apps
   do, so images are always judged against the same surround.
+- **Browser and launch colours.** The `theme-color` meta (the phone's
+  status bar) is each theme's `chrome` (`THEME_COLOR` in `theme.ts`), and
+  `public/theme-init.js` paints `<html>` in the theme's `bg` before the
+  stylesheet loads (`THEME_BG`), so gallery and light never flash the dark
+  #131312. The manifest's splash colour can only follow the OS scheme, not
+  the stored theme. `tests/theme.test.ts` checks all three against themes.css.
 - Never use the bright brass #E8B04B as a fill or text on a light
   background: it is 1.86:1 there. Use #8C5A00.
 

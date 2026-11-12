@@ -9,8 +9,11 @@ import {
   isDensity,
   isThemePref,
   resolveTheme,
+  THEME_BG,
   THEME_COLOR,
 } from '../src/theme.ts'
+import { readFileSync } from 'node:fs'
+import { parseThemes } from '../src/contrast.ts'
 import { layoutRows, tilePositions } from '../src/layout.ts'
 
 function memStore() {
@@ -46,6 +49,20 @@ test('theme and density default to System and Comfortable, and reject junk', () 
 
 test('every theme has a browser chrome colour', () => {
   for (const t of ['light', 'dark', 'gallery'] as const) assert.match(THEME_COLOR[t], /^#[0-9A-F]{6}$/i)
+})
+
+test('status bar = top bar, first paint = page colour, in every theme (no dark flash)', () => {
+  const themes = parseThemes(readFileSync(new URL('../src/themes.css', import.meta.url), 'utf8'))
+  const init = readFileSync(new URL('../public/theme-init.js', import.meta.url), 'utf8')
+  for (const t of ['light', 'dark', 'gallery'] as const) {
+    assert.equal(THEME_COLOR[t].toLowerCase(), themes[t].chrome.toLowerCase(), `${t} theme-color`)
+    assert.equal(THEME_BG[t].toLowerCase(), themes[t].bg.toLowerCase(), `${t} first paint`)
+    assert.ok(init.includes(THEME_COLOR[t]) && init.includes(THEME_BG[t]), `theme-init.js knows ${t}`)
+  }
+  assert.equal(THEME_COLOR.gallery, '#5C5C5C')
+  // theme-init.js pins the theme-color metas, so they must come before it
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8')
+  assert.ok(html.indexOf('name="theme-color"') < html.indexOf('theme-init.js'))
 })
 
 test('density changes the gaps and (gallery) the tile size', () => {
