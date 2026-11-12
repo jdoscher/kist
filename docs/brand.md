@@ -227,6 +227,27 @@ plus a check badge (`--on-accent` on `--canvas-focus`, #1A1408 outline), so
 the state reads on any image; the keyboard
 focus ring is a separate 2 px ring outside the tile.
 
+## Shared primitives (for anyone building UI)
+
+Use these instead of new one-off values; each is documented below.
+
+| Need | Use |
+|---|---|
+| A bar or side panel next to the images | `background: var(--chrome)`, edge `1px solid var(--chrome-line)` (never `--bg-raised` / `--border`; `tests/chrome.test.ts`) |
+| A button | plain `<button>` (quiet), `.btn-primary` (one per view), `.icon-btn` (28 × 28 icon-only) |
+| A pressed toggle | `.on` (fill; `.btn-icon` / `.icon-btn` / `.seg` add the 3 px brass bar) |
+| A field or select | `<input>`, `<select>` (own chevron), `<textarea>` |
+| A selected row in a list | fill + `box-shadow: inset 3px 0 0 var(--accent)` |
+| A chip (tag, folder, board) | `.chip` (`--chip-bg` / `--chip-text`), `.chip.folder-chip` for square-ish corners |
+| Something that floats | `.float-surface` (or `--bg-float`, `--float-line`, `--float-shadow`, `--float-radius` / `--dialog-radius`) |
+| Appearing / leaving | `--dur-in` + `--ease-out` with `@keyframes float-in` / `float-up` / `panel-in`; exit with `fade-out` over `--dur-out` (`usePresence` in `motion.ts`) |
+| Phone sheet or drawer motion | `--dur-sheet` + `--ease-sheet` |
+| A view title / folder page title | `.view-title` (24 px serif) / `.page-title` (34 px) + `.title-eyebrow`, count in `.title-count` |
+| A small section label | `.section-label` |
+| A machine string | `.mono` |
+| Tile corners | `--tile-radius` (4 / compact 0), `--board-radius` (2) |
+| The preview surround | `--preview-*` tokens |
+
 ## Controls
 
 One height, three kinds. Nothing else.

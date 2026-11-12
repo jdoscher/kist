@@ -19,17 +19,23 @@ kbd {
 .dim {
   color: var(--text-dim);
 }
-/* a pressed toggle (quiet control, .on): neutral fill + a 3 px brass bar,
-   never a brass outline (brass budget, docs/brand.md) */
+/* a pressed toggle (quiet control, .on): neutral fill, never a brass
+   outline (brass budget, docs/brand.md); icon toggles and segments add a
+   3 px brass bar, since the fill alone is too faint (1.4.11) */
 button.on,
 .seg button.on {
   background: var(--bg-active);
   border-color: transparent;
-  box-shadow: inset 0 -3px 0 var(--accent);
   color: var(--text);
 }
+.btn-icon.on,
+.icon-btn.on,
+.seg button.on {
+  box-shadow: inset 0 -3px 0 var(--accent);
+}
 /* stars mark their state by colour alone (D renames this leak, A2) */
-.stars button.on {
+.stars button.on,
+.phone-stars button.on {
   background: none;
   box-shadow: none;
 }
