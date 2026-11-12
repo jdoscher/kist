@@ -134,6 +134,21 @@ test('API requests say they come from the web app', async () => {
   }
 })
 
+test('a 204 answer resolves without parsing a body (removing a token entry)', async () => {
+  const realFetch = globalThis.fetch
+  let sent: { url: string; method?: string } | undefined
+  globalThis.fetch = (async (url: RequestInfo | URL, init?: RequestInit) => {
+    sent = { url: String(url), method: init?.method }
+    return new Response(null, { status: 204 })
+  }) as typeof fetch
+  try {
+    assert.equal(await api.removeTokenEntry('01T'), undefined)
+    assert.deepEqual(sent, { url: '/api/tokens/01T/entry', method: 'DELETE' })
+  } finally {
+    globalThis.fetch = realFetch
+  }
+})
+
 test('a smart folder saves every filter the server keeps (M1-M3), and nothing it would refuse', () => {
   const py = readFileSync(new URL('../../kist/schemas.py', import.meta.url), 'utf8')
   const body = py.slice(py.indexOf('class SmartFolderQuery'), py.indexOf('\nclass ', py.indexOf('class SmartFolderQuery') + 10))

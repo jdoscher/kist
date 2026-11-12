@@ -440,6 +440,8 @@ export async function request<T>(
     }
     throw new ApiError(res.status, detail, { requestId, data })
   }
+  // 204 No Content (e.g. removing a token entry) has no body to parse
+  if (res.status === 204) return undefined as T
   return (await res.json()) as T
 }
 
