@@ -45,6 +45,10 @@ body {
   font-family: var(--font-ui);
   font-size: var(--fs-2);
   font-feature-settings: 'cv11', 'ss01';
+  /* never a fake italic or bold: Inter's italic file is loaded (main.tsx)
+     and Instrument Serif only exists at 400, so a missing style shows
+     upright instead of a slanted or smeared copy */
+  font-synthesis: none;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
 }

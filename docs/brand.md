@@ -170,7 +170,10 @@ focus ring is a separate 2 px ring outside the tile.
 | Display | Instrument Serif | wordmark, token screen tagline, empty states, panel titles, crash page. Sparingly. |
 | Data | JetBrains Mono Variable | sizes, dimensions, hashes, version, metadata values |
 
-All three are OFL and self-hosted through Fontsource (no CDN). Scale (six
+All three are OFL and self-hosted through Fontsource (no CDN). Inter's
+italic is loaded as its own file (`wght-italic.css`), and `body` sets
+`font-synthesis: none`, so the browser never fakes an italic or a bold:
+Instrument Serif exists only at 400, so never set it bold. Scale (six
 steps): 11 / 13 / 15 / 18 / 24 / 34 px (`--fs-1` … `--fs-6`); 13 px is the
 body size. Counts and sizes use tabular figures.
 

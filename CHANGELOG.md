@@ -9,6 +9,7 @@ All notable changes to this project are documented here. The format follows
 The aesthetic pass: one grey, one control language, one type system.
 
 - Screen headers (Timeline, Map, Organise, Settings, Boards, Triage) and the board bar sit on the same chrome grey as the top bar and sidebar, with the same light pinstripe; no more second grey band.
+- Real italics: Inter's italic face is loaded, and the browser never fakes a slanted or bold style again.
 
 ## [Unreleased]
 

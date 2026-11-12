@@ -6,6 +6,8 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import { installErrorReporting } from './reportError'
 import { installShortcuts } from './shortcuts'
 import '@fontsource-variable/inter/wght.css'
+// the real italic: with font-synthesis: none the browser never fakes one
+import '@fontsource-variable/inter/wght-italic.css'
 import '@fontsource/instrument-serif/400.css'
 import '@fontsource-variable/jetbrains-mono/wght.css'
 import './themes.css'
