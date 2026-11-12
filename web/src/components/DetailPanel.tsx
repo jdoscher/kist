@@ -4,6 +4,7 @@ import { api, fileUrl, thumbUrl, type Item } from '../api'
 import { useCaps, useCurrentItems, useFolderNames, useFolders, useItem, useStats, useVersion } from '../data'
 import { fmtBytes } from '../format'
 import { useAppState } from '../state'
+import { usePresence } from '../motion'
 import { useDraftField, useItemWrite, useTextSave } from '../useWrite'
 import { ItemHistory } from './ItemHistory'
 import { ItemLinks } from './ItemLinks'
@@ -306,11 +307,13 @@ export function DetailPanel() {
   const single = useItem(onlyId, items)
   const caps = useCaps()
 
-  // gallery density tucks the panel away unless Panels is on
-  if (density === 'gallery' ? !chromeShown : !panelOpen) return null
+  // gallery density tucks the panel away unless Panels is on; closing
+  // fades it out over --dur-out before it unmounts (motion.ts)
+  const { mounted, leaving } = usePresence(density === 'gallery' ? chromeShown : panelOpen)
+  if (!mounted) return null
 
   return (
-    <aside className="detail-panel" aria-label="Item details">
+    <aside className={`detail-panel${leaving ? ' leaving' : ''}`} aria-label="Item details" inert={leaving || undefined}>
       {selection.size === 0 ? (
         <LibrarySummary />
       ) : selection.size === 1 ? (

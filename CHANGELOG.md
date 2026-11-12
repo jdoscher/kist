@@ -950,6 +950,8 @@ The aesthetic pass: one grey, one control language, one type system.
 - Gallery grey's phone status bar is the same grey as the top bar (it was a leftover darker grey), and the app opens in its theme's colour with no dark flash in gallery or light.
 - Light theme: the grid sits on a neutral light grey (#ececec) instead of warm paper, so photos aren't judged against a warm surround, and the full-screen preview uses the gallery mid-grey instead of near-black. The chrome stays warm paper.
 - Smaller corners: grid tiles 4 px (square in compact density), the full-screen image square, board items 2 px.
+- Menus, popovers, dialogs, toasts and the ⌘K palette share one floating look: a darker surface, a hairline edge and a soft layered shadow over a lighter backdrop. The palette is tighter and shows its keys as keycaps.
+- Calm motion: menus and dialogs fade and slide in over 120 ms, the info panel slides in and fades out, buttons give slightly when pressed. Reduce Motion turns all of it off.
 
 ## [1.5.0] - 2026-11-09
 

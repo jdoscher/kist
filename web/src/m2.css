@@ -28,13 +28,15 @@
   left: -6px;
   z-index: 60;
   min-width: 270px;
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  box-shadow: 0 8px 24px var(--shadow);
+  background: var(--bg-float);
+  --bg-hover: var(--float-hover);
+  border: 1px solid var(--float-line);
+  border-radius: var(--float-radius);
+  box-shadow: var(--float-shadow);
   padding: 4px;
   display: flex;
   flex-direction: column;
+  animation: float-in var(--dur-in) var(--ease-out);
 }
 .search-mode-item {
   display: flex;
@@ -110,14 +112,16 @@
   left: 0;
   z-index: 60;
   width: 280px;
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  box-shadow: 0 8px 24px var(--shadow);
+  background: var(--bg-float);
+  --bg-hover: var(--float-hover);
+  border: 1px solid var(--float-line);
+  border-radius: var(--float-radius);
+  box-shadow: var(--float-shadow);
   padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  animation: float-in var(--dur-in) var(--ease-out);
 }
 .colour-pop-title {
   font-weight: 600;
@@ -259,13 +263,15 @@
   position: fixed;
   z-index: 150;
   min-width: 220px;
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px var(--shadow);
+  background: var(--bg-float);
+  --bg-hover: var(--float-hover);
+  border: 1px solid var(--float-line);
+  border-radius: var(--float-radius);
+  box-shadow: var(--float-shadow);
   padding: 4px;
   display: flex;
   flex-direction: column;
+  animation: float-in var(--dur-in) var(--ease-out);
 }
 .ctx-menu button {
   display: flex;

@@ -107,7 +107,7 @@ which also replaces the old star yellow. All colours are CSS variables in
   alike, so the images are the only colour on screen. A thin light pinstripe
   (`chrome-line`) marks where the chrome meets the images. Two greys side by
   side read as a mistake, so the chrome never steps away from the canvas;
-  menus and dialogs, which float, step darker. (Until Nov 2026 the canvas was
+  menus and dialogs, which float, step darker (`--bg-float`). (Until Nov 2026 the canvas was
   the 18 % grey #767676, but on that grey only pure white text passes AA, so
   one surface there would have cost the brass links and coloured error text.)
 - **Light theme: neutral canvas, grey preview.** The chrome (top bar,
@@ -172,6 +172,15 @@ parts and focus indicators (1.4.11, 2.4.11/2.4.13).
 | grid heading on the canvas (`canvas-text` on `canvas`) | 4.5 | 15.45 | 14.57 | 6.13 |
 | grid counts on the canvas (`canvas-dim` on `canvas`) | 4.5 | 6.60 | 5.57 | 5.26 |
 | tile focus ring (`canvas-focus` on `canvas`) | 3 | 9.51 | 4.97 | 4.50 |
+| text on menus, dialogs, palette (`text` on `bg-float`) | 4.5 | 13.41 | 17.21 | 8.79 |
+| secondary text on menus and dialogs (`text-dim` on `bg-float`) | 4.5 | 5.73 | 6.58 | 7.54 |
+| links on menus and dialogs (`accent` on `bg-float`) | 4.5 | 8.25 | 5.87 | 6.46 |
+| focus ring on menus and dialogs (`focus` on `bg-float`) | 3 | 8.25 | 5.87 | 6.46 |
+| field outline in dialogs (`field-border` on `bg-float`) | 3 | 3.07 | 3.59 | 5.10 |
+| error text in dialogs (`danger` on `bg-float`) | 4.5 | 5.64 | 6.57 | 6.92 |
+| hovered / active menu row (`text` on `float-hover`) | 4.5 | 10.97 | 14.84 | 7.17 |
+| secondary text on a hovered menu row (`text-dim` on `float-hover`) | 4.5 | 4.69 | 5.68 | 6.15 |
+| active-row bar in the palette (`accent` on `float-hover`) | 3 | 6.75 | 5.06 | 5.26 |
 | text in the full-screen preview (`preview-text` on `preview-bg`) | 4.5 | 16.16 | 6.69 | 6.69 |
 | secondary text in the preview (`preview-dim` on `preview-bg`) | 4.5 | 9.16 | 6.69 | 6.69 |
 | links and focus ring in the preview (`preview-accent` on `preview-bg`) | 4.5 | 9.95 | 6.69 | 6.69 |
@@ -187,7 +196,7 @@ parts and focus indicators (1.4.11, 2.4.11/2.4.13).
 | selected chip in the preview (`preview-text` on `preview-soft`) | 4.5 | 10.64 | 7.46 | 7.46 |
 | counts on a selected chip in the preview (`preview-soft-dim` on `preview-soft`) | 4.5 | 7.08 | 7.46 | 7.46 |
 
-all 135 pairs pass
+all 162 pairs pass
 
 Selected tiles use brass corners with a 1 px black halo plus a check badge
 (brass on #1A1408 outline), so the state reads on any image; the keyboard
@@ -205,7 +214,8 @@ image is judged.
 | Full-screen preview image | 0 | |
 | Board items | 2 px | `--board-radius` |
 | Controls (buttons, fields) | 6 px | `--ctl-radius` |
-| Floating surfaces (menus, dialogs, palette) | 12 px | |
+| Menus, popovers, toasts | 10 px | `--float-radius` |
+| Dialogs and the command palette | 12 px | `--dialog-radius` |
 
 ## Type
 
@@ -240,16 +250,52 @@ are `aria-hidden`. Stars are Lucide `star`, filled when set.
 
 ## Motion
 
-| Token | Duration | Used for |
+| Token | Value | Used for |
 |---|---|---|
 | --dur-1 | 120 ms | hover, press, captions |
 | --dur-2 | 200 ms | panels, sheets, drawer, thumbnails fading in |
 | --dur-3 | 280 ms | the grid tile growing into the preview |
+| --dur-in | 120 ms | something appearing: menus, popovers, dialogs, toasts, the info panel |
+| --dur-out | 80 ms | something leaving (faster than it came) |
+| --dur-sheet | 380 ms | phone sheet and drawer (with `--ease-sheet`) |
 
-One easing: `cubic-bezier(.2, .8, .2, 1)`. Opening and closing the preview
-is a shared-element View Transition when the browser supports it. Under
-`prefers-reduced-motion: reduce` every duration drops to ~0 and no view
-transition runs.
+Easings: `--ease` `cubic-bezier(.2, .8, .2, 1)` for state changes,
+`--ease-out` `cubic-bezier(.16, 1, .3, 1)` for things appearing, and
+`--ease-sheet` `cubic-bezier(.32, .72, 0, 1)` (the iOS sheet curve) for the
+phone sheet and drawer only.
+
+- Menus, popovers, dialogs and the palette fade in and slide 4 px down
+  (`@keyframes float-in`); toasts and notices rise 4 px (`float-up`).
+  Keep it under 150 ms: no bounce, no scale-up.
+- The info panel slides in 8 px from the right (`panel-in`) and fades out
+  over `--dur-out` before it unmounts (`usePresence` in `src/motion.ts`,
+  whose `DUR_IN_MS` / `DUR_OUT_MS` match the CSS; a test checks).
+- Buttons give way on press: `scale(.98)`.
+- Opening and closing the preview is a shared-element View Transition when
+  the browser supports it.
+- Under `prefers-reduced-motion: reduce` every duration token drops to
+  ~0, every animation and transition is cut, the press scale is off, the
+  info panel closes at once and no view transition runs. (Kist has no
+  in-app motion setting; the OS setting is the switch.)
+
+## Floating surfaces
+
+Anything that floats over the page (menus, popovers, dialogs, the ⌘K
+palette, toasts, notices) uses one recipe, so it reads as one family:
+
+- surface `--bg-float` (dark #21211F, light #FFFFFF, gallery #454545: a
+  clear step darker than the page, which the old `--bg-raised` #565656
+  wasn't), with `--float-hover` for hovered rows inside it;
+- a hairline `--float-line` border;
+- `--float-shadow`: an inner top highlight plus a far and a near shadow
+  (`--float-sheen`, `--float-shadow-far`, `--float-shadow-near`);
+- `--float-radius` 10 px (menus, popovers, toasts) or `--dialog-radius`
+  12 px (dialogs, palette);
+- behind dialogs a lighter 40 % `--scrim`, so the images don't go muddy.
+
+New floating things use the `.float-surface` class (styles.css), which
+also brings the `float-in` animation. The palette's footer shows its keys
+as keycaps (`<kbd>`).
 
 ## Voice
 

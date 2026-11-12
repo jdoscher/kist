@@ -196,14 +196,15 @@ button.on,
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--border);
+  min-height: 52px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--float-line);
 }
 .palette-input input {
   flex: 1;
   border: none;
   background: transparent;
-  font-size: var(--fs-4);
+  font-size: var(--fs-3);
   padding: 4px 0;
 }
 .palette-input input:focus-visible {
@@ -226,10 +227,10 @@ button.on,
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 10px;
+  padding: 6px 10px;
   border-radius: 6px;
   cursor: pointer;
-  min-height: 36px;
+  min-height: 32px;
 }
 .palette-option.active {
   background: var(--accent-soft);
@@ -259,10 +260,23 @@ button.on,
 }
 .palette-hint {
   margin: 0;
-  padding: 6px 14px;
-  border-top: 1px solid var(--border);
+  padding: 8px 14px;
+  border-top: 1px solid var(--float-line);
   color: var(--text-dim);
   font-size: var(--fs-1);
+  display: flex;
+  gap: 16px;
+}
+.palette-hint kbd {
+  margin: 0 2px 0 0;
+  min-width: 18px;
+  display: inline-block;
+  text-align: center;
+  border-color: var(--float-line);
+  border-bottom-width: 1px;
+  background: var(--float-hover);
+  color: var(--text);
+  line-height: 16px;
 }
 @media (max-width: 640px) {
   .modal-overlay:has(.modal.palette) {
@@ -1530,15 +1544,17 @@ button.on,
   right: 0;
   top: calc(100% + 4px);
   z-index: 20;
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  background: var(--bg-float);
+  --bg-hover: var(--float-hover);
+  border: 1px solid var(--float-line);
+  border-radius: var(--float-radius);
   padding: 6px;
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 240px;
-  box-shadow: 0 8px 24px var(--shadow);
+  box-shadow: var(--float-shadow);
+  animation: float-in var(--dur-in) var(--ease-out);
 }
 .board-menu-pop a,
 .board-menu-pop button {

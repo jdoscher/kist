@@ -18,6 +18,19 @@
   --dur-2: 200ms;
   --dur-3: 280ms;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* things appearing and leaving (menus, popovers, dialogs, the info
+     panel): in fast, out faster; motion.ts DUR_IN_MS / DUR_OUT_MS match */
+  --dur-in: 120ms;
+  --dur-out: 80ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  /* the phone sheet and drawer: the iOS sheet curve (phone.css uses it) */
+  --dur-sheet: 380ms;
+  --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
+  /* floating surfaces (menus, popovers, dialogs, palette, toasts): one
+     recipe on --bg-float with a hairline and a layered shadow */
+  --float-radius: 10px;
+  --dialog-radius: 12px;
+  --float-shadow: inset 0 1px 0 var(--float-sheen), 0 24px 64px var(--float-shadow-far), 0 4px 12px var(--float-shadow-near);
   /* density (theme.ts DENSITY_GRID must match --tile-gap) */
   --tile-gap: 8px;
   /* corners: photos are prints, not app cards (4 px tiles, 0 in compact
@@ -106,10 +119,15 @@ button {
   transition:
     background-color var(--dur-1) var(--ease),
     border-color var(--dur-1) var(--ease),
-    color var(--dur-1) var(--ease);
+    color var(--dur-1) var(--ease),
+    transform var(--dur-out) var(--ease);
 }
 button:hover {
   background: var(--bg-active);
+}
+/* a press gives way a little */
+button:active:not(:disabled) {
+  transform: scale(0.98);
 }
 button.primary {
   background: var(--accent);
@@ -181,6 +199,41 @@ select:focus-visible {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* ---------- floating surfaces and motion (docs/brand.md) ----------
+   .float-surface is the shared recipe for anything new that floats; the
+   existing menus, popovers, dialogs and toasts spell the same rules out */
+.float-surface {
+  --bg-hover: var(--float-hover);
+  background: var(--bg-float);
+  border: 1px solid var(--float-line);
+  border-radius: var(--float-radius);
+  box-shadow: var(--float-shadow);
+  animation: float-in var(--dur-in) var(--ease-out);
+}
+@keyframes float-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+@keyframes float-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+}
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
 }
 
 /* icon-only buttons: at least 24×24 px (2.5.8) */
@@ -376,12 +429,14 @@ select:focus-visible {
   top: calc(100% + 4px);
   left: 0;
   min-width: 240px;
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  background: var(--bg-float);
+  --bg-hover: var(--float-hover);
+  border: 1px solid var(--float-line);
+  border-radius: var(--float-radius);
   overflow: hidden;
   z-index: 50;
-  box-shadow: 0 8px 24px var(--shadow);
+  box-shadow: var(--float-shadow);
+  animation: float-in var(--dur-in) var(--ease-out);
 }
 .autocomplete .ac-option {
   display: flex;
@@ -404,15 +459,17 @@ select:focus-visible {
   top: calc(100% + 6px);
   right: 0;
   width: 340px;
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  background: var(--bg-float);
+  --bg-hover: var(--float-hover);
+  border: 1px solid var(--float-line);
+  border-radius: var(--float-radius);
   padding: 12px;
   z-index: 60;
-  box-shadow: 0 8px 24px var(--shadow);
+  box-shadow: var(--float-shadow);
   display: flex;
   flex-direction: column;
   gap: 8px;
+  animation: float-in var(--dur-in) var(--ease-out);
 }
 .paste-title {
   font-weight: 600;
@@ -920,6 +977,10 @@ select:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  animation: panel-in var(--dur-in) var(--ease-out);
+}
+.detail-panel.leaving {
+  animation: fade-out var(--dur-out) var(--ease) forwards;
 }
 .detail-filename {
   width: 100%;
@@ -1203,11 +1264,14 @@ select:focus-visible {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  background: var(--bg-float);
+  --bg-hover: var(--float-hover);
+  border: 1px solid var(--float-line);
+  border-radius: var(--float-radius);
   padding: 8px 12px;
   font-size: var(--fs-1);
+  box-shadow: var(--float-shadow);
+  animation: float-up var(--dur-in) var(--ease-out);
 }
 .toast .name {
   flex: 1;
@@ -1658,9 +1722,10 @@ select:focus-visible {
   padding: 16px;
 }
 .modal {
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  background: var(--bg-float);
+  --bg-hover: var(--float-hover);
+  border: 1px solid var(--float-line);
+  border-radius: var(--dialog-radius);
   width: min(520px, 100%);
   max-height: 80vh;
   overflow-y: auto;
@@ -1668,6 +1733,8 @@ select:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  box-shadow: var(--float-shadow);
+  animation: float-in var(--dur-in) var(--ease-out);
 }
 .modal-head {
   display: flex;
@@ -1768,12 +1835,14 @@ select:focus-visible {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  background: var(--bg-float);
+  --bg-hover: var(--float-hover);
+  border: 1px solid var(--float-line);
+  border-radius: var(--float-radius);
   padding: 8px 12px;
-  box-shadow: 0 8px 30px var(--shadow);
+  box-shadow: var(--float-shadow);
   font-size: var(--fs-2);
+  animation: float-up var(--dur-in) var(--ease-out);
 }
 .notice.error {
   border-color: var(--danger-border);
@@ -1915,12 +1984,14 @@ select:focus-visible {
   top: calc(100% + 6px);
   right: 0;
   width: 260px;
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  background: var(--bg-float);
+  --bg-hover: var(--float-hover);
+  border: 1px solid var(--float-line);
+  border-radius: var(--float-radius);
   padding: 12px;
   z-index: 60;
-  box-shadow: 0 8px 24px var(--shadow);
+  box-shadow: var(--float-shadow);
+  animation: float-in var(--dur-in) var(--ease-out);
 }
 .appearance-pop[hidden] {
   display: none;
@@ -2012,6 +2083,12 @@ select:focus-visible {
     --dur-1: 0.01ms;
     --dur-2: 0.01ms;
     --dur-3: 0.01ms;
+    --dur-in: 0.01ms;
+    --dur-out: 0.01ms;
+    --dur-sheet: 0.01ms;
+  }
+  button:active:not(:disabled) {
+    transform: none;
   }
   *,
   *::before,

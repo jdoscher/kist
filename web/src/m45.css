@@ -128,14 +128,16 @@ a.button.primary {
   right: 0;
   top: calc(100% + 4px);
   z-index: 50;
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px var(--shadow);
+  background: var(--bg-float);
+  --bg-hover: var(--float-hover);
+  border: 1px solid var(--float-line);
+  border-radius: var(--float-radius);
+  box-shadow: var(--float-shadow);
   padding: 4px;
   display: flex;
   flex-direction: column;
   min-width: 200px;
+  animation: float-in var(--dur-in) var(--ease-out);
 }
 .menu-wrap .menu button {
   background: none;

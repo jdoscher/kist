@@ -15,7 +15,11 @@
  * line between them and the images. --preview-* is the full-screen preview
  * (and compare/survey) surround with its own text and button colours: near
  * black in dark, the gallery mid-grey in gallery AND light (a jump from
- * paper to near-black was hard on the eye; Jay approved, Nov 2026). */
+ * paper to near-black was hard on the eye; Jay approved, Nov 2026).
+ *
+ * --bg-float / --float-* are things that float over the page (menus,
+ * popovers, dialogs, the command palette, toasts): one darker surface, a
+ * hairline, a layered shadow (styles.css --float-shadow) over a 40 % scrim. */
 
 :root,
 [data-theme='dark'] {
@@ -62,8 +66,14 @@
   --preview-border: #34332f;
   --preview-line: #6e6c66;
   --preview-danger: #f2716a;
-  --scrim: #000000a0;
+  --scrim: #00000066;
   --shadow: #00000080;
+  --bg-float: #21211f;
+  --float-hover: #31302d;
+  --float-line: #ffffff1a;
+  --float-sheen: #ffffff0d;
+  --float-shadow-far: #000000a0;
+  --float-shadow-near: #00000066;
 }
 
 [data-theme='light'] {
@@ -112,6 +122,12 @@
   --preview-danger: #ffd0cc;
   --scrim: #1c1b1966;
   --shadow: #1c1b1929;
+  --bg-float: #ffffff;
+  --float-hover: #f0eee9;
+  --float-line: #e2dfd8;
+  --float-sheen: #ffffff00;
+  --float-shadow-far: #1c1b1929;
+  --float-shadow-near: #1c1b191a;
 }
 
 [data-theme='gallery'] {
@@ -158,8 +174,14 @@
   --preview-border: #5a5a5a;
   --preview-line: #bdbdbd;
   --preview-danger: #ffd0cc;
-  --scrim: #000000a0;
+  --scrim: #00000066;
   --shadow: #00000080;
+  --bg-float: #454545;
+  --float-hover: #525252;
+  --float-line: #ffffff24;
+  --float-sheen: #ffffff14;
+  --float-shadow-far: #00000080;
+  --float-shadow-near: #00000040;
 }
 
 html {

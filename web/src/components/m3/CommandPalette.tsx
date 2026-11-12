@@ -327,7 +327,16 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
         )}
       </div>
       <p className="palette-hint" aria-hidden="true">
-        ↑↓ move · Enter open · Esc close
+        <span>
+          <kbd>↑</kbd>
+          <kbd>↓</kbd> move
+        </span>
+        <span>
+          <kbd>↵</kbd> open
+        </span>
+        <span>
+          <kbd>esc</kbd> close
+        </span>
       </p>
       <span className="sr-only" role="status" aria-live="polite">
         {q ? `${flat.length} results` : ''}
