@@ -124,7 +124,18 @@ which also replaces the old star yellow. All colours are CSS variables in
 - **Preview tokens.** The preview and compare/survey overlays take their
   colours from `--preview-*` in themes.css (text, dim, accent, buttons,
   notes panel, field line, danger), contrast-checked like everything else,
-  instead of hard-coded overrides.
+  instead of hard-coded overrides. In gallery and light `preview-dim` is
+  #dadada, a visible step below the white text (the caption's extension
+  and dimensions).
+- **Preview layout (desktop).** Nothing sits on the picture: 64 px bands
+  above and below the image (`--preview-band`; the image gets
+  `--preview-room`, 100vh − 128 px) hold the controls. Top right: Loupe,
+  Notes and Close as matching 32 px ghost buttons in one row
+  (`.preview-band`). Bottom: a one-line Inter 13 caption,
+  "name.ext · 3840 × 2628 px · 1 of 41" with the extension and facts in
+  `preview-dim`, then "More like this" and "Open original" as underlined
+  text actions. Both arrows look the same at rest (`--text` at 70 %);
+  the one with nowhere to go is hidden. The phone keeps its own layout.
 - **Browser and launch colours.** The `theme-color` meta (the phone's
   status bar) is each theme's `chrome` (`THEME_COLOR` in `theme.ts`), and
   `public/theme-init.js` paints `<html>` in the theme's `bg` before the
@@ -206,7 +217,7 @@ parts and focus indicators (1.4.11, 2.4.11/2.4.13).
 | secondary text on a hovered menu row (`text-dim` on `float-hover`) | 4.5 | 4.69 | 5.68 | 5.59 |
 | active-row bar in the palette (`accent` on `float-hover`) | 3 | 6.75 | 5.06 | 5.26 |
 | text in the full-screen preview (`preview-text` on `preview-bg`) | 4.5 | 16.16 | 6.69 | 6.69 |
-| secondary text in the preview (`preview-dim` on `preview-bg`) | 4.5 | 9.16 | 6.69 | 6.69 |
+| secondary text in the preview (`preview-dim` on `preview-bg`) | 4.5 | 9.16 | 4.78 | 4.78 |
 | links and focus ring in the preview (`preview-accent` on `preview-bg`) | 4.5 | 9.95 | 6.69 | 6.69 |
 | preview buttons (`preview-text` on `preview-raised`) | 4.5 | 14.19 | 10.86 | 10.86 |
 | preview buttons, hover (`preview-text` on `preview-hover`) | 4.5 | 12.44 | 9.29 | 9.29 |
@@ -215,7 +226,7 @@ parts and focus indicators (1.4.11, 2.4.11/2.4.13).
 | field outline in the preview (`preview-line` on `preview-bg`) | 3 | 3.70 | 3.56 | 3.56 |
 | primary button in the preview (`preview-on-accent` on `preview-accent`) | 4.5 | 9.36 | 18.88 | 18.88 |
 | notes panel text (`preview-text` on `preview-panel`) | 4.5 | 15.45 | 13.58 | 13.58 |
-| notes panel secondary text (`preview-dim` on `preview-panel`) | 4.5 | 8.76 | 13.58 | 13.58 |
+| notes panel secondary text (`preview-dim` on `preview-panel`) | 4.5 | 8.76 | 9.71 | 9.71 |
 | error text in the notes panel (`preview-danger` on `preview-panel`) | 4.5 | 6.50 | 9.79 | 9.79 |
 | selected chip in the preview (`preview-text` on `preview-soft`) | 4.5 | 10.64 | 7.46 | 7.46 |
 | counts on a selected chip in the preview (`preview-soft-dim` on `preview-soft`) | 4.5 | 7.08 | 7.46 | 7.46 |

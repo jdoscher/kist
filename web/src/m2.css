@@ -294,9 +294,6 @@
 .more-like {
   align-self: flex-start;
 }
-.preview-overlay figcaption .preview-more {
-  font-size: var(--fs-1);
-}
 .match-why p {
   margin: 0;
 }

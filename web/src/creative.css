@@ -689,6 +689,9 @@ button.on,
 .preview-overlay:has(.annotated.panel-open) video {
   max-width: calc(100vw - 140px - 330px);
 }
+.preview-overlay:has(.annotated.panel-open) figcaption {
+  right: 342px;
+}
 .ann-media {
   position: relative;
   display: inline-block;

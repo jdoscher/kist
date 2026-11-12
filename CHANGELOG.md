@@ -968,6 +968,7 @@ The aesthetic pass: one grey, one control language, one type system.
   on a phone (2 columns or more; 1 column stays the feed). Rows stays the
   default. On a phone the tile-shape button steps Rows, Square, Columns.
 - The rating stars in the info panel and in Triage are plain stars again, with no box behind the filled ones.
+- The full-screen preview keeps its controls off the picture: Loupe, Notes and Close sit as matching quiet buttons in a band above the image, and one line below it reads "name.jpg · 3840 × 2628 px · 1 of 41" with More like this and Open original as plain text links. Both arrows look the same, and the image has square corners.
 
 ## [1.5.0] - 2026-11-09
 

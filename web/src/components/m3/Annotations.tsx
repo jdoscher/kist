@@ -6,6 +6,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, Crosshair, MapPin, MessageSquare, Pencil, SquareDashed, Trash2, X } from 'lucide-react'
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import type { Item } from '../../api'
 import {
   activeAt,
@@ -28,7 +29,9 @@ type Tool = 'point' | 'box' | null
 
 const PANEL_KEY = 'kist.annotationsOpen'
 
-export function Annotated({ item, children }: { item: Item; children: ReactNode }) {
+/** `toolbar`: the preview's top band; Loupe and Notes render there, next
+ * to Close (B6), and in place when there's no band. */
+export function Annotated({ item, children, toolbar = null }: { item: Item; children: ReactNode; toolbar?: HTMLElement | null }) {
   const caps = useCaps()
   const qc = useQueryClient()
   const w = useWrite()
@@ -153,6 +156,29 @@ export function Annotated({ item, children }: { item: Item; children: ReactNode 
     : []
   const now = isVideo ? activeAt(all, time) : []
 
+  // Loupe first, then Notes: the band reads left to right into Close
+  const toggles = (
+    <>
+      {isImage && (
+        <button className={`ann-loupe-toggle btn-icon${loupe ? ' on' : ''}`} aria-pressed={loupe} onClick={() => setLoupe(!loupe)} title="100% loupe (Z)" aria-keyshortcuts="Z">
+          <Crosshair size={16} aria-hidden="true" />
+          Loupe
+        </button>
+      )}
+      <button
+        className={`ann-toggle btn-icon${open ? ' on' : ''}`}
+        aria-pressed={open}
+        aria-controls={open ? `${uid}-panel` : undefined}
+        onClick={() => setOpen(!open)}
+        title="Notes on the image (A)"
+        aria-keyshortcuts="A"
+      >
+        <MessageSquare size={16} aria-hidden="true" />
+        Notes{all.length ? ` (${all.filter((a) => !a.resolved).length})` : ''}
+      </button>
+    </>
+  )
+
   return (
     <div className={`annotated${open ? ' panel-open' : ''}`}>
       <div ref={wrap} className={`ann-media${loupe && !tool ? " loupe-on" : ""}`}>
@@ -235,24 +261,7 @@ export function Annotated({ item, children }: { item: Item; children: ReactNode 
         )}
       </div>
 
-      <button
-        className={`ann-toggle btn-icon${open ? ' on' : ''}`}
-        aria-pressed={open}
-        aria-controls={open ? `${uid}-panel` : undefined}
-        onClick={() => setOpen(!open)}
-        title="Notes on the image (A)"
-        aria-keyshortcuts="A"
-      >
-        <MessageSquare size={16} aria-hidden="true" />
-        Notes{all.length ? ` (${all.filter((a) => !a.resolved).length})` : ''}
-      </button>
-      {isImage && (
-        <button className={`ann-loupe-toggle btn-icon${loupe ? ' on' : ''}`} aria-pressed={loupe} onClick={() => setLoupe(!loupe)} title="100% loupe (Z)" aria-keyshortcuts="Z">
-          <Crosshair size={16} aria-hidden="true" />
-          Loupe
-        </button>
-      )}
-
+      {toolbar ? createPortal(toggles, toolbar) : toggles}
       {open && (
         <aside id={`${uid}-panel`} className="ann-panel" aria-label="Notes">
           <div className="ann-panel-head">

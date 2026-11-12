@@ -380,7 +380,7 @@ a.btn-primary {
 .media-stage > img,
 .svg-stage img {
   max-width: calc(100vw - 140px);
-  max-height: calc(100vh - 150px);
+  max-height: calc(var(--preview-room, calc(100vh - 90px)) - 60px);
 }
 .media-tools {
   display: flex;
@@ -450,7 +450,7 @@ a.btn-primary {
 }
 .font-stage {
   width: min(1000px, calc(100vw - 140px));
-  max-height: calc(100vh - 80px);
+  max-height: calc(var(--preview-room, calc(100vh - 90px)) + 10px);
   overflow-y: auto;
   align-items: stretch;
   background: var(--bg-raised);
@@ -528,11 +528,11 @@ a.btn-primary {
 }
 .bundle-view img {
   max-width: 100%;
-  max-height: calc(100vh - 120px);
+  max-height: calc(var(--preview-room, calc(100vh - 90px)) - 30px);
 }
 .bundle-tree {
   width: 300px;
-  max-height: calc(100vh - 120px);
+  max-height: calc(var(--preview-room, calc(100vh - 90px)) - 30px);
   overflow-y: auto;
   background: var(--bg-raised);
   border-radius: 10px;
@@ -578,7 +578,7 @@ a.btn-primary {
 .model-viewer {
   display: block;
   width: 100%;
-  height: calc(100vh - 220px);
+  height: calc(var(--preview-room, calc(100vh - 90px)) - 130px);
   background: var(--bg-raised);
   border-radius: 10px;
   --poster-color: transparent;

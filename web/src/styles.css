@@ -1280,10 +1280,17 @@ select:focus-visible {
   justify-content: center;
   z-index: 100;
 }
+/* the image keeps the middle; 64 px bands above and below hold the
+   controls and the caption, so nothing sits on the picture (B6) */
+.preview-overlay {
+  --preview-band: 64px;
+  --preview-room: calc(100vh - 2 * var(--preview-band));
+  padding: var(--preview-band) 0;
+}
 .preview-overlay figure {
   margin: 0;
   max-width: calc(100vw - 140px);
-  max-height: calc(100vh - 40px);
+  max-height: var(--preview-room);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1292,56 +1299,111 @@ select:focus-visible {
 .preview-overlay img,
 .preview-overlay video {
   max-width: calc(100vw - 140px);
-  max-height: calc(100vh - 90px);
+  max-height: var(--preview-room);
   object-fit: contain;
   border-radius: 0;
 }
 .preview-overlay iframe {
   width: min(900px, calc(100vw - 140px));
-  height: calc(100vh - 90px);
+  height: var(--preview-room);
   border: none;
   background: #fff;
-  border-radius: 4px;
+  border-radius: 0;
 }
 .preview-fallback {
   padding: 60px;
   background: var(--bg-raised);
   border-radius: 8px;
 }
+/* the caption: one line in the bottom band, all Inter 13 */
 .preview-overlay figcaption {
+  position: fixed;
+  left: 72px;
+  right: 72px;
+  bottom: 0;
+  height: var(--preview-band);
   display: flex;
-  gap: 16px;
-  align-items: baseline;
+  gap: 14px;
+  align-items: center;
+  justify-content: center;
   color: var(--text-dim);
+  font-size: var(--fs-2);
+  white-space: nowrap;
 }
 .preview-overlay figcaption .fname {
   color: var(--text);
-  font-weight: 600;
+  font-weight: 500;
+  display: inline-flex;
+  min-width: 0;
+}
+.preview-overlay figcaption .fname-base {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.preview-overlay figcaption .ext {
+  color: var(--text-dim);
+  font-weight: 400;
 }
 .preview-overlay figcaption .meta {
-  font-family: var(--font-mono);
-  font-size: var(--fs-1);
+  font-variant-numeric: tabular-nums;
 }
-.preview-overlay figcaption a {
-  color: var(--accent);
-  text-decoration: none;
+.preview-overlay figcaption .meta::before,
+.preview-actions::before {
+  content: '·';
+  margin-right: 14px;
+  color: var(--text-dim);
+}
+.preview-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+}
+/* More like this and Open original: plain text actions, underlined */
+.preview-overlay figcaption a,
+.preview-overlay figcaption .preview-more {
+  color: var(--text);
+  background: none;
+  border: none;
+  box-shadow: none;
+  min-height: 0;
+  height: auto;
+  padding: 0;
+  font-size: var(--fs-2);
+  font-weight: 400;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in srgb, var(--text) 45%, transparent);
   display: inline-flex;
   align-items: center;
   gap: 4px;
 }
+.preview-overlay figcaption a:hover,
+.preview-overlay figcaption .preview-more:hover {
+  background: none;
+  text-decoration-color: currentColor;
+}
+/* both arrows alike at rest; at either end the dead one steps aside */
 .preview-nav {
   position: fixed;
   top: 50%;
   transform: translateY(-50%);
   background: none;
   border: none;
-  color: var(--text-dim);
+  color: var(--text);
+  opacity: 0.7;
   padding: 20px 12px;
   z-index: 101;
   display: flex;
+  transition: opacity var(--dur-in) var(--ease-out);
 }
-.preview-nav:hover {
-  color: var(--text);
+.preview-nav:hover,
+.preview-nav:focus-visible {
+  opacity: 1;
+  background: none;
+}
+.preview-nav:disabled {
+  visibility: hidden;
 }
 .preview-nav.prev {
   left: 6px;
@@ -1349,8 +1411,50 @@ select:focus-visible {
 .preview-nav.next {
   right: 6px;
 }
+/* the top band: Loupe, Notes and Close, matching 32 px ghost buttons */
+.preview-band {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: var(--preview-band);
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 101;
+}
+.preview-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.app-shell:not(.mobile) .preview-band :is(.ann-toggle, .ann-loupe-toggle, .preview-close) {
+  position: static;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: none;
+  border-radius: var(--ctl-radius);
+  background: none;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.app-shell:not(.mobile) .preview-band :is(.ann-toggle, .ann-loupe-toggle, .preview-close):hover {
+  background: var(--bg-hover);
+}
+.app-shell:not(.mobile) .preview-band :is(.ann-toggle, .ann-loupe-toggle).on {
+  background: var(--bg-active);
+}
+.app-shell:not(.mobile) .preview-band .preview-close {
+  width: 32px;
+  padding: 0;
+  justify-content: center;
+}
 /* its own round button, so it reads as the preview's control rather than
-   something sitting on top of the toolbar behind */
+   something sitting on top of the toolbar behind (phone; the desktop
+   band above makes it a ghost) */
 .preview-close {
   position: fixed;
   top: 12px;
@@ -1366,6 +1470,29 @@ select:focus-visible {
   border: 1px solid var(--field-border);
   color: var(--text);
   z-index: 101;
+}
+/* phone: no bands; the controls keep their own fixed spots */
+.mobile .preview-overlay {
+  --preview-room: calc(100vh - 90px);
+  padding: 0;
+}
+.mobile .preview-overlay figure {
+  max-height: calc(100vh - 40px);
+}
+.mobile .preview-band,
+.mobile .preview-tools {
+  display: contents;
+}
+.mobile .preview-overlay figcaption {
+  position: static;
+  height: auto;
+  white-space: normal;
+}
+.mobile .preview-nav:disabled {
+  visibility: visible;
+}
+.mobile .preview-actions::before {
+  display: none;
 }
 
 /* ---------- uploads ---------- */
