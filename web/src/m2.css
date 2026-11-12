@@ -91,6 +91,9 @@
 .search-chip {
   gap: 5px;
 }
+.chip.folder-chip {
+  border-radius: 6px;
+}
 .chip-thumb {
   width: 20px;
   height: 20px;
@@ -202,14 +205,14 @@
   top: 30px;
 }
 .tile .badge.stack.open {
-  background: #e8b04b;
-  color: #1a1408;
+  background: var(--canvas-focus);
+  color: var(--on-accent);
 }
 .tile .badge.stack.member {
   cursor: default;
 }
 .tile.stack-member {
-  box-shadow: inset 0 0 0 2px #e8b04b80;
+  box-shadow: inset 0 0 0 2px var(--canvas-focus);
 }
 .tile.selected .badge.match,
 .tile.selected .badge.stack {
@@ -644,7 +647,8 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: var(--accent-soft);
+  background: var(--chip-bg);
+  color: var(--chip-text);
   border-radius: 20px;
   padding: 1px 8px;
   font-size: var(--fs-1);

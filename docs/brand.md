@@ -96,6 +96,8 @@ which also replaces the old star yellow. All colours are CSS variables in
 | on-accent | #1A1408 | #FFFFFF | #1A1408 |
 | field outline | #6E6C66 | #8A877F | #BDBDBD |
 | danger | #F2716A | #B42318 | #FFD0CC |
+| chip-bg / chip-text | #31302D / #ECEAE4 | #E6E3DC / #1C1B19 | #4A4A4A / #F5F5F5 |
+| bg-float (menus, dialogs) | #21211F | #FFFFFF | #454545 |
 | success | #5FC48A | #1E7A46 | #A8F0C4 |
 | chrome (top bar, side panels) | #1C1C1A | #FFFFFF | #5C5C5C |
 | chrome line (chrome / images edge) | #34332F | #E2DFD8 | white 28 % (#FFFFFF47) |
@@ -131,6 +133,24 @@ which also replaces the old star yellow. All colours are CSS variables in
   the stored theme. `tests/theme.test.ts` checks all three against themes.css.
 - Never use the bright brass #E8B04B as a fill or text on a light
   background: it is 1.86:1 there. Use #8C5A00.
+
+### Brass budget
+
+Brass means one of four things, and nothing else:
+
+1. **the primary action** (`.btn-primary` / `button.primary`: Upload, Save,
+   New token; one per view);
+2. **selection**: the tile corners and check (the theme's `--canvas-focus`,
+   never a hard-coded #E8B04B), and a 3 px bar on the selected row, section
+   or pressed toggle (sidebar, Settings nav, ⌘K active row, the Info
+   toggle), always on a neutral fill, never a brass outline box;
+3. **the focus ring**;
+4. **ratings** (stars).
+
+Everything else is neutral: tag, folder and board chips use `--chip-bg` /
+`--chip-text` (tags are pills, folders have 6 px corners), inspector links
+are `--text` with a thin underline, and a pressed toggle is a fill, not a
+second brass button. Brass on everything means nothing.
 
 ### Contrast (WCAG 2.2 AA, computed from themes.css)
 
@@ -172,6 +192,10 @@ parts and focus indicators (1.4.11, 2.4.11/2.4.13).
 | grid heading on the canvas (`canvas-text` on `canvas`) | 4.5 | 15.45 | 14.57 | 6.13 |
 | grid counts on the canvas (`canvas-dim` on `canvas`) | 4.5 | 6.60 | 5.57 | 5.26 |
 | tile focus ring (`canvas-focus` on `canvas`) | 3 | 9.51 | 4.97 | 4.50 |
+| bar on a pressed toggle / selected section (`accent` on `bg-active`) | 3 | 6.75 | 4.58 | 5.97 |
+| tag / folder / board chips (`chip-text` on `chip-bg`) | 4.5 | 10.97 | 13.43 | 8.13 |
+| counts on chips (`text-dim` on `chip-bg`) | 4.5 | 4.69 | 5.14 | 6.97 |
+| tile selection check (`on-accent` on `canvas-focus`) | 4.5 | 9.36 | 5.87 | 12.33 |
 | text on menus, dialogs, palette (`text` on `bg-float`) | 4.5 | 13.41 | 17.21 | 8.79 |
 | secondary text on menus and dialogs (`text-dim` on `bg-float`) | 4.5 | 5.73 | 6.58 | 7.54 |
 | links on menus and dialogs (`accent` on `bg-float`) | 4.5 | 8.25 | 5.87 | 6.46 |
@@ -196,10 +220,11 @@ parts and focus indicators (1.4.11, 2.4.11/2.4.13).
 | selected chip in the preview (`preview-text` on `preview-soft`) | 4.5 | 10.64 | 7.46 | 7.46 |
 | counts on a selected chip in the preview (`preview-soft-dim` on `preview-soft`) | 4.5 | 7.08 | 7.46 | 7.46 |
 
-all 162 pairs pass
+all 174 pairs pass
 
-Selected tiles use brass corners with a 1 px black halo plus a check badge
-(brass on #1A1408 outline), so the state reads on any image; the keyboard
+Selected tiles use brass corners (`--canvas-focus`) with a 1 px black halo
+plus a check badge (`--on-accent` on `--canvas-focus`, #1A1408 outline), so
+the state reads on any image; the keyboard
 focus ring is a separate 2 px ring outside the tile.
 
 ## Corners

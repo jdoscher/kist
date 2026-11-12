@@ -232,9 +232,10 @@ button.on,
   cursor: pointer;
   min-height: 32px;
 }
+/* the active row: fill + 3 px bar, like the sidebar (no brass box) */
 .palette-option.active {
-  background: var(--accent-soft);
-  outline: 1px solid var(--accent);
+  background: var(--float-hover);
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 .palette-title {
   white-space: nowrap;
@@ -251,7 +252,7 @@ button.on,
   max-width: 45%;
 }
 .palette-option.active .palette-sub {
-  color: var(--soft-dim);
+  color: var(--text-dim);
 }
 .palette-empty {
   color: var(--text-dim);
