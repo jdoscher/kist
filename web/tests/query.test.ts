@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { emptyQuery, type Query } from '../src/api.ts'
-import { folderSubtree, isUnfiledView, mergeQuery, stillMatches, unfiledQuery } from '../src/query.ts'
+import { folderSubtree, gridCountText, isUnfiledView, mergeQuery, ratingsShown, sidebarCount, stillMatches, unfiledQuery } from '../src/query.ts'
 import type { Item } from '../src/api.ts'
 
 const empty: Query = emptyQuery
@@ -60,4 +60,29 @@ test('folder views include subfolders', () => {
   const inA = { ...empty, folder: 'A' }
   assert.ok(stillMatches(it({ folder_ids: ['C'] }), inA, sub))
   assert.ok(!stillMatches(it({ folder_ids: ['D'] }), inA, sub)) // moved out
+})
+
+test('quiet tiles: ratings show on every tile only while filtering or sorting by rating', () => {
+  assert.equal(ratingsShown(empty), false)
+  assert.equal(ratingsShown({ ...empty, rating: 3 }), true)
+  assert.equal(ratingsShown({ ...empty, order: '-rating' }), true)
+  assert.equal(ratingsShown({ ...empty, order: 'filename' }), false)
+})
+
+test('the grid header leads with the sidebar count and names the tiles when stacks make fewer', () => {
+  const stats = { total_items: 43, trashed_items: 2 }
+  const folders = [{ id: 'f1', item_count: 17 }]
+  assert.equal(sidebarCount(empty, { stats, folders }), 43)
+  assert.equal(sidebarCount({ ...empty, folder: 'f1' }, { stats, folders }), 17)
+  assert.equal(sidebarCount({ ...empty, deleted: true }, { stats, folders }), 2)
+  // a search, a filter, Unfiled, a tag or a smart folder: no sidebar number
+  assert.equal(sidebarCount({ ...empty, q: 'car' }, { stats, folders }), null)
+  assert.equal(sidebarCount({ ...empty, rating: 4 }, { stats, folders }), null)
+  assert.equal(sidebarCount(unfiled, { stats, folders }), null)
+  assert.equal(sidebarCount({ ...empty, tags: ['x'] }, { stats, folders }), null)
+  assert.equal(sidebarCount(empty, { stats, folders, smart: true }), null)
+  assert.equal(gridCountText(41, 43), '43 items · 41 tiles')
+  assert.equal(gridCountText(41, 41), '41 items')
+  assert.equal(gridCountText(1, null), '1 item')
+  assert.equal(gridCountText(1200, 1250), '1,250 items · 1,200 tiles')
 })

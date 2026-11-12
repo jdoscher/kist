@@ -19,10 +19,10 @@ test('an empty search names the view and offers Search everything', () => {
 })
 
 test('only a truly empty library says how to add things', () => {
-  assert.match(emptyState(q({ view: 'unfiled' }), { ...opts, libraryEmpty: true }).text, /Drop files/)
+  assert.match(emptyState(q({ view: 'unfiled' }), { ...opts, libraryEmpty: true }).hint, /Drop files/)
   const phone = emptyState(q(), { ...opts, libraryEmpty: true, mobile: true })
-  assert.doesNotMatch(phone.text, /Drop/)
-  assert.match(phone.text, /Upload/)
+  assert.doesNotMatch(phone.hint, /Drop/)
+  assert.match(phone.hint, /Upload/)
   const unfiled = emptyState(q({ view: 'unfiled' }), opts)
   assert.match(unfiled.text, /every item has a folder or a tag/)
   assert.equal(unfiled.action, 'all')
@@ -65,4 +65,22 @@ test('one-time flags', () => {
   markOnce('visited', store)
   assert.equal(onceSeen('visited', store), true)
   assert.equal(onceSeen('visited', null), false)
+})
+
+test('empty Picks, Rejects, folders and searches each say one line, one hint and offer one action', () => {
+  const opts = { libraryEmpty: false, mobile: false, title: 'All items' }
+  const picks = emptyState(q({ flag: 'pick' }), opts)
+  assert.equal(picks.text, 'No picks yet.')
+  assert.equal(picks.action, 'all')
+  assert.equal(emptyState(q({ flag: 'reject' }), opts).text, 'No rejects.')
+  // picks narrowed by a search are a search with no hits
+  assert.match(emptyState(q({ flag: 'pick', q: 'dog' }), opts).text, /matches “dog”/)
+  const folder = emptyState(q({ folder: 'f1' }), { ...opts, title: 'Posters' })
+  assert.equal(folder.text, 'Nothing in Posters yet.')
+  assert.match(folder.hint, /Drag items onto it/)
+  assert.equal(folder.action, 'all')
+  for (const s of [picks, folder, emptyState(q({ q: 'dog' }), opts), emptyState(q({ deleted: true }), opts)]) {
+    assert.ok(s.text.length > 0 && s.hint.length > 0, s.text)
+    assert.doesNotMatch(s.text + s.hint, /!/) // brand voice: no exclamation marks
+  }
 })

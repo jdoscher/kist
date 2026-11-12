@@ -192,6 +192,7 @@ parts and focus indicators (1.4.11, 2.4.11/2.4.13).
 | grid heading on the canvas (`canvas-text` on `canvas`) | 4.5 | 15.45 | 14.57 | 6.13 |
 | grid counts on the canvas (`canvas-dim` on `canvas`) | 4.5 | 6.60 | 5.57 | 4.78 |
 | tile focus ring (`canvas-focus` on `canvas`) | 3 | 9.51 | 4.97 | 4.50 |
+| edge of a stack's second sheet on the canvas (`field-border` on `canvas`) | 3 | 3.54 | 3.04 | 3.56 |
 | bar on a pressed toggle / selected section (`accent` on `bg-active`) | 3 | 6.75 | 4.58 | 5.97 |
 | tag / folder / board chips (`chip-text` on `chip-bg`) | 4.5 | 10.97 | 13.43 | 8.13 |
 | counts on chips (`text-dim` on `chip-bg`) | 4.5 | 4.69 | 5.14 | 6.34 |
@@ -220,7 +221,7 @@ parts and focus indicators (1.4.11, 2.4.11/2.4.13).
 | selected chip in the preview (`preview-text` on `preview-soft`) | 4.5 | 10.64 | 7.46 | 7.46 |
 | counts on a selected chip in the preview (`preview-soft-dim` on `preview-soft`) | 4.5 | 7.08 | 7.46 | 7.46 |
 
-all 174 pairs pass
+all 177 pairs pass
 
 Selected tiles use brass corners (`--canvas-focus`) with a 1 px black halo
 plus a check badge (`--on-accent` on `--canvas-focus`, #1A1408 outline), so
@@ -272,6 +273,29 @@ One height, three kinds. Nothing else.
 - Links inside a sentence (`.linkish`, `.link-btn`, `.btn-link`,
   `.link-like`) are underlined `--text`, sized like text, not 28 px tall.
 
+### Top bar and grid header (desktop)
+
+- The top bar is one 48 px line: brand, the search box (32 px, one line,
+  starting over the grid's left edge, the palette's `⌘K` / `Ctrl K` as a
+  keycap inside it that opens the palette), a spacer, Paste and Upload (the
+  only brass control), a `--chrome-line` hairline (`.topbar-sep`), then the
+  quiet icons (Info, Recent changes, Share, Appearance, Settings). Filter
+  chips stay on the line and scroll sideways.
+- The view controls (tile shape, size, type, filters, rating, sort) sit in
+  the grid header (`.grid-meta`) on the right, next to what they change;
+  the title (`.view-title`, or `.page-title` with a `.title-eyebrow` on a
+  folder or tag page) and its count on the left, on the tiles' left edge.
+  Narrow grids (container query) drop the Size and Filters words. The
+  header stays while a new list loads, so a control keeps focus.
+- The phone keeps its own two-row bar (`ViewControls mobile` in the top
+  bar).
+- The selection bar (`.bulkbar`) shows only with two or more selected (one
+  selected: the info panel has every action). It is one 40 px row docked
+  under the grid, in the flow, on `--chrome` with a `--chrome-line` rule
+  above: no float, no shadow. Order: count, clear, Tag field, Folder,
+  Board, Pick, Reject, Label, then More (everything else, opening upward)
+  and Trash last in `--danger`.
+
 ### Settings and Appearance layout
 
 - Settings content is one 640 px column (`--settings-col`); a section's
@@ -295,6 +319,57 @@ image is judged.
 | Controls (buttons, fields) | 6 px | `--ctl-radius` |
 | Menus, popovers, toasts | 10 px | `--float-radius` |
 | Dialogs and the command palette | 12 px | `--dialog-radius` |
+
+## Grid tiles
+
+The images lead; anything drawn on them earns its place.
+
+- **Loading:** a tile with no ThumbHash or colour yet is `--tile-wait`
+  (one step off `--canvas`: gallery #676767, dark #232321, light #E0E0E0;
+  decorative, no contrast minimum) with a faint 1.4 s sheen (none under
+  reduced motion). Badges stay hidden until the thumbnail has loaded
+  (`img.loaded`), or failed (`img.failed`, which also stops the sheen).
+- **Ratings (quiet tiles):** one brass star and a tabular number ("★ 5"),
+  bottom right on the caption's dark gradient, only on hover, keyboard
+  focus or selection; on every tile while the grid is filtered or sorted
+  by rating (`.ratings-shown`, `ratingsShown()` in query.ts). Never on a
+  phone tile. The rating is always in the tile's `aria-label`.
+- **Stacks:** a closed stack's entry (`.tile.stacked`) has a second sheet
+  4 px up and right behind it (`--tile-wait` fill, `--field-border` edge,
+  3:1 on the canvas), drawn with box shadows. Its count badge shows on
+  hover, focus and selection; compact density has no room for the sheet
+  and keeps the badge. The count is in the aria-label ("stack of 2 items").
+
+- **Gutters and the date rail:** 12 px from the sidebar to the first tile
+  and 12 px from the last tile to the 30 px date rail; the rail starts
+  8 px below the grid header, year labels are centred in it and hang 4 px
+  below their tick (clear of the brass mark and the info panel's line).
+- **Counts:** the grid header leads with the same number as the sidebar
+  (every item) and adds the tiles when closed stacks make fewer: "43 items
+  · 41 tiles" (`gridCountText` / `sidebarCount` in query.ts). A search or
+  filter shows just its number of results.
+
+- **Empty states** (`EmptyState` in GridExtras.tsx): the outline mark
+  (`OutlineMark`, Brand.tsx: brackets as thin `--canvas-dim` lines, the
+  kept item a brass square; `aria-hidden`), one Instrument Serif line
+  (24 px, at most 22ch), one dim 13 px line and at most one action. Empty
+  Unfiled, Trash, Picks, Rejects, a folder, a tag, a smart folder and a
+  search with no hits all use it (words in `emptyState`, query.ts); the
+  view's subtitle hides while the grid is empty so nothing is said twice.
+
+## Sidebar
+
+- **Labels** get their own section head under Cull: 12 px colour dots
+  with a 1 px `--field-border` ring (the ring carries the 3:1 boundary,
+  since some label colours alone don't reach it on the grey), each in a
+  24 px target, the first on the icon column; pressed adds a `--text`
+  ring. The info panel's and triage's label pickers stay 24 px discs
+  (editing controls).
+- **Tags** show as a wrapped cloud of 24 px neutral chips (`.tag-cloud-chip`:
+  `--chip-bg` / `--chip-text`, count in `--text-dim`, no `#` icon); a tag
+  you're filtering by takes the selected fill (`--accent-soft` with a 1 px
+  `--accent` edge). Two small toggles in the Tags head switch to the list
+  (better for hundreds of tags); the choice is a pref (`kist.tagView`).
 
 ## Type
 

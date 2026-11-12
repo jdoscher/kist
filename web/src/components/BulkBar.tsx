@@ -1,5 +1,5 @@
-import { Lock, LockOpen, X } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { ChevronDown, Lock, LockOpen, MoreHorizontal, Trash2, X, type LucideIcon } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api'
 import { bulkReport, hardDeleteQuestion, trashedText, useBulkAction, type BulkAction } from '../bulk'
 import { bulkDoneText } from '../bulkText'
@@ -10,9 +10,87 @@ import { useAppState } from '../state'
 import { useShortcut } from '../useShortcuts'
 import { useDialog } from './Dialog'
 import { useNotices } from './Notices'
-import { StackActions } from './BulkStack'
-import { BulkCreative } from './m3/BulkCreative'
-import { BulkM45 } from './m45/BulkM45'
+import { useStackActions } from './BulkStack'
+import { BulkBoardSelect, BulkFlags, useBulkCreativeMore } from './m3/BulkCreative'
+import { useBulkM45More } from './m45/BulkM45'
+
+/** One entry in the bulk bar's More menu. */
+export interface BulkMenuItem {
+  key: string
+  label: string
+  icon: LucideIcon
+  run: () => void
+  disabled?: boolean
+  title?: string
+}
+
+/** The bar's More menu: everything that isn't one of its everyday
+ * actions. Opens upward (the bar sits at the bottom of the grid). */
+function BulkMore({ items }: { items: BulkMenuItem[] }) {
+  const [open, setOpen] = useState(false)
+  const wrap = useRef<HTMLDivElement>(null)
+  const btn = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (!open) return
+    wrap.current?.querySelector<HTMLElement>('[role=menuitem]:not(:disabled)')?.focus()
+    const close = (e: MouseEvent) => !wrap.current?.contains(e.target as Node) && setOpen(false)
+    window.addEventListener('mousedown', close)
+    return () => window.removeEventListener('mousedown', close)
+  }, [open])
+  if (!items.length) return null
+  const onKey = (e: React.KeyboardEvent) => {
+    if (!open) return
+    const els = [...(wrap.current?.querySelectorAll<HTMLElement>('[role=menuitem]:not(:disabled)') ?? [])]
+    const i = els.indexOf(document.activeElement as HTMLElement)
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      e.stopPropagation()
+      setOpen(false)
+      btn.current?.focus()
+    } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault()
+      const d = e.key === 'ArrowDown' ? 1 : -1
+      els[(i + d + els.length) % els.length]?.focus()
+    } else if (e.key === 'Tab') setOpen(false)
+  }
+  return (
+    <div className="menu-wrap bulk-more" ref={wrap} onKeyDown={onKey}>
+      <button
+        ref={btn}
+        type="button"
+        className="btn-icon"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        title="Protect, stack, compare, rename, share, export…"
+      >
+        <MoreHorizontal size={16} aria-hidden="true" /> More
+        <ChevronDown size={14} aria-hidden="true" />
+      </button>
+      {open && (
+        <div className="menu" role="menu" aria-label="More actions for the selection">
+          {items.map((m) => (
+            <button
+              key={m.key}
+              type="button"
+              role="menuitem"
+              tabIndex={-1}
+              disabled={m.disabled}
+              title={m.title}
+              onClick={() => {
+                setOpen(false)
+                m.run()
+              }}
+            >
+              <m.icon size={16} aria-hidden="true" />
+              {m.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 // actions that take the items out of this view: clear the selection after
 const LEAVES_VIEW = new Set(['trash', 'restore', 'hardDelete'])
@@ -163,7 +241,14 @@ export function BulkBar() {
     ids.length > 0 && caps.canEdit,
   )
 
-  if (ids.length === 0 || !caps.canEdit) return null
+  const busy = bulk.isPending
+  const stackItems = useStackActions(busy)
+  const creativeItems = useBulkCreativeMore(ids, busy)
+  const m45Items = useBulkM45More(ids, busy)
+
+  // one item selected: the info panel has every action; the bar is for
+  // two or more (B5). Delete still trashes a single selection (above).
+  if (ids.length < 2 || !caps.canEdit) return null
 
   const addTags = () => {
     const tags = tagText.split(',').map((t) => t.trim()).filter(Boolean)
@@ -173,25 +258,38 @@ export function BulkBar() {
     }
   }
 
-  const busy = bulk.isPending
+  const moreItems: BulkMenuItem[] = [
+    { key: 'protect', label: 'Protect', icon: Lock, disabled: busy, title: "Protected items can't be trashed or deleted until unprotected", run: () => run({ kind: 'protect', value: true }) },
+    ...(caps.canDestroy
+      ? [{ key: 'unprotect', label: 'Unprotect', icon: LockOpen, disabled: busy, run: () => run({ kind: 'protect', value: false }) }]
+      : []),
+    ...stackItems,
+    ...creativeItems,
+    ...m45Items,
+  ]
 
+  // one 40 px row docked under the grid (B5): count and clear, then Tag,
+  // Folder, Board, then Pick, Reject, Label, then More and Trash
   return (
     <div className="bulkbar" role="toolbar" aria-label="Selection actions">
       <span className="sel-count">{ids.length} selected</span>
+      <button className="icon-btn" onClick={clearSelection} aria-label="Clear selection" title="Clear selection (Esc)">
+        <X size={16} aria-hidden="true" />
+      </button>
 
       {!query.deleted && (
         <>
+          <span className="bulk-sep" aria-hidden="true" />
           <input
-            placeholder="Add tags (comma-sep)"
-            aria-label="Tags to add to the selected items, comma-separated"
+            className="bulk-tags"
+            placeholder="Tag…"
+            aria-label="Tags to add to the selected items, comma-separated; Enter adds them"
+            title="Tags to add, comma-separated; Enter adds them"
             value={tagText}
+            disabled={busy}
             onChange={(e) => setTagText(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && addTags()}
           />
-          <button onClick={addTags} disabled={busy || !tagText.trim()}>
-            Tag
-          </button>
-
           <select
             value=""
             aria-label="Add the selected items to a folder"
@@ -202,7 +300,7 @@ export function BulkBar() {
               else run({ kind: 'addFolder', folderId: e.target.value })
             }}
           >
-            <option value="">Add to folder…</option>
+            <option value="">Folder</option>
             <option value="__none__">(remove from all folders)</option>
             {(folders ?? []).map((f) => (
               <option key={f.id} value={f.id}>
@@ -210,35 +308,21 @@ export function BulkBar() {
               </option>
             ))}
           </select>
-
-          <button
-            className="btn-icon"
-            disabled={busy}
-            onClick={() => run({ kind: 'protect', value: true })}
-            title="Protected items can't be trashed or deleted until unprotected"
-          >
-            <Lock size={14} aria-hidden="true" />
-            Protect
-          </button>
-          {caps.canDestroy && (
-            <button className="btn-icon" disabled={busy} onClick={() => run({ kind: 'protect', value: false })}>
-              <LockOpen size={14} aria-hidden="true" />
-              Unprotect
-            </button>
-          )}
-
-          <StackActions disabled={busy} />
-
-          <button className="danger" disabled={busy} onClick={() => run({ kind: 'trash' })}>
+          <BulkBoardSelect ids={ids} busy={busy} />
+          <span className="bulk-sep" aria-hidden="true" />
+          <BulkFlags ids={ids} busy={busy} />
+          <span className="bulk-grow" />
+          <BulkMore items={moreItems} />
+          <button className="btn-icon danger" disabled={busy} onClick={() => run({ kind: 'trash' })}>
+            <Trash2 size={16} aria-hidden="true" />
             Trash
           </button>
-          <BulkCreative ids={ids} busy={busy} />
-          <BulkM45 ids={ids} busy={busy} />
         </>
       )}
 
       {query.deleted && (
         <>
+          <span className="bulk-grow" />
           <button disabled={busy} onClick={() => run({ kind: 'restore' })}>
             Restore
           </button>
@@ -250,11 +334,8 @@ export function BulkBar() {
         </>
       )}
 
-      <button className="icon-btn" onClick={clearSelection} aria-label="Clear selection" title="Clear selection">
-        <X size={16} aria-hidden="true" />
-      </button>
       <span className="working" role="status">
-        {busy ? 'working…' : ''}
+        {busy ? 'Working…' : ''}
       </span>
     </div>
   )

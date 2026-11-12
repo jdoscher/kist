@@ -43,6 +43,8 @@
   --ctl-radius: 6px;
   --ctl-pad-x: 8px;
   --settings-col: 640px;
+  /* the desktop sidebar; the top bar's search starts over the grid's edge */
+  --sidebar-w: 230px;
 }
 [data-density='compact'] {
   --tile-gap: 2px;
@@ -461,6 +463,83 @@ select:focus-visible {
   background: var(--chrome);
   border-bottom: 1px solid var(--chrome-line);
 }
+/* Desktop: one 48 px line (B2). Brand, then the search starting over the
+   grid's left edge (the sidebar's width plus the tiles' inset), a spacer,
+   Paste and Upload (the one brass control), a hairline, then the quiet
+   icons. The view controls live in the grid header. */
+.app-shell:not(.mobile) .topbar {
+  min-height: 48px;
+  padding: 0 12px;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+}
+.app-shell:not(.mobile) .topbar .brand {
+  flex: none;
+  width: calc(var(--sidebar-w) + 8px + var(--tile-gap) / 2 - 20px);
+  margin-right: 0;
+}
+.app-shell:not(.mobile) .topbar.no-sidebar .brand {
+  width: auto;
+  margin-right: 8px;
+}
+.app-shell:not(.mobile) .searchbox {
+  flex: 0 1 480px;
+  min-width: 200px;
+  flex-wrap: nowrap;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 4px 0 4px;
+}
+/* filter chips stay on the one line and scroll sideways */
+.app-shell:not(.mobile) .searchbox .chips {
+  display: flex;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 55%;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.app-shell:not(.mobile) .searchbox .chips::-webkit-scrollbar {
+  display: none;
+}
+.app-shell:not(.mobile) .searchbox input {
+  min-width: 60px;
+  height: 28px;
+}
+.topbar-spacer {
+  flex: 1;
+}
+.topbar-sep {
+  flex: none;
+  width: 1px;
+  height: 20px;
+  margin: 0 4px;
+  background: var(--chrome-line);
+}
+/* the palette's shortcut, a keycap inside the search box: opens it */
+.search-kbd {
+  flex: none;
+  height: 24px;
+  min-height: 24px;
+  padding: 0 2px;
+  background: none;
+  border: none;
+}
+.search-kbd kbd {
+  margin: 0;
+  padding: 0 5px;
+  border: 1px solid var(--chrome-line);
+  border-radius: 4px;
+  font-size: var(--fs-1);
+  line-height: 18px;
+  color: var(--text-dim);
+  background: none;
+}
+.search-kbd:hover kbd {
+  color: var(--text);
+  border-color: var(--field-border);
+}
 .brand {
   display: flex;
   align-items: center;
@@ -608,7 +687,7 @@ select:focus-visible {
 
 /* ---------- sidebar ---------- */
 .sidebar {
-  width: 230px;
+  width: var(--sidebar-w);
   flex-shrink: 0;
   background: var(--chrome);
   border-right: 1px solid var(--chrome-line);
@@ -772,6 +851,62 @@ select:focus-visible {
   margin: 2px 8px 6px;
   padding: 3px 8px;
 }
+/* tags as a wrapped chip cloud (B10b): 24 px neutral chips, the count
+   dim; pressed (filtering by it) = the selected-row fill */
+.tag-view-toggle {
+  display: inline-flex;
+  gap: 2px;
+}
+.section-head .tag-view-toggle .icon-btn {
+  width: 24px;
+  height: 24px;
+  min-height: 24px;
+  padding: 0;
+}
+.tag-cloud {
+  list-style: none;
+  margin: 0;
+  padding: 2px 8px 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.tag-cloud-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  min-height: 24px;
+  max-width: 100%;
+  padding: 0 9px;
+  border: none;
+  border-radius: 12px;
+  background: var(--chip-bg);
+  color: var(--chip-text);
+  font-size: var(--fs-2);
+  line-height: 1;
+}
+.tag-cloud-chip .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tag-cloud-chip .count {
+  color: var(--text-dim);
+  font-size: var(--fs-1);
+  font-variant-numeric: tabular-nums;
+}
+.tag-cloud-chip:hover {
+  background: var(--bg-hover);
+}
+.tag-cloud-chip[aria-pressed='true'] {
+  background: var(--accent-soft);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.tag-cloud-chip[aria-pressed='true'] .count {
+  color: var(--soft-dim);
+}
 .hint {
   color: var(--text-dim);
   padding: 4px 10px;
@@ -836,24 +971,77 @@ select:focus-visible {
 .grid-area.center {
   color: var(--canvas-dim);
 }
+/* The grid header (B2, B7): the view's serif title and its count on the
+   left, the view controls (tile shape, size, type, filters, rating, sort)
+   on the right, on the tiles' left edge (scroll padding + half a gap). */
+.grid-area {
+  container: grid-area / inline-size;
+}
 .grid-meta {
-  padding: 6px 14px;
+  padding: 12px 12px 10px calc(8px + var(--tile-gap) / 2);
   color: var(--canvas-dim);
-  font-size: var(--fs-1);
+  font-size: var(--fs-2);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 6px 16px;
+}
+.grid-heading {
+  min-width: 0;
+}
+.grid-title-row {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 0 8px;
+  gap: 0 10px;
 }
-.grid-title {
-  margin: 0;
-  font-size: var(--fs-2);
-  font-weight: 600;
+.grid-meta .grid-title {
   color: var(--canvas-text);
+  overflow-wrap: anywhere;
+}
+.grid-meta .title-count,
+.grid-meta .title-eyebrow,
+.grid-refreshing {
+  color: var(--canvas-dim);
+}
+.grid-refreshing {
+  font-size: var(--fs-1);
+}
+.grid-meta .view-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px 6px;
+  margin-left: auto;
+  color: var(--text);
+}
+/* narrow (info panel open on a small window): icons and values only */
+@container grid-area (max-width: 760px) {
+  .grid-meta .size-label > span,
+  .grid-meta .filters-btn .btn-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .grid-meta .size-slider {
+    width: 64px;
+  }
+}
+.grid-status {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--canvas-dim);
 }
 .view-subtitle {
   flex-basis: 100%;
   margin: 2px 0 0;
+  font-size: var(--fs-1);
 }
 .grid-scroll {
   flex: 1;
@@ -861,26 +1049,48 @@ select:focus-visible {
   padding: 0 8px 80px;
   scroll-padding-bottom: 80px;
 }
+/* Empty states (B17): a centred column a little above the middle: the
+   outline mark, one serif line (22ch at most), one dim line, one action */
 .grid-empty {
   position: absolute;
-  top: 25%;
+  top: calc(72px + 10vh);
   left: 0;
   right: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   padding: 0 24px;
   text-align: center;
   color: var(--canvas-dim);
 }
-.grid-empty p {
+.grid-empty .outline-mark {
+  width: 72px;
+  height: 72px;
+  margin-bottom: 4px;
+  color: var(--canvas-dim);
+  opacity: 0.7;
+}
+.outline-mark .dot {
+  fill: var(--accent);
+}
+.grid-empty .empty-title {
   margin: 0;
-  max-width: 460px;
+  max-width: 22ch;
   font-family: var(--font-display);
-  font-size: var(--fs-4);
-  line-height: 1.35;
+  font-weight: 400;
+  font-size: var(--fs-5);
+  line-height: 1.15;
   color: var(--canvas-text);
+  text-wrap: balance;
+}
+.grid-empty .empty-hint {
+  margin: 0 0 4px;
+  max-width: 40ch;
+  font-size: var(--fs-2);
+  line-height: 1.5;
+  color: var(--canvas-dim);
+  text-wrap: pretty;
 }
 .grid-row {
   position: absolute;
@@ -898,8 +1108,9 @@ select:focus-visible {
   margin: calc(var(--tile-gap) / 2);
   border-radius: var(--tile-radius);
   overflow: hidden;
-  /* the placeholder (thumbhash or dominant colour) is set inline */
-  background-color: var(--bg-raised);
+  /* the placeholder (thumbhash or dominant colour) is set inline; with
+     neither, --tile-wait keeps the tile visible while it loads (A7) */
+  background-color: var(--tile-wait);
   background-size: cover;
   background-position: center;
   color: var(--text);
@@ -1025,10 +1236,67 @@ select:focus-visible {
   align-items: center;
   gap: 1px;
 }
+/* Loading (A7): a slow, faint sheen over the placeholder until the
+   thumbnail has arrived, and no badges floating on an empty tile. A
+   thumbnail that fails (img.failed) stops both. */
+.tile:has(> img:not(.loaded):not(.failed))::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent 30%, #ffffff14 50%, transparent 70%) no-repeat;
+  background-size: 250% 100%;
+  animation: tile-sheen 1.4s linear infinite;
+}
+@keyframes tile-sheen {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -150% 0;
+  }
+}
+.tile:has(> img:not(.loaded):not(.failed)) .badge {
+  visibility: hidden;
+}
+/* Quiet tiles (B1): the rating is one star and a number on the caption
+   strip, shown on hover, keyboard focus and selection, or on every tile
+   while filtering or sorting by rating (.ratings-shown, query.ts
+   ratingsShown). Brass stays the rating colour (brand.md brass budget). */
 .tile .badge.rating {
   top: auto;
-  bottom: 28px;
+  bottom: 4px;
+  right: 6px;
+  gap: 3px;
+  padding: 1px 6px 1px 4px;
   color: #e8b04b;
+  opacity: 0;
+  transition:
+    opacity var(--dur-1) var(--ease),
+    background-color var(--dur-1) var(--ease);
+}
+.tile:hover .badge.rating,
+.tile:focus-visible .badge.rating,
+.tile.selected .badge.rating,
+.ratings-shown .tile .badge.rating {
+  opacity: 1;
+}
+/* over the caption's gradient it needs no pill of its own */
+.tile:hover .badge.rating,
+.tile:focus-visible .badge.rating {
+  background-color: transparent;
+}
+.tile.rated .tile-caption {
+  padding-right: 48px;
+}
+/* compact density has no caption strip: the pill stays */
+[data-density='compact'] .tile:hover .badge.rating,
+[data-density='compact'] .tile:focus-visible .badge.rating {
+  background-color: rgba(0, 0, 0, 0.7);
+}
+/* phone tiles carry no ratings (B1, B18): the item sheet shows them */
+.mobile .tile .badge.rating {
+  display: none;
 }
 .tile-caption {
   position: absolute;
@@ -1049,29 +1317,49 @@ select:focus-visible {
   display: none;
 }
 [data-density='compact'] .tile .badge.rating {
-  bottom: 4px;
+  bottom: 2px;
+  right: 2px;
 }
 .tile:hover .tile-caption,
 .tile:focus-visible .tile-caption {
   opacity: 1;
 }
 
-/* ---------- bulk bar ---------- */
+/* ---------- bulk bar ----------
+   Two or more selected (B5): one 40 px row docked under the grid, in the
+   flow (the grid gets shorter, nothing hides under it), on the canvas
+   with a hairline above; no float, no shadow. */
 .bulkbar {
-  position: absolute;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
+  flex: none;
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 8px 12px;
-  box-shadow: 0 8px 30px var(--shadow);
-  z-index: 40;
+  gap: 4px;
+  height: 40px;
+  padding: 0 12px 0 calc(8px + var(--tile-gap) / 2);
+  background: var(--chrome);
+  border-top: 1px solid var(--chrome-line);
+  color: var(--text);
   white-space: nowrap;
+  z-index: 4;
+}
+.bulkbar .sel-count {
+  margin-right: 2px;
+}
+.bulkbar .bulk-tags {
+  width: 110px;
+  min-width: 72px;
+}
+.bulkbar select {
+  width: 104px;
+  min-width: 0;
+}
+.bulk-grow {
+  flex: 1;
+}
+.bulkbar .bulk-more .menu {
+  top: auto;
+  bottom: calc(100% + 4px);
+  animation-name: float-up;
 }
 .sel-count {
   font-weight: 600;
@@ -1498,9 +1786,6 @@ select:focus-visible {
    Each select is as wide as the option it shows (TopBar useFitSelect,
    fitSelect.ts PHONE_ROW keeps the same numbers): at the defaults the row
    is 372 of 374 px; longer picks shrink the selects, never wrap the row */
-.view-row {
-  display: contents;
-}
 .mobile .view-row {
   display: flex;
   align-items: center;
@@ -2069,12 +2354,15 @@ select:focus-visible {
 @media (max-width: 900px) {
   .app-shell:not(.mobile) .topbar {
     flex-wrap: wrap;
+    padding-top: 6px;
+    padding-bottom: 6px;
   }
   .app-shell:not(.mobile) .searchbox {
-    flex-basis: 220px;
+    flex-basis: 260px;
+    min-width: 240px;
   }
-  .app-shell:not(.mobile) .sidebar {
-    width: 180px;
+  :root {
+    --sidebar-w: 180px;
   }
   .app-shell:not(.mobile) .detail-panel {
     width: 220px;
@@ -2082,7 +2370,10 @@ select:focus-visible {
   .app-shell:not(.mobile) .bulkbar {
     flex-wrap: wrap;
     white-space: normal;
-    width: calc(100% - 24px);
+    height: auto;
+    min-height: 40px;
+    padding-top: 4px;
+    padding-bottom: 4px;
   }
 }
 @media (max-width: 600px) {
@@ -2241,6 +2532,11 @@ select:focus-visible {
   ::view-transition-old(*),
   ::view-transition-new(*) {
     animation: none !important;
+  }
+  /* the loading tile stays a flat --tile-wait, no sheen */
+  .tile::after {
+    animation: none !important;
+    background: none !important;
   }
 }
 

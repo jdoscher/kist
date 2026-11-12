@@ -34,7 +34,8 @@ test('the CSS uses the numbers fitSelect.ts budgets with', () => {
   assert.match(sel, /flex: 0 1 auto/) // shrinks when a long pick needs it, never grows
   assert.match(block(css, '.mobile .view-row'), new RegExp(`gap: ${PHONE_ROW.gap}px`))
   assert.match(block(css, '.mobile .view-row'), /display: flex/) // one line: no wrap onto a third row
-  assert.match(block(css, '.view-row'), /display: contents/) // desktop unchanged
+  // desktop: the same controls are the grid header's right-hand group (B2)
+  assert.match(block(css, '.grid-meta .view-row'), /display: flex/)
   assert.match(block(css, '.mobile .layout-toggle'), new RegExp(`width: ${PHONE_ROW.layoutToggle}px`))
   assert.match(block(css, '.mobile .view-row .filters-btn'), new RegExp(`min-width: ${PHONE_ROW.filters}px`))
   // the stepper's 26 px buttons must out-rank styles.css's 34 px

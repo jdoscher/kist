@@ -13,7 +13,7 @@ function memStore() {
 }
 
 test('defaults when nothing is stored or storage is unavailable', () => {
-  const want = { panelOpen: true, gridLayout: 'justified', tileSize: 200, mobileCols: 3, theme: 'system', density: 'comfortable' }
+  const want = { panelOpen: true, gridLayout: 'justified', tileSize: 200, mobileCols: 3, theme: 'system', density: 'comfortable', tagView: 'chips' }
   assert.deepEqual(readPrefs(memStore()), want)
   assert.deepEqual(readPrefs(null), want)
   const throwing = {
@@ -41,10 +41,21 @@ test('prefs round-trip and bad values are clamped', () => {
     mobileCols: 2,
     theme: 'system',
     density: 'comfortable',
+    tagView: 'chips',
   })
   assert.equal(s.m.get('kist.panelOpen'), '0') // same keys as before the split
   s.m.set('kist.tileSize', 'banana')
   assert.equal(readPrefs(s).tileSize, 200)
   assert.equal(clampSize(9999), 400)
   assert.equal(clampSize(10), 120)
+})
+
+test('the sidebar remembers tags as chips or as a list', () => {
+  const s = memStore()
+  assert.equal(readPrefs(s).tagView, 'chips')
+  savePref('tagView', 'list', s)
+  assert.equal(s.m.get('kist.tagView'), 'list')
+  assert.equal(readPrefs(s).tagView, 'list')
+  s.m.set('kist.tagView', 'cloud?')
+  assert.equal(readPrefs(s).tagView, 'chips')
 })

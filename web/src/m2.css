@@ -204,6 +204,32 @@
 .tile .badge.match ~ .badge.stack {
   top: 30px;
 }
+/* Stacks look like stacks (B16): a closed stack's entry has a second
+   sheet 4 px up and right behind it, with a --field-border edge (3:1 on
+   the canvas, so the cue stands on its own: contrast.ts). Box shadows,
+   because the tile clips its children. The count badge shows on hover,
+   focus and selection; compact density (2 px gaps, no room for the
+   sheet) keeps the badge instead. */
+.tile.stacked {
+  box-shadow:
+    4px -4px 0 -1px var(--tile-wait),
+    4px -4px 0 0 var(--field-border);
+}
+.tile.stacked .badge.stack {
+  opacity: 0;
+  transition: opacity var(--dur-1) var(--ease);
+}
+.tile.stacked:hover .badge.stack,
+.tile.stacked:focus-visible .badge.stack,
+.tile.stacked.selected .badge.stack {
+  opacity: 1;
+}
+[data-density='compact'] .tile.stacked {
+  box-shadow: none;
+}
+[data-density='compact'] .tile.stacked .badge.stack {
+  opacity: 1;
+}
 .tile .badge.stack.open {
   background: var(--canvas-focus);
   color: var(--on-accent);

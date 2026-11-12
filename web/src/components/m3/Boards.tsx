@@ -153,7 +153,14 @@ export function SidebarCull() {
       )}
       {flagRow('pick', 'Picks', <Flag {...ICON} />)}
       {flagRow('reject', 'Rejects', <Ban {...ICON} />)}
-      <div className="label-filter" role="group" aria-label="Filter by colour label">
+      {/* colour labels: their own section, small ringed dots (B10a) */}
+      <div className="section-head" style={{ marginTop: 16 }}>
+        <h2 id="sidebar-labels-head">Labels</h2>
+      </div>
+      <div className="label-filter" role="group" aria-labelledby="sidebar-labels-head" aria-describedby="sidebar-labels-hint">
+        <span id="sidebar-labels-hint" className="sr-only">
+          Show only items with a colour label
+        </span>
         {LABELS.map((l) => {
           const active = query.label === l.id && !screen
           return (

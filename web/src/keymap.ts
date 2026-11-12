@@ -169,3 +169,9 @@ export function keymapMarkdown(map: Record<KeyContext, Binding[]> = KEYMAP): str
   }
   return lines.join('\n').trimEnd() + '\n'
 }
+
+/** The palette key's modifier as a keycap shows it: ⌘ on Apple devices,
+ * "Ctrl " elsewhere (the search box's ⌘K hint, B2). */
+export function modKeyLabel(platform: string = typeof navigator !== 'undefined' ? navigator.platform || navigator.userAgent : ''): string {
+  return /Mac|iPhone|iPad|iPod/i.test(platform) ? '⌘' : 'Ctrl '
+}

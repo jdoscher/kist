@@ -7,6 +7,7 @@ import { useCaps, useTags } from '../data'
 import { useAppState } from '../state'
 import type { ItemKind } from '../api'
 import { PHONE_COLS, stepCols } from '../zoom'
+import { modKeyLabel } from '../keymap'
 import { AppearanceMenu } from './Appearance'
 import { Mark, Wordmark } from './Brand'
 import { PasteButton } from './PasteButton'
@@ -109,14 +110,8 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
     setQuery,
     panelOpen,
     setPanelOpen,
-    gridLayout,
-    setGridLayout,
-    tileSize,
-    setTileSize,
     openDrawer,
     drawerOpen,
-    mobileCols,
-    setMobileCols,
     density,
     chromeShown,
     setChromeShown,
@@ -133,11 +128,6 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
   const mode = modeOf(query, prefMode)
   const [colourOpen, setColourOpen] = useState(false)
   const img = useImageSearch((image) => setQuery({ image, q: '', semantic: '', text: '', similar: null, color: null }))
-  const ranked = isRanked(query)
-  // phone: each select as wide as the option it shows (fitSelect.ts)
-  const typeFit = useFitSelect(mobile, query.type ?? '')
-  const ratingFit = useFitSelect(mobile, String(query.rating))
-  const sortFit = useFitSelect(mobile, ranked ? '__best' : query.order)
   const [open, setOpen] = useState(false)
   const [hilite, setHilite] = useState(0)
   const boxRef = useRef<HTMLDivElement>(null)
@@ -240,7 +230,7 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
   }
 
   return (
-    <header className="topbar">
+    <header className={`topbar${density === 'gallery' && !chromeShown ? ' no-sidebar' : ''}`}>
       <h1 className="sr-only">Kist library</h1>
       {mobile && (
         <button
@@ -356,6 +346,20 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
         >
           <ImageUp size={16} aria-hidden="true" />
         </button>
+        {/* desktop: the palette's shortcut as a keycap inside the box;
+            clicking it opens the palette (B2) */}
+        {!mobile && (
+          <button
+            type="button"
+            className="search-kbd"
+            onClick={creative.openPalette}
+            aria-label="Go to or do anything (⌘K)"
+            title="Go to or do anything (⌘K)"
+            aria-keyshortcuts="Meta+K Control+K"
+          >
+            <kbd>{modKeyLabel()}K</kbd>
+          </button>
+        )}
         {img.input}
         {colourOpen && (
           <ColourPicker
@@ -370,16 +374,104 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
         )}
       </div>
 
-      <button className="icon-btn topbar-icon palette-btn" onClick={creative.openPalette} aria-label="Go to or do anything (⌘K)" title="Go to or do anything (⌘K)" aria-keyshortcuts="Meta+K Control+K">
-        <Command size={16} aria-hidden="true" />
-      </button>
+      {mobile && (
+        <button className="icon-btn topbar-icon palette-btn" onClick={creative.openPalette} aria-label="Go to or do anything (⌘K)" title="Go to or do anything (⌘K)" aria-keyshortcuts="Meta+K Control+K">
+          <Command size={16} aria-hidden="true" />
+        </button>
+      )}
       {/* a phone's second row is full: share/export sits beside the palette */}
       {mobile && <ViewShareMenu />}
 
       {mobile && <div className="topbar-break" />}
 
-      {/* one row on a phone (no wrapping; display: contents on desktop) */}
-      <div className="view-row">
+      {/* the phone's second row; on a desktop these live in the grid's
+          header (Grid.tsx), next to what they change (B2) */}
+      {mobile && <ViewControls mobile />}
+
+      {!mobile && (
+        <>
+      <span className="topbar-spacer" />
+      {caps.canEdit && (
+        <>
+          <PasteButton />
+          <button className="btn-primary btn-icon" onClick={() => fileRef.current?.click()}>
+            <Upload size={16} aria-hidden="true" />
+            Upload
+          </button>
+        </>
+      )}
+      <input
+        ref={fileRef}
+        type="file"
+        multiple
+        hidden
+        aria-hidden="true"
+        tabIndex={-1}
+        onChange={(e) => {
+          if (e.target.files?.length) uploads.enqueue(Array.from(e.target.files))
+          e.target.value = ''
+        }}
+      />
+      {caps.canEdit && <span className="topbar-sep" aria-hidden="true" />}
+      {density === 'gallery' ? (
+        <button
+          className={`panel-toggle btn-icon ${chromeShown ? 'on' : ''}`}
+          onClick={() => setChromeShown(!chromeShown)}
+          title={chromeShown ? 'Hide the sidebar and info panel' : 'Show the sidebar and info panel'}
+          aria-pressed={chromeShown}
+        >
+          <PanelsLeftRight size={16} aria-hidden="true" />
+          Panels
+        </button>
+      ) : (
+        <button
+          className={`panel-toggle btn-icon ${panelOpen ? 'on' : ''}`}
+          onClick={() => setPanelOpen(!panelOpen)}
+          title={panelOpen ? 'Hide the info panel' : 'Show the info panel'}
+          aria-pressed={panelOpen}
+        >
+          <Info size={16} aria-hidden="true" />
+          Info
+        </button>
+      )}
+      {caps.canEdit && (
+        <button
+          className="icon-btn topbar-icon"
+          onClick={() => setRecentOpen(true)}
+          aria-label="Recent changes"
+          title="Recent changes and undo (⌘Z / Ctrl+Z)"
+          aria-keyshortcuts="Meta+Z Control+Z"
+        >
+          <History size={16} aria-hidden="true" />
+        </button>
+      )}
+      <ViewShareMenu />
+      <AppearanceMenu />
+      {caps.isAdmin && (
+        <button className="icon-btn topbar-icon" onClick={() => openSettings()} aria-label="Settings" title="Settings: tokens, archive health, AI">
+          <Settings size={16} aria-hidden="true" />
+        </button>
+      )}
+        </>
+      )}
+    </header>
+  )
+}
+
+/**
+ * The view controls: tile shape, size, type, filters, rating, sort (B2).
+ * On a desktop they sit in the grid header, right of the title; on a phone
+ * they're the top bar's second row (one line, no wrapping).
+ */
+export function ViewControls({ mobile = false }: { mobile?: boolean }) {
+  const { query, setQuery, gridLayout, setGridLayout, tileSize, setTileSize, mobileCols, setMobileCols } = useAppState()
+  const ranked = isRanked(query)
+  // phone: each select as wide as the option it shows (fitSelect.ts)
+  const typeFit = useFitSelect(mobile, query.type ?? '')
+  const ratingFit = useFitSelect(mobile, String(query.rating))
+  const sortFit = useFitSelect(mobile, ranked ? '__best' : query.order)
+  return (
+      <div className="view-row" role="group" aria-label="View options">
       <div className="view-controls">
         {mobile ? (
           // the phone row has room for one button: it steps Rows -> Square -> Columns
@@ -500,72 +592,6 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
         ))}
       </select>
       </div>
-
-      {!mobile && (
-        <>
-      {caps.canEdit && (
-        <>
-          <PasteButton />
-          <button className="btn-primary btn-icon" onClick={() => fileRef.current?.click()}>
-            <Upload size={16} aria-hidden="true" />
-            Upload
-          </button>
-        </>
-      )}
-      <input
-        ref={fileRef}
-        type="file"
-        multiple
-        hidden
-        aria-hidden="true"
-        tabIndex={-1}
-        onChange={(e) => {
-          if (e.target.files?.length) uploads.enqueue(Array.from(e.target.files))
-          e.target.value = ''
-        }}
-      />
-      {density === 'gallery' ? (
-        <button
-          className={`panel-toggle btn-icon ${chromeShown ? 'on' : ''}`}
-          onClick={() => setChromeShown(!chromeShown)}
-          title={chromeShown ? 'Hide the sidebar and info panel' : 'Show the sidebar and info panel'}
-          aria-pressed={chromeShown}
-        >
-          <PanelsLeftRight size={16} aria-hidden="true" />
-          Panels
-        </button>
-      ) : (
-        <button
-          className={`panel-toggle btn-icon ${panelOpen ? 'on' : ''}`}
-          onClick={() => setPanelOpen(!panelOpen)}
-          title={panelOpen ? 'Hide the info panel' : 'Show the info panel'}
-          aria-pressed={panelOpen}
-        >
-          <Info size={16} aria-hidden="true" />
-          Info
-        </button>
-      )}
-      {caps.canEdit && (
-        <button
-          className="icon-btn topbar-icon"
-          onClick={() => setRecentOpen(true)}
-          aria-label="Recent changes"
-          title="Recent changes and undo (⌘Z / Ctrl+Z)"
-          aria-keyshortcuts="Meta+Z Control+Z"
-        >
-          <History size={16} aria-hidden="true" />
-        </button>
-      )}
-      <ViewShareMenu />
-      <AppearanceMenu />
-      {caps.isAdmin && (
-        <button className="icon-btn topbar-icon" onClick={() => openSettings()} aria-label="Settings" title="Settings: tokens, archive health, AI">
-          <Settings size={16} aria-hidden="true" />
-        </button>
-      )}
-        </>
-      )}
-    </header>
   )
 }
 
