@@ -74,6 +74,20 @@ export const PAIRS: [string, string, number, string][] = [
   ['canvas-text', 'canvas', 4.5, 'grid heading on the canvas'],
   ['canvas-dim', 'canvas', 4.5, 'grid counts on the canvas'],
   ['canvas-focus', 'canvas', 3, 'tile focus ring'],
+  ['preview-text', 'preview-bg', 4.5, 'text in the full-screen preview'],
+  ['preview-dim', 'preview-bg', 4.5, 'secondary text in the preview'],
+  ['preview-accent', 'preview-bg', 4.5, 'links and focus ring in the preview'],
+  ['preview-text', 'preview-raised', 4.5, 'preview buttons'],
+  ['preview-text', 'preview-hover', 4.5, 'preview buttons, hover'],
+  ['preview-text', 'preview-active', 4.5, 'preview buttons, pressed'],
+  ['preview-accent', 'preview-raised', 3, 'focus ring on preview buttons'],
+  ['preview-line', 'preview-bg', 3, 'field outline in the preview'],
+  ['preview-on-accent', 'preview-accent', 4.5, 'primary button in the preview'],
+  ['preview-text', 'preview-panel', 4.5, 'notes panel text'],
+  ['preview-dim', 'preview-panel', 4.5, 'notes panel secondary text'],
+  ['preview-danger', 'preview-panel', 4.5, 'error text in the notes panel'],
+  ['preview-text', 'preview-soft', 4.5, 'selected chip in the preview'],
+  ['preview-soft-dim', 'preview-soft', 4.5, 'counts on a selected chip in the preview'],
 ]
 
 export interface Check {

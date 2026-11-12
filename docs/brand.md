@@ -99,8 +99,8 @@ which also replaces the old star yellow. All colours are CSS variables in
 | success | #5FC48A | #1E7A46 | #A8F0C4 |
 | chrome (top bar, side panels) | #1C1C1A | #FFFFFF | #5C5C5C |
 | chrome line (chrome / images edge) | #34332F | #E2DFD8 | white 28 % (#FFFFFF47) |
-| canvas (image surround) | #131312 | #FAF9F6 | #5C5C5C |
-| preview surround | #0D0D0C | #0D0D0C | #5C5C5C |
+| canvas (image surround) | #131312 | #ECECEC | #5C5C5C |
+| preview surround (`preview-bg`) | #0D0D0C | #5C5C5C | #5C5C5C |
 
 - **Gallery grey** is for judging colour: one neutral mid-grey (#5C5C5C)
   behind everything, top bar, side panels, grid and full-screen preview
@@ -110,8 +110,19 @@ which also replaces the old star yellow. All colours are CSS variables in
   menus and dialogs, which float, step darker. (Until Nov 2026 the canvas was
   the 18 % grey #767676, but on that grey only pure white text passes AA, so
   one surface there would have cost the brass links and coloured error text.)
-- The full-screen preview stays dark in the light theme, the way photo apps
-  do, so images are always judged against the same surround.
+- **Light theme: neutral canvas, grey preview.** The chrome (top bar,
+  sidebar, panels) stays warm paper, but the image canvas is a neutral
+  #ECECEC: a warm near-white surround makes photos look cooler and darker
+  than they are. The full-screen preview in light is the gallery grey
+  #5C5C5C with gallery's preview colours, not near-black: jumping from
+  paper to #0D0D0C was hard on the eye, and the mid-grey is the neutral
+  surround photo apps offer for judging. This reverses the earlier "the
+  preview always stays dark" rule; Jay approved it in the Nov 2026
+  aesthetic pass. Dark keeps its near-black preview.
+- **Preview tokens.** The preview and compare/survey overlays take their
+  colours from `--preview-*` in themes.css (text, dim, accent, buttons,
+  notes panel, field line, danger), contrast-checked like everything else,
+  instead of hard-coded overrides.
 - **Browser and launch colours.** The `theme-color` meta (the phone's
   status bar) is each theme's `chrome` (`THEME_COLOR` in `theme.ts`), and
   `public/theme-init.js` paints `<html>` in the theme's `bg` before the
@@ -158,11 +169,25 @@ parts and focus indicators (1.4.11, 2.4.11/2.4.13).
 | done marker (`success` on `bg-raised`) | 3 | 7.92 | 5.35 | 5.57 |
 | warning icon (`warn` on `bg-raised`) | 3 | 8.73 | 5.87 | 4.94 |
 | info text (`info` on `bg-raised`) | 4.5 | 7.90 | 6.09 | 5.25 |
-| grid heading on the canvas (`canvas-text` on `canvas`) | 4.5 | 15.45 | 16.35 | 6.13 |
-| grid counts on the canvas (`canvas-dim` on `canvas`) | 4.5 | 6.60 | 6.25 | 5.26 |
-| tile focus ring (`canvas-focus` on `canvas`) | 3 | 9.51 | 5.58 | 4.50 |
+| grid heading on the canvas (`canvas-text` on `canvas`) | 4.5 | 15.45 | 14.57 | 6.13 |
+| grid counts on the canvas (`canvas-dim` on `canvas`) | 4.5 | 6.60 | 5.57 | 5.26 |
+| tile focus ring (`canvas-focus` on `canvas`) | 3 | 9.51 | 4.97 | 4.50 |
+| text in the full-screen preview (`preview-text` on `preview-bg`) | 4.5 | 16.16 | 6.69 | 6.69 |
+| secondary text in the preview (`preview-dim` on `preview-bg`) | 4.5 | 9.16 | 6.69 | 6.69 |
+| links and focus ring in the preview (`preview-accent` on `preview-bg`) | 4.5 | 9.95 | 6.69 | 6.69 |
+| preview buttons (`preview-text` on `preview-raised`) | 4.5 | 14.19 | 10.86 | 10.86 |
+| preview buttons, hover (`preview-text` on `preview-hover`) | 4.5 | 12.44 | 9.29 | 9.29 |
+| preview buttons, pressed (`preview-text` on `preview-active`) | 4.5 | 10.97 | 7.94 | 7.94 |
+| focus ring on preview buttons (`preview-accent` on `preview-raised`) | 3 | 8.73 | 10.86 | 10.86 |
+| field outline in the preview (`preview-line` on `preview-bg`) | 3 | 3.70 | 3.56 | 3.56 |
+| primary button in the preview (`preview-on-accent` on `preview-accent`) | 4.5 | 9.36 | 18.88 | 18.88 |
+| notes panel text (`preview-text` on `preview-panel`) | 4.5 | 15.45 | 13.58 | 13.58 |
+| notes panel secondary text (`preview-dim` on `preview-panel`) | 4.5 | 8.76 | 13.58 | 13.58 |
+| error text in the notes panel (`preview-danger` on `preview-panel`) | 4.5 | 6.50 | 9.79 | 9.79 |
+| selected chip in the preview (`preview-text` on `preview-soft`) | 4.5 | 10.64 | 7.46 | 7.46 |
+| counts on a selected chip in the preview (`preview-soft-dim` on `preview-soft`) | 4.5 | 7.08 | 7.46 | 7.46 |
 
-all 93 pairs pass
+all 135 pairs pass
 
 Selected tiles use brass corners with a 1 px black halo plus a check badge
 (brass on #1A1408 outline), so the state reads on any image; the keyboard

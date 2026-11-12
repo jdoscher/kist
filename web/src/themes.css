@@ -3,15 +3,19 @@
  * parses this file), so keep one `--name: #hex;` per line, hex only.
  *
  * dark    – the default for dark-mode devices: near-neutral greys, brass accent
- * light   – warm paper; brass deepens to #8C5A00 so it passes on white
+ * light   – warm paper chrome around a neutral #ececec image canvas (a warm
+ *           near-white surround makes photos look cooler); brass deepens to
+ *           #8C5A00 so it passes on white
  * gallery – one neutral mid-grey (#5c5c5c) for the chrome and the image canvas
  *           alike, for judging colour; a thin light pinstripe (--chrome-line)
  *           marks where the top bar and side panels meet the images
  *
  * --canvas is the surround of the images (grid and preview); --bg* are the
  * chrome; --chrome / --chrome-line are the top bar and side panels and the
- * line between them and the images. The full-screen preview stays dark in light mode, the way photo
- * apps do, so images are judged against the same surround. */
+ * line between them and the images. --preview-* is the full-screen preview
+ * (and compare/survey) surround with its own text and button colours: near
+ * black in dark, the gallery mid-grey in gallery AND light (a jump from
+ * paper to near-black was hard on the eye; Jay approved, Nov 2026). */
 
 :root,
 [data-theme='dark'] {
@@ -45,6 +49,19 @@
   --canvas-dim: #9c9a93;
   --canvas-focus: #e8b04b;
   --preview-bg: #0d0d0c;
+  --preview-text: #eceae4;
+  --preview-dim: #b4b2ab;
+  --preview-accent: #e8b04b;
+  --preview-on-accent: #1a1408;
+  --preview-soft: #3a3121;
+  --preview-soft-dim: #c9c0ad;
+  --preview-raised: #1c1c1a;
+  --preview-hover: #272725;
+  --preview-active: #31302d;
+  --preview-panel: #131312;
+  --preview-border: #34332f;
+  --preview-line: #6e6c66;
+  --preview-danger: #f2716a;
   --scrim: #000000a0;
   --shadow: #00000080;
 }
@@ -75,11 +92,24 @@
   --info: #1f5fbf;
   --chrome: #ffffff;
   --chrome-line: #e2dfd8;
-  --canvas: #faf9f6;
+  --canvas: #ececec;
   --canvas-text: #1c1b19;
   --canvas-dim: #5f5d57;
   --canvas-focus: #8c5a00;
-  --preview-bg: #0d0d0c;
+  --preview-bg: #5c5c5c;
+  --preview-text: #ffffff;
+  --preview-dim: #ffffff;
+  --preview-accent: #ffffff;
+  --preview-on-accent: #111111;
+  --preview-soft: #555555;
+  --preview-soft-dim: #ffffff;
+  --preview-raised: #3d3d3d;
+  --preview-hover: #474747;
+  --preview-active: #515151;
+  --preview-panel: #2e2e2e;
+  --preview-border: #5a5a5a;
+  --preview-line: #bdbdbd;
+  --preview-danger: #ffd0cc;
   --scrim: #1c1b1966;
   --shadow: #1c1b1929;
 }
@@ -115,6 +145,19 @@
   --canvas-dim: #e4e4e4;
   --canvas-focus: #f6cf7e;
   --preview-bg: #5c5c5c;
+  --preview-text: #ffffff;
+  --preview-dim: #ffffff;
+  --preview-accent: #ffffff;
+  --preview-on-accent: #111111;
+  --preview-soft: #555555;
+  --preview-soft-dim: #ffffff;
+  --preview-raised: #3d3d3d;
+  --preview-hover: #474747;
+  --preview-active: #515151;
+  --preview-panel: #2e2e2e;
+  --preview-border: #5a5a5a;
+  --preview-line: #bdbdbd;
+  --preview-danger: #ffd0cc;
   --scrim: #000000a0;
   --shadow: #00000080;
 }

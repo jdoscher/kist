@@ -292,22 +292,22 @@ button.on,
   }
 }
 
-/* ---------- compare / survey (a dark surround, like the preview) ---------- */
+/* ---------- compare / survey (the preview's surround and colours) ---------- */
 .compare-overlay {
-  --text: #eceae4;
-  --text-dim: #b4b2ab;
-  --accent: #e8b04b;
-  --accent-soft: #3a3121;
-  --soft-dim: #c9c0ad;
-  --on-accent: #1a1408;
-  --bg: #131312;
-  --bg-raised: #1c1c1a;
-  --bg-hover: #272725;
-  --bg-active: #31302d;
-  --border: #34332f;
-  --field-border: #6e6c66;
-  --focus: #e8b04b;
-  --danger: #f2716a;
+  --text: var(--preview-text);
+  --text-dim: var(--preview-dim);
+  --accent: var(--preview-accent);
+  --accent-soft: var(--preview-soft);
+  --soft-dim: var(--preview-soft-dim);
+  --on-accent: var(--preview-on-accent);
+  --bg: var(--preview-panel);
+  --bg-raised: var(--preview-raised);
+  --bg-hover: var(--preview-hover);
+  --bg-active: var(--preview-active);
+  --border: var(--preview-border);
+  --field-border: var(--preview-line);
+  --focus: var(--preview-accent);
+  --danger: var(--preview-danger);
   --danger-bg: #4a1d1a;
   --danger-on: #ffd9d6;
   color-scheme: dark;
@@ -2106,19 +2106,14 @@ body.board-space .board-viewport,
   text-overflow: ellipsis;
 }
 
-/* the preview's dark surround: tokens the notes panel needs beyond styles.css's */
+/* the preview's surround: tokens the notes panel needs beyond styles.css's */
 .preview-overlay {
-  --on-accent: #1a1408;
-  --accent-soft: #3a3121;
-  --border: #34332f;
-  --bg: #131312;
-  --danger: #f2716a;
-}
-[data-theme='gallery'] .preview-overlay {
-  --on-accent: #111111;
-  --accent-soft: #555555;
-  --border: #5a5a5a;
-  --bg: #2e2e2e;
+  --on-accent: var(--preview-on-accent);
+  --accent-soft: var(--preview-soft);
+  --soft-dim: var(--preview-soft-dim);
+  --border: var(--preview-border);
+  --bg: var(--preview-panel);
+  --danger: var(--preview-danger);
 }
 /* with the loupe on, the pins let the pointer through to the image */
 .ann-media.loupe-on .ann-mark {
