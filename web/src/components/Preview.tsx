@@ -2,7 +2,7 @@ import { ChevronLeft, ChevronRight, ExternalLink, X } from 'lucide-react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fileUrl, thumbUrl, type Item } from '../api'
 import { swipeDirection } from '../mobile'
-import { fullPreviewUrl, pdfFrameProps, previewBoxPx } from '../preview'
+import { fullPreviewUrl, pdfFrameProps, previewBoxPx, previewMeta, splitName } from '../preview'
 import { useCaps, useCurrentItems, useItem } from '../data'
 import { useAppState } from '../state'
 import { useFocusInOut, useFocusTrap, useInertBackground } from '../useInert'
@@ -98,6 +98,7 @@ export function Preview() {
   // goes back to the tile of the item you were looking at last
   const open = !!item
   const overlayRef = useRef<HTMLDivElement>(null)
+  const [toolbar, setToolbar] = useState<HTMLDivElement | null>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
   const lastId = useRef(previewId)
   if (previewId) lastId.current = previewId
@@ -109,6 +110,9 @@ export function Preview() {
   })
 
   if (!item) return null
+
+  const name = splitName(item.filename)
+  const meta = previewMeta(item.width, item.height, idx, items.length)
 
   const onTouchStart = (e: React.TouchEvent) => {
     // scrubbing, turning a model, typing a font sample, picking a file
@@ -160,9 +164,14 @@ export function Preview() {
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >
-      <button ref={closeRef} className="preview-close" aria-label="Close preview" onClick={() => setPreviewId(null)}>
-        <X size={20} aria-hidden="true" />
-      </button>
+      {/* the top band (B6): Loupe and Notes portal into .preview-tools,
+          so the three controls sit in one row off the image */}
+      <div className="preview-band" onClick={(e) => e.stopPropagation()}>
+        <div className="preview-tools" ref={setToolbar} />
+        <button ref={closeRef} className="preview-close" aria-label="Close preview" title="Close (Esc)" onClick={() => setPreviewId(null)}>
+          <X size={16} aria-hidden="true" />
+        </button>
+      </div>
 
       <button
         className="preview-nav prev"
@@ -178,21 +187,24 @@ export function Preview() {
 
       <figure onClick={(e) => e.stopPropagation()}>
         <Suspense fallback={media}>
-          <Annotated key={item.id} item={item}>
+          <Annotated key={item.id} item={item} toolbar={toolbar}>
             {media}
           </Annotated>
         </Suspense>
+        {/* one line in the bottom band: name.ext · 3840 × 2628 px · 1 of 41 */}
         <figcaption aria-live="polite" aria-atomic="true">
-          <span className="fname">{item.filename}</span>
-          <span className="meta">
-            {item.width && item.height ? `${item.width}×${item.height}` : ''}
-            {idx >= 0 ? `${item.width && item.height ? ' · ' : ''}${idx + 1} / ${items.length}` : ''}
+          <span className="fname" title={item.filename}>
+            <span className="fname-base">{name.base}</span>
+            {name.ext && <span className="ext">{name.ext}</span>}
           </span>
-          <MoreLikeThisButton item={item} className="preview-more" />
-          <a href={fileUrl(item)} target="_blank" rel="noreferrer">
-            Open original <ExternalLink size={14} aria-hidden="true" />
-            <span className="sr-only"> (new tab)</span>
-          </a>
+          {meta && <span className="meta">{meta}</span>}
+          <span className="preview-actions">
+            <MoreLikeThisButton item={item} className="preview-more" />
+            <a href={fileUrl(item)} target="_blank" rel="noreferrer">
+              Open original <ExternalLink size={14} aria-hidden="true" />
+              <span className="sr-only"> (new tab)</span>
+            </a>
+          </span>
         </figcaption>
       </figure>
 

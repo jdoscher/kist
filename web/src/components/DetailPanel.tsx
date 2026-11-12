@@ -50,7 +50,7 @@ function Stars({ value, onChange }: { value: number; onChange: (v: number) => vo
       {[1, 2, 3, 4, 5].map((s) => (
         <button
           key={s}
-          className={s <= value ? 'on' : ''}
+          className={s <= value ? 'star-lit' : ''}
           aria-label={`${s} star${s > 1 ? 's' : ''}`}
           aria-pressed={s <= value}
           title={s === value ? 'Press again to clear the rating' : `${s} star${s > 1 ? 's' : ''}`}

@@ -977,6 +977,12 @@ The aesthetic pass: one grey, one control language, one type system.
 - Colour labels in the sidebar have their own "Labels" heading and are small ringed dots instead of six loud discs (the click target stays 24 px).
 - Sidebar tags show as a wrapped cloud of small chips with their counts, instead of a long column of # rows. A toggle beside the Tags heading switches back to the list (handier with hundreds of tags), and Kist remembers your choice.
 - Empty views feel finished: an outline of the Kist mark, one line in the serif, one quieter line saying how things get there, and one button. Empty Unfiled, Trash, Picks, Rejects, folders, tags, smart folders and searches with no results all use it.
+- The rating stars in the info panel and in Triage are plain stars again, with no box behind the filled ones.
+- The full-screen preview keeps its controls off the picture: Loupe, Notes and Close sit as matching quiet buttons in a band above the image, and one line below it reads "name.jpg · 3840 × 2628 px · 1 of 41" with More like this and Open original as plain text links. Both arrows look the same, and the image has square corners.
+- Photo details read like a camera: exposure shows as a four-cell readout (focal length, aperture, shutter, ISO) under the camera name, and an image's colours are one continuous strip, each as wide as its share, with no outlines and the hex code printed under the big ones. The duplicate thin colour bar further down the panel is gone.
+- The info panel breathes on a steady 16 px rhythm, the stars and Protect sit on one line, colour labels are small 16 px dots, the file name is a size larger, and suggested tags read "Textiles · similar" instead of shouting the reason in capitals.
+- Boards: the toolbar is one quiet row in the chrome grey that never wraps (labels fold to icons on narrow windows, Share stays on the right), the board name is set as the page title, the active tool has a brass underline, and pictures sit on the board like prints with a soft shadow. New boards take the theme's own background ("Theme" in the background menu), so a board looks like the rest of Kist in every theme; existing boards keep their colour, and exports of a Theme board use the gallery grey.
+- Timeline: the month bars are a quiet grey that turns brass only on the row you point at, years are serif headings over a hairline, and the year index is plain dim figures instead of a row of brass links.
 
 ## [1.5.0] - 2026-11-09
 

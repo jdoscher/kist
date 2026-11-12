@@ -55,7 +55,8 @@ export function fullPreviewUrl(it: PreviewItem, boxW: number, boxH: number): str
 export function previewBoxPx(mobile: boolean): [number, number] {
   const dpr = window.devicePixelRatio || 1
   const w = mobile ? window.innerWidth : window.innerWidth - 140
-  const h = window.innerHeight - (mobile ? 120 : 90)
+  // desktop: 64 px bands above and below the image hold the controls (B6)
+  const h = window.innerHeight - (mobile ? 120 : 128)
   return [Math.round(w * dpr), Math.round(h * dpr)]
 }
 
@@ -72,4 +73,21 @@ export function previewBoxPx(mobile: boolean): [number, number] {
  */
 export function pdfFrameProps(): { sandbox?: string } {
   return {}
+}
+
+/** "name.ext" as base and extension, so the caption can dim the extension.
+ * No dot, a leading dot (".env") or a trailing one: all base. */
+export function splitName(filename: string): { base: string; ext: string } {
+  const dot = filename.lastIndexOf('.')
+  if (dot <= 0 || dot === filename.length - 1) return { base: filename, ext: '' }
+  return { base: filename.slice(0, dot), ext: filename.slice(dot) }
+}
+
+/** The caption's quiet facts: "3840 × 2628 px · 1 of 41" (thin spaces
+ * round the ×); either half drops out when it's unknown. */
+export function previewMeta(width: number | null, height: number | null, idx: number, total: number): string {
+  const parts: string[] = []
+  if (width && height) parts.push(`${width}\u2009×\u2009${height} px`)
+  if (idx >= 0 && total > 0) parts.push(`${idx + 1} of ${total}`)
+  return parts.join(' · ')
 }

@@ -11,6 +11,12 @@ library/boards/<id>/board.json is the durable copy:
               children?}],
      edges: [{id, from, to, label?, style?}]}
 
+canvas.bg is a CSS colour, or "theme": draw the board on the app theme's
+image canvas (each viewer's own theme). New boards get "theme"; a canvas
+saved without a bg (boards from before Kist 2.0) keeps the old paper
+default, so no existing board changes colour. Exports and the thumbnail
+have no theme and use THEME_EXPORT_BG (board_render.py).
+
 Postgres keeps the same document in boards.doc plus the columns a list
 needs, and board_items(board_id, item_id) so "used in boards" is a query.
 Nodes reference items (never copies); purging an item leaves its node in
@@ -81,7 +87,11 @@ DOC_JSON_MAX = 4_000_000
 TEXT_MAX = 10_000
 ID_MAX = 64
 COORD_MAX = 1e7
+THEME_BG = "theme"
+# fills in a canvas saved without some key (the pre-2.0 default bg)
 DEFAULT_CANVAS = {"bg": "#f5f5f4", "grid": 0}
+# what a new board starts with: the theme's canvas (design pass B15)
+NEW_CANVAS = {"bg": THEME_BG, "grid": 0}
 CELL = 320  # grid layout cell
 GAP = 20
 
@@ -395,6 +405,9 @@ def create_board(session: Session, name: str, *, canvas: dict | None = None,
                  board_id: str | None = None) -> Board:
     access.require(access.Action.EDIT)
     name = _name(name)
+    if canvas is None or isinstance(canvas, dict):
+        # a new board follows the theme unless it says otherwise
+        canvas = {**NEW_CANVAS, **(canvas or {})}
     nodes, edges, canvas = clean_content(nodes or [], edges or [], canvas)
     if item_ids:
         nodes = nodes + layout_nodes(session, item_ids, layout, nodes)
@@ -538,7 +551,8 @@ def add_items(session: Session, board_id: str, item_ids: list[str], layout: str 
 def duplicate_board(session: Session, board_id: str, name: str | None = None) -> Board:
     src = get_board(session, board_id)
     return create_board(
-        session, name or f"{src.name} copy"[:NAME_MAX], canvas=src.doc.get("canvas"),
+        session, name or f"{src.name} copy"[:NAME_MAX],
+        canvas={**DEFAULT_CANVAS, **(src.doc.get("canvas") or {})},  # the copy keeps its colour
         nodes=src.doc.get("nodes") or [], edges=src.doc.get("edges") or [],
     )
 

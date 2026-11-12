@@ -29,6 +29,12 @@ MAX_PIXELS = 40_000_000
 MAX_SIDE = 16_000
 PAD = 40
 DEFAULT_BG = "#f5f5f4"
+# canvas.bg "theme" (boards.THEME_BG) means each viewer's own theme; an
+# export or thumbnail has none, so it uses the gallery theme's grey
+THEME_EXPORT_BG = "#5c5c5c"
+# text and arrows with no colour of their own on that grey (6.69:1); on a
+# chosen colour they stay INK, as before
+THEME_EXPORT_INK = "#ffffff"
 NOTE_BG = "#fff3a3"
 INK = "#1c1c1c"
 MISSING_BG = "#d4d4d4"
@@ -74,6 +80,19 @@ def fit_scale(doc: dict, scale: float, max_pixels: int = MAX_PIXELS) -> float:
         scale = math.sqrt(max_pixels / (w * h))
     scale = min(scale, MAX_SIDE / w, MAX_SIDE / h)
     return scale
+
+
+def canvas_bg(doc: dict) -> str:
+    """The board's background as a real colour ("theme" -> THEME_EXPORT_BG)."""
+    value = (doc.get("canvas") or {}).get("bg")
+    if value == "theme":
+        return THEME_EXPORT_BG
+    return _color(value, DEFAULT_BG)
+
+
+def canvas_ink(doc: dict) -> str:
+    """Default ink for text, arrows and group labels on this board."""
+    return THEME_EXPORT_INK if (doc.get("canvas") or {}).get("bg") == "theme" else INK
 
 
 def _color(value, default: str) -> str:
@@ -173,7 +192,8 @@ def render(doc: dict, scale: float, exists: Resolver,
     scale = fit_scale(doc, scale, max_pixels)
     x0, y0, x1, y1 = bounds(doc)
     size = (max(1, int((x1 - x0) * scale)), max(1, int((y1 - y0) * scale)))
-    bg = _color((doc.get("canvas") or {}).get("bg"), DEFAULT_BG)
+    bg = canvas_bg(doc)
+    ink = canvas_ink(doc)
     canvas = Image.new("RGBA", size, bg)
     by_id = {n["id"]: n for n in doc.get("nodes") or []}
 
@@ -200,7 +220,7 @@ def render(doc: dict, scale: float, exists: Resolver,
             d.rectangle((0, 0, w - 1, h - 1), fill=_color(style.get("bg"), NOTE_BG))
             _text(d, n.get("text") or "", font, w, _color(style.get("color"), INK), scale)
         elif t == "text":
-            _text(d, n.get("text") or "", font, w, _color(style.get("color"), INK), scale)
+            _text(d, n.get("text") or "", font, w, _color(style.get("color"), ink), scale)
         elif t == "color":
             fill = _color(style.get("bg") or n.get("text"), "#888888")
             d.rectangle((0, 0, w - 1, h - 1), fill=fill)
@@ -222,7 +242,7 @@ def render(doc: dict, scale: float, exists: Resolver,
                         outline=_color(style.get("stroke"), "#8a8a8a"),
                         width=max(1, int(2 * scale)))
             if n.get("text"):
-                d.text((8 * scale, 6 * scale), str(n["text"]), fill=INK, font=_font(14 * scale))
+                d.text((8 * scale, 6 * scale), str(n["text"]), fill=ink, font=_font(14 * scale))
         rot = float(n.get("rot") or 0)
         if rot:
             tile = tile.rotate(-rot, expand=True, resample=Image.Resampling.BICUBIC)
@@ -238,7 +258,7 @@ def render(doc: dict, scale: float, exists: Resolver,
         pax, pay, pbx, pby = edge_points(a, b)
         ax, ay = (pax - x0) * scale, (pay - y0) * scale
         bx, by = (pbx - x0) * scale, (pby - y0) * scale
-        color = _color((e.get("style") or {}).get("stroke"), INK)
+        color = _color((e.get("style") or {}).get("stroke"), ink)
         width = max(1, int(2 * scale))
         draw.line((ax, ay, bx, by), fill=color, width=width)
         angle = math.atan2(by - ay, bx - ax)
@@ -295,7 +315,8 @@ def render_html(doc: dict, exists: Resolver, title: str) -> str:
     """One self-contained HTML file: inlined images, absolutely positioned."""
     x0, y0, x1, y1 = bounds(doc)
     width, height = int(x1 - x0), int(y1 - y0)
-    bg = _color((doc.get("canvas") or {}).get("bg"), DEFAULT_BG)
+    bg = canvas_bg(doc)
+    ink = canvas_ink(doc)
     esc = html.escape
     parts: list[str] = []
     uris: dict[str, str] = {}
@@ -331,7 +352,7 @@ def render_html(doc: dict, exists: Resolver, title: str) -> str:
                 body = (f'<a href="{esc(str(style["url"]))}" rel="noopener noreferrer">'
                         f'{body or esc(str(style["url"]))}</a>')
             parts.append(f'<div class="n {t}" style="{pos}background:{esc(bgc)};'
-                         f'color:{esc(_color(style.get("color"), INK))};'
+                         f'color:{esc(_color(style.get("color"), INK if t == "note" else ink))};'
                          f'font-size:{float(style.get("font_size", 16)):.0f}px">{body}</div>')
         elif t == "shape":
             radius = "50%" if style.get("shape") == "ellipse" else "0"
@@ -357,8 +378,8 @@ def render_html(doc: dict, exists: Resolver, title: str) -> str:
     svg = (f'<svg width="{width}" height="{height}" style="position:absolute;left:0;top:0;'
            f'z-index:100000;pointer-events:none"><defs><marker id="a" viewBox="0 0 10 10" '
            'refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">'
-           f'<path d="M0,0L10,5L0,10z" fill="{INK}"/></marker></defs>'
-           f'<g stroke="{INK}" stroke-width="2" fill="{INK}">{"".join(lines)}</g></svg>')
+           f'<path d="M0,0L10,5L0,10z" fill="{ink}"/></marker></defs>'
+           f'<g stroke="{ink}" stroke-width="2" fill="{ink}">{"".join(lines)}</g></svg>')
     return (
         "<!doctype html>\n<html><head><meta charset=\"utf-8\">"
         f"<title>{esc(title)}</title>"
@@ -368,6 +389,7 @@ def render_html(doc: dict, exists: Resolver, title: str) -> str:
         ".n{position:absolute;box-sizing:border-box;overflow:hidden;white-space:pre-wrap;"
         "padding:0}.note,.text,.link,.color{padding:8px}.item img{display:block}"
         ".missing{background:" + MISSING_BG + ";color:#555;padding:6px;font-size:13px}"
-        ".group{border:2px solid #8a8a8a;padding:6px;font-size:14px}</style></head>"
+        ".group{border:2px solid #8a8a8a;padding:6px;font-size:14px;color:" + ink
+        + "}</style></head>"
         f'<body><div class="board">{"".join(parts)}{svg}</div></body></html>\n'
     )

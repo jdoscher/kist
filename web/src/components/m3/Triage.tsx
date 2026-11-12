@@ -291,7 +291,7 @@ export default function Triage({ screen }: { screen: Extract<Screen, { kind: 'tr
               {[1, 2, 3, 4, 5].map((s) => (
                 <button
                   key={s}
-                  className={s <= item.rating ? 'on' : ''}
+                  className={s <= item.rating ? 'star-lit' : ''}
                   aria-label={`${s} star${s > 1 ? 's' : ''}`}
                   aria-pressed={s <= item.rating}
                   aria-keyshortcuts={String(s)}

@@ -9,6 +9,7 @@ import { useEffect, useId, useMemo, useState } from 'react'
 import { api, emptyQuery, newBatchId, type Item } from '../api'
 import { useApplyItems, useCaps } from '../data'
 import { org, type TagSuggestion } from '../organiseApi'
+import { hexLabelled } from '../format'
 import { colourSearch, matchLabel, moreLikeThis } from '../search'
 import { useAppState } from '../state'
 import { impliedBy, splitTag } from '../tagNs'
@@ -107,12 +108,16 @@ export function PaletteSwatches({ item }: { item: Item }) {
   })
   const colours = data ?? (item.dominant_colors ?? []).map((c) => ({ ...c, name: '' }))
   if (!colours.length) return null
+  const pcts = colours.map((c) => Math.round(c.pct <= 1 ? c.pct * 100 : c.pct))
+  const labelled = hexLabelled(pcts)
+  // one continuous strip, each colour as wide as its share (B14); the hex
+  // row underneath repeats the widths so a label sits under its colour
   return (
     <div className="detail-section">
       <h3 className="section-label">Colours</h3>
       <div className="color-palette" role="group" aria-label="Colours: press one to find items with it">
-        {colours.map((c) => {
-          const pct = Math.round(c.pct <= 1 ? c.pct * 100 : c.pct)
+        {colours.map((c, i) => {
+          const pct = pcts[i]
           const name = c.name ? `${c.name} ` : ''
           return (
             <button
@@ -127,6 +132,15 @@ export function PaletteSwatches({ item }: { item: Item }) {
           )
         })}
       </div>
+      {labelled.some(Boolean) && (
+        <div className="palette-hex mono" aria-hidden="true">
+          {colours.map((c, i) => (
+            <span key={c.hex} style={{ flexGrow: Math.max(1, pcts[i]) }}>
+              {labelled[i] ? c.hex : ''}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
