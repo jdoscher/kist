@@ -340,6 +340,31 @@
   border: none;
   background: none;
 }
+/* A8: 44 px tall hit areas without changing the look; − and + split the
+   count between them (it isn't a control) */
+.mobile .cols-toggle.cols-stepper button:first-child::after,
+.mobile .cols-toggle.cols-stepper button:last-child::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+}
+.mobile .cols-toggle.cols-stepper button:first-child::after {
+  left: -2px;
+  right: -9px;
+}
+.mobile .cols-toggle.cols-stepper button:last-child::after {
+  left: -9px;
+  right: -2px;
+}
+.mobile .view-row :is(.layout-toggle, .filters-btn) {
+  position: relative;
+}
+.mobile .view-row :is(.layout-toggle, .filters-btn)::after {
+  content: '';
+  position: absolute;
+  inset: -5px -2px;
+}
 /* the iOS large title, in Kist's display face; counts in Inter tabular */
 .mobile .grid-meta {
   padding: 14px 16px 10px;
@@ -422,6 +447,49 @@
 }
 .mobile .phone-tag-add button {
   border-radius: 10px;
+}
+
+/* A8: 44 px hit areas in the sheet without changing the look (:where keeps
+   the list at low specificity so the per-control insets below win) */
+.mobile .detail-sheet :where(
+    .sheet-close,
+    .sheet-title .btn-primary,
+    .palette-swatch,
+    .more-like,
+    .collapse-btn,
+    button.small
+  ) {
+  position: relative;
+}
+.mobile .detail-sheet :where(
+    .sheet-close,
+    .sheet-title .btn-primary,
+    .palette-swatch,
+    .more-like,
+    .collapse-btn,
+    button.small
+  )::after {
+  content: '';
+  position: absolute;
+  inset: -5px 0;
+}
+.mobile .detail-sheet .sheet-close::after {
+  inset: -4px;
+}
+.mobile .detail-sheet .collapse-btn::after {
+  inset: -10px -4px;
+}
+.mobile .detail-sheet button.small::after {
+  inset: -8px -3px;
+}
+.mobile .detail-sheet .more-like::after {
+  inset: -8px 0;
+}
+.mobile .detail-sheet .palette-swatch::after {
+  inset: -4px 0;
+}
+.mobile .detail-sheet .sheet-title .btn-primary::after {
+  inset: -6px 0;
 }
 
 /* ---------- drawer (B18) ---------- */

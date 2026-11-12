@@ -470,6 +470,14 @@ desktop shrunk down.
   The zoom (−, %, +, fit) floats in a capsule at the bottom centre on the
   `--bg-float` glass (solid under reduced transparency), with 48 × 44
   buttons.
+- **44 px hit areas (A8).** Small phone controls keep their look and get a
+  transparent `::after` that grows the tap target: −/+ and the other
+  row-two controls to 44 px tall (−/+ share the count between them: about
+  36 × 44, the row has no more width), and in the item sheet the close
+  button, View, the colour swatches, More like this, Edit and History to
+  about 44 px tall (40–44 where two neighbours' areas meet; neither steals
+  the other's tap). The list in phone.css uses `:where()` so each
+  control's own inset wins.
 
 ## Voice
 
