@@ -31,7 +31,7 @@ button.on,
 .btn-icon.on,
 .icon-btn.on,
 .seg button.on {
-  box-shadow: inset 0 -3px 0 var(--accent);
+  box-shadow: inset 0 0 0 1px var(--selected-line);
 }
 /* phone stars (PhoneEdit) still use .on; the desktop and triage stars
    use .star-lit so the pressed-toggle fill never reaches them (A2) */
@@ -67,7 +67,7 @@ button.on,
 }
 .link-like[aria-pressed='true'] {
   font-weight: 600;
-  text-decoration-color: var(--accent);
+  text-decoration-color: var(--text);
 }
 
 /* ---------- culling ---------- */
@@ -309,10 +309,10 @@ button.on,
   cursor: pointer;
   min-height: 32px;
 }
-/* the active row: fill + 3 px bar, like the sidebar (no brass box) */
+/* the active row: fill + 1 px outline, like the sidebar */
 .palette-option.active {
   background: var(--float-hover);
-  box-shadow: inset 3px 0 0 var(--accent);
+  box-shadow: inset 0 0 0 1px var(--selected-line);
 }
 .palette-title {
   white-space: nowrap;
@@ -393,6 +393,7 @@ button.on,
   --accent: var(--preview-accent);
   --accent-soft: var(--preview-soft);
   --soft-dim: var(--preview-soft-dim);
+  --selected-line: var(--preview-dim);
   --on-accent: var(--preview-on-accent);
   --bg: var(--preview-panel);
   --bg-raised: var(--preview-raised);
@@ -1036,7 +1037,7 @@ button.on,
 .triage-progress progress {
   flex: 1;
   max-width: 260px;
-  accent-color: var(--accent);
+  accent-color: var(--text);
 }
 .triage-keys {
   position: relative;
@@ -2294,6 +2295,7 @@ body.board-space .board-viewport,
   --on-accent: var(--preview-on-accent);
   --accent-soft: var(--preview-soft);
   --soft-dim: var(--preview-soft-dim);
+  --selected-line: var(--preview-dim);
   --border: var(--preview-border);
   --bg: var(--preview-panel);
   --danger: var(--preview-danger);

@@ -51,8 +51,9 @@
   --accent: #e8b04b;
   --accent-hover: #f0c26f;
   --on-accent: #1a1408;
-  --accent-soft: #3a3121;
-  --soft-dim: #c9c0ad;
+  --accent-soft: #31302d;
+  --selected-line: #9c9a93;
+  --soft-dim: #9c9a93;
   --focus: #e8b04b;
   --star: #e8b04b;
   --danger: #f2716a;
@@ -75,8 +76,8 @@
   --preview-dim: #b4b2ab;
   --preview-accent: #e8b04b;
   --preview-on-accent: #1a1408;
-  --preview-soft: #3a3121;
-  --preview-soft-dim: #c9c0ad;
+  --preview-soft: #31302d;
+  --preview-soft-dim: #9c9a93;
   --preview-raised: #1c1c1a;
   --preview-hover: #272725;
   --preview-active: #31302d;
@@ -113,8 +114,9 @@
   --accent: #8c5a00;
   --accent-hover: #744a00;
   --on-accent: #ffffff;
-  --accent-soft: #f5ead6;
-  --soft-dim: #57524a;
+  --accent-soft: #e6e3dc;
+  --selected-line: #77746d;
+  --soft-dim: #5f5d57;
   --focus: #8c5a00;
   --star: #8c5a00;
   --danger: #b42318;
@@ -175,8 +177,9 @@
   --accent: #f6cf7e;
   --accent-hover: #fadc9c;
   --on-accent: #1a1408;
-  --accent-soft: #554a35;
-  --soft-dim: #efe8d9;
+  --accent-soft: #4a4a4a;
+  --selected-line: #cfcfcf;
+  --soft-dim: #dadada;
   --focus: #f6cf7e;
   --star: #f6cf7e;
   --danger: #ffd0cc;

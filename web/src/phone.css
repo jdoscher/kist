@@ -328,7 +328,7 @@
 .mobile .view-row .filters-btn.on,
 .mobile .view-row .layout-toggle.on {
   background-color: var(--phone-fill);
-  box-shadow: inset 0 -3px 0 var(--accent);
+  box-shadow: inset 0 0 0 1px var(--selected-line);
 }
 /* − n + reads as one control: the group carries the fill */
 .mobile .cols-toggle.cols-stepper button {

@@ -98,6 +98,8 @@ which also replaces the old star yellow. All colours are CSS variables in
 | danger | #F2716A | #B42318 | #FFD0CC |
 | chip-bg / chip-text | #31302D / #ECEAE4 | #E6E3DC / #1C1B19 | #4A4A4A / #F5F5F5 |
 | bg-float (menus, dialogs) | #21211F | #FFFFFF | #454545 |
+| accent-soft (selected fill, neutral) / soft-dim | #31302D / #9C9A93 | #E6E3DC / #5F5D57 | #4A4A4A / #DADADA |
+| selected-line (1 px outline on selected/pressed) | #9C9A93 | #77746D | #CFCFCF |
 | success | #5FC48A | #1E7A46 | #A8F0C4 |
 | chrome (top bar, side panels) | #1C1C1A | #FFFFFF | #5C5C5C |
 | chrome line (chrome / images edge) | #34332F | #E2DFD8 | white 28 % (#FFFFFF47) |
@@ -154,10 +156,8 @@ Brass means one of four things, and nothing else:
 
 1. **the primary action** (`.btn-primary` / `button.primary`: Upload, Save,
    New token; one per view);
-2. **selection**: the tile corners and check (the theme's `--canvas-focus`,
-   never a hard-coded #E8B04B), and a 3 px bar on the selected row, section
-   or pressed toggle (sidebar, Settings nav, ⌘K active row, the Info
-   toggle), always on a neutral fill, never a brass outline box;
+2. **selection on images**: the tile corners and check (the theme's
+   `--canvas-focus`, never a hard-coded #E8B04B);
 3. **the focus ring**;
 4. **ratings** (stars).
 
@@ -165,6 +165,13 @@ Everything else is neutral: tag, folder and board chips use `--chip-bg` /
 `--chip-text` (tags are pills, folders have 6 px corners), inspector links
 are `--text` with a thin underline, and a pressed toggle is a fill, not a
 second brass button. Brass on everything means nothing.
+
+A selected row, section, chip or pressed toggle (sidebar, Settings nav, ⌘K
+active row, tag chips, the Info toggle, tile-shape and board tools) is a
+neutral fill (`--accent-soft` / `--bg-active`, both neutral greys despite the
+name) with a 1 px `--selected-line` outline that follows the control's own
+corners. No brass bars on a side or underneath: Jay found they read like a
+bracket hanging off the control (Nov 2026). Native checkboxes, radios, sliders and progress bars use `accent-color: var(--text)`, and the date scrubber's position mark is `--canvas-text`, so neither adds brass.
 
 ### Contrast (WCAG 2.2 AA, computed from themes.css)
 
@@ -189,9 +196,15 @@ parts and focus indicators (1.4.11, 2.4.11/2.4.13).
 | links on panels (`accent` on `bg-raised`) | 4.5 | 8.73 | 5.87 | 4.94 |
 | primary button label (`on-accent` on `accent`) | 4.5 | 9.36 | 5.87 | 12.33 |
 | primary button label, hover (`on-accent` on `accent-hover`) | 4.5 | 11.03 | 7.71 | 13.75 |
-| selected row / chip text (`text` on `accent-soft`) | 4.5 | 10.64 | 14.44 | 7.97 |
-| counts on a selected row (`soft-dim` on `accent-soft`) | 4.5 | 7.08 | 6.50 | 7.12 |
-| selected-row bar (`accent` on `accent-soft`) | 3 | 6.55 | 4.93 | 5.85 |
+| selected row / chip text (`text` on `accent-soft`) | 4.5 | 10.97 | 13.43 | 8.13 |
+| counts on a selected row (`soft-dim` on `accent-soft`) | 4.5 | 4.69 | 5.14 | 6.34 |
+| selected-row outline (`selected-line` on `accent-soft`) | 3 | 4.69 | 3.64 | 5.69 |
+| pressed-toggle outline (`selected-line` on `bg-active`) | 3 | 4.69 | 3.64 | 5.69 |
+| selected outline against the chrome (`selected-line` on `chrome`) | 3 | 6.06 | 4.66 | 4.29 |
+| active palette row outline (`selected-line` on `float-hover`) | 3 | 4.69 | 4.02 | 5.02 |
+| phone: pressed toggle outline (`selected-line` on `phone-fill`) | 3 | 4.97 | 3.99 | 3.47 |
+| selected outline in the preview and compare (`preview-dim` on `preview-soft`) | 3 | 6.22 | 5.33 | 5.33 |
+| pressed-toggle outline in the preview (`preview-dim` on `preview-active`) | 3 | 6.22 | 5.68 | 5.68 |
 | field outline (`field-border` on `bg`) | 3 | 3.54 | 3.41 | 3.56 |
 | field outline on panels (`field-border` on `bg-raised`) | 3 | 3.25 | 3.59 | 3.91 |
 | focus ring (`focus` on `bg`) | 3 | 9.51 | 5.58 | 4.50 |
@@ -238,10 +251,10 @@ parts and focus indicators (1.4.11, 2.4.11/2.4.13).
 | notes panel text (`preview-text` on `preview-panel`) | 4.5 | 15.45 | 13.58 | 13.58 |
 | notes panel secondary text (`preview-dim` on `preview-panel`) | 4.5 | 8.76 | 9.71 | 9.71 |
 | error text in the notes panel (`preview-danger` on `preview-panel`) | 4.5 | 6.50 | 9.79 | 9.79 |
-| selected chip in the preview (`preview-text` on `preview-soft`) | 4.5 | 10.64 | 7.46 | 7.46 |
-| counts on a selected chip in the preview (`preview-soft-dim` on `preview-soft`) | 4.5 | 7.08 | 7.46 | 7.46 |
+| selected chip in the preview (`preview-text` on `preview-soft`) | 4.5 | 10.97 | 7.46 | 7.46 |
+| counts on a selected chip in the preview (`preview-soft-dim` on `preview-soft`) | 4.5 | 4.69 | 7.46 | 7.46 |
 
-all 195 pairs pass
+all 213 pairs pass
 
 Selected tiles use brass corners (`--canvas-focus`) with a 1 px black halo
 plus a check badge (`--on-accent` on `--canvas-focus`, #1A1408 outline), so
@@ -256,7 +269,7 @@ Use these instead of new one-off values; each is documented below.
 |---|---|
 | A bar or side panel next to the images | `background: var(--chrome)`, edge `1px solid var(--chrome-line)` (never `--bg-raised` / `--border`; `tests/chrome.test.ts`) |
 | A button | plain `<button>` (quiet), `.btn-primary` (one per view), `.icon-btn` (28 × 28 icon-only) |
-| A pressed toggle | `.on` (fill; `.btn-icon` / `.icon-btn` / `.seg` add the 3 px brass bar) |
+| A pressed toggle | `.on` (fill; `.btn-icon` / `.icon-btn` / `.seg` add the 1 px `--selected-line` outline) |
 | A field or select | `<input>`, `<select>` (own chevron), `<textarea>` |
 | A selected row in a list | fill + `box-shadow: inset 3px 0 0 var(--accent)` |
 | A chip (tag, folder, board) | `.chip` (`--chip-bg` / `--chip-text`), `.chip.folder-chip` for square-ish corners |
@@ -275,7 +288,7 @@ One height, three kinds. Nothing else.
 
 | Kind | Class | At rest | Hover | Pressed / on |
 |---|---|---|---|---|
-| Quiet | any plain `<button>` (incl. `.icon-btn`, `.btn-icon`) | no fill, no border | `--bg-hover` fill | `--bg-active` fill + 3 px `--accent` bar (`.on`) |
+| Quiet | any plain `<button>` (incl. `.icon-btn`, `.btn-icon`) | no fill, no border | `--bg-hover` fill | `--bg-active` fill + 1 px `--selected-line` outline (`.on`) |
 | Primary | `.btn-primary` | `--accent` fill, `--on-accent` label | `--accent-hover` | |
 | Field | `input`, `select`, `textarea` | `--field-border` outline on `--bg` | | `--accent` border on focus |
 
@@ -331,7 +344,7 @@ One height, three kinds. Nothing else.
   the board's name as the view title (Instrument Serif 24, sized to its
   text), save state, then tool groups split by a `--chrome-line`
   hairline, and on the right zoom, List, background, Export and Share.
-  The active tool is the pressed fill plus the brass underline. Below
+  The active tool is the pressed fill plus the thin `--selected-line` outline. Below
   about 1240 px the text labels (Boards, Library, List, Export) fold to
   icons and stay in the accessible name. The phone has its own header.
 - Items on a board are prints on a table: `--board-radius` (2 px), a
@@ -408,7 +421,7 @@ The images lead; anything drawn on them earns its place.
 - **Tags** show as a wrapped cloud of 24 px neutral chips (`.tag-cloud-chip`:
   `--chip-bg` / `--chip-text`, count in `--text-dim`, no `#` icon); a tag
   you're filtering by takes the selected fill (`--accent-soft` with a 1 px
-  `--accent` edge). Two small toggles in the Tags head switch to the list
+  `--selected-line` edge). Two small toggles in the Tags head switch to the list
   (better for hundreds of tags); the choice is a pref (`kist.tagView`).
 
 ## Type
