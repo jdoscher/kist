@@ -7,7 +7,7 @@ import { test } from 'node:test'
 import { emptyQuery, itemsParams } from '../src/api.ts'
 import { addErrorText, addPayload, BOOKMARKLET_SRC, bookmarkletFor, hostOf, normalizeKistBase, parseAddParams, plainText, safeHttpUrl } from '../src/m45/add.ts'
 import { bboxString, cleanFilter, clearedM45, filterChipLabel, m45Filters, parseBbox } from '../src/m45/filters.ts'
-import { clipErrors, clusterPlaceText, fmtLatLon, fmtTime, mediaGps, mediaRows, parseTime, scrubFrameIndex, scrubFrameStyle, scrubFrameTime, scrubOf, shutterText, svgColors, takenText, waveformBars } from '../src/m45/media.ts'
+import { clipErrors, clusterPlaceText, exposureCells, fmtLatLon, fmtTime, mediaGps, mediaRows, parseTime, scrubFrameIndex, scrubFrameStyle, scrubFrameTime, scrubOf, shutterText, svgColors, takenText, waveformBars } from '../src/m45/media.ts'
 import { formToPreset, presetErrors, presetSummary, presetToForm } from '../src/m45/presets.ts'
 import { aiChoice, aiValue, digitalSourceText, provenanceDiff, provenanceErrors, sourceStatusText } from '../src/m45/provenance.ts'
 import { defaultShareForm, shareFormErrors, shareLink, sharePayload, shareStatusText } from '../src/m45/share.ts'
@@ -331,6 +331,11 @@ test('media details read the media block', () => {
   const rows = Object.fromEntries(mediaRows(media))
   assert.equal(rows.Camera, 'FUJIFILM X100V')
   assert.equal(rows.Exposure, '23 mm · ƒ/2.8 · 1/250 s · ISO 400')
+  // the info panel's four-cell readout (B14)
+  assert.deepEqual(exposureCells(media).map((c) => `${c.label} ${c.value}`), ['Focal 23 mm', 'Aperture ƒ/2.8', 'Shutter 1/250', 'ISO 400'])
+  assert.deepEqual(exposureCells({ exif: { shutter: 2 } }), [{ label: 'Shutter', value: '2 s' }])
+  assert.deepEqual(exposureCells({ exif: { iso: 100 } }), [{ label: 'ISO', value: '100' }])
+  assert.deepEqual(exposureCells(null), [])
   assert.deepEqual(mediaGps(media), { lat: 35.0116, lon: 135.7681 })
   assert.equal(fmtLatLon(35.0116, -9.1394), '35.0116° N, 9.1394° W')
   const video = Object.fromEntries(mediaRows({ video: { duration: 8, fps: 25, codec: 'h264', audio_codec: 'aac', bitrate: 847735, has_audio: true } }))

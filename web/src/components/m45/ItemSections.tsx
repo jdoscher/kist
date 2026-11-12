@@ -11,7 +11,7 @@ import { useApplyItems, useCaps } from '../../data'
 import { linkableUrl } from '../../format'
 import { api45 } from '../../m45/api45'
 import { clearedM45, bboxString } from '../../m45/filters'
-import { fmtLatLon, mediaGps, mediaRows } from '../../m45/media'
+import { exposureCells, fmtLatLon, mediaGps, mediaRows } from '../../m45/media'
 import {
   aiChoice,
   aiValue,
@@ -209,6 +209,19 @@ function ProvenanceSection({ item, editable }: { item: Item; editable: boolean }
 
 function MediaDetails({ item }: { item: Item }) {
   const rows = useMemo(() => mediaRows(item.media ?? null, item.taken_at), [item.media, item.taken_at])
+  const exposure = useMemo(() => exposureCells(item.media ?? null), [item.media])
+  // the exposure row becomes a four-cell readout between Camera/Lens and
+  // Taken (B14); the rows around it stay a plain list
+  const at = rows.findIndex(([k]) => k === 'Exposure')
+  const before = at >= 0 && exposure.length ? rows.slice(0, at) : rows
+  const after = at >= 0 && exposure.length ? rows.slice(at + 1) : []
+  const list = (part: [string, string][]) =>
+    part.map(([k, v]) => (
+      <div key={k}>
+        <span>{k}</span>
+        <span>{v}</span>
+      </div>
+    ))
   const gps = mediaGps(item.media ?? null)
   const { setQuery } = useAppState()
   const id = useId()
@@ -223,26 +236,34 @@ function MediaDetails({ item }: { item: Item }) {
       <h3 id={`${id}-h`} className="section-label">
         {item.kind === 'video' || item.kind === 'audio' ? 'Media' : item.kind === 'model' ? 'Model' : 'Camera'}
       </h3>
-      <div className="meta-list">
-        {rows.map(([k, v]) => (
-          <div key={k}>
-            <span>{k}</span>
-            <span>{v}</span>
-          </div>
-        ))}
-        {item.place && (
-          <div>
-            <span>Place</span>
-            <span>{item.place}</span>
-          </div>
-        )}
-        {gps && (
-          <div>
-            <span>Location</span>
-            <span className="mono">{fmtLatLon(gps.lat, gps.lon)}</span>
-          </div>
-        )}
-      </div>
+      {before.length > 0 && <div className="meta-list">{list(before)}</div>}
+      {at >= 0 && exposure.length > 0 && (
+        <dl className="exposure-readout" aria-label="Exposure">
+          {exposure.map((c) => (
+            <div key={c.label}>
+              <dt>{c.label}</dt>
+              <dd className="mono">{c.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {(after.length > 0 || item.place || gps) && (
+        <div className="meta-list">
+          {list(after)}
+          {item.place && (
+            <div>
+              <span>Place</span>
+              <span>{item.place}</span>
+            </div>
+          )}
+          {gps && (
+            <div>
+              <span>Location</span>
+              <span className="mono">{fmtLatLon(gps.lat, gps.lon)}</span>
+            </div>
+          )}
+        </div>
+      )}
       {gps && (
         <>
           <button type="button" className="btn-icon small" onClick={near}>

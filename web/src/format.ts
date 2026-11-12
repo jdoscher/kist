@@ -93,3 +93,23 @@ export function percent(part: number, total: number): number {
   if (!total) return 100
   return Math.max(0, Math.min(100, Math.round((part / total) * 100)))
 }
+
+/**
+ * Which palette swatches get their hex printed under the strip: those with
+ * at least `minShare` % of the image, left to right, skipping one whose
+ * label would run into the previous label (a hex needs about `labelShare`
+ * % of the 260 px panel). `shares` are percentages in strip order.
+ */
+export function hexLabelled(shares: number[], minShare = 12, labelShare = 20): boolean[] {
+  const total = shares.reduce((a, b) => a + Math.max(0, b), 0) || 1
+  let start = 0
+  let freeFrom = 0
+  return shares.map((raw) => {
+    const share = (Math.max(0, raw) / total) * 100
+    const here = start
+    start += share
+    if (raw < minShare || here < freeFrom) return false
+    freeFrom = here + Math.max(share, labelShare)
+    return true
+  })
+}

@@ -969,6 +969,8 @@ The aesthetic pass: one grey, one control language, one type system.
   default. On a phone the tile-shape button steps Rows, Square, Columns.
 - The rating stars in the info panel and in Triage are plain stars again, with no box behind the filled ones.
 - The full-screen preview keeps its controls off the picture: Loupe, Notes and Close sit as matching quiet buttons in a band above the image, and one line below it reads "name.jpg · 3840 × 2628 px · 1 of 41" with More like this and Open original as plain text links. Both arrows look the same, and the image has square corners.
+- Photo details read like a camera: exposure shows as a four-cell readout (focal length, aperture, shutter, ISO) under the camera name, and an image's colours are one continuous strip, each as wide as its share, with no outlines and the hex code printed under the big ones. The duplicate thin colour bar further down the panel is gone.
+- The info panel breathes on a steady 16 px rhythm, the stars and Protect sit on one line, colour labels are small 16 px dots, the file name is a size larger, and suggested tags read "Textiles · similar" instead of shouting the reason in capitals.
 
 ## [1.5.0] - 2026-11-09
 

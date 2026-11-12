@@ -106,6 +106,21 @@ export function takenText(takenAt: string, wallClock: boolean, locale?: string):
   return wallClock ? d.toLocaleString(locale, { timeZone: 'UTC' }) : d.toLocaleString(locale)
 }
 
+/** Exposure as the readout's cells (focal, aperture, shutter, ISO), each
+ * left out when the file doesn't say; [] for scans and screenshots. */
+export function exposureCells(media: Media | null | undefined): { label: string; value: string }[] {
+  if (!media) return []
+  const exif = (media.exif ?? media.raw ?? {}) as Record<string, unknown>
+  const out: { label: string; value: string }[] = []
+  if (num(exif.focal_length)) out.push({ label: 'Focal', value: `${trim(num(exif.focal_length)!)} mm` })
+  if (num(exif.aperture)) out.push({ label: 'Aperture', value: `ƒ/${trim(num(exif.aperture)!)}` })
+  const shutter = str(exif.shutter_text) ?? (num(exif.shutter) ? shutterText(num(exif.shutter)!) : null)
+  // "1/250" needs no unit under a Shutter label; whole seconds do ("2 s")
+  if (shutter) out.push({ label: 'Shutter', value: shutter.includes('/') ? shutter : `${shutter} s` })
+  if (num(exif.iso)) out.push({ label: 'ISO', value: String(num(exif.iso)) })
+  return out
+}
+
 export function mediaRows(media: Media | null | undefined, takenAt?: string | null): [string, string][] {
   const out: [string, string][] = []
   if (!media) return out

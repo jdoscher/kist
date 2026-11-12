@@ -1,7 +1,7 @@
 // Display formatting. Run with `npm test`.
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { fmtBytes, fmtDuration, linkableUrl } from '../src/format.ts'
+import { fmtBytes, fmtDuration, hexLabelled, linkableUrl } from '../src/format.ts'
 
 test('fmtBytes: one rule everywhere (1 decimal under 10, none from 10)', () => {
   assert.equal(fmtBytes(0), '0 B')
@@ -38,4 +38,12 @@ test('linkableUrl: only absolute http(s), never throws', () => {
   assert.equal(linkableUrl('/relative/path'), null)
   assert.equal(linkableUrl(''), null)
   assert.equal(linkableUrl(null), null)
+})
+
+test('palette: hex under swatches of 12 % or more, never two labels colliding', () => {
+  assert.deepEqual(hexLabelled([55, 30, 10, 5]), [true, true, false, false])
+  assert.deepEqual(hexLabelled([11, 11, 78]), [false, false, true])
+  // two 15 % swatches side by side: the second label would overlap
+  assert.deepEqual(hexLabelled([15, 15, 70]), [true, false, true])
+  assert.deepEqual(hexLabelled([]), [])
 })

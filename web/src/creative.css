@@ -122,6 +122,36 @@ button.on,
 .label-swatch.on {
   box-shadow: 0 0 0 2px var(--text);
 }
+/* the info panel: 16 px dots in the same 24 px targets (the ring marks the
+   chosen one, so the check stays out of the small dot) */
+.detail-panel .label-picker {
+  gap: 2px;
+}
+.detail-panel .label-swatch,
+.detail-panel .label-swatch:hover {
+  background: none;
+  border: 0;
+  box-shadow: none;
+}
+.detail-panel .label-swatch::before {
+  content: '';
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--swatch);
+  box-shadow: 0 0 0 1px #00000040;
+}
+.detail-panel .label-swatch:hover::before {
+  box-shadow: 0 0 0 2px var(--text-dim);
+}
+.detail-panel .label-swatch.on::before {
+  box-shadow:
+    0 0 0 2px var(--chrome),
+    0 0 0 4px var(--text);
+}
+.detail-panel .label-swatch svg {
+  display: none;
+}
 .label-filter {
   padding: 4px 8px 4px 30px;
 }
