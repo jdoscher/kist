@@ -26,7 +26,9 @@ import { useAppState } from '../state'
 import { useFocusInOut, useFocusTrap, useInertBackground } from '../useInert'
 import { useLayer } from '../useShortcuts'
 import { useWrite } from '../useWrite'
+import { Mark, Wordmark } from './Brand'
 import { Modal, useDialog } from './Dialog'
+import { ViewShareMenu } from './m45/TopBarExtras'
 import { useNotices } from './Notices'
 import { AppearanceControls } from './Appearance'
 import { useUploads } from './UploadManager'
@@ -721,9 +723,16 @@ export function Drawer() {
           }
         }}
       >
+        {/* names the place you're in; Share/Export live here on a phone
+            (the top bar has no room for them) */}
         <div className="drawer-head">
+          <div className="drawer-brand">
+            <Mark />
+            <Wordmark />
+          </div>
+          <ViewShareMenu />
           <button className="drawer-close" aria-label="Close menu" onClick={closeDrawer}>
-            <X size={16} aria-hidden="true" />
+            <X size={20} aria-hidden="true" />
           </button>
         </div>
         <Sidebar mobile />

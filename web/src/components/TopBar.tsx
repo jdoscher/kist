@@ -373,8 +373,8 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
       <button className="icon-btn topbar-icon palette-btn" onClick={creative.openPalette} aria-label="Go to or do anything (⌘K)" title="Go to or do anything (⌘K)" aria-keyshortcuts="Meta+K Control+K">
         <Command size={16} aria-hidden="true" />
       </button>
-      {/* a phone's second row is full: share/export sits beside the palette */}
-      {mobile && <ViewShareMenu />}
+      {/* on a phone, share/export sits in the drawer head (Sidebar.tsx) and
+          the palette button is hidden (phone.css): a phone has no ⌘ key */}
 
       {mobile && <div className="topbar-break" />}
 

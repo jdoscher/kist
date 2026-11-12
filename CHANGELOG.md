@@ -967,6 +967,7 @@ The aesthetic pass: one grey, one control language, one type system.
   column width; it works with the date scrubber, stacks, every density and
   on a phone (2 columns or more; 1 column stays the feed). Rows stays the
   default. On a phone the tile-shape button steps Rows, Square, Columns.
+- Phone polish: the top bar drops the desktop-only ⌘K and Export buttons (Share and Export are in the drawer now), search is a 44 px pill, the second row is one calm filled style, and each view gets a large serif title. The item sheet lifts off the grid with a light top edge, rounder corners and a visible grabber, tags and folders are neutral chips, Trash is a bin icon beside a full-width Move to…, and the tile you opened shows its brass corners without the multi-select check. The drawer opens with the Kist mark and name.
 
 ## [1.5.0] - 2026-11-09
 
