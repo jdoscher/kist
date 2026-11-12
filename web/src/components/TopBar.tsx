@@ -1,4 +1,5 @@
-import { Command, History, ImageUp, Info, Menu, Minus, PanelsLeftRight, Plus, RectangleHorizontal, Settings, Square, Upload, X } from 'lucide-react'
+import { Columns3, Command, History, ImageUp, Info, LayoutGrid, Menu, Minus, PanelsLeftRight, Plus, Rows3, Settings, Upload, X } from 'lucide-react'
+import { GRID_LAYOUTS, type GridLayout } from '../layout'
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { chromeOf, fitSelectWidth } from '../fitSelect'
 import { TILE_SIZE_MAX, TILE_SIZE_MIN } from '../layout'
@@ -86,6 +87,20 @@ function useFitSelect(on: boolean, value: string) {
     }
   }, [on, value])
   return { ref, style: width ? { width } : undefined }
+}
+
+/** The tile-shape control's three choices (Rows is the default). */
+const LAYOUT_CHOICES: Record<GridLayout, { name: string; hint: string }> = {
+  justified: { name: 'Rows', hint: "Rows: tiles follow each image's shape, rows fill the width." },
+  square: { name: 'Square tiles', hint: 'Square tiles: every image cropped to a square.' },
+  columns: { name: 'Columns', hint: 'Columns: fixed-width columns, every image uncropped. Size sets the column width.' },
+}
+
+const nextLayout = (l: GridLayout): GridLayout => GRID_LAYOUTS[(GRID_LAYOUTS.indexOf(l) + 1) % GRID_LAYOUTS.length]
+
+function LayoutIcon({ layout }: { layout: GridLayout }) {
+  const Icon = layout === 'square' ? LayoutGrid : layout === 'columns' ? Columns3 : Rows3
+  return <Icon size={16} strokeWidth={1.75} aria-hidden="true" />
 }
 
 export function TopBar({ mobile = false }: { mobile?: boolean }) {
@@ -366,23 +381,32 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
       {/* one row on a phone (no wrapping; display: contents on desktop) */}
       <div className="view-row">
       <div className="view-controls">
-        <button
-          className={`layout-toggle${gridLayout === 'square' ? ' on' : ''}`}
-          onClick={() => setGridLayout(gridLayout === 'justified' ? 'square' : 'justified')}
-          title={
-            gridLayout === 'justified'
-              ? 'Tiles follow each image\'s shape. Press for square tiles.'
-              : 'Square tiles. Press to show each image in its true shape.'
-          }
-          aria-pressed={gridLayout === 'square'}
-        >
-          {gridLayout === 'justified' ? (
-            <RectangleHorizontal size={16} aria-hidden="true" />
-          ) : (
-            <Square size={16} aria-hidden="true" />
-          )}
-          <span className={mobile ? 'sr-only' : 'btn-text'}>Square tiles</span>
-        </button>
+        {mobile ? (
+          // the phone row has room for one button: it steps Rows -> Square -> Columns
+          <button
+            className={`layout-toggle${gridLayout !== 'justified' ? ' on' : ''}`}
+            onClick={() => setGridLayout(nextLayout(gridLayout))}
+            aria-label={`Tile shape: ${LAYOUT_CHOICES[gridLayout].name}. Press for ${LAYOUT_CHOICES[nextLayout(gridLayout)].name.toLowerCase()}`}
+            title={`${LAYOUT_CHOICES[gridLayout].hint} Press for ${LAYOUT_CHOICES[nextLayout(gridLayout)].name.toLowerCase()}.`}
+          >
+            <LayoutIcon layout={gridLayout} />
+          </button>
+        ) : (
+          <div className="layout-choice" role="group" aria-label="Tile shape">
+            {GRID_LAYOUTS.map((l) => (
+              <button
+                key={l}
+                className={`layout-toggle${gridLayout === l ? ' on' : ''}`}
+                onClick={() => setGridLayout(l)}
+                aria-pressed={gridLayout === l}
+                aria-label={LAYOUT_CHOICES[l].name}
+                title={LAYOUT_CHOICES[l].hint}
+              >
+                <LayoutIcon layout={l} />
+              </button>
+            ))}
+          </div>
+        )}
         {mobile ? (
           // pinch is the quick way; these step through the same columns
           // (1 = the feed, 2, 3, 4, 6) for one hand, keyboards and screen readers

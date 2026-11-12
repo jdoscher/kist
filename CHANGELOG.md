@@ -958,6 +958,15 @@ The aesthetic pass: one grey, one control language, one type system.
 - Titles get a voice: every view, page and panel title is set in Instrument Serif (Timeline, Map, Boards, Triage, each Settings section); counts are in Inter with even-width figures, and the monospaced face is kept for machine strings like MIME types, hashes and URLs.
 - Icons: three sizes and one 1.5 px line everywhere, and one meaning per icon (the sparkle is only for AI, a flag always means Picks, boards have their own icon, themes no longer show a lightning bolt).
 - Settings sit in one 640 px column with their buttons on its edge; the Appearance menu shows each theme as a colour chip, with the radio buttons lined up with the first line of text.
+- **Columns layout:** a third tile shape next to Rows and Square. Fixed-width
+  columns show every image uncropped at its own height (only shapes beyond
+  1:3 or 5:1 crop), like Eagle's Waterfall. Each item goes into the shortest
+  column, so the order still reads left to right: arrow keys, Shift+arrows
+  and Shift+click select the same runs as in Rows, and Up/Down move to the
+  tile directly above or below in the same column. The Size slider sets the
+  column width; it works with the date scrubber, stacks, every density and
+  on a phone (2 columns or more; 1 column stays the feed). Rows stays the
+  default. On a phone the tile-shape button steps Rows, Square, Columns.
 
 ## [1.5.0] - 2026-11-09
 

@@ -169,3 +169,13 @@
     transition: none;
   }
 }
+
+/* ---------- tile shape: Rows / Square / Columns (B22) ---------- */
+.layout-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.layout-choice .layout-toggle {
+  padding: 2px 6px;
+}

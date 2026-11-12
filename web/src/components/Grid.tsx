@@ -1,4 +1,4 @@
-import { useVirtualizer } from '@tanstack/react-virtual'
+import { defaultRangeExtractor, useVirtualizer, type Range } from '@tanstack/react-virtual'
 import { Check, File, FileText, Film, Hourglass, Image as ImageIcon, Lock, Star, TriangleAlert, type LucideIcon } from 'lucide-react'
 import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { emptyQuery, thumbUrl, type Item } from '../api'
@@ -10,6 +10,8 @@ import {
   mobileTileSize,
   nextIndex,
   pickThumbSize,
+  revealScrollTop,
+  rowReach,
   rowStarts,
   tilePositions,
   typicalAspect,
@@ -72,7 +74,12 @@ const Tile = memo(function Tile({
   matchBadge = false,
   onStackClick,
   onContextMenu,
+  left,
+  top,
 }: {
+  /** Columns layout: where the tile sits in its row (see layout.ts) */
+  left?: number
+  top?: number
   extraLabel?: string
   member?: boolean
   matchBadge?: boolean
@@ -111,7 +118,11 @@ const Tile = memo(function Tile({
       aria-label={tileLabel(item) + (cullText(item) ? `, ${cullText(item)}` : '') + extraLabel}
       tabIndex={tabbable ? 0 : -1}
       className={`tile${selected ? ' selected' : ''}${thumb ? '' : ' no-thumb'}${member ? ' stack-member' : ''}`}
-      style={{ width, height, ...placeholder }}
+      style={
+        left === undefined
+          ? { width, height, ...placeholder }
+          : { width, height, position: 'absolute', left, top, ...placeholder }
+      }
       onMouseDown={(e) => {
         if (onStackClick && (e.target as HTMLElement).closest('[data-stack-toggle]')) {
           e.preventDefault()
@@ -276,6 +287,13 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
   // item index -> its row and horizontal centre, for up/down arrow keys
   const positions = useMemo(() => tilePositions(rows, gap), [rows, gap])
   const loadedStarts = useMemo(() => rowStarts(rows, gap), [rows, gap])
+  // Columns tiles overhang their row: render from the first row reaching in
+  const reach = useMemo(() => rowReach(rows, gap), [rows, gap])
+  const rangeExtractor = useCallback(
+    (range: Range) =>
+      defaultRangeExtractor({ ...range, startIndex: Math.min(range.startIndex, reach[range.startIndex] ?? range.startIndex) }),
+    [reach],
+  )
 
   // what to restore after the next relayout: the item under the fingers or
   // pointer (zoom), the rows on screen (a month loaded above), or the top of
@@ -311,6 +329,7 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
     // the scrubber's estimate of the months not loaded above and below
     paddingStart: scrub.padStart,
     paddingEnd: scrub.padEnd,
+    rangeExtractor,
   })
 
   // re-measure when the row heights change (resize, slider, layout switch)
@@ -340,7 +359,13 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
       else {
         const i = items.findIndex((it) => it.id === a.id)
         const p = positions[i]
-        if (p && rows[p.row]) el.scrollTop = anchoredScrollTop(pad + loadedStarts[p.row], rows[p.row].height, a.frac, a.pointY)
+        if (p && rows[p.row])
+          el.scrollTop = anchoredScrollTop(
+            pad + loadedStarts[p.row] + (p.top ?? 0),
+            p.height ?? rows[p.row].height,
+            a.frac,
+            a.pointY,
+          )
       }
     } else if (el && sameList && pad !== prevPad.current && el.scrollTop >= prevPad.current && prevPad.current > 0) {
       // the estimate above the loaded rows changed: the rows stay put
@@ -441,12 +466,18 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
       const id = flatIds[index]
       if (!id) return
       setFocusedId(id)
-      if (positions[index]) virtualizer.scrollToIndex(positions[index].row)
+      const p = positions[index]
+      const el0 = scrollRef.current
+      if (p && p.top !== undefined && el0) {
+        // a Columns tile can be taller than its row: reveal the tile itself
+        const top = scrub.padStart + loadedStarts[p.row] + p.top
+        el0.scrollTop = revealScrollTop(el0.scrollTop, el0.clientHeight, top, top + (p.height ?? 0) + gap)
+      } else if (p) virtualizer.scrollToIndex(p.row)
       const el = document.getElementById(tileDomId(id))
       if (el) el.focus({ preventScroll: true })
       else wantFocus.current = true
     },
-    [flatIds, positions, virtualizer],
+    [flatIds, positions, virtualizer, loadedStarts, scrub.padStart, gap],
   )
 
   // the focused tile left the list (trashed with Delete, filed out of
@@ -676,7 +707,9 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
                     index={t.index}
                     total={total}
                     width={t.width}
-                    height={rows[row.index].height}
+                    height={t.height ?? rows[row.index].height}
+                    left={t.x}
+                    top={t.y}
                     selected={selection.has(item.id)}
                     tabbable={item.id === tabStop}
                     onPointerDown={handlePointerDown}
