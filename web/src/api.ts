@@ -587,6 +587,8 @@ export const api = {
   createToken: (body: { name: string; scopes: string[]; folder_ids?: string[]; expires_at?: string | null }) =>
     request<ApiToken & { token: string }>('/api/tokens', json(body)),
   revokeToken: (id: string) => request<ApiToken>(`/api/tokens/${id}`, { method: 'DELETE' }),
+  /** remove a revoked or expired token from the list (409 while it still works) */
+  removeTokenEntry: (id: string) => request<void>(`/api/tokens/${id}/entry`, { method: 'DELETE' }),
   history: (id: string) => request<ItemEvent[]>(`/api/items/${id}/history`),
   batches: (limit = 30) => request<Batch[]>(`/api/batches?limit=${limit}`),
   undoBatch: (batchId: string) =>

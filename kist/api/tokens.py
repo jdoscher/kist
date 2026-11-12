@@ -75,3 +75,11 @@ def create_token(body: TokenCreate, session: Annotated[Session, Depends(get_sess
 @router.delete("/tokens/{token_id}", response_model=TokenOut, dependencies=[Depends(admin_only)])
 def revoke_token(token_id: str, session: Annotated[Session, Depends(get_session)]):
     return tokens_svc.token_out(tokens_svc.revoke(session, token_id))
+
+
+@router.delete(
+    "/tokens/{token_id}/entry", status_code=204, dependencies=[Depends(admin_only)]
+)
+def remove_token_entry(token_id: str, session: Annotated[Session, Depends(get_session)]):
+    """Remove a revoked or expired token from the list (409 while it still works)."""
+    tokens_svc.remove(session, token_id)

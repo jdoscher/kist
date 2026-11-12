@@ -36,6 +36,13 @@ class NotFound(Exception):
         super().__init__(f"token {token_id} not found")
 
 
+class StillActive(Exception):
+    """Only a revoked or expired token's entry can be removed."""
+
+    def __init__(self, name: str):
+        super().__init__(f"“{name}” still works: revoke it before removing it from the list")
+
+
 def digest(plaintext: str) -> str:
     return hashlib.sha256(plaintext.encode("utf-8")).hexdigest()
 
@@ -138,6 +145,20 @@ def revoke(session: Session, token_id: str) -> ApiToken:
         session.commit()
         sync_file(session)
     return token
+
+
+def remove(session: Session, token_id: str) -> None:
+    """Delete a revoked or expired token's entry, here and in tokens.json
+    (so rebuild-index doesn't bring it back). Changes it made keep its name
+    in item history, which stores the name, not the token."""
+    token = session.get(ApiToken, token_id)
+    if token is None:
+        raise NotFound(token_id)
+    if is_active(token):
+        raise StillActive(token.name)
+    session.delete(token)
+    session.commit()
+    sync_file(session)
 
 
 def visible_folders(session: Session, folder_ids: list[str]) -> frozenset[str]:

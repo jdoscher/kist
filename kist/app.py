@@ -150,6 +150,11 @@ async def transition_error(request: Request, exc: TransitionError):
     return _error(409, str(exc))
 
 
+@app.exception_handler(tokens_svc.StillActive)
+async def token_still_active(request: Request, exc: tokens_svc.StillActive):
+    return _error(409, str(exc))
+
+
 @app.exception_handler(items_svc.Conflict)
 async def conflict(request: Request, exc: items_svc.Conflict):
     return _error(

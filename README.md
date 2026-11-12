@@ -1066,6 +1066,7 @@ GET    /api/tokens               (admin) named tokens, without secrets
 POST   /api/tokens               (admin) {name, scopes, folder_ids?, expires_at?} -> 201
                                  with the token, shown once
 DELETE /api/tokens/{id}          (admin) revoke
+DELETE /api/tokens/{id}/entry    (admin) remove a revoked or expired token from the list -> 204 (409 while it still works)
 GET    /api/archive-health       fixity, last verify, last backup, free disk, the 3-2-1
                                  checklist
 POST   /api/archive-health/checklist  {"id": "offsite", "done": true}

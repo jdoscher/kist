@@ -117,7 +117,22 @@ function TokensSection() {
       what: 'revoke the token',
       onDone: () => {
         void qc.invalidateQueries({ queryKey: ['tokens'] })
-        notify({ message: `Revoked “${t.name}”.` })
+        notify({
+          message: `Revoked “${t.name}”.`,
+          action: { label: 'Remove from list', run: () => removeEntry(t) },
+        })
+      },
+    })
+  }
+
+  // a revoked or expired token's card can go: its changes keep its name in
+  // item history (the history stores the name, not the token)
+  const removeEntry = (t: ApiToken) => {
+    void w.run(`remove:${t.id}`, () => api.removeTokenEntry(t.id), {
+      what: 'remove the token from the list',
+      onDone: () => {
+        void qc.invalidateQueries({ queryKey: ['tokens'] })
+        notify({ message: `Removed “${t.name}” from the list.` })
       },
     })
   }
@@ -194,6 +209,16 @@ function TokensSection() {
                   aria-label={`Revoke ${t.name}`}
                 >
                   Revoke
+                </button>
+              )}
+              {status !== 'active' && (
+                <button
+                  disabled={w.busy(`remove:${t.id}`)}
+                  onClick={() => removeEntry(t)}
+                  aria-label={`Remove ${t.name} from the list`}
+                  title="Remove this token from the list. Changes it made keep its name in item history."
+                >
+                  Remove from list
                 </button>
               )}
             </li>

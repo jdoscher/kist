@@ -57,6 +57,42 @@ def test_create_list_revoke_and_me(client):
     assert client.delete("/api/tokens/01NOPE").status_code == 404
 
 
+def test_a_revoked_or_expired_token_entry_can_be_removed(client, clean):
+    from kist.db import SessionLocal
+    from kist.models import ApiToken
+    from kist.services import verify
+
+    live = make_token(client, "Phone", ["add"])
+    # a working token can't be removed: revoke first
+    r = client.delete(f"/api/tokens/{live['id']}/entry")
+    assert r.status_code == 409 and "revoke it" in r.json()["detail"]
+
+    client.delete(f"/api/tokens/{live['id']}")
+    assert client.delete(f"/api/tokens/{live['id']}/entry").status_code == 204
+    assert client.get("/api/tokens").json() == []
+    assert client.delete(f"/api/tokens/{live['id']}/entry").status_code == 404
+
+    # expired (never revoked) also qualifies
+    old = make_token(client, "Old", ["read"])
+    with SessionLocal() as s:
+        s.execute(sa.update(ApiToken).where(ApiToken.id == old["id"])
+                  .values(expires_at=datetime.now(UTC) - timedelta(days=1)))
+        s.commit()
+    assert client.delete(f"/api/tokens/{old['id']}/entry").status_code == 204
+
+    # tokens.json follows, so rebuild-index doesn't bring them back and verify is clean
+    assert json.loads((clean / ".kist" / "tokens.json").read_text())["tokens"] == []
+    with SessionLocal() as s:
+        assert verify.run(s).problems == []
+
+
+def test_only_admin_removes_token_entries(client):
+    gone = make_token(client, "Gone", ["read"])
+    client.delete(f"/api/tokens/{gone['id']}")
+    writer = as_token(client, make_token(client, "W", ["write"])["token"])
+    assert writer.delete(f"/api/tokens/{gone['id']}/entry").status_code == 403
+
+
 def test_expired_tokens_are_refused(client):
     from kist.db import SessionLocal
     from kist.models import ApiToken
