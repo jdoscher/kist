@@ -357,6 +357,11 @@ The images lead; anything drawn on them earns its place.
   24 px target, the first on the icon column; pressed adds a `--text`
   ring. The info panel's and triage's label pickers stay 24 px discs
   (editing controls).
+- **Tags** show as a wrapped cloud of 24 px neutral chips (`.tag-cloud-chip`:
+  `--chip-bg` / `--chip-text`, count in `--text-dim`, no `#` icon); a tag
+  you're filtering by takes the selected fill (`--accent-soft` with a 1 px
+  `--accent` edge). Two small toggles in the Tags head switch to the list
+  (better for hundreds of tags); the choice is a pref (`kist.tagView`).
 
 ## Type
 

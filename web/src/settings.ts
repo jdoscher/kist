@@ -15,7 +15,12 @@ export interface Prefs {
   /** colour theme: System (default) follows the OS */
   theme: ThemePref
   density: Density
+  /** the sidebar's tags: a wrapped chip cloud (default) or the list,
+   * which scans better once a library has hundreds of tags (B10b) */
+  tagView: TagView
 }
+
+export type TagView = 'chips' | 'list'
 
 const KEYS: Record<keyof Prefs, string> = {
   panelOpen: 'kist.panelOpen',
@@ -24,6 +29,7 @@ const KEYS: Record<keyof Prefs, string> = {
   mobileCols: 'kist.mobileCols',
   theme: 'kist.theme',
   density: 'kist.density',
+  tagView: 'kist.tagView',
 }
 
 type Store = Pick<Storage, 'getItem' | 'setItem'>
@@ -58,6 +64,7 @@ export function readPrefs(store: Store | null = browserStore()): Prefs {
     mobileCols: parsePhoneCols(get('mobileCols')),
     theme: isThemePref(get('theme')) ? (get('theme') as ThemePref) : 'system',
     density: isDensity(get('density')) ? (get('density') as Density) : 'comfortable',
+    tagView: get('tagView') === 'list' ? 'list' : 'chips',
   }
 }
 

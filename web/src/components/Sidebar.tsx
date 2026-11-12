@@ -10,6 +10,8 @@ import {
   History,
   Inbox,
   LayoutGrid,
+  List,
+  Tags,
   Pencil,
   Plus,
   Settings as SettingsIcon,
@@ -38,6 +40,7 @@ import { SidebarBoards, SidebarCull } from './m3/Boards'
 import { SetupChecklist } from './m3/FirstRun'
 import { hasM45Filters } from '../m45/filters'
 import { attentionCount } from '../attention'
+import { readPrefs, savePref, type TagView } from '../settings'
 
 interface TreeNode extends Folder {
   children: TreeNode[]
@@ -369,6 +372,12 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
   const w = useWrite()
   const bulk = useBulkAction()
   const [tagFilter, setTagFilter] = useState('')
+  // tags as a chip cloud or a list (B10b), remembered per browser
+  const [tagView, setTagViewState] = useState<TagView>(() => readPrefs().tagView)
+  const setTagView = (v: TagView) => {
+    setTagViewState(v)
+    savePref('tagView', v)
+  }
 
   const tree = useMemo(() => buildTree(folders ?? []), [folders])
 
@@ -624,7 +633,29 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
         <SidebarCull />
 
         <div className="section-head" style={{ marginTop: 16 }}>
-          <h2>Tags</h2>
+          <h2 id="sidebar-tags-head">Tags</h2>
+          {(tags?.length ?? 0) > 0 && (
+            <div className="tag-view-toggle" role="group" aria-label="Show tags as">
+              <button
+                className={`icon-btn${tagView === 'chips' ? ' on' : ''}`}
+                aria-pressed={tagView === 'chips'}
+                aria-label="Chips"
+                title="Show tags as chips"
+                onClick={() => setTagView('chips')}
+              >
+                <Tags size={14} aria-hidden="true" />
+              </button>
+              <button
+                className={`icon-btn${tagView === 'list' ? ' on' : ''}`}
+                aria-pressed={tagView === 'list'}
+                aria-label="List"
+                title="Show tags as a list (easier to scan with hundreds of tags)"
+                onClick={() => setTagView('list')}
+              >
+                <List size={14} aria-hidden="true" />
+              </button>
+            </div>
+          )}
         </div>
         {(tags?.length ?? 0) > 12 && (
           <input
@@ -635,25 +666,54 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
             onChange={(e) => setTagFilter(e.target.value)}
           />
         )}
-        {visibleTags.map((t) => {
-          const active = query.tags.includes(t.name)
-          return (
-            <Row
-              key={t.id}
-              icon={<Hash {...ROW_ICON} />}
-              name={t.name}
-              count={t.count}
-              active={active}
-              toggle
-              onActivate={() =>
-                setQuery({
-                  tags: active ? query.tags.filter((x) => x !== t.name) : [...query.tags, t.name],
-                  deleted: false,
-                })
-              }
-            />
-          )
-        })}
+        {tagView === 'chips' ? (
+          <ul className="tag-cloud" aria-labelledby="sidebar-tags-head">
+            {visibleTags.map((t) => {
+              const active = query.tags.includes(t.name)
+              return (
+                <li key={t.id}>
+                  <button
+                    className="tag-cloud-chip"
+                    aria-pressed={active}
+                    onClick={() =>
+                      setQuery({
+                        tags: active ? query.tags.filter((x) => x !== t.name) : [...query.tags, t.name],
+                        deleted: false,
+                      })
+                    }
+                  >
+                    <span className="name">{t.name}</span>
+                    <span className="count">
+                      <span className="sr-only">, </span>
+                      {t.count}
+                      <span className="sr-only">{t.count === 1 ? ' item' : ' items'}</span>
+                    </span>
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        ) : (
+          visibleTags.map((t) => {
+            const active = query.tags.includes(t.name)
+            return (
+              <Row
+                key={t.id}
+                icon={<Hash {...ROW_ICON} />}
+                name={t.name}
+                count={t.count}
+                active={active}
+                toggle
+                onActivate={() =>
+                  setQuery({
+                    tags: active ? query.tags.filter((x) => x !== t.name) : [...query.tags, t.name],
+                    deleted: false,
+                  })
+                }
+              />
+            )
+          })
+        )}
         {(tags?.length ?? 0) === 0 && (
           <div className="hint">{caps.canEdit ? 'No tags yet. Add them in an item’s info panel.' : 'No tags yet.'}</div>
         )}
