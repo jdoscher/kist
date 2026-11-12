@@ -468,7 +468,7 @@ select:focus-visible {
    Paste and Upload (the one brass control), a hairline, then the quiet
    icons. The view controls live in the grid header. */
 .app-shell:not(.mobile) .topbar {
-  height: 48px;
+  min-height: 48px;
   padding: 0 12px;
   flex-wrap: nowrap;
   flex-shrink: 0;
@@ -504,7 +504,7 @@ select:focus-visible {
   display: none;
 }
 .app-shell:not(.mobile) .searchbox input {
-  min-width: 80px;
+  min-width: 60px;
   height: 28px;
 }
 .topbar-spacer {
@@ -2276,12 +2276,15 @@ select:focus-visible {
 @media (max-width: 900px) {
   .app-shell:not(.mobile) .topbar {
     flex-wrap: wrap;
+    padding-top: 6px;
+    padding-bottom: 6px;
   }
   .app-shell:not(.mobile) .searchbox {
-    flex-basis: 220px;
+    flex-basis: 260px;
+    min-width: 240px;
   }
-  .app-shell:not(.mobile) .sidebar {
-    width: 180px;
+  :root {
+    --sidebar-w: 180px;
   }
   .app-shell:not(.mobile) .detail-panel {
     width: 220px;
