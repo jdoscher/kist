@@ -2,7 +2,7 @@
 // pref goes through readPrefs/savePref so private mode and bad stored
 // values are handled in one place.
 
-import { TILE_SIZE_DEFAULT, TILE_SIZE_MAX, TILE_SIZE_MIN, type GridLayout } from './layout.ts'
+import { isGridLayout, TILE_SIZE_DEFAULT, TILE_SIZE_MAX, TILE_SIZE_MIN, type GridLayout } from './layout.ts'
 import type { MobileCols } from './mobile.ts'
 import { parsePhoneCols } from './zoom.ts'
 import { isDensity, isThemePref, type Density, type ThemePref } from './theme.ts'
@@ -53,7 +53,7 @@ export function readPrefs(store: Store | null = browserStore()): Prefs {
   const size = get('tileSize')
   return {
     panelOpen: get('panelOpen') !== '0',
-    gridLayout: get('gridLayout') === 'square' ? 'square' : 'justified',
+    gridLayout: ((v) => (isGridLayout(v) ? v : 'justified'))(get('gridLayout')),
     tileSize: size === null ? TILE_SIZE_DEFAULT : clampSize(Number(size)),
     mobileCols: parsePhoneCols(get('mobileCols')),
     theme: isThemePref(get('theme')) ? (get('theme') as ThemePref) : 'system',
