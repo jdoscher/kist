@@ -3,7 +3,7 @@
 // boards the item is on.
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Columns2, Layers, LayoutDashboard, Upload } from 'lucide-react'
+import { Columns2, Layers, Presentation, Upload } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { thumbUrl, type Item } from '../../api'
 import { sheetCompareChoices } from '../../compareTargets'
@@ -72,7 +72,7 @@ export function ItemVersions({ item }: { item: Item }) {
         <h3 className="section-label">Versions{chain.length > 1 ? ` (${chain.length})` : ''}</h3>
         {caps.canEdit && (
           <button className="small btn-icon" onClick={() => fileRef.current?.click()} disabled={progress !== null}>
-            <Upload size={13} strokeWidth={1.75} aria-hidden="true" />
+            <Upload size={14} aria-hidden="true" />
             New version
           </button>
         )}
@@ -97,7 +97,7 @@ export function ItemVersions({ item }: { item: Item }) {
       )}
       {prev && (
         <button className="btn-icon" onClick={() => openCompare([prev.id, item.id])}>
-          <Columns2 size={14} strokeWidth={1.75} aria-hidden="true" />
+          <Columns2 size={14} aria-hidden="true" />
           Compare with v{at}
         </button>
       )}
@@ -151,7 +151,7 @@ export function SheetVersions({ item }: { item: Item }) {
       <div className="btn-row">
         {choices.map((c) => (
           <button key={c.key} className="btn-icon" onClick={() => openCompare(c.ids)}>
-            <Columns2 size={14} strokeWidth={1.75} aria-hidden="true" />
+            <Columns2 size={14} aria-hidden="true" />
             {c.label}
           </button>
         ))}
@@ -171,7 +171,7 @@ export function ItemBoards({ item }: { item: Item }) {
         {boards.data.map((b) => (
           <li key={b.id}>
             <button className="chip btn-icon" onClick={() => openScreen({ kind: 'board', id: b.id })}>
-              <LayoutDashboard size={12} strokeWidth={1.75} aria-hidden="true" />
+              <Presentation size={14} aria-hidden="true" />
               {b.name}
             </button>
           </li>

@@ -37,7 +37,7 @@ export function Collapsible({
             onToggle?.(!open)
           }}
         >
-          <ChevronRight size={14} strokeWidth={2} aria-hidden="true" className={open ? 'open' : ''} />
+          <ChevronRight size={14} aria-hidden="true" className={open ? 'open' : ''} />
           {title}
           {count !== undefined && count > 0 && <span className="count"> ({count})</span>}
         </button>
@@ -128,7 +128,7 @@ function HistoryList({ item }: { item: Item }) {
                 aria-label={`Revert: ${sentence}`}
                 title="Revert this change"
               >
-                <RotateCcw size={14} strokeWidth={1.75} aria-hidden="true" />
+                <RotateCcw size={14} aria-hidden="true" />
               </button>
             )}
           </li>

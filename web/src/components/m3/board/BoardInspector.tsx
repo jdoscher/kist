@@ -243,7 +243,7 @@ export function BoardInspector({ ed }: { ed: Editor }) {
               </label>
               {/^https?:\/\//.test((one.style?.url as string) ?? '') && (
                 <a href={one.style?.url as string} target="_blank" rel="noreferrer noopener" className="btn-link">
-                  Open link <ExternalLink size={12} aria-hidden="true" />
+                  Open link <ExternalLink size={14} aria-hidden="true" />
                   <span className="sr-only"> (new tab)</span>
                 </a>
               )}
@@ -275,7 +275,7 @@ export function BoardInspector({ ed }: { ed: Editor }) {
           <div className="insp-row" role="group" aria-label="Align">
             {ALIGN.map(({ mode, label, Icon }) => (
               <button key={mode} className="icon-btn" aria-label={label} title={label} onClick={() => ed.commit({ ...c, nodes: align(c.nodes, ed.sel, mode) })}>
-                <Icon size={15} aria-hidden="true" />
+                <Icon size={16} aria-hidden="true" />
               </button>
             ))}
           </div>
@@ -303,16 +303,16 @@ export function BoardInspector({ ed }: { ed: Editor }) {
 
       <div className="insp-row" role="group" aria-label="Order">
         <button className="icon-btn" aria-label="Bring to front" title="Bring to front" onClick={() => order('front')}>
-          <ArrowUpToLine size={15} aria-hidden="true" />
+          <ArrowUpToLine size={16} aria-hidden="true" />
         </button>
         <button className="icon-btn" aria-label="Bring forward" title="Bring forward" onClick={() => order('forward')}>
-          <ChevronUp size={15} aria-hidden="true" />
+          <ChevronUp size={16} aria-hidden="true" />
         </button>
         <button className="icon-btn" aria-label="Send backward" title="Send backward" onClick={() => order('backward')}>
-          <ChevronDown size={15} aria-hidden="true" />
+          <ChevronDown size={16} aria-hidden="true" />
         </button>
         <button className="icon-btn" aria-label="Send to back" title="Send to back" onClick={() => order('back')}>
-          <ArrowDownToLine size={15} aria-hidden="true" />
+          <ArrowDownToLine size={16} aria-hidden="true" />
         </button>
       </div>
       <div className="insp-row">

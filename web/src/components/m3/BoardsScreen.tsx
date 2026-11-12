@@ -3,7 +3,7 @@
 // sidebar's boards and culling sections stay in Boards.tsx.
 
 import { useQueryClient } from '@tanstack/react-query'
-import { Copy, LayoutDashboard, Pencil, Plus, RotateCcw, Trash2, X } from 'lucide-react'
+import { Copy, Pencil, Plus, Presentation, RotateCcw, Trash2, X } from 'lucide-react'
 import { useState } from 'react'
 import { emptyQuery } from '../../api'
 import type { BoardSummary } from '../../board'
@@ -68,7 +68,7 @@ export function BoardsScreen({ trash = false }: { trash?: boolean }) {
         </button>
         {caps.canEdit && !trash && !mobile && (
           <button className="btn-primary btn-icon" onClick={() => void newBoard()}>
-            <Plus size={15} aria-hidden="true" /> New board
+            <Plus size={16} aria-hidden="true" /> New board
           </button>
         )}
       </div>
@@ -85,7 +85,7 @@ export function BoardsScreen({ trash = false }: { trash?: boolean }) {
               <p>Start one here, or select items in the library and choose Board in the bar at the bottom.</p>
               {caps.canEdit && (
                 <button className="btn-primary btn-icon" onClick={() => void newBoard()}>
-                  <Plus size={15} aria-hidden="true" /> New board
+                  <Plus size={16} aria-hidden="true" /> New board
                 </button>
               )}
             </>
@@ -109,7 +109,7 @@ export function BoardsScreen({ trash = false }: { trash?: boolean }) {
                 {trash ? (
                   <>
                     <button className="btn-icon small" onClick={() => restore(b)}>
-                      <RotateCcw size={13} aria-hidden="true" /> Restore
+                      <RotateCcw size={14} aria-hidden="true" /> Restore
                     </button>
                     {caps.canDestroy && (
                       <button className="btn-icon small danger" onClick={() => void destroy(b)}>
@@ -144,7 +144,7 @@ function BoardThumb({ b }: { b: BoardSummary }) {
   if (failed)
     return (
       <span className="board-thumb empty" aria-hidden="true">
-        <LayoutDashboard size={28} strokeWidth={1.25} />
+        <Presentation size={28} />
       </span>
     )
   return <img className="board-thumb" src={b.thumb_url} alt="" loading="lazy" onError={() => setFailed(true)} />

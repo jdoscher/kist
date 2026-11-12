@@ -226,7 +226,7 @@ export function UploadManager({ children }: { children: ReactNode }) {
               {e.status === 'queued' && <span>queued</span>}
               {e.status === 'done' && (
                 <span>
-                  <Check size={14} strokeWidth={2.25} aria-hidden="true" />
+                  <Check size={14} aria-hidden="true" />
                   <span className="sr-only">added</span>
                 </span>
               )}
@@ -241,7 +241,7 @@ export function UploadManager({ children }: { children: ReactNode }) {
                     aria-label={`Dismiss ${e.name}`}
                     onClick={() => dispatch({ type: 'dismiss', key: e.key })}
                   >
-                    <X size={13} strokeWidth={2} aria-hidden="true" />
+                    <X size={14} aria-hidden="true" />
                   </button>
                 </>
               )}
@@ -255,7 +255,7 @@ export function UploadManager({ children }: { children: ReactNode }) {
                     aria-label={`Dismiss ${e.name}`}
                     onClick={() => dispatch({ type: 'dismiss', key: e.key })}
                   >
-                    <X size={13} strokeWidth={2} aria-hidden="true" />
+                    <X size={14} aria-hidden="true" />
                   </button>
                 </>
               )}

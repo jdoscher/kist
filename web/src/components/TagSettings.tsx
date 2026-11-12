@@ -158,7 +158,7 @@ export function VocabularySection() {
                   <li key={a.alias}>
                     <span className="rule">
                       <TagText tag={a.alias} hash={false} />
-                      <ArrowRight size={14} strokeWidth={1.75} aria-label="means" />
+                      <ArrowRight size={14} aria-label="means" />
                       <strong>
                         <TagText tag={a.tag} hash={false} />
                       </strong>
@@ -169,7 +169,7 @@ export function VocabularySection() {
                       title="Remove the alias (tags already rewritten stay)"
                       onClick={() => void remove(`“${a.alias}” is no longer an alias.`, () => org.removeAlias(a.alias))}
                     >
-                      <Trash2 size={14} strokeWidth={1.75} aria-hidden="true" />
+                      <Trash2 size={14} aria-hidden="true" />
                     </button>
                   </li>
                 ))}
@@ -205,7 +205,7 @@ export function VocabularySection() {
                   <li key={`${r.tag}>${r.implied}`}>
                     <span className="rule">
                       <TagText tag={r.tag} hash={false} />
-                      <ArrowRight size={14} strokeWidth={1.75} aria-label="implies" />
+                      <ArrowRight size={14} aria-label="implies" />
                       <strong>
                         <TagText tag={r.implied} hash={false} />
                       </strong>
@@ -216,7 +216,7 @@ export function VocabularySection() {
                       title="Remove the rule (nothing on the items changes)"
                       onClick={() => void remove(`${r.tag} no longer implies ${r.implied}.`, () => org.removeImplies(r.tag, r.implied))}
                     >
-                      <Trash2 size={14} strokeWidth={1.75} aria-hidden="true" />
+                      <Trash2 size={14} aria-hidden="true" />
                     </button>
                   </li>
                 ))}
@@ -314,7 +314,7 @@ export function CleanupSection() {
       {isError && <p role="alert">Couldn’t load suggestions: {describeError(error)}</p>}
       {data && data.length === 0 && (
         <p className="empty-note" role="status">
-          Nothing to tidy. <Check size={14} strokeWidth={2} aria-hidden="true" />
+          Nothing to tidy. <Check size={14} aria-hidden="true" />
         </p>
       )}
       {KIND_ORDER.filter((k) => by.has(k)).map((k) => (

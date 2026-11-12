@@ -173,10 +173,20 @@ p,
   font-family: var(--font-mono);
   font-size: var(--fs-1);
 }
-/* Lucide icons sit on the text baseline at the text's size */
+/* Lucide icons sit on the text baseline. One stroke for every icon at
+   every size (docs/brand.md): 1.5 px on screen, whatever the icon's size
+   (non-scaling-stroke measures the width in CSS px, not icon units).
+   Filled glyphs (strokeWidth={0}, e.g. tile stars) keep no outline. */
 .lucide {
   flex-shrink: 0;
   vertical-align: -0.15em;
+  stroke-width: 1.5;
+}
+.lucide * {
+  vector-effect: non-scaling-stroke;
+}
+.lucide[stroke-width='0'] {
+  stroke-width: 0;
 }
 
 /* ---------- controls: one height, three kinds (docs/brand.md) ----------

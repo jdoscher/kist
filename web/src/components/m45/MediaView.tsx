@@ -104,17 +104,17 @@ function VideoPlayer({ item }: { item: Item }) {
         <div className="media-tools" role="toolbar" aria-label="Video tools">
           {caps.canEdit && (
             <button type="button" className="btn-icon" disabled={!!busy} onClick={() => void cover()} title="Use the frame on screen as the thumbnail">
-              <ImageIcon size={14} strokeWidth={1.75} aria-hidden="true" /> Set cover
+              <ImageIcon size={14} aria-hidden="true" /> Set cover
             </button>
           )}
           {caps.canEdit && (
             <button type="button" className="btn-icon" disabled={!!busy} onClick={() => void frame()} title="Save the frame on screen as a new picture">
-              <Camera size={14} strokeWidth={1.75} aria-hidden="true" /> Save frame
+              <Camera size={14} aria-hidden="true" /> Save frame
             </button>
           )}
           {caps.canEdit && (
             <button type="button" className="btn-icon" onClick={clip} title="Cut a clip, GIF or WebP from this video">
-              <Scissors size={14} strokeWidth={1.75} aria-hidden="true" /> Clip…
+              <Scissors size={14} aria-hidden="true" /> Clip…
             </button>
           )}
           {playable === 'proxy' && <span className="hint">Playing a web copy; the original is unchanged.</span>}
@@ -173,7 +173,7 @@ function AudioPlayer({ item }: { item: Item }) {
                 openClip({ item, start: now, end: Math.min(dur || now + 10, now + 10), player: () => ref.current })
               }}
             >
-              <Scissors size={14} strokeWidth={1.75} aria-hidden="true" /> Clip…
+              <Scissors size={14} aria-hidden="true" /> Clip…
             </button>
           </div>
         )}
@@ -200,7 +200,7 @@ function SvgView({ item }: { item: Item }) {
       <div className="svg-stage">{url ? <img src={url} alt={item.filename} /> : <img src={thumbUrl(item, 1024) ?? fileUrl(item)} alt={item.filename} />}</div>
       <div className="media-tools" role="toolbar" aria-label="SVG tools">
         <button type="button" className="btn-icon" disabled={!text.data} onClick={() => text.data && copy('svg', text.data)}>
-          <Copy size={14} strokeWidth={1.75} aria-hidden="true" /> {copied === 'svg' ? 'Copied' : 'Copy SVG'}
+          <Copy size={14} aria-hidden="true" /> {copied === 'svg' ? 'Copied' : 'Copy SVG'}
         </button>
         {colors.length > 0 && (
           <ul className="svg-colors" aria-label="Colours in this SVG">

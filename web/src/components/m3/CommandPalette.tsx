@@ -4,28 +4,7 @@
 // full-height sheet.
 
 import { useQuery } from '@tanstack/react-query'
-import {
-  Columns2,
-  FileImage,
-  Folder,
-  FolderSearch,
-  Hash,
-  History,
-  Inbox,
-  LayoutDashboard,
-  LayoutGrid,
-  ListChecks,
-  Moon,
-  PencilLine,
-  Search,
-  Settings,
-  Sparkles,
-  Trash2,
-  Upload,
-  User,
-  Zap,
-  type LucideIcon,
-} from 'lucide-react'
+import { Columns2, FileImage, Flag, Folder, FolderPlus, FolderSearch, Hash, History, Inbox, LayoutGrid, Link2, ListChecks, PencilLine, Presentation, Search, Settings, Stamp, SunMoon, Trash2, Upload, User, Zap, type LucideIcon } from 'lucide-react'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { emptyQuery, type Query } from '../../api'
 import { api3 } from '../../creativeApi'
@@ -54,29 +33,34 @@ const KIND_ICON: Record<PaletteKind, LucideIcon> = {
   action: Zap,
   folder: Folder,
   smart_folder: FolderSearch,
-  board: LayoutDashboard,
+  board: Presentation,
   tag: Hash,
   person: User,
   item: FileImage,
 }
 
+// one glyph, one meaning (docs/brand.md icon table): Sparkles is AI only,
+// Flag is Picks, Presentation is Boards; Zap only for an unknown action.
+// Ids like `theme:dark` look up their prefix.
 const ACTION_ICON: Record<string, LucideIcon> = {
   upload: Upload,
-  'new-board': LayoutDashboard,
-  boards: LayoutDashboard,
+  'new-board': Presentation,
+  boards: Presentation,
   triage: ListChecks,
   compare: Columns2,
   'compare-with': Columns2,
   survey: Columns2,
   rename: PencilLine,
-  'apply-template': Sparkles,
+  'apply-template': Stamp,
   history: History,
   trash: Trash2,
   settings: Settings,
-  theme: Moon,
+  theme: SunMoon,
+  'add-url': Link2,
+  'new-folder': FolderPlus,
   all: LayoutGrid,
   unfiled: Inbox,
-  picks: Sparkles,
+  picks: Flag,
 }
 
 export default function CommandPalette({ onClose }: { onClose: () => void }) {
@@ -271,7 +255,7 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
   return (
     <Modal title={pickFor ? 'Compare with…' : 'Go to or do anything'} onClose={onClose} className="palette" headerClose={st.mobile}>
       <div className="palette-input">
-        <Search size={16} strokeWidth={1.75} aria-hidden="true" />
+        <Search size={16} aria-hidden="true" />
         <input
           ref={inputRef}
           data-autofocus
@@ -300,7 +284,7 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
               i++
               const idx = i
               const kind = g.kind === 'recent' ? e.kind : g.kind
-              const Icon = (kind === 'action' && ACTION_ICON[e.id]) || KIND_ICON[kind as PaletteKind] || Zap
+              const Icon = (kind === 'action' && (ACTION_ICON[e.id] ?? ACTION_ICON[e.id.split(':')[0]])) || KIND_ICON[kind as PaletteKind] || Zap
               return (
                 <div
                   key={`${g.kind}:${e.kind}:${e.id}`}
@@ -312,7 +296,7 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
                   onMouseDown={(ev) => ev.preventDefault()}
                   onClick={() => void run(e)}
                 >
-                  <Icon size={15} strokeWidth={1.75} aria-hidden="true" />
+                  <Icon size={16} aria-hidden="true" />
                   <span className="palette-title">{e.kind === 'tag' ? `#${e.title}` : e.title}</span>
                   {e.subtitle && <span className="palette-sub">{e.subtitle}</span>}
                 </div>

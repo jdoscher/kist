@@ -76,7 +76,7 @@ export function MoveToSheet({
             {recents.map((id) => (
               <li key={id}>
                 <button className="chip folder-chip" aria-describedby={`${uid}-explain`} onClick={() => pick(id)}>
-                  {inIt(id) && <Check size={13} strokeWidth={2} aria-label="(it’s in this folder)" role="img" />}
+                  {inIt(id) && <Check size={14} aria-label="(it’s in this folder)" role="img" />}
                   {byId.get(id)?.name}
                 </button>
               </li>
@@ -101,7 +101,7 @@ export function MoveToSheet({
                 onClick={() => pick(r.id)}
               >
                 <span className="move-name">{search ? r.path : r.name}</span>
-                {inIt(r.id) && <Check size={15} strokeWidth={2} aria-hidden="true" />}
+                {inIt(r.id) && <Check size={16} aria-hidden="true" />}
               </button>
             </li>
           ))}

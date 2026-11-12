@@ -161,7 +161,7 @@ export function Preview() {
       onTouchEnd={onTouchEnd}
     >
       <button ref={closeRef} className="preview-close" aria-label="Close preview" onClick={() => setPreviewId(null)}>
-        <X size={20} strokeWidth={1.75} aria-hidden="true" />
+        <X size={20} aria-hidden="true" />
       </button>
 
       <button
@@ -173,7 +173,7 @@ export function Preview() {
           go(-1)
         }}
       >
-        <ChevronLeft size={36} strokeWidth={1.5} aria-hidden="true" />
+        <ChevronLeft size={36} aria-hidden="true" />
       </button>
 
       <figure onClick={(e) => e.stopPropagation()}>
@@ -190,7 +190,7 @@ export function Preview() {
           </span>
           <MoreLikeThisButton item={item} className="preview-more" />
           <a href={fileUrl(item)} target="_blank" rel="noreferrer">
-            Open original <ExternalLink size={13} strokeWidth={1.75} aria-hidden="true" />
+            Open original <ExternalLink size={14} aria-hidden="true" />
             <span className="sr-only"> (new tab)</span>
           </a>
         </figcaption>
@@ -222,7 +222,7 @@ export function Preview() {
           go(1)
         }}
       >
-        <ChevronRight size={36} strokeWidth={1.5} aria-hidden="true" />
+        <ChevronRight size={36} aria-hidden="true" />
       </button>
     </div>
   )

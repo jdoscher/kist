@@ -106,7 +106,7 @@ export function OrganiseScreen() {
           Organise<span className="sr-only">: {label}</span>
         </h1>
         <button className="btn-icon settings-close" onClick={closeOrganise}>
-          <X size={16} strokeWidth={1.75} aria-hidden="true" />
+          <X size={16} aria-hidden="true" />
           Back to library
         </button>
       </header>
@@ -124,7 +124,7 @@ export function OrganiseScreen() {
                 aria-current={section === s.id ? 'page' : undefined}
                 onClick={() => openOrganise(s.id)}
               >
-                <s.icon size={16} strokeWidth={1.75} aria-hidden="true" />
+                <s.icon size={16} aria-hidden="true" />
                 {s.label}
               </button>
             ))}
@@ -195,7 +195,7 @@ function DuplicatesSection() {
       <div className="settings-section-head">
         <h2 id={`${id}-h`} className="view-title">Duplicates</h2>
         <button className="btn-icon" onClick={() => void refetch()} disabled={isFetching}>
-          <RefreshCw size={14} strokeWidth={1.75} aria-hidden="true" className={isFetching ? 'spin' : ''} />
+          <RefreshCw size={14} aria-hidden="true" className={isFetching ? 'spin' : ''} />
           Check again
         </button>
       </div>
@@ -490,7 +490,7 @@ function CollectionsSection() {
       <div className="settings-section-head">
         <h2 id={`${id}-h`} className="view-title">You seem to collect…</h2>
         <button className="btn-icon" onClick={() => setRefresh((n) => n + 1)} disabled={isFetching}>
-          <RefreshCw size={14} strokeWidth={1.75} aria-hidden="true" className={isFetching ? 'spin' : ''} />
+          <RefreshCw size={14} aria-hidden="true" className={isFetching ? 'spin' : ''} />
           Look again
         </button>
       </div>
@@ -591,7 +591,7 @@ function CollectionCard({ c, canEdit, onDismiss }: { c: Cluster; canEdit: boolea
           </select>
           <div className="btn-row">
             <button className="btn-primary" disabled={!name.trim()} onClick={() => void accept()}>
-              <Check size={14} strokeWidth={2} aria-hidden="true" /> Keep
+              <Check size={14} aria-hidden="true" /> Keep
             </button>
             <button onClick={onDismiss}>Not now</button>
           </div>
@@ -689,7 +689,7 @@ function PeopleSection() {
                 </button>
               ))}
               <button className="icon-btn" aria-label="Clear selection" onClick={() => setPicked(new Set())}>
-                <X size={14} strokeWidth={1.75} aria-hidden="true" />
+                <X size={14} aria-hidden="true" />
               </button>
             </div>
           )}

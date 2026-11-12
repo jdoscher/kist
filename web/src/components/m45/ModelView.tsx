@@ -97,11 +97,11 @@ export default function ModelView({ item, src }: { item: Item; src?: string }) {
             if (ref.current) ref.current.cameraOrbit = 'auto auto auto'
           }}
         >
-          <RotateCcw size={14} strokeWidth={1.75} aria-hidden="true" /> Reset view
+          <RotateCcw size={14} aria-hidden="true" /> Reset view
         </button>
         {caps.canEdit && !src && (
           <button type="button" className="btn-icon" disabled={busy || state !== 'ok'} onClick={() => void poster()} title="Use this view as the thumbnail">
-            <Camera size={14} strokeWidth={1.75} aria-hidden="true" /> {busy ? 'Saving…' : 'Set poster'}
+            <Camera size={14} aria-hidden="true" /> {busy ? 'Saving…' : 'Set poster'}
           </button>
         )}
       </div>

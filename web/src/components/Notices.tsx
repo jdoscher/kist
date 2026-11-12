@@ -79,7 +79,7 @@ function NoticeRow({ notice, onDismiss }: { notice: Notice; onDismiss: () => voi
         </button>
       ))}
       <button className="notice-close" aria-label="Dismiss notice" onClick={onDismiss}>
-        <X size={16} strokeWidth={1.75} aria-hidden="true" />
+        <X size={16} aria-hidden="true" />
       </button>
     </div>
   )

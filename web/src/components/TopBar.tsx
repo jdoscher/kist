@@ -235,7 +235,7 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
           aria-expanded={drawerOpen}
           aria-controls="folder-drawer"
         >
-          <Menu size={20} strokeWidth={1.75} aria-hidden="true" />
+          <Menu size={20} aria-hidden="true" />
         </button>
       )}
       <div className="brand" title="Kist">
@@ -339,7 +339,7 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
           aria-label="Search by image"
           title="Search by image: choose a picture, or drop or paste one onto the search box (it isn’t saved)"
         >
-          <ImageUp size={15} strokeWidth={1.75} aria-hidden="true" />
+          <ImageUp size={16} aria-hidden="true" />
         </button>
         {img.input}
         {colourOpen && (
@@ -356,7 +356,7 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
       </div>
 
       <button className="icon-btn topbar-icon palette-btn" onClick={creative.openPalette} aria-label="Go to or do anything (⌘K)" title="Go to or do anything (⌘K)" aria-keyshortcuts="Meta+K Control+K">
-        <Command size={16} strokeWidth={1.75} aria-hidden="true" />
+        <Command size={16} aria-hidden="true" />
       </button>
       {/* a phone's second row is full: share/export sits beside the palette */}
       {mobile && <ViewShareMenu />}
@@ -377,9 +377,9 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
           aria-pressed={gridLayout === 'square'}
         >
           {gridLayout === 'justified' ? (
-            <RectangleHorizontal size={16} strokeWidth={1.75} aria-hidden="true" />
+            <RectangleHorizontal size={16} aria-hidden="true" />
           ) : (
-            <Square size={16} strokeWidth={1.75} aria-hidden="true" />
+            <Square size={16} aria-hidden="true" />
           )}
           <span className={mobile ? 'sr-only' : 'btn-text'}>Square tiles</span>
         </button>
@@ -393,7 +393,7 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
               aria-label="Fewer columns"
               title="Fewer columns (or pinch out on the grid)"
             >
-              <Minus size={14} strokeWidth={2.25} aria-hidden="true" />
+              <Minus size={14} aria-hidden="true" />
             </button>
             <span className="cols-now" aria-live="polite">
               {mobileCols}
@@ -405,7 +405,7 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
               aria-label="More columns"
               title="More columns (or pinch in on the grid)"
             >
-              <Plus size={14} strokeWidth={2.25} aria-hidden="true" />
+              <Plus size={14} aria-hidden="true" />
             </button>
           </div>
         ) : (
@@ -483,7 +483,7 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
         <>
           <PasteButton />
           <button className="btn-primary btn-icon" onClick={() => fileRef.current?.click()}>
-            <Upload size={15} strokeWidth={2} aria-hidden="true" />
+            <Upload size={16} aria-hidden="true" />
             Upload
           </button>
         </>
@@ -507,7 +507,7 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
           title={chromeShown ? 'Hide the sidebar and info panel' : 'Show the sidebar and info panel'}
           aria-pressed={chromeShown}
         >
-          <PanelsLeftRight size={15} strokeWidth={1.75} aria-hidden="true" />
+          <PanelsLeftRight size={16} aria-hidden="true" />
           Panels
         </button>
       ) : (
@@ -517,7 +517,7 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
           title={panelOpen ? 'Hide the info panel' : 'Show the info panel'}
           aria-pressed={panelOpen}
         >
-          <Info size={15} strokeWidth={1.75} aria-hidden="true" />
+          <Info size={16} aria-hidden="true" />
           Info
         </button>
       )}
@@ -529,14 +529,14 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
           title="Recent changes and undo (⌘Z / Ctrl+Z)"
           aria-keyshortcuts="Meta+Z Control+Z"
         >
-          <History size={17} strokeWidth={1.75} aria-hidden="true" />
+          <History size={16} aria-hidden="true" />
         </button>
       )}
       <ViewShareMenu />
       <AppearanceMenu />
       {caps.isAdmin && (
         <button className="icon-btn topbar-icon" onClick={() => openSettings()} aria-label="Settings" title="Settings: tokens, archive health, AI">
-          <Settings size={17} strokeWidth={1.75} aria-hidden="true" />
+          <Settings size={16} aria-hidden="true" />
         </button>
       )}
         </>
@@ -551,7 +551,7 @@ function Chip({ label, clear, onClear, title }: { label: string; clear: string; 
     <span className="chip" title={title}>
       {label}
       <button aria-label={clear} title={clear} onClick={onClear}>
-        <X size={13} strokeWidth={2} aria-hidden="true" />
+        <X size={14} aria-hidden="true" />
       </button>
     </span>
   )

@@ -3,7 +3,7 @@
 // template.
 
 import { useQueryClient } from '@tanstack/react-query'
-import { Ban, Check, Columns2, Grid2x2, PencilLine, Sparkles } from 'lucide-react'
+import { Ban, Check, Columns2, Grid2x2, PencilLine, Stamp } from 'lucide-react'
 import { api } from '../../api'
 import { bulkReport, useBulkAction, type BulkAction } from '../../bulk'
 import { bulkDoneText } from '../../bulkText'
@@ -71,7 +71,7 @@ export function BulkCreative({ ids, busy }: { ids: string[]; busy: boolean }) {
     <>
       <span className="bulk-sep" aria-hidden="true" />
       <button className="btn-icon" disabled={disabled} onClick={() => run({ kind: 'flag', flag: 'pick' })} title="Pick them all">
-        <Check size={14} strokeWidth={2.25} aria-hidden="true" /> Pick
+        <Check size={14} aria-hidden="true" /> Pick
       </button>
       <button className="btn-icon" disabled={disabled} onClick={() => run({ kind: 'flag', flag: 'reject' })} title="Reject them all">
         <Ban size={14} aria-hidden="true" /> Reject
@@ -119,7 +119,7 @@ export function BulkCreative({ ids, busy }: { ids: string[]; busy: boolean }) {
         <PencilLine size={14} aria-hidden="true" /> Rename
       </button>
       <button className="btn-icon" disabled={disabled} onClick={() => creative.openTemplate(ids)}>
-        <Sparkles size={14} aria-hidden="true" /> Template
+        <Stamp size={14} aria-hidden="true" /> Template
       </button>
     </>
   )

@@ -27,7 +27,7 @@ function CopyCode({ text, label }: { text: string; label: string }) {
         }
         aria-label={`Copy ${label}`}
       >
-        {copied ? <Check size={13} aria-hidden="true" /> : <Copy size={13} aria-hidden="true" />}
+        {copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
         {copied ? 'Copied' : 'Copy'}
       </button>
     </div>
@@ -188,7 +188,7 @@ export function SetupChecklist() {
             return (
             <li key={s.id} className={`${s.done ? 'done' : ''}${next ? ' next' : ''}`}>
               <span className="setup-tick" aria-hidden="true">
-                {s.done ? <Check size={12} strokeWidth={3} /> : null}
+                {s.done ? <Check size={14} /> : null}
               </span>
               <span className="setup-text">
                 <span className="setup-title">

@@ -22,7 +22,7 @@ export function AiExtras({ data }: { data: AiStatus }) {
           <>
             {c.leaves_house && (
               <p className="warn-box leaves-house" role="note">
-                <TriangleAlert size={16} strokeWidth={1.75} aria-hidden="true" />
+                <TriangleAlert size={16} aria-hidden="true" />
                 <span>
                   <strong>Images leave your network.</strong> {c.warning}
                 </span>

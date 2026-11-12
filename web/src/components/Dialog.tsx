@@ -123,7 +123,7 @@ export function Modal({
           <h3 id={titleId}>{title}</h3>
           {headerClose && (
             <button className="icon-btn" onClick={onClose} aria-label={`Close ${title}`}>
-              <X size={16} strokeWidth={1.75} aria-hidden="true" />
+              <X size={16} aria-hidden="true" />
             </button>
           )}
         </div>

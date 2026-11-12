@@ -47,7 +47,7 @@ export default function SnapshotViewer({ item, onClose }: { item: Item; onClose:
         </div>
         {page && (
           <a href={page.href} target="_blank" rel="noreferrer noopener" className="btn-icon">
-            Live page on {page.host} <ExternalLink size={13} strokeWidth={1.75} aria-hidden="true" />
+            Live page on {page.host} <ExternalLink size={14} aria-hidden="true" />
             <span className="sr-only"> (new tab)</span>
           </a>
         )}

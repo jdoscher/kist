@@ -217,12 +217,12 @@ export function BulkBar() {
             onClick={() => run({ kind: 'protect', value: true })}
             title="Protected items can't be trashed or deleted until unprotected"
           >
-            <Lock size={14} strokeWidth={1.75} aria-hidden="true" />
+            <Lock size={14} aria-hidden="true" />
             Protect
           </button>
           {caps.canDestroy && (
             <button className="btn-icon" disabled={busy} onClick={() => run({ kind: 'protect', value: false })}>
-              <LockOpen size={14} strokeWidth={1.75} aria-hidden="true" />
+              <LockOpen size={14} aria-hidden="true" />
               Unprotect
             </button>
           )}
@@ -251,7 +251,7 @@ export function BulkBar() {
       )}
 
       <button className="icon-btn" onClick={clearSelection} aria-label="Clear selection" title="Clear selection">
-        <X size={16} strokeWidth={1.75} aria-hidden="true" />
+        <X size={16} aria-hidden="true" />
       </button>
       <span className="working" role="status">
         {busy ? 'working…' : ''}

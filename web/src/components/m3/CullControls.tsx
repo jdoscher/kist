@@ -28,7 +28,7 @@ export function FlagButtons({
         aria-keyshortcuts={keys ? 'P' : undefined}
         onClick={() => onFlag(flag === 'pick' ? null : 'pick')}
       >
-        <Check size={14} strokeWidth={2.25} aria-hidden="true" />
+        <Check size={14} aria-hidden="true" />
         Pick{keys && <kbd aria-hidden="true">P</kbd>}
       </button>
       <button
@@ -39,7 +39,7 @@ export function FlagButtons({
         aria-keyshortcuts={keys ? 'X' : undefined}
         onClick={() => onFlag(flag === 'reject' ? null : 'reject')}
       >
-        <Ban size={14} strokeWidth={2} aria-hidden="true" />
+        <Ban size={14} aria-hidden="true" />
         Reject{keys && <kbd aria-hidden="true">X</kbd>}
       </button>
     </div>
@@ -70,7 +70,7 @@ export function LabelPicker({
           disabled={disabled}
           onClick={() => onLabel(label === l.id ? null : l.id)}
         >
-          {label === l.id && <Check size={12} strokeWidth={3} aria-hidden="true" />}
+          {label === l.id && <Check size={14} aria-hidden="true" />}
         </button>
       ))}
     </div>
@@ -83,8 +83,8 @@ export function CullBadges({ item }: { item: Pick<Item, 'flag' | 'label'> }) {
   if (!item.flag && !l) return null
   return (
     <span className="badge cull" aria-hidden="true">
-      {item.flag === 'pick' && <FlagIcon size={11} strokeWidth={2.5} className="pick" />}
-      {item.flag === 'reject' && <Ban size={11} strokeWidth={2.5} className="reject" />}
+      {item.flag === 'pick' && <FlagIcon size={14} className="pick" />}
+      {item.flag === 'reject' && <Ban size={14} className="reject" />}
       {l && <span className="label-dot" style={{ background: l.hex }} />}
     </span>
   )

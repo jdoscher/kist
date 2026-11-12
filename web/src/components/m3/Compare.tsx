@@ -267,7 +267,7 @@ export default function Compare({
           {mode === 'survey' ? 'P pick · X reject · U clear · ←/→ move' : 'wheel/pinch zoom · drag pan · double-click 100%'}
         </span>
         <button ref={closeRef} className="icon-btn cmp-close" onClick={onClose} aria-label="Close compare">
-          <X size={18} aria-hidden="true" />
+          <X size={16} aria-hidden="true" />
         </button>
       </div>
 
@@ -308,7 +308,7 @@ export default function Compare({
                 <Sharp item={it} zoomed={false} />
                 {it.flag && (
                   <span className={`survey-flag ${it.flag}`} aria-hidden="true">
-                    {it.flag === 'pick' ? <Check size={16} strokeWidth={3} /> : <Ban size={16} strokeWidth={2.5} />}
+                    {it.flag === 'pick' ? <Check size={16} /> : <Ban size={16} />}
                   </span>
                 )}
               </button>

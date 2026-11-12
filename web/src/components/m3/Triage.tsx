@@ -297,7 +297,7 @@ export default function Triage({ screen }: { screen: Extract<Screen, { kind: 'tr
                   aria-keyshortcuts={String(s)}
                   onClick={() => void act({ kind: 'rate', rating: s === item.rating ? 0 : s })}
                 >
-                  <Star size={20} strokeWidth={1.75} fill={s <= item.rating ? 'currentColor' : 'none'} aria-hidden="true" />
+                  <Star size={20} fill={s <= item.rating ? 'currentColor' : 'none'} aria-hidden="true" />
                 </button>
               ))}
             </div>

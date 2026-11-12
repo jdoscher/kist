@@ -139,7 +139,7 @@ const Tile = memo(function Tile({
         />
       ) : (
         <div className={`tile-icon preview-${item.preview_status}`} aria-hidden="true">
-          <KindIcon size={Math.max(20, Math.min(40, Math.round(height / 5)))} strokeWidth={1.5} />
+          <KindIcon size={Math.max(20, Math.min(40, Math.round(height / 5)))} />
           <span className="ext">
             {item.filename}
             {item.preview_status === 'failed' && ' · preview failed'}
@@ -155,14 +155,14 @@ const Tile = memo(function Tile({
       {item.rating > 0 && (
         <span className="badge rating" aria-hidden="true">
           {Array.from({ length: item.rating }, (_, i) => (
-            <Star key={i} size={11} fill="currentColor" strokeWidth={0} />
+            <Star key={i} size={14} fill="currentColor" strokeWidth={0} />
           ))}
         </span>
       )}
       <CullBadges item={item} />
       {item.protected && (
         <span className="badge lock" aria-hidden="true" title="Protected">
-          <Lock size={11} strokeWidth={2.25} />
+          <Lock size={14} />
         </span>
       )}
       <TileMatch item={item} badge={matchBadge} />
@@ -171,7 +171,7 @@ const Tile = memo(function Tile({
         <>
           <span className="sel-corners" aria-hidden="true" />
           <span className="sel-check" aria-hidden="true">
-            <Check size={14} strokeWidth={3} />
+            <Check size={14} />
           </span>
         </>
       )}

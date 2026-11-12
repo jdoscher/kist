@@ -34,7 +34,7 @@ export function CopyButton({ text, label = 'Copy link' }: { text: string; label?
         })
       }}
     >
-      {done ? <Check size={14} strokeWidth={2} aria-hidden="true" /> : <Copy size={14} strokeWidth={1.75} aria-hidden="true" />}
+      {done ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
       {done ? 'Copied' : label}
       <span className="sr-only" role="status">
         {done ? 'Copied to the clipboard' : ''}
@@ -93,7 +93,7 @@ export default function ShareDialog({ target, onClose }: { target: Target; onClo
           </p>
           <div className="dialog-actions">
             <a className="btn-icon" href={link} target="_blank" rel="noreferrer">
-              Open <ExternalLink size={13} strokeWidth={1.75} aria-hidden="true" />
+              Open <ExternalLink size={14} aria-hidden="true" />
               <span className="sr-only"> (new tab)</span>
             </a>
             <button type="button" className="btn-primary" data-autofocus onClick={onClose}>

@@ -468,28 +468,28 @@ export default function BoardEditor({ id }: { id: string }) {
         {canEdit && view === 'canvas' && (
           <>
             <div className="seg" role="group" aria-label="Tool">
-              <ToolBtn on={tool === 'select'} onClick={() => setTool('select')} label="Select and move (V)" icon={<MousePointer2 size={15} />} />
-              <ToolBtn on={tool === 'hand'} onClick={() => setTool('hand')} label="Pan (H, or hold Space)" icon={<Hand size={15} />} />
-              <ToolBtn on={tool === 'connect'} onClick={() => setTool('connect')} label="Draw arrows: drag from one to another (C)" icon={<Spline size={15} />} />
+              <ToolBtn on={tool === 'select'} onClick={() => setTool('select')} label="Select and move (V)" icon={<MousePointer2 size={16} />} />
+              <ToolBtn on={tool === 'hand'} onClick={() => setTool('hand')} label="Pan (H, or hold Space)" icon={<Hand size={16} />} />
+              <ToolBtn on={tool === 'connect'} onClick={() => setTool('connect')} label="Draw arrows: drag from one to another (C)" icon={<Spline size={16} />} />
             </div>
             <div className="seg" role="group" aria-label="Add">
               <button className="icon-btn" onClick={() => add('note')} aria-label="Add a note (N)" title="Note (N)">
-                <StickyNote size={15} aria-hidden="true" />
+                <StickyNote size={16} aria-hidden="true" />
               </button>
               <button className="icon-btn" onClick={() => add('text')} aria-label="Add text (T)" title="Text (T)">
-                <Type size={15} aria-hidden="true" />
+                <Type size={16} aria-hidden="true" />
               </button>
               <button className="icon-btn" onClick={() => add('shape')} aria-label="Add a shape (R)" title="Shape (R)">
-                <Square size={15} aria-hidden="true" />
+                <Square size={16} aria-hidden="true" />
               </button>
               <button className="icon-btn" onClick={() => add('color')} aria-label="Add a colour swatch" title="Colour swatch">
-                <Palette size={15} aria-hidden="true" />
+                <Palette size={16} aria-hidden="true" />
               </button>
               <button className="icon-btn" onClick={() => add('link')} aria-label="Add a link" title="Link">
-                <Link2 size={15} aria-hidden="true" />
+                <Link2 size={16} aria-hidden="true" />
               </button>
               <button className={`btn-icon${libraryOpen ? ' on' : ''}`} aria-pressed={libraryOpen} onClick={() => setLibraryOpen(!libraryOpen)} title="Add items from the library (L)">
-                <Images size={15} aria-hidden="true" /> Library
+                <Images size={16} aria-hidden="true" /> Library
               </button>
             </div>
             <button
@@ -499,17 +499,17 @@ export default function BoardEditor({ id }: { id: string }) {
               title="Snap to a 20 px grid"
               onClick={() => commit({ ...content, canvas: { ...content.canvas, grid: grid ? 0 : SNAP, snap: undefined } })}
             >
-              <Grid3x3 size={15} aria-hidden="true" />
+              <Grid3x3 size={16} aria-hidden="true" />
             </button>
           </>
         )}
         {canEdit && (
           <div className="seg" role="group" aria-label="History">
             <button className="icon-btn" onClick={undo} disabled={!history.past.length} aria-label="Undo (⌘Z)" title="Undo (⌘Z)">
-              <Undo2 size={15} aria-hidden="true" />
+              <Undo2 size={16} aria-hidden="true" />
             </button>
             <button className="icon-btn" onClick={redo} disabled={!history.future.length} aria-label="Redo (⇧⌘Z)" title="Redo (⇧⌘Z)">
-              <Redo2 size={15} aria-hidden="true" />
+              <Redo2 size={16} aria-hidden="true" />
             </button>
           </div>
         )}
@@ -517,21 +517,21 @@ export default function BoardEditor({ id }: { id: string }) {
         {view === 'canvas' && (
           <div className="seg" role="group" aria-label="Zoom">
             <button className="icon-btn" aria-label="Zoom out (−)" title="Zoom out (−)" onClick={() => zoomBy(1 / 1.25)}>
-              <ZoomOut size={15} aria-hidden="true" />
+              <ZoomOut size={16} aria-hidden="true" />
             </button>
             <button className="zoom-pct" onClick={() => zoomTo(1)} title="100% (1)" aria-label={`Zoom ${Math.round(vp.zoom * 100)}%, press for 100%`}>
               {Math.round(vp.zoom * 100)}%
             </button>
             <button className="icon-btn" aria-label="Zoom in (+)" title="Zoom in (+)" onClick={() => zoomBy(1.25)}>
-              <ZoomIn size={15} aria-hidden="true" />
+              <ZoomIn size={16} aria-hidden="true" />
             </button>
             <button className="icon-btn" aria-label="Fit the board (0)" title="Fit (0)" onClick={() => fitTo(content)}>
-              <Maximize size={15} aria-hidden="true" />
+              <Maximize size={16} aria-hidden="true" />
             </button>
           </div>
         )}
         <button className={`btn-icon${view === 'list' ? ' on' : ''}`} aria-pressed={view === 'list'} onClick={() => setView(view === 'list' ? 'canvas' : 'list')} title="A list of everything on the board, for keyboards and screen readers">
-          <LayoutList size={15} aria-hidden="true" /> List
+          <LayoutList size={16} aria-hidden="true" /> List
         </button>
         {canEdit && <BackgroundMenu ed={ed} />}
         <ExportMenu id={id} name={content.name} />
@@ -542,7 +542,7 @@ export default function BoardEditor({ id }: { id: string }) {
             title="Share a read-only link to this board"
             onClick={() => m45.openShare({ kind: 'board', id, itemIds: [], name: content.name })}
           >
-            <Share2 size={15} aria-hidden="true" />
+            <Share2 size={16} aria-hidden="true" />
           </button>
         )}
       </div>
@@ -606,7 +606,7 @@ function ExportMenu({ id, name }: { id: string; name: string }) {
   return (
     <details className="board-menu">
       <summary className="btn-icon">
-        <Download size={15} aria-hidden="true" /> Export
+        <Download size={16} aria-hidden="true" /> Export
       </summary>
       <div className="board-menu-pop" role="group" aria-label="Export">
         <a href={api3.exportUrl(id, 'png', 2)} download={`${name}.png`}>

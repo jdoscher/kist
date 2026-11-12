@@ -12,13 +12,13 @@ export function BulkM45({ ids, busy }: { ids: string[]; busy: boolean }) {
     <>
       <span className="bulk-sep" aria-hidden="true" />
       <button className="btn-icon" disabled={busy} onClick={() => openShare(t)} title="A read-only link to these items">
-        <Share2 size={14} strokeWidth={1.75} aria-hidden="true" /> Share
+        <Share2 size={14} aria-hidden="true" /> Share
       </button>
       <button className="btn-icon" disabled={busy} onClick={() => openExport(t)} title="A zip with the originals, sidecars and an offline index">
-        <Download size={14} strokeWidth={1.75} aria-hidden="true" /> Export
+        <Download size={14} aria-hidden="true" /> Export
       </button>
       <button className="btn-icon" disabled={busy} onClick={() => openExportImages(ids)} title="Resized copies, a watermark or a contact sheet">
-        <Images size={14} strokeWidth={1.75} aria-hidden="true" /> Export images
+        <Images size={14} aria-hidden="true" /> Export images
       </button>
     </>
   )

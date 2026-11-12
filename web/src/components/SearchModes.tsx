@@ -121,9 +121,9 @@ export function SearchModeMenu({
         title={`Search mode: ${current.label}. ${current.hint}`}
         onClick={() => setOpen((o) => !o)}
       >
-        <Icon size={15} strokeWidth={1.75} aria-hidden="true" />
+        <Icon size={16} aria-hidden="true" />
         {!compact && <span className="search-mode-label">{current.label}</span>}
-        <ChevronDown size={12} strokeWidth={2} aria-hidden="true" />
+        <ChevronDown size={14} aria-hidden="true" />
       </button>
       {open && (
         <div id={`${id}-menu`} className="search-mode-menu" role="menu" aria-label="Search mode" onKeyDown={onMenuKey}>
@@ -141,12 +141,12 @@ export function SearchModeMenu({
                 className={`search-mode-item${checked ? ' on' : ''}`}
                 onClick={() => pick(m.id)}
               >
-                <MIcon size={15} strokeWidth={1.75} aria-hidden="true" />
+                <MIcon size={16} aria-hidden="true" />
                 <span className="smi-text">
                   <span className="smi-label">{m.label}</span>
                   <span className="smi-hint">{m.hint}</span>
                 </span>
-                {checked && <Check size={14} strokeWidth={2} aria-hidden="true" />}
+                {checked && <Check size={14} aria-hidden="true" />}
               </button>
             )
           })}
@@ -343,7 +343,7 @@ export function SearchChips({ query, setQuery }: { query: Query; setQuery: (p: P
           {similar.data?.thumb_url && <img className="chip-thumb" src={`${similar.data.thumb_url}`} alt="" />}
           More like {similar.data ? `“${similar.data.filename}”` : 'this'}
           <button aria-label="Clear more like this" title="Clear more like this" onClick={() => setQuery({ similar: null })}>
-            <X size={13} strokeWidth={2} aria-hidden="true" />
+            <X size={14} aria-hidden="true" />
           </button>
         </span>
       )}
@@ -352,7 +352,7 @@ export function SearchChips({ query, setQuery }: { query: Query; setQuery: (p: P
           <span className="chip-swatch" style={{ background: query.color }} aria-hidden="true" />
           colour {query.color}
           <button aria-label="Clear colour" title="Clear colour" onClick={() => setQuery({ color: null })}>
-            <X size={13} strokeWidth={2} aria-hidden="true" />
+            <X size={14} aria-hidden="true" />
           </button>
         </span>
       )}
@@ -361,7 +361,7 @@ export function SearchChips({ query, setQuery }: { query: Query; setQuery: (p: P
           <ImageChipThumb id={query.image} />
           like your image
           <button aria-label="Clear image search" title="Clear image search" onClick={() => setQuery({ image: null })}>
-            <X size={13} strokeWidth={2} aria-hidden="true" />
+            <X size={14} aria-hidden="true" />
           </button>
         </span>
       )}
@@ -370,7 +370,7 @@ export function SearchChips({ query, setQuery }: { query: Query; setQuery: (p: P
           {person?.cover && <img className="chip-thumb round" src={person.cover.thumb_url} alt="" />}
           {person?.name ?? 'Unnamed person'}
           <button aria-label="Clear person" title="Clear person" onClick={() => setQuery({ person: null })}>
-            <X size={13} strokeWidth={2} aria-hidden="true" />
+            <X size={14} aria-hidden="true" />
           </button>
         </span>
       )}

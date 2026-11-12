@@ -117,10 +117,10 @@ function InstallHint() {
     <section className="install-hint" aria-label="Install Kist">
       <p>
         Add Kist to your Home Screen: Share{' '}
-        <Share size={14} strokeWidth={1.75} aria-label="(the square with an arrow)" role="img" /> → Add to Home Screen
+        <Share size={14} aria-label="(the square with an arrow)" role="img" /> → Add to Home Screen
       </p>
       <button className="icon-btn" onClick={dismiss} aria-label="Dismiss the Home Screen hint">
-        <X size={16} strokeWidth={1.75} aria-hidden="true" />
+        <X size={16} aria-hidden="true" />
       </button>
     </section>
   )

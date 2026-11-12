@@ -22,7 +22,7 @@ export function ItemMeta({ item }: { item: Item }) {
             <span>Source</span>
             {source ? (
               <a className="mono" href={source.href} target="_blank" rel="noreferrer">
-                {source.host} <ExternalLink size={13} strokeWidth={1.75} aria-hidden="true" />
+                {source.host} <ExternalLink size={14} aria-hidden="true" />
               </a>
             ) : (
               // not an http(s) URL: show it, don't link it (and never crash)

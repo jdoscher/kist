@@ -38,7 +38,7 @@ export function ReadOnlyItem({
           <div className="detail-thumb">
             {thumb ? <img src={thumb} alt="" /> : <div className="detail-thumb-icon" aria-hidden="true">.{item.ext}</div>}
             <button className="open-full" onClick={() => setPreviewId(item.id)} title="Open full screen">
-              Open <Maximize2 size={13} strokeWidth={1.75} aria-hidden="true" />
+              Open <Maximize2 size={14} aria-hidden="true" />
             </button>
           </div>
           <h2 className="detail-filename readonly">{item.filename}</h2>
@@ -50,7 +50,7 @@ export function ReadOnlyItem({
       <CaptionField item={item} editable={false} />
       {item.protected && (
         <p className="protected-note">
-          <Lock size={13} strokeWidth={1.75} aria-hidden="true" /> Protected: it can’t be trashed or deleted.
+          <Lock size={14} aria-hidden="true" /> Protected: it can’t be trashed or deleted.
         </p>
       )}
       {editing && <ImpliedTags item={item} />}
@@ -97,7 +97,7 @@ export function ReadOnlyItem({
       <ItemMeta item={item} />
       <ItemSections item={item} />
       <a className="open-original" href={fileUrl(item)} target="_blank" rel="noreferrer">
-        Open original <ExternalLink size={13} strokeWidth={1.75} aria-hidden="true" />
+        Open original <ExternalLink size={14} aria-hidden="true" />
         <span className="sr-only"> (new tab)</span>
       </a>
       <ItemHistory item={item} />
@@ -175,7 +175,7 @@ export function DetailSheet() {
           </button>
         </div>
         <button className="sheet-close" onClick={clearSelection} aria-label="Close item details">
-          <X size={16} strokeWidth={1.75} aria-hidden="true" />
+          <X size={16} aria-hidden="true" />
         </button>
       </div>
 

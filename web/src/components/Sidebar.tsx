@@ -61,7 +61,7 @@ function buildTree(folders: Folder[]): TreeNode[] {
  * keyboard. Views and folders say aria-current when shown; tags, which
  * toggle, say aria-pressed.
  */
-const ROW_ICON = { size: 15, strokeWidth: 1.75 } as const
+const ROW_ICON = { size: 16 } as const
 
 function Row({
   icon,
@@ -284,19 +284,19 @@ function FolderRow({
             tabIndex={hasChildren ? undefined : -1}
             onClick={() => setExpanded(!expanded)}
           >
-            <ChevronRight size={14} strokeWidth={2} aria-hidden="true" />
+            <ChevronRight size={14} aria-hidden="true" />
           </button>
         }
         actions={
           canEdit && <>
             <button title="New subfolder" aria-label={`New subfolder in ${node.name}`} onClick={() => void addChild()}>
-              <Plus size={14} strokeWidth={2} aria-hidden="true" />
+              <Plus size={14} aria-hidden="true" />
             </button>
             <button title="Rename or describe" aria-label={`Edit ${node.name}`} onClick={() => void rename()}>
-              <Pencil size={13} strokeWidth={1.75} aria-hidden="true" />
+              <Pencil size={14} aria-hidden="true" />
             </button>
             <button title="Delete" aria-label={`Delete ${node.name}`} onClick={() => void remove()}>
-              <Trash2 size={13} strokeWidth={1.75} aria-hidden="true" />
+              <Trash2 size={14} aria-hidden="true" />
             </button>
           </>
         }
@@ -571,7 +571,7 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
           <h2>Folders</h2>
           {caps.canEdit && (
             <button className="icon-btn" onClick={() => void newFolder()} title="New folder" aria-label="New folder">
-              <Plus size={14} strokeWidth={2} aria-hidden="true" />
+              <Plus size={14} aria-hidden="true" />
             </button>
           )}
         </div>
@@ -593,7 +593,7 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
             title="Save this search as a smart folder"
             aria-label="Save this search as a smart folder"
           >
-            <Plus size={14} strokeWidth={2} aria-hidden="true" />
+            <Plus size={14} aria-hidden="true" />
           </button>}
         </div>
         {(smartFolders ?? []).map((s) => (
@@ -606,10 +606,10 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
             actions={
               caps.canEdit && <>
                 <button title="Rename" aria-label={`Rename smart folder ${s.name}`} onClick={() => void renameSmart(s)}>
-                  <Pencil size={13} strokeWidth={1.75} aria-hidden="true" />
+                  <Pencil size={14} aria-hidden="true" />
                 </button>
                 <button title="Delete" aria-label={`Delete smart folder ${s.name}`} onClick={() => void deleteSmart(s)}>
-                  <Trash2 size={13} strokeWidth={1.75} aria-hidden="true" />
+                  <Trash2 size={14} aria-hidden="true" />
                 </button>
               </>
             }
@@ -723,7 +723,7 @@ export function Drawer() {
       >
         <div className="drawer-head">
           <button className="drawer-close" aria-label="Close menu" onClick={closeDrawer}>
-            <X size={18} strokeWidth={1.75} aria-hidden="true" />
+            <X size={16} aria-hidden="true" />
           </button>
         </div>
         <Sidebar mobile />

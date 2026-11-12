@@ -3,7 +3,7 @@
 // applied to a selection from the bulk bar (one batch, with Undo).
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Pencil, Plus, Sparkles, Trash2 } from 'lucide-react'
+import { Pencil, Plus, Stamp, Trash2 } from 'lucide-react'
 import { useId, useState } from 'react'
 import { api } from '../../api'
 import { api3, type Template, type TemplateFields } from '../../creativeApi'
@@ -53,7 +53,7 @@ export function TemplatesSection() {
       <div className="settings-section-head">
         <h2 id="templates-h" className="view-title">Templates</h2>
         <button className="btn-primary btn-icon" onClick={() => setEditing('new')}>
-          <Plus size={15} aria-hidden="true" /> New template
+          <Plus size={16} aria-hidden="true" /> New template
         </button>
       </div>
       <p className="settings-intro">
@@ -278,7 +278,7 @@ export function ApplyTemplateDialog({ ids, onClose }: { ids: string[]; onClose: 
         {(templates.data ?? []).map((t, i) => (
           <li key={t.id}>
             <button className="template-option" data-autofocus={i === 0 ? true : undefined} disabled={!!busy} onClick={() => void run(t)}>
-              <Sparkles size={15} aria-hidden="true" />
+              <Stamp size={16} aria-hidden="true" />
               <span>
                 <strong>{t.name}</strong>
                 <span className="hint">{templateSummary(t.fields, (id) => folderName.get(id))}</span>

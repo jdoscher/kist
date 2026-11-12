@@ -106,7 +106,7 @@ export default function ExportDialog({ target, onClose }: { target: Target; onCl
             </button>
             {cur.status === 'done' && (
               <a className="button btn-primary btn-icon" data-autofocus href={`/api/exports/${cur.id}/download`} download>
-                <Download size={14} strokeWidth={2} aria-hidden="true" /> Download zip
+                <Download size={14} aria-hidden="true" /> Download zip
               </a>
             )}
           </div>

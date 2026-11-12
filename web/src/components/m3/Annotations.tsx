@@ -243,12 +243,12 @@ export function Annotated({ item, children }: { item: Item; children: ReactNode 
         title="Notes on the image (A)"
         aria-keyshortcuts="A"
       >
-        <MessageSquare size={15} strokeWidth={1.75} aria-hidden="true" />
+        <MessageSquare size={16} aria-hidden="true" />
         Notes{all.length ? ` (${all.filter((a) => !a.resolved).length})` : ''}
       </button>
       {isImage && (
         <button className={`ann-loupe-toggle btn-icon${loupe ? ' on' : ''}`} aria-pressed={loupe} onClick={() => setLoupe(!loupe)} title="100% loupe (Z)" aria-keyshortcuts="Z">
-          <Crosshair size={15} strokeWidth={1.75} aria-hidden="true" />
+          <Crosshair size={16} aria-hidden="true" />
           Loupe
         </button>
       )}
@@ -457,16 +457,16 @@ function AnnotationRow({
               Resolved
             </label>
             <button className="icon-btn" aria-label={`Edit note ${n}`} title="Edit" onClick={() => setEditing(true)}>
-              <Pencil size={13} aria-hidden="true" />
+              <Pencil size={14} aria-hidden="true" />
             </button>
             <button className="icon-btn" aria-label={`Delete note ${n}`} title="Delete" disabled={busy} onClick={onDelete}>
-              <Trash2 size={13} aria-hidden="true" />
+              <Trash2 size={14} aria-hidden="true" />
             </button>
           </>
         )}
         {!editable && a.resolved && (
           <span>
-            <Check size={12} aria-hidden="true" /> resolved
+            <Check size={14} aria-hidden="true" /> resolved
           </span>
         )}
       </div>

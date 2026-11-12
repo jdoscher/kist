@@ -40,7 +40,7 @@ function SourceBadge({ item }: { item: Item }) {
       {item.source_checked_at && <span className="hint">checked {new Date(item.source_checked_at).toLocaleDateString()}</span>}
       {wayback && (
         <a href={wayback.href} target="_blank" rel="noreferrer noopener">
-          Archived copy (Wayback Machine) <ExternalLink size={12} strokeWidth={1.75} aria-hidden="true" />
+          Archived copy (Wayback Machine) <ExternalLink size={14} aria-hidden="true" />
           <span className="sr-only"> (new tab)</span>
         </a>
       )}
@@ -127,7 +127,7 @@ function ProvenanceSection({ item, editable }: { item: Item; editable: boolean }
                   <span>{f.label}</span>
                   {link ? (
                     <a href={link.href} target="_blank" rel="noreferrer noopener" className="prov-link">
-                      {link.host} <ExternalLink size={12} strokeWidth={1.75} aria-hidden="true" />
+                      {link.host} <ExternalLink size={14} aria-hidden="true" />
                       <span className="sr-only"> (new tab)</span>
                     </a>
                   ) : (
@@ -200,7 +200,7 @@ function ProvenanceSection({ item, editable }: { item: Item; editable: boolean }
       )}
       {snapshot.data !== undefined && (
         <button type="button" className="btn-icon small" onClick={() => openSnapshot(item)}>
-          <FileText size={14} strokeWidth={1.75} aria-hidden="true" /> Saved page
+          <FileText size={14} aria-hidden="true" /> Saved page
         </button>
       )}
     </section>
@@ -246,7 +246,7 @@ function MediaDetails({ item }: { item: Item }) {
       {gps && (
         <>
           <button type="button" className="btn-icon small" onClick={near}>
-            <MapPin size={14} strokeWidth={1.75} aria-hidden="true" /> Items near here
+            <MapPin size={14} aria-hidden="true" /> Items near here
           </button>
           <p className="hint privacy-note">
             The original file still holds this location. Exported copies remove it; a share link that offers originals passes it on.

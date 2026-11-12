@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { BookOpen, Check, Copy, Cpu, FileText, FolderInput, KeyRound, Share2, ShieldCheck, Smartphone, Sparkles, TriangleAlert, X } from 'lucide-react'
+import { BookOpen, Check, Copy, Cpu, Eraser, FolderInput, KeyRound, Share2, ShieldCheck, Smartphone, Stamp, TriangleAlert, X } from 'lucide-react'
 import { lazy, Suspense, useId, useState } from 'react'
 import { api, emptyQuery, type ApiToken, type ArchiveHealth } from '../api'
 import { useCaps, useFolderNames, useFolders, useMe, useStats } from '../data'
@@ -26,8 +26,8 @@ const SECTIONS: { id: SettingsSection; label: string; icon: typeof KeyRound }[] 
   { id: 'archive', label: 'Archive health', icon: ShieldCheck },
   { id: 'ai', label: 'AI', icon: Cpu },
   { id: 'vocabulary', label: 'Vocabulary', icon: BookOpen },
-  { id: 'cleanup', label: 'Tag cleanup', icon: Sparkles },
-  { id: 'templates', label: 'Templates', icon: FileText },
+  { id: 'cleanup', label: 'Tag cleanup', icon: Eraser },
+  { id: 'templates', label: 'Templates', icon: Stamp },
   { id: 'sharing', label: 'Sharing', icon: Share2 },
   { id: 'import', label: 'Import', icon: FolderInput },
   { id: 'phone', label: 'Phone & browser', icon: Smartphone },
@@ -50,7 +50,7 @@ export function SettingsScreen() {
         </div>
         <h1 className="settings-title">Settings</h1>
         <button className="btn-icon settings-close" onClick={closeSettings}>
-          <X size={16} strokeWidth={1.75} aria-hidden="true" />
+          <X size={16} aria-hidden="true" />
           Back to library
         </button>
       </header>
@@ -68,7 +68,7 @@ export function SettingsScreen() {
                 aria-current={section === s.id ? 'page' : undefined}
                 onClick={() => openSettings(s.id)}
               >
-                <s.icon size={16} strokeWidth={1.75} aria-hidden="true" />
+                <s.icon size={16} aria-hidden="true" />
                 {s.label}
               </button>
             ))}
@@ -333,9 +333,9 @@ function CopyField({ value, label, autoFocus = false }: { value: string; label: 
         data-autofocus={autoFocus || undefined}
       >
         {copied ? (
-          <Check size={14} strokeWidth={2} aria-hidden="true" />
+          <Check size={14} aria-hidden="true" />
         ) : (
-          <Copy size={14} strokeWidth={1.75} aria-hidden="true" />
+          <Copy size={14} aria-hidden="true" />
         )}
         {copied ? 'Copied' : 'Copy'}
       </button>
@@ -354,7 +354,7 @@ function ShowTokenDialog({ token, onClose }: { token: ApiToken & { token: string
   return (
     <Modal title={`Token for “${token.name}”`} onClose={onClose} className="token-dialog">
       <p className="warn-box" role="note">
-        <TriangleAlert size={16} strokeWidth={1.75} aria-hidden="true" />
+        <TriangleAlert size={16} aria-hidden="true" />
         Copy it now. Kist keeps only a fingerprint of it, so it can’t show it again. Anyone who has it can use Kist as “
         {scopeText(token.scopes, token.folder_ids)}”, so keep it private.
       </p>
@@ -401,9 +401,9 @@ function Status({ ok, children }: { ok: boolean; children: React.ReactNode }) {
   return (
     <span className={`status-text ${ok ? 'ok' : 'bad'}`}>
       {ok ? (
-        <Check size={14} strokeWidth={2} aria-hidden="true" />
+        <Check size={14} aria-hidden="true" />
       ) : (
-        <TriangleAlert size={14} strokeWidth={1.75} aria-hidden="true" />
+        <TriangleAlert size={14} aria-hidden="true" />
       )}
       {children}
     </span>

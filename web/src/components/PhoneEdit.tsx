@@ -49,7 +49,7 @@ export function PhoneStars({ item }: { item: Item }) {
             void write('rating', () => api.patchItem(item.id, { rating }))
           }}
         >
-          <Star size={22} strokeWidth={1.75} fill={s <= value ? 'currentColor' : 'none'} aria-hidden="true" />
+          <Star size={20} fill={s <= value ? 'currentColor' : 'none'} aria-hidden="true" />
         </button>
       ))}
     </div>
@@ -86,7 +86,7 @@ export function PhoneTags({ item, autoFocus = false, titled = false }: { item: I
             <li key={t} className="chip">
               <TagText tag={t} />
               <button aria-label={`Remove tag ${t}`} onClick={() => remove(t)}>
-                <X size={14} strokeWidth={2} aria-hidden="true" />
+                <X size={14} aria-hidden="true" />
               </button>
             </li>
           ))}
@@ -247,11 +247,11 @@ export function PhoneItemEdit({ item }: { item: Item }) {
     <>
       <div className="phone-actions">
         <button onClick={() => setMoving(true)}>
-          <FolderInput size={16} strokeWidth={1.75} aria-hidden="true" /> Move to…
+          <FolderInput size={16} aria-hidden="true" /> Move to…
         </button>
         {!item.protected && item.state !== 'trashed' && (
           <button className="danger" disabled={busy(item.id)} onClick={() => void trash(item, clearSelection)}>
-            <Trash2 size={16} strokeWidth={1.75} aria-hidden="true" /> Trash
+            <Trash2 size={16} aria-hidden="true" /> Trash
           </button>
         )}
       </div>
@@ -267,7 +267,7 @@ export function PhoneItemEdit({ item }: { item: Item }) {
                   aria-label={`Remove from folder ${folderName.get(fid) ?? fid}`}
                   onClick={() => void write('folders', () => api.patchFolders(item.id, { remove: [fid] }))}
                 >
-                  <X size={14} strokeWidth={2} aria-hidden="true" />
+                  <X size={14} aria-hidden="true" />
                 </button>
               </li>
             ))}
@@ -292,16 +292,16 @@ export function PhoneEditBar({ item, onTrashed }: { item: Item; onTrashed: () =>
       </div>
       <div className="phone-edit-bottom" role="group" aria-label="Edit this item">
         <button onClick={() => setSheet('tags')} aria-label={`Tags (${item.tags.length})`}>
-          <Tag size={18} strokeWidth={1.75} aria-hidden="true" />
+          <Tag size={20} aria-hidden="true" />
           <span aria-hidden="true">Tags</span>
         </button>
         <button onClick={() => setSheet('move')} aria-label="Move to…">
-          <FolderInput size={18} strokeWidth={1.75} aria-hidden="true" />
+          <FolderInput size={20} aria-hidden="true" />
           <span aria-hidden="true">Move</span>
         </button>
         {!item.protected && item.state !== 'trashed' && (
           <button aria-label="Trash" disabled={busy(item.id)} onClick={() => void trash(item, onTrashed)}>
-            <Trash2 size={18} strokeWidth={1.75} aria-hidden="true" />
+            <Trash2 size={20} aria-hidden="true" />
             <span aria-hidden="true">Trash</span>
           </button>
         )}

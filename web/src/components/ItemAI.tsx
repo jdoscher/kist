@@ -89,7 +89,7 @@ export function MoreLikeThisButton({ item, className = '' }: { item: Item; class
       onClick={() => setQuery(moreLikeThis(item.id, query))}
       title="Find items that look like this one"
     >
-      <Sparkles size={14} strokeWidth={1.75} aria-hidden="true" />
+      <Sparkles size={14} aria-hidden="true" />
       More like this
     </button>
   )
@@ -214,7 +214,7 @@ export function CaptionField({ item, editable }: { item: Item; editable: boolean
             disabled={waitFor !== null}
             title={`Write a new caption with ${flags.captionProvider}${flags.captionWarning ? ' (the image is sent to them)' : ''}`}
           >
-            <RefreshCw size={13} strokeWidth={1.75} aria-hidden="true" className={waitFor !== null ? 'spin' : ''} />
+            <RefreshCw size={14} aria-hidden="true" className={waitFor !== null ? 'spin' : ''} />
             {waitFor !== null ? 'Writing…' : item.caption ? 'Regenerate' : 'Describe'}
           </button>
         )}
@@ -232,7 +232,7 @@ export function CaptionField({ item, editable }: { item: Item; editable: boolean
       {busy('caption') && <span className="hint-inline">saving…</span>}
       {flags.captionWarning && flags.captionProvider && (
         <p id={`${uid}-capwarn`} className="cap-warn">
-          <TriangleAlert size={13} strokeWidth={1.75} aria-hidden="true" /> {flags.captionWarning}
+          <TriangleAlert size={14} aria-hidden="true" /> {flags.captionWarning}
         </p>
       )}
     </div>
@@ -277,21 +277,21 @@ export function TagSuggestions({ item }: { item: Item }) {
   return (
     <div className="tag-suggest" role="group" aria-label="Suggested tags">
       <span className="tag-suggest-label">
-        <Wand2 size={12} strokeWidth={1.75} aria-hidden="true" /> Suggested
+        <Wand2 size={14} aria-hidden="true" /> Suggested
       </span>
       {list.map((s) => {
         const why = WHY_TEXT[s.why] ?? s.why
         return (
           <span key={s.tag} className={`suggest-chip why-${s.why === 'similar items' ? 'similar' : 'image'}`} title={`Suggested because it ${why} (${Math.round(s.score * 100)}%)`}>
             <button type="button" className="suggest-add" onClick={() => void accept(s)}>
-              <Plus size={12} strokeWidth={2} aria-hidden="true" />
+              <Plus size={14} aria-hidden="true" />
               <span className="sr-only">Add tag </span>
               <TagText tag={s.tag} hash={false} />
               <span className="suggest-why">{s.why === 'similar items' ? 'similar' : 'image'}</span>
               <span className="sr-only">, suggested because it {why}</span>
             </button>
             <button type="button" className="suggest-no" onClick={() => reject(s)} aria-label={`Not ${s.tag}: don’t suggest it for this item`} title="Not this: don’t suggest it again for this item">
-              <X size={12} strokeWidth={2} aria-hidden="true" />
+              <X size={14} aria-hidden="true" />
             </button>
           </span>
         )
@@ -363,7 +363,7 @@ export function ItemFaces({ item, editable }: { item: Item; editable: boolean })
   return (
     <div className="detail-section">
       <h3 className="section-label">
-        <Users size={12} strokeWidth={1.75} aria-hidden="true" /> People
+        <Users size={14} aria-hidden="true" /> People
       </h3>
       <ul className="item-faces">
         {data.map((f) => (
@@ -442,7 +442,7 @@ export function StackInfo({ item, editable }: { item: Item; editable: boolean })
   return (
     <div className="detail-section stack-info">
       <h3 className="section-label">
-        <Layers size={12} strokeWidth={1.75} aria-hidden="true" /> Stack
+        <Layers size={14} aria-hidden="true" /> Stack
       </h3>
       <p>
         One of {count} stacked items{isCover ? ' (the cover)' : ''}.
@@ -453,7 +453,7 @@ export function StackInfo({ item, editable }: { item: Item; editable: boolean })
         </button>
         {editable && !isCover && data && (
           <button type="button" onClick={() => void run('Made it the cover', (b) => org.patchStack(item.stack_id as string, { cover: item.id }, b))}>
-            <Check size={13} strokeWidth={2} aria-hidden="true" /> Make cover
+            <Check size={14} aria-hidden="true" /> Make cover
           </button>
         )}
         {editable && data && (

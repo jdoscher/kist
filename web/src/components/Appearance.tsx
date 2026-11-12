@@ -101,7 +101,7 @@ export function AppearanceMenu() {
         aria-expanded={open}
         aria-controls={`${id}-pop`}
       >
-        <Palette size={16} strokeWidth={1.75} aria-hidden="true" />
+        <Palette size={16} aria-hidden="true" />
       </button>
       <div id={`${id}-pop`} ref={popRef} className="appearance-pop" role="group" aria-label="Appearance" hidden={!open}>
         {open && <AppearanceControls />}

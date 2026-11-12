@@ -93,13 +93,13 @@ export function StackBadge({ item, member }: { item: Item; member: boolean }) {
   if (member)
     return (
       <span className="badge stack member" aria-hidden="true" title="In an open stack">
-        <Layers size={11} strokeWidth={2} />
+        <Layers size={14} />
       </span>
     )
   if (!b) return null
   return (
     <span className={`badge stack${open ? ' open' : ''}`} aria-hidden="true" data-stack-toggle="" title={`${b.label} (S)`}>
-      <Layers size={11} strokeWidth={2} />
+      <Layers size={14} />
       {b.text}
     </span>
   )
@@ -225,7 +225,7 @@ export function ItemContextMenu({
     >
       {shown.map((m) => (
         <button key={m.label} type="button" role="menuitem" tabIndex={-1} onClick={run(m.run)}>
-          <m.icon size={15} strokeWidth={1.75} aria-hidden="true" />
+          <m.icon size={16} aria-hidden="true" />
           {m.label}
         </button>
       ))}

@@ -23,7 +23,7 @@ export function M45Chips({ query, setQuery }: { query: Query; setQuery: (p: Part
           <span key={k} className="chip">
             {label}
             <button aria-label={`Clear ${label}`} title={`Clear ${label}`} onClick={() => setQuery({ [k]: null } as Partial<Query>)}>
-              <X size={13} strokeWidth={2} aria-hidden="true" />
+              <X size={14} aria-hidden="true" />
             </button>
           </span>
         )
@@ -46,7 +46,7 @@ export function FiltersButton({ mobile }: { mobile: boolean }) {
         onClick={() => setOpen((o) => !o)}
         title="Filter by date taken, camera, place, length, licence…"
       >
-        <SlidersHorizontal size={15} strokeWidth={1.75} aria-hidden="true" />
+        <SlidersHorizontal size={16} aria-hidden="true" />
         <span className={mobile ? 'sr-only' : 'btn-text'}>Filters</span>
         {n > 0 && <span className="count-badge">{n}</span>}
       </button>
@@ -94,7 +94,7 @@ export function ViewShareMenu() {
         aria-haspopup="menu"
         onClick={() => setOpen((o) => !o)}
       >
-        <Share2 size={16} strokeWidth={1.75} aria-hidden="true" />
+        <Share2 size={16} aria-hidden="true" />
       </button>
       {open && (
         <div className="menu" role="menu">

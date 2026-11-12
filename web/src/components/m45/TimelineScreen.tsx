@@ -32,7 +32,7 @@ export function OnThisDayCard({ compact = false }: { compact?: boolean }) {
   return (
     <section className={`otd-card${compact ? ' compact' : ''}`} aria-labelledby={`${id}-h`}>
       <h2 id={`${id}-h`} className="section-label">
-        <CalendarDays size={14} strokeWidth={1.75} aria-hidden="true" /> On this day
+        <CalendarDays size={14} aria-hidden="true" /> On this day
       </h2>
       {otd.data.years.map((y) => (
         <div key={y.year} className="otd-year">

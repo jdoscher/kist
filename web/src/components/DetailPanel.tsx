@@ -37,7 +37,7 @@ function ProtectToggle({ item }: { item: Item }) {
       }
       onClick={() => void write('protected', () => api.patchItem(item.id, { protected: !on }))}
     >
-      {on ? <Lock size={14} strokeWidth={1.75} aria-hidden="true" /> : <LockOpen size={14} strokeWidth={1.75} aria-hidden="true" />}
+      {on ? <Lock size={14} aria-hidden="true" /> : <LockOpen size={14} aria-hidden="true" />}
       {on ? 'Protected' : 'Protect'}
     </button>
   )
@@ -56,7 +56,7 @@ function Stars({ value, onChange }: { value: number; onChange: (v: number) => vo
           title={s === value ? 'Press again to clear the rating' : `${s} star${s > 1 ? 's' : ''}`}
           onClick={() => onChange(s === value ? 0 : s)}
         >
-          <Star size={18} strokeWidth={1.75} fill={s <= value ? 'currentColor' : 'none'} aria-hidden="true" />
+          <Star size={20} fill={s <= value ? 'currentColor' : 'none'} aria-hidden="true" />
         </button>
       ))}
     </div>
@@ -103,7 +103,7 @@ function SingleItem({ item }: { item: Item }) {
       <div className="detail-thumb">
         {thumb ? <img src={thumb} alt="" /> : <div className="detail-thumb-icon" aria-hidden="true">.{item.ext}</div>}
         <button className="open-full" onClick={() => setPreviewId(item.id)} title="Open full screen (Enter, or double-click the tile)">
-          Open <Maximize2 size={13} strokeWidth={1.75} aria-hidden="true" />
+          Open <Maximize2 size={14} aria-hidden="true" />
         </button>
       </div>
       <ItemStatus item={item} />
@@ -148,7 +148,7 @@ function SingleItem({ item }: { item: Item }) {
             <span key={t} className="chip">
               <TagText tag={t} />
               <button aria-label={`Remove tag ${t}`} title={`Remove tag ${t}`} onClick={() => void removeTag(t)}>
-                <X size={13} strokeWidth={2} aria-hidden="true" />
+                <X size={14} aria-hidden="true" />
               </button>
             </span>
           ))}
@@ -179,7 +179,7 @@ function SingleItem({ item }: { item: Item }) {
                 title="Remove from this folder"
                 onClick={() => void write('folders', () => api.patchFolders(item.id, { remove: [fid] }))}
               >
-                <X size={13} strokeWidth={2} aria-hidden="true" />
+                <X size={14} aria-hidden="true" />
               </button>
             </span>
           ))}
@@ -231,7 +231,7 @@ function SingleItem({ item }: { item: Item }) {
       <ItemSections item={item} />
 
       <a className="open-original" href={fileUrl(item)} target="_blank" rel="noreferrer">
-        Open original <ExternalLink size={13} strokeWidth={1.75} aria-hidden="true" />
+        Open original <ExternalLink size={14} aria-hidden="true" />
         <span className="sr-only"> (new tab)</span>
       </a>
 

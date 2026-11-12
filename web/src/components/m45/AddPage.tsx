@@ -108,7 +108,7 @@ export default function AddPage({ search }: { search: string }) {
         {result ? (
           <div className="add-result" role="status">
             <p className="add-done">
-              <Check size={18} strokeWidth={2.25} aria-hidden="true" /> {result.kind === 'saved' ? 'Saved to Kist' : 'Already in Kist'}
+              <Check size={16} aria-hidden="true" /> {result.kind === 'saved' ? 'Saved to Kist' : 'Already in Kist'}
             </p>
             <p className="add-fname">{result.item.filename}</p>
             <div className="dialog-actions">
@@ -145,7 +145,7 @@ export default function AddPage({ search }: { search: string }) {
                 />
               ) : (
                 <div className="add-noimg">
-                  <ImageOff size={28} strokeWidth={1.5} aria-hidden="true" />
+                  <ImageOff size={28} aria-hidden="true" />
                   <p>The preview didn’t load; Kist will try to download it.</p>
                   <p className="mono add-url">{chosen}</p>
                 </div>

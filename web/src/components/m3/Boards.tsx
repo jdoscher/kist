@@ -3,7 +3,7 @@
 // is BoardsScreen.tsx (loaded on first use).
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Ban, Flag, LayoutDashboard, ListChecks, Plus, X } from 'lucide-react'
+import { Ban, Flag, ListChecks, Plus, Presentation, X } from 'lucide-react'
 import { useState } from 'react'
 import type { BoardSummary } from '../../board'
 import { api3 } from '../../creativeApi'
@@ -37,7 +37,7 @@ export function useNewBoard() {
   }
 }
 
-const ICON = { size: 15, strokeWidth: 1.75 } as const
+const ICON = { size: 16 } as const
 
 export function SidebarBoards({ first = false }: { first?: boolean } = {}) {
   const { screen, openScreen } = useAppState()
@@ -67,7 +67,7 @@ export function SidebarBoards({ first = false }: { first?: boolean } = {}) {
         <h2>Boards</h2>
         {caps.canEdit && (
           <button className="icon-btn" onClick={() => void newBoard()} title="New board" aria-label="New board">
-            <Plus size={14} strokeWidth={2} aria-hidden="true" />
+            <Plus size={14} aria-hidden="true" />
           </button>
         )}
       </div>
@@ -93,7 +93,7 @@ export function SidebarBoards({ first = false }: { first?: boolean } = {}) {
           >
             <button className="row-main" aria-current={active ? 'page' : undefined} onClick={() => openScreen({ kind: 'board', id: b.id })} title="Open the board (drop items here to add them)">
               <span className="icon" aria-hidden="true">
-                <LayoutDashboard {...ICON} />
+                <Presentation {...ICON} />
               </span>
               <span className="name">{b.name}</span>
               {b.item_count > 0 && (
@@ -110,7 +110,7 @@ export function SidebarBoards({ first = false }: { first?: boolean } = {}) {
       <div className="row">
         <button className="row-main" aria-current={screen?.kind === 'boards' ? 'page' : undefined} onClick={() => openScreen({ kind: 'boards' })}>
           <span className="icon" aria-hidden="true">
-            <LayoutDashboard {...ICON} />
+            <Presentation {...ICON} />
           </span>
           <span className="name">{list.length > shown.length ? `All ${list.length} boards` : 'All boards'}</span>
         </button>
@@ -170,7 +170,7 @@ export function SidebarCull() {
         })}
         {query.label && (
           <button className="icon-btn" aria-label="Clear the label filter" title="Clear" onClick={() => setQuery({ label: null })}>
-            <X size={13} aria-hidden="true" />
+            <X size={14} aria-hidden="true" />
           </button>
         )}
       </div>

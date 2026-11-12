@@ -68,13 +68,13 @@ export function StackActions({ disabled }: { disabled?: boolean }) {
     <>
       {canStack(selected) && (
         <button className="btn-icon" disabled={disabled || busy} onClick={() => void stack()} title="Show these as one item, the first as its cover">
-          <Layers size={14} strokeWidth={1.75} aria-hidden="true" />
+          <Layers size={14} aria-hidden="true" />
           Stack
         </button>
       )}
       {stacks.length > 0 && (
         <button className="btn-icon" disabled={disabled || busy} onClick={() => void unstack()} title="Show every item of the stack on its own again">
-          <Layers2 size={14} strokeWidth={1.75} aria-hidden="true" />
+          <Layers2 size={14} aria-hidden="true" />
           Unstack
         </button>
       )}

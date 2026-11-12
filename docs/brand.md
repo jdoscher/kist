@@ -313,9 +313,36 @@ body size. Counts and sizes use tabular figures.
 
 ## Icons
 
-Lucide (ISC), imported per icon, 1.75 px stroke at 13–20 px. Icon-only
-buttons keep a visible 24 × 24 target and an `aria-label`; icons themselves
-are `aria-hidden`. Stars are Lucide `star`, filled when set.
+Lucide (ISC), imported per icon. Icon-only buttons keep a visible target of
+at least 24 × 24 (28 × 28 for quiet controls) and an `aria-label`; icons
+themselves are `aria-hidden`.
+
+- **Three sizes:** 14 px (dense rows, chips, badges), 16 px (the default:
+  toolbars, menus, sidebar), 20 px (stars, phone bars, empty states). A few
+  glyphs drawn as illustrations (the preview's arrows, empty-state and
+  missing-image glyphs) are larger and named in `tests/icons.test.ts`.
+- **One stroke:** 1.5 px on screen at every size. styles.css sets
+  `.lucide { stroke-width: 1.5 }` with `vector-effect: non-scaling-stroke`,
+  so components never pass `strokeWidth` (only `strokeWidth={0}` for a
+  filled glyph such as a tile star).
+- **One meaning per glyph:**
+
+| Meaning | Icon |
+|---|---|
+| AI (meaning search, suggestions, More like this) | `Sparkles` (AI only) |
+| Picks | `Flag` (sidebar, palette, cull controls) |
+| Rejects | `Ban` |
+| Boards | `Presentation` |
+| All items | `LayoutGrid` |
+| Unfiled | `Inbox` |
+| Triage | `ListChecks` |
+| Templates | `Stamp` |
+| Tag cleanup | `Eraser` |
+| Theme / appearance | `SunMoon` (palette), `Palette` (Appearance button) |
+| Add from URL | `Link2` |
+| New folder | `FolderPlus` |
+| An action with no icon of its own | `Zap` (fallback only) |
+| Stars (ratings) | `Star`, filled when set |
 
 ## Motion
 

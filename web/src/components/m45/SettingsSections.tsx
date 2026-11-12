@@ -339,7 +339,7 @@ export function PhoneSection() {
       </p>
       <p>
         <a href="/bookmarklet" target="_blank" rel="noreferrer">
-          Get the bookmarklet <ExternalLink size={13} strokeWidth={1.75} aria-hidden="true" />
+          Get the bookmarklet <ExternalLink size={14} aria-hidden="true" />
           <span className="sr-only"> (new tab)</span>
         </a>
       </p>

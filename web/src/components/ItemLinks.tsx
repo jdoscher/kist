@@ -14,7 +14,7 @@ function LinkThumb({ url }: { url: string | null }) {
     <img className="link-thumb" src={url} alt="" loading="lazy" />
   ) : (
     <span className="link-thumb icon" aria-hidden="true">
-      <File size={16} strokeWidth={1.5} />
+      <File size={16} />
     </span>
   )
 }
@@ -138,7 +138,7 @@ export function ItemLinks({ item, editable }: { item: Item; editable: boolean })
           <h3 className="section-label">Links</h3>
           {editable && (
             <button className="btn-icon small" onClick={() => setPicking(true)}>
-              <Link2 size={13} strokeWidth={1.75} aria-hidden="true" />
+              <Link2 size={14} aria-hidden="true" />
               Add link
             </button>
           )}
@@ -175,7 +175,7 @@ export function ItemLinks({ item, editable }: { item: Item; editable: boolean })
                       disabled={w.busy(`unlink:${l.item.id}:${l.kind}`)}
                       onClick={() => remove(l)}
                     >
-                      <X size={14} strokeWidth={1.75} aria-hidden="true" />
+                      <X size={14} aria-hidden="true" />
                     </button>
                   )}
                 </li>
