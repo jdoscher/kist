@@ -349,6 +349,15 @@ The images lead; anything drawn on them earns its place.
   · 41 tiles" (`gridCountText` / `sidebarCount` in query.ts). A search or
   filter shows just its number of results.
 
+## Sidebar
+
+- **Labels** get their own section head under Cull: 12 px colour dots
+  with a 1 px `--field-border` ring (the ring carries the 3:1 boundary,
+  since some label colours alone don't reach it on the grey), each in a
+  24 px target, the first on the icon column; pressed adds a `--text`
+  ring. The info panel's and triage's label pickers stay 24 px discs
+  (editing controls).
+
 ## Type
 
 | Role | Face | Where |

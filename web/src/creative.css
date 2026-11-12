@@ -122,8 +122,40 @@ button.on,
 .label-swatch.on {
   box-shadow: 0 0 0 2px var(--text);
 }
+/* the sidebar's label filter (B10a): 12 px dots with a 1 px
+   --field-border ring (the ring carries the 3:1 boundary: some label
+   colours alone don't reach it on the grey), each in a 24 px target,
+   the first on the sidebar's icon column; pressed = a --text ring */
 .label-filter {
-  padding: 4px 8px 4px 30px;
+  gap: 2px;
+  padding: 2px 8px 4px 4px;
+}
+.label-filter .label-swatch {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  background: none;
+  border: none;
+  box-shadow: none;
+  border-radius: 6px;
+}
+.label-filter .label-swatch::before {
+  content: '';
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--swatch);
+  box-shadow: 0 0 0 1px var(--field-border);
+}
+.label-filter .label-swatch:hover {
+  background: var(--bg-hover);
+  box-shadow: none;
+}
+.label-filter .label-swatch.on::before {
+  box-shadow:
+    0 0 0 2px var(--chrome),
+    0 0 0 3.5px var(--text);
 }
 .tile .badge.cull {
   top: 6px;
