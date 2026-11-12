@@ -967,6 +967,8 @@ The aesthetic pass: one grey, one control language, one type system.
   column width; it works with the date scrubber, stacks, every density and
   on a phone (2 columns or more; 1 column stays the feed). Rows stays the
   default. On a phone the tile-shape button steps Rows, Square, Columns.
+- Quiet tiles: a tile shows its rating only on hover, keyboard focus or selection, as one star and a number ("★ 5") on the caption strip; every tile shows it while you filter or sort by rating. Phone tiles show no ratings (the item sheet does).
+- Loading tiles look like tiles: a placeholder one step off the canvas with a faint, slow sheen (off with Reduce Motion), and no badges until the picture has arrived.
 
 ## [1.5.0] - 2026-11-09
 

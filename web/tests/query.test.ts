@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { emptyQuery, type Query } from '../src/api.ts'
-import { folderSubtree, isUnfiledView, mergeQuery, stillMatches, unfiledQuery } from '../src/query.ts'
+import { folderSubtree, isUnfiledView, mergeQuery, ratingsShown, stillMatches, unfiledQuery } from '../src/query.ts'
 import type { Item } from '../src/api.ts'
 
 const empty: Query = emptyQuery
@@ -60,4 +60,11 @@ test('folder views include subfolders', () => {
   const inA = { ...empty, folder: 'A' }
   assert.ok(stillMatches(it({ folder_ids: ['C'] }), inA, sub))
   assert.ok(!stillMatches(it({ folder_ids: ['D'] }), inA, sub)) // moved out
+})
+
+test('quiet tiles: ratings show on every tile only while filtering or sorting by rating', () => {
+  assert.equal(ratingsShown(empty), false)
+  assert.equal(ratingsShown({ ...empty, rating: 3 }), true)
+  assert.equal(ratingsShown({ ...empty, order: '-rating' }), true)
+  assert.equal(ratingsShown({ ...empty, order: 'filename' }), false)
 })

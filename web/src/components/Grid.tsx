@@ -17,7 +17,7 @@ import {
   typicalAspect,
 } from '../layout'
 import { useCaps, useCurrentItems, useFolderNames, useFolders, useItem, useSmartFolders, useStats } from '../data'
-import { emptyState, everywhere, isUnfiledView, viewTitle } from '../query'
+import { emptyState, everywhere, isUnfiledView, ratingsShown, viewTitle } from '../query'
 import { placeholderFor, placeholderStyle } from '../placeholder'
 import { markOnce, onceSeen } from '../settings'
 import { densityGap, densityTileSize } from '../theme'
@@ -51,6 +51,9 @@ function markLoaded(img: HTMLImageElement | null) {
   if (img && img.complete && img.naturalWidth > 0) img.classList.add('loaded')
 }
 const onImgLoad = (e: React.SyntheticEvent<HTMLImageElement>) => e.currentTarget.classList.add('loaded')
+/** A thumbnail that won't load stops the loading sheen (A7) and lets the
+ * badges show over the placeholder. */
+const onImgError = (e: React.SyntheticEvent<HTMLImageElement>) => e.currentTarget.classList.add('failed')
 
 /** DOM id of a tile, so focus can follow the keyboard (and the preview can
  * hand focus back to the tile it was opened from). */
@@ -117,7 +120,7 @@ const Tile = memo(function Tile({
       aria-posinset={index + 1}
       aria-label={tileLabel(item) + (cullText(item) ? `, ${cullText(item)}` : '') + extraLabel}
       tabIndex={tabbable ? 0 : -1}
-      className={`tile${selected ? ' selected' : ''}${thumb ? '' : ' no-thumb'}${member ? ' stack-member' : ''}`}
+      className={`tile${selected ? ' selected' : ''}${thumb ? '' : ' no-thumb'}${member ? ' stack-member' : ''}${item.rating > 0 ? ' rated' : ''}`}
       style={
         left === undefined
           ? { width, height, ...placeholder }
@@ -147,6 +150,7 @@ const Tile = memo(function Tile({
           alt=""
           ref={markLoaded}
           onLoad={onImgLoad}
+          onError={onImgError}
         />
       ) : (
         <div className={`tile-icon preview-${item.preview_status}`} aria-hidden="true">
@@ -164,10 +168,13 @@ const Tile = memo(function Tile({
         </span>
       )}
       {item.rating > 0 && (
+        // quiet tiles (B1): one star and the number, shown on hover, focus
+        // and selection (and always while filtering or sorting by rating,
+        // .grid-scroll.ratings-shown); never on phone tiles (CSS). The
+        // rating is in the tile's aria-label either way.
         <span className="badge rating" aria-hidden="true">
-          {Array.from({ length: item.rating }, (_, i) => (
-            <Star key={i} size={14} fill="currentColor" strokeWidth={0} />
-          ))}
+          <Star size={14} fill="currentColor" strokeWidth={0} />
+          {item.rating}
         </span>
       )}
       <CullBadges item={item} />
@@ -676,7 +683,7 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
         {mobile ? '' : ', Delete moves to Trash, the context menu key shows More like this'}.
       </span>
       <div
-        className={`grid-scroll${scrubbing ? ' scrubbed' : ''}`}
+        className={`grid-scroll${scrubbing ? ' scrubbed' : ''}${ratingsShown(query) ? ' ratings-shown' : ''}`}
         ref={attachScroll}
         role={items.length ? 'listbox' : undefined}
         aria-multiselectable={items.length ? 'true' : undefined}

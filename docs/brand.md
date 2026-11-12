@@ -296,6 +296,21 @@ image is judged.
 | Menus, popovers, toasts | 10 px | `--float-radius` |
 | Dialogs and the command palette | 12 px | `--dialog-radius` |
 
+## Grid tiles
+
+The images lead; anything drawn on them earns its place.
+
+- **Loading:** a tile with no ThumbHash or colour yet is `--tile-wait`
+  (one step off `--canvas`: gallery #676767, dark #232321, light #E0E0E0;
+  decorative, no contrast minimum) with a faint 1.4 s sheen (none under
+  reduced motion). Badges stay hidden until the thumbnail has loaded
+  (`img.loaded`), or failed (`img.failed`, which also stops the sheen).
+- **Ratings (quiet tiles):** one brass star and a tabular number ("★ 5"),
+  bottom right on the caption's dark gradient, only on hover, keyboard
+  focus or selection; on every tile while the grid is filtered or sorted
+  by rating (`.ratings-shown`, `ratingsShown()` in query.ts). Never on a
+  phone tile. The rating is always in the tile's `aria-label`.
+
 ## Type
 
 | Role | Face | Where |

@@ -24,6 +24,10 @@
  * --chip-bg / --chip-text are tag, folder and board chips: neutral, because
  * brass is kept for the primary action, selection, focus and ratings.
  *
+ * --tile-wait is a tile whose thumbnail hasn't arrived (no ThumbHash or
+ * colour to show): one step off the canvas so the grid reads as tiles while
+ * it loads. Decorative, so no contrast minimum (it carries no text).
+ *
  * --bg-float / --float-* are things that float over the page (menus,
  * popovers, dialogs, the command palette, toasts): one darker surface, a
  * hairline, a layered shadow (styles.css --float-shadow) over a 40 % scrim. */
@@ -56,6 +60,7 @@
   --chrome: #1c1c1a;
   --chrome-line: #34332f;
   --canvas: #131312;
+  --tile-wait: #232321;
   --canvas-text: #eceae4;
   --canvas-dim: #9c9a93;
   --canvas-focus: #e8b04b;
@@ -113,6 +118,7 @@
   --chrome: #ffffff;
   --chrome-line: #e2dfd8;
   --canvas: #ececec;
+  --tile-wait: #e0e0e0;
   --canvas-text: #1c1b19;
   --canvas-dim: #5f5d57;
   --canvas-focus: #8c5a00;
@@ -170,6 +176,7 @@
   --chrome: #5c5c5c;
   --chrome-line: #ffffff47;
   --canvas: #5c5c5c;
+  --tile-wait: #676767;
   --canvas-text: #f5f5f5;
   --canvas-dim: #dadada;
   --canvas-focus: #f6cf7e;

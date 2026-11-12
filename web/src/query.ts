@@ -134,6 +134,13 @@ export function viewTitle(
 
 /** Filters that narrow the view (search text, type, rating...) as opposed
  * to the view itself (Unfiled, a folder, tags, the trash). */
+/** Quiet tiles (B1): a tile shows its rating on hover, focus and
+ * selection, and every tile shows it while the grid is filtered or sorted
+ * by rating (the moment ratings are what you're looking at). */
+export function ratingsShown(q: Pick<Query, 'rating' | 'order'>): boolean {
+  return q.rating > 0 || q.order === '-rating'
+}
+
 export function hasNarrowing(q: Query): boolean {
   return (
     !!q.q ||

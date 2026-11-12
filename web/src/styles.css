@@ -898,8 +898,9 @@ select:focus-visible {
   margin: calc(var(--tile-gap) / 2);
   border-radius: var(--tile-radius);
   overflow: hidden;
-  /* the placeholder (thumbhash or dominant colour) is set inline */
-  background-color: var(--bg-raised);
+  /* the placeholder (thumbhash or dominant colour) is set inline; with
+     neither, --tile-wait keeps the tile visible while it loads (A7) */
+  background-color: var(--tile-wait);
   background-size: cover;
   background-position: center;
   color: var(--text);
@@ -1025,10 +1026,67 @@ select:focus-visible {
   align-items: center;
   gap: 1px;
 }
+/* Loading (A7): a slow, faint sheen over the placeholder until the
+   thumbnail has arrived, and no badges floating on an empty tile. A
+   thumbnail that fails (img.failed) stops both. */
+.tile:has(> img:not(.loaded):not(.failed))::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent 30%, #ffffff14 50%, transparent 70%) no-repeat;
+  background-size: 250% 100%;
+  animation: tile-sheen 1.4s linear infinite;
+}
+@keyframes tile-sheen {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -150% 0;
+  }
+}
+.tile:has(> img:not(.loaded):not(.failed)) .badge {
+  visibility: hidden;
+}
+/* Quiet tiles (B1): the rating is one star and a number on the caption
+   strip, shown on hover, keyboard focus and selection, or on every tile
+   while filtering or sorting by rating (.ratings-shown, query.ts
+   ratingsShown). Brass stays the rating colour (brand.md brass budget). */
 .tile .badge.rating {
   top: auto;
-  bottom: 28px;
+  bottom: 4px;
+  right: 6px;
+  gap: 3px;
+  padding: 1px 6px 1px 4px;
   color: #e8b04b;
+  opacity: 0;
+  transition:
+    opacity var(--dur-1) var(--ease),
+    background-color var(--dur-1) var(--ease);
+}
+.tile:hover .badge.rating,
+.tile:focus-visible .badge.rating,
+.tile.selected .badge.rating,
+.ratings-shown .tile .badge.rating {
+  opacity: 1;
+}
+/* over the caption's gradient it needs no pill of its own */
+.tile:hover .badge.rating,
+.tile:focus-visible .badge.rating {
+  background-color: transparent;
+}
+.tile.rated .tile-caption {
+  padding-right: 48px;
+}
+/* compact density has no caption strip: the pill stays */
+[data-density='compact'] .tile:hover .badge.rating,
+[data-density='compact'] .tile:focus-visible .badge.rating {
+  background-color: rgba(0, 0, 0, 0.7);
+}
+/* phone tiles carry no ratings (B1, B18): the item sheet shows them */
+.mobile .tile .badge.rating {
+  display: none;
 }
 .tile-caption {
   position: absolute;
@@ -1049,7 +1107,8 @@ select:focus-visible {
   display: none;
 }
 [data-density='compact'] .tile .badge.rating {
-  bottom: 4px;
+  bottom: 2px;
+  right: 2px;
 }
 .tile:hover .tile-caption,
 .tile:focus-visible .tile-caption {
@@ -2241,6 +2300,11 @@ select:focus-visible {
   ::view-transition-old(*),
   ::view-transition-new(*) {
     animation: none !important;
+  }
+  /* the loading tile stays a flat --tile-wait, no sheen */
+  .tile::after {
+    animation: none !important;
+    background: none !important;
   }
 }
 
