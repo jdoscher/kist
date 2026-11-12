@@ -349,6 +349,14 @@ The images lead; anything drawn on them earns its place.
   · 41 tiles" (`gridCountText` / `sidebarCount` in query.ts). A search or
   filter shows just its number of results.
 
+- **Empty states** (`EmptyState` in GridExtras.tsx): the outline mark
+  (`OutlineMark`, Brand.tsx: brackets as thin `--canvas-dim` lines, the
+  kept item a brass square; `aria-hidden`), one Instrument Serif line
+  (24 px, at most 22ch), one dim 13 px line and at most one action. Empty
+  Unfiled, Trash, Picks, Rejects, a folder, a tag, a smart folder and a
+  search with no hits all use it (words in `emptyState`, query.ts); the
+  view's subtitle hides while the grid is empty so nothing is said twice.
+
 ## Sidebar
 
 - **Labels** get their own section head under Cull: 12 px colour dots

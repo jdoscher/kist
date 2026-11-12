@@ -15,6 +15,35 @@ import { closeStack, getExpanded, openStack, stackBadge, subscribeExpanded } fro
 import { useAppState } from '../state'
 import { describeError } from '../writes'
 import { useNotices } from './Notices'
+import { OutlineMark } from './Brand'
+
+/**
+ * The one empty-state pattern (B17): the outline mark (decorative), one
+ * serif line, one dim line and one action. For an empty Unfiled, Trash,
+ * Picks, Rejects, folder, tag or search; other screens can use it too.
+ */
+export function EmptyState({
+  text,
+  hint,
+  children,
+  className = '',
+  role,
+}: {
+  text: string
+  hint?: string
+  children?: React.ReactNode
+  className?: string
+  role?: string
+}) {
+  return (
+    <div className={`grid-empty${className ? ` ${className}` : ''}`} role={role}>
+      <OutlineMark />
+      <p className="empty-title">{text}</p>
+      {hint && <p className="empty-hint">{hint}</p>}
+      {children}
+    </div>
+  )
+}
 
 /** A snippet with the matched words highlighted. */
 export function Snippet({ text, className = '' }: { text: string | null | undefined; className?: string }) {
@@ -252,13 +281,12 @@ export function RankedError({ status }: { status: number | undefined }) {
   if (!text) return null
   const words = query.semantic || query.text
   return (
-    <div className="grid-empty" role="alert">
-      <p>{text}</p>
+    <EmptyState text={text} role="alert">
       {words && status === 503 && (
         <button onClick={() => setQuery({ q: words, semantic: '', text: '', similar: null, image: null, color: null })}>
           Search the words instead
         </button>
       )}
-    </div>
+    </EmptyState>
   )
 }

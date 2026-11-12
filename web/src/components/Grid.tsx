@@ -26,7 +26,7 @@ import { useAppState } from '../state'
 import { useShortcut } from '../useShortcuts'
 import { describeError } from '../writes'
 import { BulkBar } from './BulkBar'
-import { ItemContextMenu, RankedError, rankedErrorText, SearchNote, usePersonName, showMatchBadge, StackBadge, TileMatch, tileExtra, useExpandedStacks, useStackToggle } from './GridExtras'
+import { EmptyState, ItemContextMenu, RankedError, rankedErrorText, SearchNote, usePersonName, showMatchBadge, StackBadge, TileMatch, tileExtra, useExpandedStacks, useStackToggle } from './GridExtras'
 import { searchTitle } from '../search'
 import { CullBadges, cullText } from './m3/CullControls'
 import { FirstRun } from './m3/FirstRun'
@@ -780,15 +780,14 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
           <FirstRun />
         </div>
       ) : empty && (
-        <div className="grid-empty">
-          <p>{empty.text}</p>
+        <EmptyState text={empty.text} hint={empty.hint}>
           {empty.action === 'everywhere' && (
             <button onClick={() => setQuery(everywhere(query))}>Search everything</button>
           )}
           {empty.action === 'all' && (
             <button onClick={() => setQuery({ ...emptyQuery, order: query.order })}>Show all items</button>
           )}
-        </div>
+        </EmptyState>
       )}
       {scrub.model && scrollEl && items.length > 0 && (
         <Scrubber

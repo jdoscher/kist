@@ -976,6 +976,7 @@ The aesthetic pass: one grey, one control language, one type system.
 - Clicking one picture no longer drops a panel over the grid: the selection bar appears only with two or more selected (the info panel covers one), as a single 40 px row docked under the grid with count, Tag, Folder, Board, Pick, Reject, Label, a More menu (protect, stack, compare, survey, rename, template, share, export) and Trash.
 - Colour labels in the sidebar have their own "Labels" heading and are small ringed dots instead of six loud discs (the click target stays 24 px).
 - Sidebar tags show as a wrapped cloud of small chips with their counts, instead of a long column of # rows. A toggle beside the Tags heading switches back to the list (handier with hundreds of tags), and Kist remembers your choice.
+- Empty views feel finished: an outline of the Kist mark, one line in the serif, one quieter line saying how things get there, and one button. Empty Unfiled, Trash, Picks, Rejects, folders, tags, smart folders and searches with no results all use it.
 
 ## [1.5.0] - 2026-11-09
 

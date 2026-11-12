@@ -172,36 +172,61 @@ export function everywhere(q: Query): Query {
 export type EmptyAction = 'everywhere' | 'all' | null
 
 /**
- * What an empty grid says, so an empty search doesn't tell you to upload:
+ * What an empty grid says (B17: one serif line, one dim line, one action),
+ * so an empty search doesn't tell you to upload:
  * - an empty library says how to add things (no drag and drop on a phone)
  * - a search with no hits names the view and offers "Search everything"
  *   when the view is narrower than the whole library
- * - an empty Unfiled says everything is filed
+ * - an empty Unfiled says everything is filed; empty Picks and Rejects
+ *   say where picks come from
+ * - an empty folder, tag or smart folder says how things get there
  */
 export function emptyState(
   q: Query,
   opts: { libraryEmpty: boolean; mobile: boolean; title: string; smart?: boolean },
-): { text: string; action: EmptyAction } {
-  if (q.deleted && !opts.smart) return { text: 'Trash is empty.', action: null }
+): { text: string; hint: string; action: EmptyAction } {
+  if (q.deleted && !opts.smart)
+    return { text: 'Trash is empty.', hint: 'Trashed items wait here until you restore them or delete them for good.', action: null }
   if (opts.libraryEmpty && !q.deleted)
     return {
-      text: opts.mobile
-        ? 'Your library is empty. Open the menu and tap Upload to add photos from this phone.'
-        : 'Your library is empty. Drop files anywhere, paste an image, or use Upload.',
+      text: 'Your library is empty.',
+      hint: opts.mobile
+        ? 'Open the menu and tap Upload to add photos from this phone.'
+        : 'Drop files anywhere, paste an image, or use Upload.',
       action: null,
     }
   const narrowView = q.view !== null || q.folder !== null || q.tags.length > 0 || q.deleted || !!opts.smart
+  // Picks and Rejects (the sidebar's Cull rows) are flag filters with
+  // their own words when nothing else narrows them
+  if (q.flag && q.flag !== 'none' && !narrowView && !hasNarrowing({ ...q, flag: null }))
+    return q.flag === 'pick'
+      ? { text: 'No picks yet.', hint: 'Pick items in Triage, Survey or the info panel and they gather here.', action: 'all' }
+      : { text: 'No rejects.', hint: 'Items you reject in Triage, Survey or the info panel gather here, ready to trash.', action: 'all' }
   if (hasNarrowing(q)) {
     const words = q.q || q.semantic || q.text
     const what = words ? `matches “${words}”` : 'matches these filters'
     return {
       text: q.view === null && !narrowView ? `Nothing ${what}.` : `Nothing in ${opts.title} ${what}.`,
+      hint: narrowView ? 'The whole library might have it.' : words ? 'Try other words, or describe it another way.' : 'Try fewer filters.',
       action: narrowView ? 'everywhere' : null,
     }
   }
   if (q.view === 'unfiled')
-    return { text: 'Nothing in Unfiled: every item has a folder or a tag.', action: 'all' }
-  return { text: `Nothing in ${opts.title} yet.`, action: narrowView ? 'all' : null }
+    return {
+      text: 'Nothing in Unfiled: every item has a folder or a tag.',
+      hint: 'Items with no folder and no tag land here. They stay in All items too.',
+      action: 'all',
+    }
+  const hint = opts.smart
+    ? 'It fills as items match its search.'
+    : q.folder
+      ? opts.mobile
+        ? 'Add items to it from their info sheet.'
+        : 'Drag items onto it in the sidebar, or add them from the info panel.'
+      : q.tags.length
+        ? 'Items show here once they have this tag.'
+        : ''
+  return { text: `Nothing in ${opts.title} yet.`, hint, action: narrowView ? 'all' : null }
 }
 
 /**

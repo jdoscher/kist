@@ -1049,26 +1049,48 @@ select:focus-visible {
   padding: 0 8px 80px;
   scroll-padding-bottom: 80px;
 }
+/* Empty states (B17): a centred column a little above the middle: the
+   outline mark, one serif line (22ch at most), one dim line, one action */
 .grid-empty {
   position: absolute;
-  top: 25%;
+  top: calc(72px + 10vh);
   left: 0;
   right: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   padding: 0 24px;
   text-align: center;
   color: var(--canvas-dim);
 }
-.grid-empty p {
+.grid-empty .outline-mark {
+  width: 72px;
+  height: 72px;
+  margin-bottom: 4px;
+  color: var(--canvas-dim);
+  opacity: 0.7;
+}
+.outline-mark .dot {
+  fill: var(--accent);
+}
+.grid-empty .empty-title {
   margin: 0;
-  max-width: 460px;
+  max-width: 22ch;
   font-family: var(--font-display);
-  font-size: var(--fs-4);
-  line-height: 1.35;
+  font-weight: 400;
+  font-size: var(--fs-5);
+  line-height: 1.15;
   color: var(--canvas-text);
+  text-wrap: balance;
+}
+.grid-empty .empty-hint {
+  margin: 0 0 4px;
+  max-width: 40ch;
+  font-size: var(--fs-2);
+  line-height: 1.5;
+  color: var(--canvas-dim);
+  text-wrap: pretty;
 }
 .grid-row {
   position: absolute;
