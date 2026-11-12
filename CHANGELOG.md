@@ -4,13 +4,6 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/).
 
-## [2.1.0] – unreleased
-
-The aesthetic pass: one grey, one control language, one type system.
-
-- Screen headers (Timeline, Map, Organise, Settings, Boards, Triage) and the board bar sit on the same chrome grey as the top bar and sidebar, with the same light pinstripe; no more second grey band.
-- Real italics: Inter's italic face is loaded, and the browser never fakes a slanted or bold style again.
-
 ## [Unreleased]
 
 Kist 2.0, milestones 1 to 5: the platform and AI infrastructure; finding
@@ -946,6 +939,13 @@ Kist now looks inside video, audio, photos, RAW files, design sources, SVG,
 - **Social preview:** `docs/brand/build_social.py` makes the 1280x640 card
   (lockup, tagline, a collage of demo-library images) for GitHub's social
   preview and the docs site.
+
+### Design pass
+
+The aesthetic pass: one grey, one control language, one type system.
+
+- Screen headers (Timeline, Map, Organise, Settings, Boards, Triage) and the board bar sit on the same chrome grey as the top bar and sidebar, with the same light pinstripe; no more second grey band.
+- Real italics: Inter's italic face is loaded, and the browser never fakes a slanted or bold style again.
 
 ## [1.5.0] - 2026-11-09
 
