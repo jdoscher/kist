@@ -334,6 +334,15 @@ The images lead; anything drawn on them earns its place.
   hover, focus and selection; compact density has no room for the sheet
   and keeps the badge. The count is in the aria-label ("stack of 2 items").
 
+- **Gutters and the date rail:** 12 px from the sidebar to the first tile
+  and 12 px from the last tile to the 30 px date rail; the rail starts
+  8 px below the grid header, year labels are centred in it and hang 4 px
+  below their tick (clear of the brass mark and the info panel's line).
+- **Counts:** the grid header leads with the same number as the sidebar
+  (every item) and adds the tiles when closed stacks make fewer: "43 items
+  · 41 tiles" (`gridCountText` / `sidebarCount` in query.ts). A search or
+  filter shows just its number of results.
+
 ## Type
 
 | Role | Face | Where |

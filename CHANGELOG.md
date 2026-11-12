@@ -972,6 +972,7 @@ The aesthetic pass: one grey, one control language, one type system.
 - Stacks look like stacks: a closed stack shows a second sheet peeking out behind its cover instead of a "⧉ 2" pill; the count appears on hover or focus (compact density keeps the badge).
 - One-line top bar: the bar is 48 px and holds the logo, a one-line search box with the ⌘K shortcut shown inside it (click it to open the palette), Paste, Upload (the only brass button) and the quiet icons. Tile shape, size, type, filters, rating and sort moved into the grid's header, next to the title they change.
 - The grid's title is set in the serif like every other view; a folder or tag page gets a larger title with its parent folder (or "Tag") as a small line above it.
+- The grid header and the sidebar agree: the header leads with the sidebar's count and adds how many tiles that is when stacks are closed ("43 items · 41 tiles"). The date rail's year labels sit centred in the rail below the header, clear of the info panel, and the grid has even 12 px gutters on both sides.
 
 ## [1.5.0] - 2026-11-09
 

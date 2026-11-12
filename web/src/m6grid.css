@@ -58,6 +58,33 @@
   box-shadow: var(--shadow);
   pointer-events: none;
 }
+/* Desktop (A6): a 30 px rail beside the grid, starting 8 px below the
+   grid header. Year labels are centred in it and hang 4 px below their
+   tick, so they never meet the brass mark at the same tick, the info
+   panel's pinstripe or the header. The grid keeps its 12 px gutter on
+   both sides: sidebar to tiles, tiles to rail. */
+.app-shell:not(.mobile) .scrubber {
+  width: 30px;
+}
+.app-shell:not(.mobile) .scrub-track {
+  inset: 8px 0 8px 0;
+}
+.app-shell:not(.mobile) .scrub-year {
+  right: 50%;
+  transform: translate(50%, 4px);
+}
+.app-shell:not(.mobile) .scrub-mark {
+  right: 50%;
+  width: 20px;
+  transform: translateX(50%);
+}
+.app-shell:not(.mobile) .scrub-label {
+  right: 34px;
+}
+/* the header's controls end over the last tile, not over the rail */
+.app-shell:not(.mobile) .grid-area:has(> .grid-scroll.scrubbed) .grid-meta {
+  padding-right: calc(30px + 8px + var(--tile-gap) / 2);
+}
 /* the rail is the grid's scrollbar while it shows */
 .app-shell:not(.mobile) .grid-scroll.scrubbed {
   margin-right: 30px;
