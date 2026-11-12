@@ -949,6 +949,7 @@ The aesthetic pass: one grey, one control language, one type system.
 - Every text size sits on Kist's six-step type scale (11/13/15/18/24/34 px); headings no longer pick up the browser's own sizes ("On this day" was 19.5 px bold). A test keeps it that way.
 - Gallery grey's phone status bar is the same grey as the top bar (it was a leftover darker grey), and the app opens in its theme's colour with no dark flash in gallery or light.
 - Light theme: the grid sits on a neutral light grey (#ececec) instead of warm paper, so photos aren't judged against a warm surround, and the full-screen preview uses the gallery mid-grey instead of near-black. The chrome stays warm paper.
+- Smaller corners: grid tiles 4 px (square in compact density), the full-screen image square, board items 2 px.
 
 ## [1.5.0] - 2026-11-09
 

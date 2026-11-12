@@ -1630,6 +1630,10 @@ body.board-space .board-viewport,
   inset: 0;
   overflow: hidden;
   display: block;
+  border-radius: var(--board-radius);
+}
+.bnode.t-item {
+  border-radius: var(--board-radius);
 }
 .bnode-img img {
   display: block;

@@ -193,6 +193,20 @@ Selected tiles use brass corners with a 1 px black halo plus a check badge
 (brass on #1A1408 outline), so the state reads on any image; the keyboard
 focus ring is a separate 2 px ring outside the tile.
 
+## Corners
+
+Photos are prints, not app cards: small radii on images, none where the
+image is judged.
+
+| Where | Radius | Token |
+|---|---|---|
+| Grid tiles (comfortable, gallery density) | 4 px | `--tile-radius` |
+| Grid tiles, compact density (a contact sheet) | 0 | `--tile-radius` |
+| Full-screen preview image | 0 | |
+| Board items | 2 px | `--board-radius` |
+| Controls (buttons, fields) | 6 px | `--ctl-radius` |
+| Floating surfaces (menus, dialogs, palette) | 12 px | |
+
 ## Type
 
 | Role | Face | Where |
