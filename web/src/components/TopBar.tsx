@@ -100,7 +100,7 @@ const nextLayout = (l: GridLayout): GridLayout => GRID_LAYOUTS[(GRID_LAYOUTS.ind
 
 function LayoutIcon({ layout }: { layout: GridLayout }) {
   const Icon = layout === 'square' ? LayoutGrid : layout === 'columns' ? Columns3 : Rows3
-  return <Icon size={16} strokeWidth={1.75} aria-hidden="true" />
+  return <Icon size={16} aria-hidden="true" />
 }
 
 export function TopBar({ mobile = false }: { mobile?: boolean }) {
