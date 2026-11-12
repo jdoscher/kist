@@ -84,7 +84,7 @@ export default function ExportDialog({ target, onClose }: { target: Target; onCl
             <button type="button" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="primary" disabled={busy || (!originals && !sidecars)}>
+            <button type="submit" className="btn-primary" disabled={busy || (!originals && !sidecars)}>
               {busy ? 'Starting…' : 'Export'}
             </button>
           </div>
@@ -105,7 +105,7 @@ export default function ExportDialog({ target, onClose }: { target: Target; onCl
               {cur.status === 'done' ? 'Close' : 'Close (it carries on)'}
             </button>
             {cur.status === 'done' && (
-              <a className="button primary btn-icon" data-autofocus href={`/api/exports/${cur.id}/download`} download>
+              <a className="button btn-primary btn-icon" data-autofocus href={`/api/exports/${cur.id}/download`} download>
                 <Download size={14} strokeWidth={2} aria-hidden="true" /> Download zip
               </a>
             )}

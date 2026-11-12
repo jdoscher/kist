@@ -102,7 +102,7 @@ function LinkPicker({ item, onClose }: { item: Item; onClose: () => void }) {
           <button type="button" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" className="primary" disabled={!target || w.busy()}>
+          <button type="submit" className="btn-primary" disabled={!target || w.busy()}>
             Link
           </button>
         </div>

@@ -170,7 +170,7 @@ export function DetailSheet() {
               ))}
             </div>
           )}
-          <button className="primary" onClick={() => setPreviewId(item.id)}>
+          <button className="btn-primary" onClick={() => setPreviewId(item.id)}>
             View
           </button>
         </div>

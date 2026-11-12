@@ -154,7 +154,7 @@ export default function RenameDialog({ ids, onClose }: { ids: string[]; onClose:
           <button type="button" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" className="primary" disabled={busy || errors.length > 0 || !changed}>
+          <button type="submit" className="btn-primary" disabled={busy || errors.length > 0 || !changed}>
             {busy ? 'Renaming…' : `Rename ${changed}`}
           </button>
         </div>

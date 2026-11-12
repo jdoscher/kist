@@ -277,7 +277,7 @@ export function ImportSection() {
           <button type="submit" disabled={busy || !source.trim()}>
             Dry run
           </button>
-          <button type="button" className="primary" disabled={busy || !source.trim() || !run.data?.dry_run || run.data.status !== 'done'} onClick={() => void start(false)} title={run.data?.dry_run && run.data.status === 'done' ? 'Import for real' : 'Do a dry run first'}>
+          <button type="button" className="btn-primary" disabled={busy || !source.trim() || !run.data?.dry_run || run.data.status !== 'done'} onClick={() => void start(false)} title={run.data?.dry_run && run.data.status === 'done' ? 'Import for real' : 'Do a dry run first'}>
             Import
           </button>
         </div>

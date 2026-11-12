@@ -554,7 +554,7 @@ export default function BoardEditor({ id }: { id: string }) {
             working. Your changes aren’t saved yet.
           </p>
           <div className="dialog-actions">
-            <button className="primary" onClick={() => void resolve('combine')} title="Their version, with your changes put on top">
+            <button className="btn-primary" onClick={() => void resolve('combine')} title="Their version, with your changes put on top">
               Combine: mine on top of theirs
             </button>
             <button onClick={() => void resolve('theirs')}>Use theirs (drop mine)</button>

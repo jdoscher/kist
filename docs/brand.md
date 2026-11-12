@@ -227,6 +227,30 @@ plus a check badge (`--on-accent` on `--canvas-focus`, #1A1408 outline), so
 the state reads on any image; the keyboard
 focus ring is a separate 2 px ring outside the tile.
 
+## Controls
+
+One height, three kinds. Nothing else.
+
+| Kind | Class | At rest | Hover | Pressed / on |
+|---|---|---|---|---|
+| Quiet | any plain `<button>` (incl. `.icon-btn`, `.btn-icon`) | no fill, no border | `--bg-hover` fill | `--bg-active` fill + 3 px `--accent` bar (`.on`) |
+| Primary | `.btn-primary` | `--accent` fill, `--on-accent` label | `--accent-hover` | |
+| Field | `input`, `select`, `textarea` | `--field-border` outline on `--bg` | | `--accent` border on focus |
+
+- Every control is `--ctl-h` 28 px tall with `--ctl-radius` 6 px corners
+  and 8 px side padding (`--ctl-pad-x`); icon-only quiet buttons are
+  exactly 28 × 28. Phone layouts keep 44 px hit areas with their own
+  min-height or an `::after` (phone.css), not by changing the look.
+- Fields need the 3:1 outline (1.4.11); quiet buttons don't, because their
+  label or icon identifies them. Keep a label on anything that isn't a
+  well-known glyph.
+- Selects are fields with Kist's own chevron (`--chevron` in themes.css,
+  the theme's dim text colour), `appearance: none`, still real `<select>`s.
+- One `.btn-primary` per view (Upload, Save, New token). `button.danger` is
+  a quiet button with `--danger` text.
+- Links inside a sentence (`.linkish`, `.link-btn`, `.btn-link`,
+  `.link-like`) are underlined `--text`, sized like text, not 28 px tall.
+
 ## Corners
 
 Photos are prints, not app cards: small radii on images, none where the

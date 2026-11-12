@@ -252,7 +252,7 @@ export default function Triage({ screen }: { screen: Extract<Screen, { kind: 'tr
             {done ? `${done} ${done === 1 ? 'item' : 'items'} decided this session.` : 'Nothing to triage here.'}
             {view === 'unfiled' && ' Picked, rated and labelled items stay in Unfiled until you tag them or file them in a folder.'}
           </p>
-          <button className="primary" onClick={exit}>
+          <button className="btn-primary" onClick={exit}>
             Back to the library
           </button>
         </div>
@@ -332,7 +332,7 @@ export default function Triage({ screen }: { screen: Extract<Screen, { kind: 'tr
               <button className="btn-icon" onClick={() => void undo()} disabled={!batches.length} aria-keyshortcuts="Meta+Z Control+Z" title="Undo the last change (⌘Z)">
                 <Undo2 size={16} aria-hidden="true" /> Undo
               </button>
-              <button className="btn-icon primary" onClick={goNext} aria-keyshortcuts="ArrowRight">
+              <button className="btn-icon btn-primary" onClick={goNext} aria-keyshortcuts="ArrowRight">
                 Next <ArrowRight size={16} aria-hidden="true" />
               </button>
             </div>
@@ -457,7 +457,7 @@ function TagBox({ onAdd, onClose }: { onAdd: (tags: string[]) => void; onClose: 
           <button type="button" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" className="primary" disabled={!text.trim()}>
+          <button type="submit" className="btn-primary" disabled={!text.trim()}>
             Add tags
           </button>
         </div>

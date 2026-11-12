@@ -482,7 +482,7 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
       {caps.canEdit && (
         <>
           <PasteButton />
-          <button className="primary btn-icon" onClick={() => fileRef.current?.click()}>
+          <button className="btn-primary btn-icon" onClick={() => fileRef.current?.click()}>
             <Upload size={15} strokeWidth={2} aria-hidden="true" />
             Upload
           </button>

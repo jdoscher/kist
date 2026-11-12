@@ -131,7 +131,7 @@ export default function FiltersPanel({ onClose }: { onClose: () => void }) {
           <button type="button" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" className="primary">
+          <button type="submit" className="btn-primary">
             Apply
           </button>
         </div>

@@ -17,6 +17,10 @@
  * black in dark, the gallery mid-grey in gallery AND light (a jump from
  * paper to near-black was hard on the eye; Jay approved, Nov 2026).
  *
+ * --chevron is the select arrow (Lucide chevron-down in the theme's dim
+ * text colour), drawn as a background image because a <select> can't
+ * take a pseudo-element.
+ *
  * --chip-bg / --chip-text are tag, folder and board chips: neutral, because
  * brass is kept for the primary action, selection, focus and ratings.
  *
@@ -79,6 +83,7 @@
   --float-sheen: #ffffff0d;
   --float-shadow-far: #000000a0;
   --float-shadow-near: #00000066;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239c9a93' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
 
 [data-theme='light'] {
@@ -135,6 +140,7 @@
   --float-sheen: #ffffff00;
   --float-shadow-far: #1c1b1929;
   --float-shadow-near: #1c1b191a;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235f5d57' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
 
 [data-theme='gallery'] {
@@ -191,6 +197,7 @@
   --float-sheen: #ffffff14;
   --float-shadow-far: #00000080;
   --float-shadow-near: #00000040;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23dadada' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
 
 html {

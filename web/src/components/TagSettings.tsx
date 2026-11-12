@@ -418,7 +418,7 @@ function MergeRow({ s }: { s: CleanupSuggestion }) {
           <input type="checkbox" checked={keepAlias} onChange={(e) => setKeepAlias(e.target.checked)} />
           keep the others as aliases
         </label>
-        <button className="primary" onClick={() => void merge(from, into, keepAlias)}>
+        <button className="btn-primary" onClick={() => void merge(from, into, keepAlias)}>
           Merge…
         </button>
       </div>

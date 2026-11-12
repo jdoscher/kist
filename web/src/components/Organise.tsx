@@ -307,7 +307,7 @@ function DupGroup({ group, onDone, canEdit }: { group: DuplicateGroup; onDone: (
             </div>
           </details>
           <div className="btn-row">
-            <button className="primary" disabled={busy} onClick={() => void resolve()}>
+            <button className="btn-primary" disabled={busy} onClick={() => void resolve()}>
               Keep this one, trash {others.length === 1 ? 'the other' : `the other ${others.length}`}
             </button>
             <button disabled={busy} onClick={() => void notDup()}>
@@ -461,7 +461,7 @@ function StackSuggestionRow({ s, canEdit, onSkip, onStack }: { s: StackSuggestio
       </div>
       {canEdit && (
         <div className="btn-row">
-          <button className="primary" onClick={onStack}>
+          <button className="btn-primary" onClick={onStack}>
             Stack these {s.item_ids.length}
           </button>
           <button onClick={onSkip}>Skip</button>
@@ -590,7 +590,7 @@ function CollectionCard({ c, canEdit, onDismiss }: { c: Cluster; canEdit: boolea
             <option value="smart_folder">a tag + smart folder</option>
           </select>
           <div className="btn-row">
-            <button className="primary" disabled={!name.trim()} onClick={() => void accept()}>
+            <button className="btn-primary" disabled={!name.trim()} onClick={() => void accept()}>
               <Check size={14} strokeWidth={2} aria-hidden="true" /> Keep
             </button>
             <button onClick={onDismiss}>Not now</button>

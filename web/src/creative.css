@@ -19,11 +19,19 @@ kbd {
 .dim {
   color: var(--text-dim);
 }
+/* a pressed toggle (quiet control, .on): neutral fill + a 3 px brass bar,
+   never a brass outline (brass budget, docs/brand.md) */
 button.on,
 .seg button.on {
-  background: var(--accent-soft);
-  border-color: var(--accent);
+  background: var(--bg-active);
+  border-color: transparent;
+  box-shadow: inset 0 -3px 0 var(--accent);
   color: var(--text);
+}
+/* stars mark their state by colour alone (D renames this leak, A2) */
+.stars button.on {
+  background: none;
+  box-shadow: none;
 }
 .seg {
   display: inline-flex;
@@ -43,6 +51,7 @@ button.on,
 .link-like {
   background: none;
   border: none;
+  min-height: 0;
   padding: 2px 0;
   text-align: left;
   color: var(--text);
@@ -89,6 +98,7 @@ button.on,
   width: 24px;
   height: 24px;
   min-width: 24px;
+  min-height: 24px;
   padding: 0;
   border-radius: 50%;
   background: var(--swatch);
@@ -1494,8 +1504,8 @@ button.on,
   z-index: 5;
 }
 .board-bar .icon-btn {
-  min-width: 30px;
-  min-height: 30px;
+  min-width: var(--ctl-h);
+  min-height: var(--ctl-h);
 }
 .board-name-input {
   font-size: var(--fs-3);
@@ -1926,7 +1936,9 @@ body.board-space .board-viewport,
   box-shadow: 0 0 0 2px var(--text);
 }
 .btn-link {
-  color: var(--accent);
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .lib-search {
   display: flex;

@@ -254,7 +254,7 @@ export function ColourPicker({
         <button type="button" onClick={onClose}>
           Cancel
         </button>
-        <button type="button" className="primary" disabled={!valid} onClick={() => valid && onSearch(valid, t)}>
+        <button type="button" className="btn-primary" disabled={!valid} onClick={() => valid && onSearch(valid, t)}>
           Search
         </button>
       </div>

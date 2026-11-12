@@ -32,7 +32,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
         </p>
         <pre className="crash-detail">{error.message || String(error)}</pre>
         <div className="crash-actions">
-          <button className="primary" onClick={() => window.location.reload()}>
+          <button className="btn-primary" onClick={() => window.location.reload()}>
             Reload
           </button>
           <button onClick={() => window.location.assign('/')}>Open library</button>

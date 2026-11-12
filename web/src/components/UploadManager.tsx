@@ -316,7 +316,7 @@ function AddUrlDialog({ onAdd, onClose }: { onAdd: (jobs: AddJob[]) => void; onC
           <button type="button" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" className="primary" disabled={!text.trim()}>
+          <button type="submit" className="btn-primary" disabled={!text.trim()}>
             Add
           </button>
         </div>

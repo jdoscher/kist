@@ -176,7 +176,7 @@ export default function ExportImagesDialog({ ids, onClose }: { ids: string[]; on
           <button type="button" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" className="primary" disabled={busy || errors.length > 0}>
+          <button type="submit" className="btn-primary" disabled={busy || errors.length > 0}>
             {busy ? 'Exporting…' : form.contactSheet ? 'Make the PDF' : 'Export'}
           </button>
         </div>

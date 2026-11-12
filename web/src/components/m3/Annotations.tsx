@@ -382,7 +382,7 @@ function DraftForm({ where, busy, onSave, onCancel }: { where: string; busy: boo
         <button type="button" onClick={onCancel}>
           Cancel
         </button>
-        <button type="submit" className="primary" disabled={busy}>
+        <button type="submit" className="btn-primary" disabled={busy}>
           Save note
         </button>
       </div>
@@ -438,7 +438,7 @@ function AnnotationRow({
             <button type="button" onClick={() => setEditing(false)}>
               Cancel
             </button>
-            <button type="submit" className="primary">
+            <button type="submit" className="btn-primary">
               Save
             </button>
           </div>

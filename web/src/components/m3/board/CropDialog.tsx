@@ -80,7 +80,7 @@ export function CropDialog({ item, crop, onApply, onClose }: { item: Item; crop:
       <div className="dialog-actions">
         <button onClick={() => setC({ x: 0, y: 0, w: 1, h: 1 })}>Whole image</button>
         <button onClick={onClose}>Cancel</button>
-        <button className="primary" onClick={() => onApply(c)}>
+        <button className="btn-primary" onClick={() => onApply(c)}>
           Crop
         </button>
       </div>

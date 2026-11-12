@@ -215,7 +215,7 @@ function ConfirmDialog({ o, onDone }: { o: ConfirmOptions; onDone: (v: boolean) 
       {o.message && <p className="dialog-message">{o.message}</p>}
       <div className="dialog-actions">
         <button onClick={() => onDone(false)}>Cancel</button>
-        <button className={o.danger ? 'danger' : 'primary'} data-autofocus onClick={() => onDone(true)}>
+        <button className={o.danger ? 'danger' : 'btn-primary'} data-autofocus onClick={() => onDone(true)}>
           {o.confirmLabel ?? 'OK'}
         </button>
       </div>
@@ -249,7 +249,7 @@ function PromptDialog({ o, onDone }: { o: PromptOptions; onDone: (v: string | nu
           <button type="button" onClick={() => onDone(null)}>
             Cancel
           </button>
-          <button type="submit" className="primary" disabled={!ok}>
+          <button type="submit" className="btn-primary" disabled={!ok}>
             {o.confirmLabel ?? 'OK'}
           </button>
         </div>

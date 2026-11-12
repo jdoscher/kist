@@ -55,7 +55,7 @@ export function FirstRun() {
           <p>{mobile ? 'Photos, screenshots, files: anything.' : 'Drag files anywhere on this window, or copy an image and press ⌘V (Ctrl+V). Page links bring their preview image.'}</p>
           {caps.canEdit && (
             <>
-              <button className="primary btn-icon" onClick={() => fileRef.current?.click()}>
+              <button className="btn-primary btn-icon" onClick={() => fileRef.current?.click()}>
                 <Upload size={14} aria-hidden="true" /> Choose files
               </button>
               <input

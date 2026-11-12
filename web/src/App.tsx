@@ -114,7 +114,7 @@ function TokenGate({ onDone, overlay = false }: { onDone: () => void; overlay?: 
           aria-invalid={!!error}
           aria-describedby={error ? `${id}-error` : undefined}
         />
-        <button type="submit" className="primary" disabled={!value.trim()}>
+        <button type="submit" className="btn-primary" disabled={!value.trim()}>
           Unlock
         </button>
         <div id={`${id}-error`} className="error" role="alert">

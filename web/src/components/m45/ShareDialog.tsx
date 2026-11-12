@@ -96,7 +96,7 @@ export default function ShareDialog({ target, onClose }: { target: Target; onClo
               Open <ExternalLink size={13} strokeWidth={1.75} aria-hidden="true" />
               <span className="sr-only"> (new tab)</span>
             </a>
-            <button type="button" className="primary" data-autofocus onClick={onClose}>
+            <button type="button" className="btn-primary" data-autofocus onClick={onClose}>
               Done
             </button>
           </div>
@@ -191,7 +191,7 @@ export default function ShareDialog({ target, onClose }: { target: Target; onClo
           <button type="button" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" className="primary" disabled={busy}>
+          <button type="submit" className="btn-primary" disabled={busy}>
             {busy ? 'Making the link…' : 'Create link'}
           </button>
         </div>

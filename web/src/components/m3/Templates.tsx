@@ -52,7 +52,7 @@ export function TemplatesSection() {
     <section aria-labelledby="templates-h">
       <div className="settings-section-head">
         <h2 id="templates-h">Templates</h2>
-        <button className="primary btn-icon" onClick={() => setEditing('new')}>
+        <button className="btn-primary btn-icon" onClick={() => setEditing('new')}>
           <Plus size={15} aria-hidden="true" /> New template
         </button>
       </div>
@@ -220,7 +220,7 @@ function TemplateDialog({ template, onClose, onSaved }: { template: Template | n
           <button type="button" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" className="primary" disabled={!name.trim() || busy}>
+          <button type="submit" className="btn-primary" disabled={!name.trim() || busy}>
             {template ? 'Save' : 'Create'}
           </button>
         </div>

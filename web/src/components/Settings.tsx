@@ -128,7 +128,7 @@ function TokensSection() {
     <section aria-labelledby="tokens-h">
       <div className="settings-section-head">
         <h2 id="tokens-h">Tokens</h2>
-        <button className="primary" onClick={() => setCreating(true)}>
+        <button className="btn-primary" onClick={() => setCreating(true)}>
           New token
         </button>
       </div>
@@ -298,7 +298,7 @@ function NewTokenDialog({
           <button type="button" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" className="primary" disabled={!ok || w.busy()}>
+          <button type="submit" className="btn-primary" disabled={!ok || w.busy()}>
             Make token
           </button>
         </div>
@@ -378,7 +378,7 @@ function ShowTokenDialog({ token, onClose }: { token: ApiToken & { token: string
         </p>
       )}
       <div className="dialog-actions">
-        <button className="primary" onClick={onClose}>
+        <button className="btn-primary" onClick={onClose}>
           Done
         </button>
       </div>

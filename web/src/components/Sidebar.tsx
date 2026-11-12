@@ -170,7 +170,7 @@ function FolderDialog({
           <button type="button" onClick={() => onDone(null)}>
             Cancel
           </button>
-          <button type="submit" className="primary" disabled={!ok}>
+          <button type="submit" className="btn-primary" disabled={!ok}>
             {confirmLabel}
           </button>
         </div>

@@ -38,6 +38,10 @@
   --tile-radius: 4px;
   --board-radius: 2px;
   --corner: 18px; /* brass selection corners */
+  /* controls: one height and corner for buttons and fields */
+  --ctl-h: 28px;
+  --ctl-radius: 6px;
+  --ctl-pad-x: 8px;
 }
 [data-density='compact'] {
   --tile-gap: 2px;
@@ -108,13 +112,22 @@ h6 {
   vertical-align: -0.15em;
 }
 
+/* ---------- controls: one height, three kinds (docs/brand.md) ----------
+   1. quiet (every plain <button>): no fill or border at rest, a fill on
+      hover, a fill + 3 px brass bar when pressed (.on / aria-pressed);
+   2. primary (.btn-primary): the brass fill, one per view;
+   3. field (input, select, textarea): the --field-border outline, selects
+      with their own chevron.
+   All 28 px tall (--ctl-h); phone layouts keep 44 px hit areas with their
+   own min-height / ::after rules in phone.css. */
 button {
   font: inherit;
   color: inherit;
-  background: var(--bg-hover);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--ctl-radius);
+  min-height: var(--ctl-h);
+  padding: 0 var(--ctl-pad-x);
   cursor: pointer;
   transition:
     background-color var(--dur-1) var(--ease),
@@ -123,24 +136,24 @@ button {
     transform var(--dur-out) var(--ease);
 }
 button:hover {
-  background: var(--bg-active);
+  background: var(--bg-hover);
 }
 /* a press gives way a little */
 button:active:not(:disabled) {
   transform: scale(0.98);
 }
-button.primary {
+.btn-primary {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--on-accent);
   font-weight: 600;
 }
-button.primary:hover {
+.btn-primary:hover {
   background: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 button.danger {
   color: var(--danger);
-  border-color: var(--danger-border);
 }
 /* text with an icon */
 .btn-icon {
@@ -160,8 +173,29 @@ select {
   color: inherit;
   background: var(--bg);
   border: 1px solid var(--field-border);
-  border-radius: 6px;
+  border-radius: var(--ctl-radius);
   padding: 5px 8px;
+}
+input:not([type='checkbox'], [type='radio'], [type='range'], [type='color'], [type='file']),
+select {
+  min-height: var(--ctl-h);
+  padding-top: 0;
+  padding-bottom: 0;
+}
+/* a select is a field with Kist's own chevron (themes.css --chevron), so it
+   matches the inputs next to it instead of the system's control */
+select {
+  appearance: none;
+  background-image: var(--chevron);
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 12px 12px;
+  padding-right: 26px;
+}
+select[multiple],
+select[size]:not([size='1']) {
+  background-image: none;
+  padding-right: 8px;
 }
 input:focus,
 textarea:focus,
@@ -237,9 +271,11 @@ select:focus-visible {
 }
 
 /* icon-only buttons: at least 24×24 px (2.5.8) */
+/* icon-only quiet buttons are exactly one control square */
 .icon-btn {
-  min-width: 24px;
-  min-height: 24px;
+  min-width: var(--ctl-h);
+  min-height: var(--ctl-h);
+  padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -692,7 +728,8 @@ select:focus-visible {
   font-size: var(--fs-1);
 }
 .layout-toggle.on {
-  border-color: var(--accent);
+  background: var(--bg-active);
+  box-shadow: inset 0 -3px 0 var(--accent);
 }
 .size-label {
   display: inline-flex;
@@ -2233,7 +2270,7 @@ select:focus-visible {
   margin: 0;
 }
 button.small {
-  padding: 2px 8px;
+  padding: 0 8px;
   font-size: var(--fs-1);
 }
 .link-row {
@@ -2325,7 +2362,9 @@ button.small {
 
 /* top bar icon buttons */
 .topbar-icon {
-  padding: 4px 6px;
+  width: var(--ctl-h);
+  height: var(--ctl-h);
+  padding: 0;
 }
 
 /* ---------- Settings ---------- */

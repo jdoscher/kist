@@ -953,6 +953,7 @@ The aesthetic pass: one grey, one control language, one type system.
 - Menus, popovers, dialogs, toasts and the ⌘K palette share one floating look: a darker surface, a hairline edge and a soft layered shadow over a lighter backdrop. The palette is tighter and shows its keys as keycaps.
 - Calm motion: menus and dialogs fade and slide in over 120 ms, the info panel slides in and fades out, buttons give slightly when pressed. Reduce Motion turns all of it off.
 - Brass means something again: it's kept for the main button, selection, the focus ring and ratings. Tag, folder and board chips are neutral grey, links in the info panel are white and underlined, the Info toggle, Settings sections and the ⌘K active row show a fill with a thin brass bar, and tile selection uses the theme's own brass.
+- One control language: every button and field is 28 px tall; buttons are quiet (no box until you hover), Upload and other main actions are the only brass buttons, fields keep their outline, and dropdowns get Kist's own chevron.
 
 ## [1.5.0] - 2026-11-09
 

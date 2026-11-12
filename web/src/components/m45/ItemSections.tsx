@@ -192,7 +192,7 @@ function ProvenanceSection({ item, editable }: { item: Item; editable: boolean }
             <button type="button" onClick={() => setEditing(false)}>
               Cancel
             </button>
-            <button type="submit" className="primary" disabled={busy || Object.keys(errors).length > 0}>
+            <button type="submit" className="btn-primary" disabled={busy || Object.keys(errors).length > 0}>
               {busy ? 'Saving…' : 'Save'}
             </button>
           </div>

@@ -115,7 +115,7 @@ export default function ClipDialog({ req, onClose }: { req: ClipRequest; onClose
             <button type="button" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="primary" disabled={busy || errors.length > 0}>
+            <button type="submit" className="btn-primary" disabled={busy || errors.length > 0}>
               {busy ? 'Starting…' : 'Make the clip'}
             </button>
           </div>
@@ -136,7 +136,7 @@ export default function ClipDialog({ req, onClose }: { req: ClipRequest; onClose
             {status === 'done' && resultId && (
               <button
                 type="button"
-                className="primary"
+                className="btn-primary"
                 data-autofocus
                 onClick={() => {
                   onClose()

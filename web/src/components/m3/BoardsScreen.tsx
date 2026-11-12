@@ -67,7 +67,7 @@ export function BoardsScreen({ trash = false }: { trash?: boolean }) {
           <Trash2 size={14} aria-hidden="true" /> {trash ? 'Back to boards' : 'Trash'}
         </button>
         {caps.canEdit && !trash && !mobile && (
-          <button className="primary btn-icon" onClick={() => void newBoard()}>
+          <button className="btn-primary btn-icon" onClick={() => void newBoard()}>
             <Plus size={15} aria-hidden="true" /> New board
           </button>
         )}
@@ -84,7 +84,7 @@ export function BoardsScreen({ trash = false }: { trash?: boolean }) {
               <p>Lay items out on a canvas with notes, colour swatches, arrows and groups, then export it as PNG, PDF or one HTML file.</p>
               <p>Start one here, or select items in the library and choose Board in the bar at the bottom.</p>
               {caps.canEdit && (
-                <button className="primary btn-icon" onClick={() => void newBoard()}>
+                <button className="btn-primary btn-icon" onClick={() => void newBoard()}>
                   <Plus size={15} aria-hidden="true" /> New board
                 </button>
               )}

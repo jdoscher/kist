@@ -114,11 +114,11 @@ export default function AddPage({ search }: { search: string }) {
             <div className="dialog-actions">
               <a href={`/all?item=${encodeURIComponent(result.item.id)}`}>{result.kind === 'saved' ? 'Open it in Kist' : 'See it in Kist'}</a>
               {p.returnToPage && p.page ? (
-                <button type="button" className="primary" onClick={() => (window.location.href = p.page as string)} autoFocus>
+                <button type="button" className="btn-primary" onClick={() => (window.location.href = p.page as string)} autoFocus>
                   Back to the page
                 </button>
               ) : (
-                <button type="button" className="primary" onClick={() => window.close()} autoFocus>
+                <button type="button" className="btn-primary" onClick={() => window.close()} autoFocus>
                   Close
                 </button>
               )}
@@ -193,7 +193,7 @@ export default function AddPage({ search }: { search: string }) {
               <button type="button" onClick={cancel}>
                 Cancel
               </button>
-              <button ref={saveRef} type="submit" className="primary" disabled={busy}>
+              <button ref={saveRef} type="submit" className="btn-primary" disabled={busy}>
                 {busy ? 'Saving…' : 'Save'}
               </button>
             </div>

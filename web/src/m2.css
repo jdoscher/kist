@@ -487,8 +487,9 @@
   border: none;
   padding: 2px 4px;
   min-height: 24px;
-  color: var(--accent);
+  color: var(--text);
   text-decoration: underline;
+  text-underline-offset: 3px;
   text-underline-offset: 2px;
   font-size: var(--fs-1);
 }
@@ -521,14 +522,13 @@
   border: none;
   border-radius: 0;
   background: none;
-  padding: 6px 14px;
-  min-height: 34px;
+  padding: 0 14px;
+  min-height: var(--ctl-h);
 }
 .seg button + button {
   border-left: 1px solid var(--field-border);
 }
 .seg button.on {
-  background: var(--accent-soft);
   font-weight: 600;
 }
 .empty-note {
