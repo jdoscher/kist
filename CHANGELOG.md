@@ -940,6 +940,17 @@ Kist now looks inside video, audio, photos, RAW files, design sources, SVG,
   (lockup, tagline, a collage of demo-library images) for GitHub's social
   preview and the docs site.
 
+### Design pass
+- **Columns layout:** a third tile shape next to Rows and Square. Fixed-width
+  columns show every image uncropped at its own height (only shapes beyond
+  1:3 or 5:1 crop), like Eagle's Waterfall. Each item goes into the shortest
+  column, so the order still reads left to right: arrow keys, Shift+arrows
+  and Shift+click select the same runs as in Rows, and Up/Down move to the
+  tile directly above or below in the same column. The Size slider sets the
+  column width; it works with the date scrubber, stacks, every density and
+  on a phone (2 columns or more; 1 column stays the feed). Rows stays the
+  default. On a phone the tile-shape button steps Rows, Square, Columns.
+
 ## [1.5.0] - 2026-11-09
 
 A hardening release. Kist was reviewed for security, data integrity,
