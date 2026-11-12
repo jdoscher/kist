@@ -8,9 +8,11 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { useAppState } from '../state'
 import { DENSITIES, THEME_PREFS, type Density, type ThemePref } from '../theme'
 
-const SWATCH: Record<ThemePref, string | null> = {
-  system: null,
-  light: '#faf9f6',
+// each theme's image canvas, as a colour chip (System: half light, half
+// dark). Literal values: a CSS variable would give the current theme's.
+const SWATCH: Record<ThemePref, string> = {
+  system: 'linear-gradient(135deg, #ececec 50%, #131312 50%)',
+  light: '#ececec',
   dark: '#131312',
   gallery: '#5c5c5c',
 }
@@ -36,7 +38,7 @@ export function AppearanceControls() {
               {t.label}
               {t.hint && <span className="opt-hint">{t.hint}</span>}
             </span>
-            {SWATCH[t.value] && <span className="swatch" aria-hidden="true" style={{ background: SWATCH[t.value]! }} />}
+            <span className="swatch" aria-hidden="true" style={{ background: SWATCH[t.value] }} />
           </label>
         ))}
       </fieldset>

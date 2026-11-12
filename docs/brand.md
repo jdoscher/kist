@@ -251,6 +251,15 @@ One height, three kinds. Nothing else.
 - Links inside a sentence (`.linkish`, `.link-btn`, `.btn-link`,
   `.link-like`) are underlined `--text`, sized like text, not 28 px tall.
 
+### Settings and Appearance layout
+
+- Settings content is one 640 px column (`--settings-col`); a section's
+  head puts its buttons (New token, Check again) on that column's right
+  edge, not the window's.
+- The Appearance theme options show each theme's image canvas as a 20 × 14
+  colour chip (System: half light, half dark), and radios and chips sit on
+  the first line of a two-line option.
+
 ## Corners
 
 Photos are prints, not app cards: small radii on images, none where the

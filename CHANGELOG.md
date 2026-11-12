@@ -957,6 +957,7 @@ The aesthetic pass: one grey, one control language, one type system.
 - Type details: sentences get 1.5 line spacing and a comfortable line length, small section labels share one 11 px semibold style, every label is in sentence case ("Triage unfiled", "In trash"), and secondary text in gallery grey is a visible step dimmer.
 - Titles get a voice: every view, page and panel title is set in Instrument Serif (Timeline, Map, Boards, Triage, each Settings section); counts are in Inter with even-width figures, and the monospaced face is kept for machine strings like MIME types, hashes and URLs.
 - Icons: three sizes and one 1.5 px line everywhere, and one meaning per icon (the sparkle is only for AI, a flag always means Picks, boards have their own icon, themes no longer show a lightning bolt).
+- Settings sit in one 640 px column with their buttons on its edge; the Appearance menu shows each theme as a colour chip, with the radio buttons lined up with the first line of text.
 
 ## [1.5.0] - 2026-11-09
 
