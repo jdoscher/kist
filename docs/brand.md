@@ -192,6 +192,7 @@ parts and focus indicators (1.4.11, 2.4.11/2.4.13).
 | grid heading on the canvas (`canvas-text` on `canvas`) | 4.5 | 15.45 | 14.57 | 6.13 |
 | grid counts on the canvas (`canvas-dim` on `canvas`) | 4.5 | 6.60 | 5.57 | 4.78 |
 | tile focus ring (`canvas-focus` on `canvas`) | 3 | 9.51 | 4.97 | 4.50 |
+| edge of a stack's second sheet on the canvas (`field-border` on `canvas`) | 3 | 3.54 | 3.04 | 3.56 |
 | bar on a pressed toggle / selected section (`accent` on `bg-active`) | 3 | 6.75 | 4.58 | 5.97 |
 | tag / folder / board chips (`chip-text` on `chip-bg`) | 4.5 | 10.97 | 13.43 | 8.13 |
 | counts on chips (`text-dim` on `chip-bg`) | 4.5 | 4.69 | 5.14 | 6.34 |
@@ -220,7 +221,7 @@ parts and focus indicators (1.4.11, 2.4.11/2.4.13).
 | selected chip in the preview (`preview-text` on `preview-soft`) | 4.5 | 10.64 | 7.46 | 7.46 |
 | counts on a selected chip in the preview (`preview-soft-dim` on `preview-soft`) | 4.5 | 7.08 | 7.46 | 7.46 |
 
-all 174 pairs pass
+all 177 pairs pass
 
 Selected tiles use brass corners (`--canvas-focus`) with a 1 px black halo
 plus a check badge (`--on-accent` on `--canvas-focus`, #1A1408 outline), so
@@ -310,6 +311,11 @@ The images lead; anything drawn on them earns its place.
   focus or selection; on every tile while the grid is filtered or sorted
   by rating (`.ratings-shown`, `ratingsShown()` in query.ts). Never on a
   phone tile. The rating is always in the tile's `aria-label`.
+- **Stacks:** a closed stack's entry (`.tile.stacked`) has a second sheet
+  4 px up and right behind it (`--tile-wait` fill, `--field-border` edge,
+  3:1 on the canvas), drawn with box shadows. Its count badge shows on
+  hover, focus and selection; compact density has no room for the sheet
+  and keeps the badge. The count is in the aria-label ("stack of 2 items").
 
 ## Type
 

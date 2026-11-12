@@ -74,6 +74,7 @@ export const PAIRS: [string, string, number, string][] = [
   ['canvas-text', 'canvas', 4.5, 'grid heading on the canvas'],
   ['canvas-dim', 'canvas', 4.5, 'grid counts on the canvas'],
   ['canvas-focus', 'canvas', 3, 'tile focus ring'],
+  ['field-border', 'canvas', 3, 'edge of a stack\'s second sheet on the canvas'],
   ['accent', 'bg-active', 3, 'bar on a pressed toggle / selected section'],
   ['chip-text', 'chip-bg', 4.5, 'tag / folder / board chips'],
   ['text-dim', 'chip-bg', 4.5, 'counts on chips'],

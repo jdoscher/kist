@@ -74,6 +74,7 @@ const Tile = memo(function Tile({
   draggable,
   extraLabel = '',
   member = false,
+  stacked = false,
   matchBadge = false,
   onStackClick,
   onContextMenu,
@@ -85,6 +86,8 @@ const Tile = memo(function Tile({
   top?: number
   extraLabel?: string
   member?: boolean
+  /** a closed stack's entry: drawn with a second sheet behind it (B16) */
+  stacked?: boolean
   matchBadge?: boolean
   onStackClick?: (item: Item) => void
   onContextMenu?: (item: Item, e: React.MouseEvent) => void
@@ -120,7 +123,7 @@ const Tile = memo(function Tile({
       aria-posinset={index + 1}
       aria-label={tileLabel(item) + (cullText(item) ? `, ${cullText(item)}` : '') + extraLabel}
       tabIndex={tabbable ? 0 : -1}
-      className={`tile${selected ? ' selected' : ''}${thumb ? '' : ' no-thumb'}${member ? ' stack-member' : ''}${item.rating > 0 ? ' rated' : ''}`}
+      className={`tile${selected ? ' selected' : ''}${thumb ? '' : ' no-thumb'}${member ? ' stack-member' : ''}${stacked ? ' stacked' : ''}${item.rating > 0 ? ' rated' : ''}`}
       style={
         left === undefined
           ? { width, height, ...placeholder }
@@ -725,6 +728,9 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
                     onFocus={onTileFocus}
                     draggable={!mobile}
                     member={memberIds.has(item.id)}
+                    stacked={
+                      !!item.stack_id && (item.stack_count ?? 0) > 1 && !memberIds.has(item.id) && !expanded.has(item.stack_id)
+                    }
                     matchBadge={showMatchBadge(item.match?.kind, query)}
                     extraLabel={tileExtra(item, memberIds.has(item.id), !!item.stack_id && expanded.has(item.stack_id), query)}
                     onStackClick={toggleStack}
