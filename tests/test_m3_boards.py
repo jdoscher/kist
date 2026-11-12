@@ -36,7 +36,7 @@ def test_create_layouts_files_and_used_in_boards(client, upload, clean):
     assert items[0]["y"] > -200  # laid out below the note
     disk = json.loads((clean / "boards" / board["id"] / "board.json").read_text())
     assert disk["version"] == 1 and len(disk["nodes"]) == 3
-    assert disk["canvas"] == {"bg": "#f5f5f4", "grid": 0}
+    assert disk["canvas"] == {"bg": "theme", "grid": 0}  # follows the app theme
     thumb = client.get(f"/api/boards/{board['id']}/thumb")
     assert thumb.status_code == 200
     assert Image.open(io.BytesIO(thumb.content)).format == "WEBP"
@@ -378,3 +378,54 @@ def test_arrows_run_between_node_edges_not_centres():
     # overlapping boxes: centre to centre
     d = {"x": 50, "y": 50, "w": 100, "h": 100}
     assert edge_points(a, d) == (50, 50, 100, 100)
+
+
+def test_new_boards_follow_the_theme_and_old_ones_keep_their_colour(client, upload, clean):
+    """Design pass B15: a new board's canvas is "theme" (the viewer's own
+    theme canvas); a chosen colour, a duplicate and a pre-2.0 board without
+    a bg keep a real colour; exports draw "theme" in the gallery grey."""
+    from kist.services import board_render, boards
+
+    a = upload("a.png")["item"]
+    new = _board(client, item_ids=[a["id"]])
+    assert new["canvas"] == {"bg": "theme", "grid": 0}
+    gridded = _board(client, canvas={"grid": 20})
+    assert gridded["canvas"] == {"bg": "theme", "grid": 20}
+    chosen = _board(client, canvas={"bg": "#1c1b19"})
+    assert chosen["canvas"] == {"bg": "#1c1b19", "grid": 0}
+    copy = client.post(f"/api/boards/{chosen['id']}/duplicate").json()
+    assert copy["canvas"]["bg"] == "#1c1b19"
+
+    # saving an existing board without a canvas keeps its colour
+    res = client.put(f"/api/boards/{chosen['id']}", json={
+        "base_version": chosen["version"], "name": "Still dark", "nodes": [], "edges": []})
+    assert res.status_code == 200, res.text
+    assert res.json()["canvas"]["bg"] == "#1c1b19"
+    # picking a colour for a theme board stores it
+    res = client.patch(f"/api/boards/{new['id']}", json={"canvas": {"bg": "#767676"}})
+    assert res.json()["canvas"]["bg"] == "#767676"
+    # a pre-2.0 canvas with no bg still fills in the old paper default
+    assert boards.clean_content([], [], {"grid": 0})[2] == {"bg": "#f5f5f4", "grid": 0}
+
+    # exports and the thumbnail have no theme: the gallery grey
+    assert board_render.canvas_bg({"canvas": {"bg": "theme"}}) == "#5c5c5c"
+    assert board_render.canvas_bg({"canvas": {}}) == "#f5f5f4"
+    assert board_render.canvas_bg({"canvas": {"bg": "#123456"}}) == "#123456"
+    assert board_render.canvas_ink({"canvas": {"bg": "theme"}}) == "#ffffff"
+    assert board_render.canvas_ink({"canvas": {"bg": "#f5f5f4"}}) == board_render.INK
+    png = client.get(f"/api/boards/{gridded['id']}/export?format=png&scale=1")
+    assert png.status_code == 200
+    assert Image.open(io.BytesIO(png.content)).convert("RGB").getpixel((2, 2)) == (0x5C, 0x5C, 0x5C)
+    html = client.get(f"/api/boards/{gridded['id']}/export?format=html").text
+    assert "background:#5c5c5c" in html
+
+    # board.json holds "theme" and rebuild/verify are happy with it
+    disk = json.loads((clean / "boards" / new["id"] / "board.json").read_text())
+    assert disk["canvas"]["bg"] == "#767676"
+    disk = json.loads((clean / "boards" / gridded["id"] / "board.json").read_text())
+    assert disk["canvas"]["bg"] == "theme"
+    assert cli.verify() == 0
+    assert cli.rebuild_index(wipe=True) == 0
+    after = client.get(f"/api/boards/{gridded['id']}").json()
+    assert after["canvas"] == {"bg": "theme", "grid": 20}
+    assert cli.verify() == 0

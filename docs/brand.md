@@ -292,6 +292,26 @@ One height, three kinds. Nothing else.
   colour chip (System: half light, half dark), and radios and chips sit on
   the first line of a two-line option.
 
+### Boards
+
+- The board bar is one 48 px row on `--chrome` that never wraps: back,
+  the board's name as the view title (Instrument Serif 24, sized to its
+  text), save state, then tool groups split by a `--chrome-line`
+  hairline, and on the right zoom, List, background, Export and Share.
+  The active tool is the pressed fill plus the brass underline. Below
+  about 1240 px the text labels (Boards, Library, List, Export) fold to
+  icons and stay in the accessible name. The phone has its own header.
+- Items on a board are prints on a table: `--board-radius` (2 px), a
+  contact shadow plus a soft lift
+  (`0 1px 2px #0006, 0 14px 30px -10px #000a`); below 30 % zoom only the
+  contact shadow stays.
+- Board background "Theme" (`canvas.bg: "theme"` in board.json) is the
+  default for new boards: the board sits on the theme's image canvas, and
+  text and arrows without their own colour use `--canvas-text` /
+  `--canvas-dim`. Boards from before the design pass keep their colour.
+  Exports and the board thumbnail have no theme, so a theme board renders
+  on the gallery grey #5c5c5c with white default ink.
+
 ## Corners
 
 Photos are prints, not app cards: small radii on images, none where the

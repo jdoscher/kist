@@ -36,6 +36,7 @@ import { newBatchId, type Item } from '../../../api'
 import {
   boundsOf,
   CANVAS_BGS,
+  canvasCss,
   clampZoom,
   contentOf,
   diffContent,
@@ -439,13 +440,13 @@ export default function BoardEditor({ id }: { id: string }) {
       <div className="board-bar" role="toolbar" aria-label="Board tools">
         <button className="btn-icon" onClick={() => openScreen({ kind: 'boards' })} title="All boards">
           <ArrowLeft size={16} aria-hidden="true" />
-          {!mobile && 'Boards'}
+          {!mobile && <span className="bar-label">Boards</span>}
           {mobile && <span className="sr-only">All boards</span>}
         </button>
         {canEdit ? (
           <input
             id="board-title"
-            className="board-name-input"
+            className="board-name-input view-title"
             aria-label="Board name"
             defaultValue={content.name}
             key={content.name}
@@ -453,7 +454,7 @@ export default function BoardEditor({ id }: { id: string }) {
             onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
           />
         ) : (
-          <span id="board-title" className="board-name" aria-hidden="true">
+          <span id="board-title" className="board-name view-title" aria-hidden="true">
             {content.name}
           </span>
         )}
@@ -489,7 +490,7 @@ export default function BoardEditor({ id }: { id: string }) {
                 <Link2 size={16} aria-hidden="true" />
               </button>
               <button className={`btn-icon${libraryOpen ? ' on' : ''}`} aria-pressed={libraryOpen} onClick={() => setLibraryOpen(!libraryOpen)} title="Add items from the library (L)">
-                <Images size={16} aria-hidden="true" /> Library
+                <Images size={16} aria-hidden="true" /> <span className="bar-label">Library</span>
               </button>
             </div>
             <button
@@ -531,7 +532,7 @@ export default function BoardEditor({ id }: { id: string }) {
           </div>
         )}
         <button className={`btn-icon${view === 'list' ? ' on' : ''}`} aria-pressed={view === 'list'} onClick={() => setView(view === 'list' ? 'canvas' : 'list')} title="A list of everything on the board, for keyboards and screen readers">
-          <LayoutList size={16} aria-hidden="true" /> List
+          <LayoutList size={16} aria-hidden="true" /> <span className="bar-label">List</span>
         </button>
         {canEdit && <BackgroundMenu ed={ed} />}
         <ExportMenu id={id} name={content.name} />
@@ -606,7 +607,7 @@ function ExportMenu({ id, name }: { id: string; name: string }) {
   return (
     <details className="board-menu">
       <summary className="btn-icon">
-        <Download size={16} aria-hidden="true" /> Export
+        <Download size={16} aria-hidden="true" /> <span className="bar-label">Export</span>
       </summary>
       <div className="board-menu-pop" role="group" aria-label="Export">
         <a href={api3.exportUrl(id, 'png', 2)} download={`${name}.png`}>
@@ -629,12 +630,12 @@ function BackgroundMenu({ ed }: { ed: Editor }) {
   return (
     <details className="board-menu">
       <summary className="btn-icon" aria-label="Board background" title="Board background">
-        <span className="bg-dot" style={{ background: c.canvas.bg }} aria-hidden="true" />
+        <span className="bg-dot" style={{ background: canvasCss(c.canvas.bg) }} aria-hidden="true" />
       </summary>
       <div className="board-menu-pop" role="group" aria-label="Board background">
         {CANVAS_BGS.map((b) => (
           <button key={b.bg} className={`btn-icon${c.canvas.bg === b.bg ? ' on' : ''}`} aria-pressed={c.canvas.bg === b.bg} onClick={() => ed.commit({ ...c, canvas: { ...c.canvas, bg: b.bg } })}>
-            <span className="bg-dot" style={{ background: b.bg }} aria-hidden="true" /> {b.name}
+            <span className="bg-dot" style={{ background: canvasCss(b.bg) }} aria-hidden="true" /> {b.name}
           </button>
         ))}
       </div>

@@ -4,6 +4,11 @@ import { test } from 'node:test'
 import {
   boardTakesKey,
   align,
+  CANVAS_BGS,
+  canvasCss,
+  canvasInk,
+  newNode,
+  THEME_BG,
   applyPatch,
   borderPoint,
   clampCrop,
@@ -329,4 +334,19 @@ test('board keys: the canvas takes all, the toolbar only the ⌘ shortcuts', () 
   assert.ok(boardTakesKey('chrome', false, 'Escape'))
   assert.ok(!boardTakesKey('chrome', true, 'c')) // ⌘C copies as usual
   assert.ok(!boardTakesKey('text', true, 'a') && !boardTakesKey('outside', true, 'a'))
+})
+
+test('theme boards: the canvas is the theme canvas and text/arrows follow it', () => {
+  assert.equal(CANVAS_BGS[0].bg, THEME_BG)
+  assert.equal(canvasCss('theme'), 'var(--canvas)')
+  assert.equal(canvasCss('#1c1b19'), '#1c1b19')
+  assert.equal(canvasInk('theme'), 'var(--canvas-text)')
+  assert.equal(canvasInk('theme', 'line'), 'var(--canvas-dim)')
+  // a board with a chosen colour keeps the old dark ink
+  assert.equal(canvasInk('#f5f5f4'), '#1c1b19')
+  assert.equal(canvasInk('#f5f5f4', 'line'), '#57524a')
+  // new text has no colour of its own, so it reads on any theme; notes keep
+  // dark ink on their paper colour
+  assert.equal(newNode('text', 0, 0, 1).style?.color, undefined)
+  assert.equal(newNode('note', 0, 0, 1).style?.color, '#1c1b19')
 })

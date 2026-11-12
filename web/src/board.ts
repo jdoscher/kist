@@ -696,17 +696,35 @@ export function redo(h: History, current: BoardContent): { history: History; con
 
 export const NOTE_COLOURS = ['#fff3b0', '#ffd6cc', '#d4f0d0', '#d6e6ff', '#ead9ff', '#f2f0eb'] as const
 export const SWATCHES = ['#e8b04b', '#c2410c', '#15803d', '#1d4ed8', '#7e22ce', '#1c1b19', '#f5f5f4'] as const
+/** canvas.bg "theme": the board sits on the app theme's image canvas, so
+ * it matches the grid in every theme (the default for new boards since the
+ * design pass; older boards keep the colour they have). */
+export const THEME_BG = 'theme'
 export const CANVAS_BGS: { bg: string; name: string }[] = [
+  { bg: THEME_BG, name: 'Theme' },
   { bg: '#f5f5f4', name: 'Paper' },
   { bg: '#767676', name: 'Mid grey' },
   { bg: '#1c1b19', name: 'Dark' },
 ]
 
+/** The CSS background of a board's canvas. */
+export function canvasCss(bg: string): string {
+  return bg === THEME_BG ? 'var(--canvas)' : bg
+}
+
+/** Default ink for text and arrows that have no colour of their own: the
+ * theme's canvas text on a theme board, dark ink on a chosen colour. */
+export function canvasInk(bg: string, kind: 'text' | 'line' = 'text'): string {
+  if (bg === THEME_BG) return kind === 'text' ? 'var(--canvas-text)' : 'var(--canvas-dim)'
+  return kind === 'text' ? '#1c1b19' : '#57524a'
+}
+
 export function newNode(type: NodeType, x: number, y: number, z: number, extra: Partial<BoardNode> = {}): BoardNode {
   const base: Record<NodeType, Partial<BoardNode>> = {
     item: { w: 240, h: 240 },
     note: { w: 200, h: 160, text: '', style: { bg: NOTE_COLOURS[0], color: '#1c1b19' } },
-    text: { w: 280, h: 56, text: 'Text', style: { color: '#1c1b19', fontSize: 28 } },
+    // no colour: text follows the board (canvasInk), so it reads on any theme
+    text: { w: 280, h: 56, text: 'Text', style: { fontSize: 28 } },
     shape: { w: 200, h: 140, style: { bg: '#d6e6ff', shape: 'rect' } },
     color: { w: 120, h: 140, style: { bg: SWATCHES[0] } },
     link: { w: 260, h: 72, text: '', style: { url: '' } },

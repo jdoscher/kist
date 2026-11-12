@@ -114,7 +114,7 @@ def main() -> int:
         api("POST", "/api/stacks", {"item_ids": [ids[cover], ids[other]], "cover": ids[cover]})
     board = api("POST", "/api/boards", {"name": "Mid-century mood", "layout": "masonry",
                                         "item_ids": [ids[n] for n in BOARD]})
-    api("PATCH", f"/api/boards/{board['id']}", {"canvas": {"bg": "#1c1b19", "grid": 0}})
+    # the board keeps the new default background: the theme's own canvas
     api("POST", "/api/smart-folders", {"name": "Five stars", "query": {"rating": 5}})
     order = FIRST + [n for n in ids if n not in FIRST]
     start = datetime.now(UTC).replace(microsecond=0)

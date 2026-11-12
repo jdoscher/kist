@@ -8,6 +8,8 @@ import { useEffect, useRef, useState, type RefObject } from 'react'
 import { thumbUrl, type Item } from '../../../api'
 import {
   byZ,
+  canvasCss,
+  canvasInk,
   cropStyle,
   edgeLine,
   hitTest,
@@ -260,9 +262,9 @@ export function BoardCanvas({ ed, viewportRef }: { ed: Editor; viewportRef: RefO
   return (
     <div
       ref={viewportRef}
-      className={`board-viewport tool-${ed.tool}${dropHint ? ' drop-hint' : ''}${ed.canEdit ? '' : ' readonly'}`}
+      className={`board-viewport tool-${ed.tool}${dropHint ? ' drop-hint' : ''}${ed.canEdit ? '' : ' readonly'}${vp.zoom < 0.3 ? ' zoom-far' : ''}`}
       style={{
-        background: c.canvas.bg,
+        background: canvasCss(c.canvas.bg),
         ...(gridPx >= 6
           ? {
               backgroundImage: 'radial-gradient(circle, rgba(127,127,127,0.45) 1px, transparent 1.2px)',
@@ -313,7 +315,7 @@ export function BoardCanvas({ ed, viewportRef }: { ed: Editor; viewportRef: RefO
             const b = byId.get(e.to)
             if (!a || !b) return null
             const l = edgeLine(rectOf(a), rectOf(b))
-            const color = e.style?.color ?? '#57524a'
+            const color = e.style?.color ?? canvasInk(c.canvas.bg, 'line')
             const arrow = e.style?.arrow ?? 'end'
             const on = ed.edge === e.id
             return (
@@ -390,7 +392,7 @@ function NodeView({ n, ed, selected }: { n: BoardNode; ed: Editor; selected: boo
   }
   const bw = (selected ? 2 : 1) / ed.vp.zoom
   const s = n.style ?? {}
-  const textStyle: React.CSSProperties = { color: (s.color as string) ?? '#1c1b19', fontSize: (s.fontSize as number) ?? undefined }
+  const textStyle: React.CSSProperties = { color: (s.color as string) ?? canvasInk(ed.content.canvas.bg), fontSize: (s.fontSize as number) ?? undefined }
 
   let body: React.ReactNode = null
   if (n.type === 'item') {
