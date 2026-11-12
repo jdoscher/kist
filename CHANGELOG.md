@@ -261,8 +261,9 @@ each item. Plus a new look for the web app.
     to Home Screen" opens it full screen with its own icon.
   - Light, dark and gallery-grey themes. Kist follows your device's light or
     dark setting by default; the new Appearance menu (the palette button, or
-    the bottom of the phone menu) overrides it. Gallery grey puts images on a
-    neutral 18 % grey for judging colour, in the grid and full screen.
+    the bottom of the phone menu) overrides it. Gallery grey puts the images and
+    the whole interface on one neutral mid-grey (#5c5c5c) for judging colour,
+    with a thin light line where the top bar and side panels meet the images.
   - Density: Compact (tight grid for sorting), Comfortable, and Gallery
     (bigger tiles, more space, sidebars tucked away behind a Panels button).
   - Tiles show the image's colour while the thumbnail loads, then fade it in.

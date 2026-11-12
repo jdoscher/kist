@@ -319,22 +319,6 @@ button.on,
   display: flex;
   flex-direction: column;
 }
-[data-theme='gallery'] .compare-overlay {
-  /* 18 % grey, like the preview: text is white for 4.5:1 */
-  background: #767676;
-  --text: #ffffff;
-  --text-dim: #ffffff;
-  --accent: #ffffff;
-  --focus: #ffffff;
-  --on-accent: #111111;
-  --accent-soft: #555555;
-  --soft-dim: #ffffff;
-  --bg-raised: #3d3d3d;
-  --bg-hover: #474747;
-  --bg-active: #515151;
-  --field-border: #9a9a9a;
-  --border: #5a5a5a;
-}
 .cmp-bar {
   display: flex;
   align-items: center;

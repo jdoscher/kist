@@ -60,8 +60,8 @@ Documentation: [docs/](docs/index.md) (also builds into a site:
   export presets; provenance and licences; XMP sidecars; a link-rot watch.
 - **On your phone.** Install it to the Home Screen; edit stars, tags and
   folders with your thumb; it opens offline and badges what's left in Unfiled.
-- **Light, dark and gallery grey** (images on an 18 % grey, for judging
-  colour).
+- **Light, dark and gallery grey** (the images and the whole interface on
+  one neutral mid-grey, for judging colour).
 
 <p align="center">
   <img src="docs/assets/demo/demo.gif" alt="A 19-second loop: the tiles grow and the grid scrolls, the Great Wave opens in the info panel and full screen, a blue from its palette finds matching items, then a board opens" width="720">

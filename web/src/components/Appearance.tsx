@@ -12,7 +12,7 @@ const SWATCH: Record<ThemePref, string | null> = {
   system: null,
   light: '#faf9f6',
   dark: '#131312',
-  gallery: '#767676',
+  gallery: '#5c5c5c',
 }
 
 /** The two radio groups. */

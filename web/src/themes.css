@@ -4,11 +4,13 @@
  *
  * dark    – the default for dark-mode devices: near-neutral greys, brass accent
  * light   – warm paper; brass deepens to #8C5A00 so it passes on white
- * gallery – a mid-grey frame (#5c5c5c) around the 18 % mid-grey canvas (#767676) for
- *           judging colour; chrome stays darker so text passes AA
+ * gallery – one neutral mid-grey (#5c5c5c) for the chrome and the image canvas
+ *           alike, for judging colour; a thin light pinstripe (--chrome-line)
+ *           marks where the top bar and side panels meet the images
  *
  * --canvas is the surround of the images (grid and preview); --bg* are the
- * chrome. The full-screen preview stays dark in light mode, the way photo
+ * chrome; --chrome / --chrome-line are the top bar and side panels and the
+ * line between them and the images. The full-screen preview stays dark in light mode, the way photo
  * apps do, so images are judged against the same surround. */
 
 :root,
@@ -36,6 +38,8 @@
   --warn: #e8b04b;
   --warn-border: #8a6d1a;
   --info: #7fb2ff;
+  --chrome: #1c1c1a;
+  --chrome-line: #34332f;
   --canvas: #131312;
   --canvas-text: #eceae4;
   --canvas-dim: #9c9a93;
@@ -69,6 +73,8 @@
   --warn: #8c5a00;
   --warn-border: #c99a3e;
   --info: #1f5fbf;
+  --chrome: #ffffff;
+  --chrome-line: #e2dfd8;
   --canvas: #faf9f6;
   --canvas-text: #1c1b19;
   --canvas-dim: #5f5d57;
@@ -102,11 +108,13 @@
   --warn: #f6cf7e;
   --warn-border: #a88a3a;
   --info: #c4dcff;
-  --canvas: #767676;
-  --canvas-text: #ffffff;
-  --canvas-dim: #ffffff;
-  --canvas-focus: #ffffff;
-  --preview-bg: #767676;
+  --chrome: #5c5c5c;
+  --chrome-line: #ffffff47;
+  --canvas: #5c5c5c;
+  --canvas-text: #f5f5f5;
+  --canvas-dim: #e4e4e4;
+  --canvas-focus: #f6cf7e;
+  --preview-bg: #5c5c5c;
   --scrim: #000000a0;
   --shadow: #00000080;
 }

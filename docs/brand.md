@@ -97,14 +97,19 @@ which also replaces the old star yellow. All colours are CSS variables in
 | field outline | #6E6C66 | #8A877F | #BDBDBD |
 | danger | #F2716A | #B42318 | #FFD0CC |
 | success | #5FC48A | #1E7A46 | #A8F0C4 |
-| canvas (image surround) | #131312 | #FAF9F6 | #767676 |
-| preview surround | #0D0D0C | #0D0D0C | #767676 |
+| chrome (top bar, side panels) | #1C1C1A | #FFFFFF | #5C5C5C |
+| chrome line (chrome / images edge) | #34332F | #E2DFD8 | white 28 % (#FFFFFF47) |
+| canvas (image surround) | #131312 | #FAF9F6 | #5C5C5C |
+| preview surround | #0D0D0C | #0D0D0C | #5C5C5C |
 
-- **Gallery grey** is for judging colour: the images sit on an 18 % mid-grey
-  (#767676) in the grid and the full-screen preview. The chrome is a
-  slightly darker mid-grey (#5C5C5C), close enough to read as one surface;
-  the lightest grey at which the brass links and error text still pass AA.
-  Panels step darker, not lighter, for the same reason.
+- **Gallery grey** is for judging colour: one neutral mid-grey (#5C5C5C)
+  behind everything, top bar, side panels, grid and full-screen preview
+  alike, so the images are the only colour on screen. A thin light pinstripe
+  (`chrome-line`) marks where the chrome meets the images. Two greys side by
+  side read as a mistake, so the chrome never steps away from the canvas;
+  menus and dialogs, which float, step darker. (Until Nov 2026 the canvas was
+  the 18 % grey #767676, but on that grey only pure white text passes AA, so
+  one surface there would have cost the brass links and coloured error text.)
 - The full-screen preview stays dark in the light theme, the way photo apps
   do, so images are always judged against the same surround.
 - Never use the bright brass #E8B04B as a fill or text on a light
@@ -119,36 +124,39 @@ parts and focus indicators (1.4.11, 2.4.11/2.4.13).
 
 | Pair | Min | dark | light | gallery |
 |---|---|---|---|---|
-| body text (`text` on `bg`) | 4.5 | 15.45 | 16.35 | 11.25 |
-| text on panels (`text` on `bg-raised`) | 4.5 | 14.19 | 17.21 | 9.96 |
-| text on buttons (`text` on `bg-hover`) | 4.5 | 12.44 | 14.84 | 8.52 |
-| text on pressed buttons (`text` on `bg-active`) | 4.5 | 10.97 | 13.43 | 7.28 |
-| secondary text (`text-dim` on `bg`) | 4.5 | 6.60 | 6.25 | 7.95 |
-| secondary text on panels (`text-dim` on `bg-raised`) | 4.5 | 6.06 | 6.58 | 7.04 |
-| secondary text on hover (`text-dim` on `bg-hover`) | 4.5 | 5.31 | 5.68 | 6.02 |
-| links (`accent` on `bg`) | 4.5 | 9.51 | 5.58 | 6.27 |
-| links on panels (`accent` on `bg-raised`) | 4.5 | 8.73 | 5.87 | 5.56 |
-| primary button label (`on-accent` on `accent`) | 4.5 | 9.36 | 5.87 | 9.36 |
-| primary button label, hover (`on-accent` on `accent-hover`) | 4.5 | 11.03 | 7.71 | 11.03 |
+| body text (`text` on `bg`) | 4.5 | 15.45 | 16.35 | 6.13 |
+| text on panels (`text` on `bg-raised`) | 4.5 | 14.19 | 17.21 | 6.73 |
+| text on buttons (`text` on `bg-hover`) | 4.5 | 12.44 | 14.84 | 7.40 |
+| text on pressed buttons (`text` on `bg-active`) | 4.5 | 10.97 | 13.43 | 8.13 |
+| secondary text (`text-dim` on `bg`) | 4.5 | 6.60 | 6.25 | 5.26 |
+| secondary text on panels (`text-dim` on `bg-raised`) | 4.5 | 6.06 | 6.58 | 5.77 |
+| secondary text on hover (`text-dim` on `bg-hover`) | 4.5 | 5.31 | 5.68 | 6.34 |
+| text in the top bar and side panels (`text` on `chrome`) | 4.5 | 14.19 | 17.21 | 6.13 |
+| secondary text in the top bar and side panels (`text-dim` on `chrome`) | 4.5 | 6.06 | 6.58 | 5.26 |
+| links in the top bar and side panels (`accent` on `chrome`) | 4.5 | 8.73 | 5.87 | 4.50 |
+| links (`accent` on `bg`) | 4.5 | 9.51 | 5.58 | 4.50 |
+| links on panels (`accent` on `bg-raised`) | 4.5 | 8.73 | 5.87 | 4.94 |
+| primary button label (`on-accent` on `accent`) | 4.5 | 9.36 | 5.87 | 12.33 |
+| primary button label, hover (`on-accent` on `accent-hover`) | 4.5 | 11.03 | 7.71 | 13.75 |
 | selected row / chip text (`text` on `accent-soft`) | 4.5 | 10.64 | 14.44 | 7.97 |
-| counts on a selected row (`soft-dim` on `accent-soft`) | 4.5 | 7.08 | 6.50 | 6.37 |
-| selected-row bar (`accent` on `accent-soft`) | 3 | 6.55 | 4.93 | 4.44 |
-| field outline (`field-border` on `bg`) | 3 | 3.54 | 3.41 | 4.36 |
-| field outline on panels (`field-border` on `bg-raised`) | 3 | 3.25 | 3.59 | 3.86 |
-| focus ring (`focus` on `bg`) | 3 | 9.51 | 5.58 | 6.27 |
-| focus ring on panels (`focus` on `bg-raised`) | 3 | 8.73 | 5.87 | 5.56 |
-| rating stars (`star` on `bg-raised`) | 3 | 8.73 | 5.87 | 5.56 |
-| error text (`danger` on `bg`) | 4.5 | 6.50 | 6.24 | 6.37 |
-| error text on panels (`danger` on `bg-raised`) | 4.5 | 5.97 | 6.57 | 5.64 |
-| server banner (`danger-on` on `danger-bg`) | 4.5 | 10.90 | 8.84 | 10.00 |
-| done marker (`success` on `bg-raised`) | 3 | 7.92 | 5.35 | 6.96 |
-| warning icon (`warn` on `bg-raised`) | 3 | 8.73 | 5.87 | 5.56 |
-| info text (`info` on `bg-raised`) | 4.5 | 7.90 | 6.09 | 6.56 |
-| grid heading on the canvas (`canvas-text` on `canvas`) | 4.5 | 15.45 | 16.35 | 4.54 |
-| grid counts on the canvas (`canvas-dim` on `canvas`) | 4.5 | 6.60 | 6.25 | 4.54 |
-| tile focus ring (`canvas-focus` on `canvas`) | 3 | 9.51 | 5.58 | 4.54 |
+| counts on a selected row (`soft-dim` on `accent-soft`) | 4.5 | 7.08 | 6.50 | 7.12 |
+| selected-row bar (`accent` on `accent-soft`) | 3 | 6.55 | 4.93 | 5.85 |
+| field outline (`field-border` on `bg`) | 3 | 3.54 | 3.41 | 3.56 |
+| field outline on panels (`field-border` on `bg-raised`) | 3 | 3.25 | 3.59 | 3.91 |
+| focus ring (`focus` on `bg`) | 3 | 9.51 | 5.58 | 4.50 |
+| focus ring on panels (`focus` on `bg-raised`) | 3 | 8.73 | 5.87 | 4.94 |
+| rating stars (`star` on `bg-raised`) | 3 | 8.73 | 5.87 | 4.94 |
+| error text (`danger` on `bg`) | 4.5 | 6.50 | 6.24 | 4.82 |
+| error text on panels (`danger` on `bg-raised`) | 4.5 | 5.97 | 6.57 | 5.29 |
+| server banner (`danger-on` on `danger-bg`) | 4.5 | 10.90 | 8.84 | 10.58 |
+| done marker (`success` on `bg-raised`) | 3 | 7.92 | 5.35 | 5.57 |
+| warning icon (`warn` on `bg-raised`) | 3 | 8.73 | 5.87 | 4.94 |
+| info text (`info` on `bg-raised`) | 4.5 | 7.90 | 6.09 | 5.25 |
+| grid heading on the canvas (`canvas-text` on `canvas`) | 4.5 | 15.45 | 16.35 | 6.13 |
+| grid counts on the canvas (`canvas-dim` on `canvas`) | 4.5 | 6.60 | 6.25 | 5.26 |
+| tile focus ring (`canvas-focus` on `canvas`) | 3 | 9.51 | 5.58 | 4.50 |
 
-all 84 pairs pass
+all 93 pairs pass
 
 Selected tiles use brass corners with a 1 px black halo plus a check badge
 (brass on #1A1408 outline), so the state reads on any image; the keyboard

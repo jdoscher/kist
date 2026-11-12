@@ -262,8 +262,8 @@ select:focus-visible {
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  background: var(--bg-raised);
-  border-bottom: 1px solid var(--border);
+  background: var(--chrome);
+  border-bottom: 1px solid var(--chrome-line);
 }
 .brand {
   display: flex;
@@ -408,8 +408,8 @@ select:focus-visible {
 .sidebar {
   width: 230px;
   flex-shrink: 0;
-  background: var(--bg-raised);
-  border-right: 1px solid var(--border);
+  background: var(--chrome);
+  border-right: 1px solid var(--chrome-line);
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -884,8 +884,8 @@ select:focus-visible {
   position: relative;
   width: 270px;
   flex-shrink: 0;
-  background: var(--bg-raised);
-  border-left: 1px solid var(--border);
+  background: var(--chrome);
+  border-left: 1px solid var(--chrome-line);
   overflow-y: auto;
   padding: 14px;
   display: flex;

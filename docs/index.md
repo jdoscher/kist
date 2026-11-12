@@ -54,8 +54,8 @@ things for you.</p>
 
 ## Three themes
 
-Dark, light and gallery grey, which puts every image on an 18 % mid-grey for
-judging colour.
+Dark, light and gallery grey, which puts every image and the whole interface
+on one neutral mid-grey for judging colour.
 
 === "Gallery grey"
     ![The grid in gallery grey](assets/screenshots/grid-gallery.webp){ .kist-shot }

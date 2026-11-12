@@ -29,6 +29,10 @@ test('every text and UI colour pair passes in every theme', () => {
   )
 })
 
-test('gallery canvas is the 18% grey', () => {
-  assert.equal(parseThemes(css).gallery.canvas, '#767676')
+test('gallery grey is one surface: chrome, canvas and preview share the grey', () => {
+  const g = parseThemes(css).gallery
+  assert.equal(g.canvas, '#5c5c5c')
+  assert.equal(g.chrome, g.canvas)
+  assert.equal(g['preview-bg'], g.canvas)
+  assert.equal(g.bg, g.canvas)
 })
