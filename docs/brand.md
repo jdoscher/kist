@@ -270,9 +270,16 @@ image is judged.
 
 | Role | Face | Where |
 |---|---|---|
-| UI | Inter Variable | everything by default |
-| Display | Instrument Serif | wordmark, token screen tagline, empty states, panel titles, crash page. Sparingly. |
-| Data | JetBrains Mono Variable | sizes, dimensions, hashes, version, metadata values |
+| Title (`.view-title`) | Instrument Serif 400, 24 px (`--fs-5`), line-height 1.05, −0.005em | every view, page and panel title: Timeline, Map, Boards, Triage, each Settings and Organise section, "No selection" |
+| Page title (`.page-title`) | Instrument Serif 400, 34 px (`--fs-6`) | a folder or tag page, with a `.title-eyebrow` (Inter 11 px, dim) naming the parent folder above it |
+| UI | Inter Variable | everything below a title |
+| Counts (`.title-count`, `.count`) | Inter, `tabular-nums` | numbers a person reads: counts, sizes, dates, "1 of 41" |
+| Data (`.mono`) | JetBrains Mono Variable, 11 px | strings a machine made: hash, MIME type, URL, pixel dimensions, hex, version |
+| Wordmark, empty states, crash page | Instrument Serif | sparingly |
+
+Instrument Serif is a display face: never below 18 px, never bold, never
+for UI labels. On the image canvas a title uses `--canvas-text` and its
+count `--canvas-dim` (the grid header).
 
 All three are OFL and self-hosted through Fontsource (no CDN). Inter's
 italic is loaded as its own file (`wght-italic.css`), and `body` sets

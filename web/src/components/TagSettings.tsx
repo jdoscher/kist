@@ -128,7 +128,7 @@ export function VocabularySection() {
   return (
     <section aria-labelledby={`${id}-h`}>
       <div className="settings-section-head">
-        <h2 id={`${id}-h`}>Vocabulary</h2>
+        <h2 id={`${id}-h`} className="view-title">Vocabulary</h2>
       </div>
       <p className="settings-intro">
         The words your library uses. An alias maps a variant to the tag you prefer, everywhere: on the items that carry
@@ -297,7 +297,7 @@ export function CleanupSection() {
   return (
     <section aria-labelledby={`${id}-h`}>
       <div className="settings-section-head">
-        <h2 id={`${id}-h`}>Tag cleanup</h2>
+        <h2 id={`${id}-h`} className="view-title">Tag cleanup</h2>
         <button onClick={() => void refetch()} disabled={isFetching}>
           Check again
         </button>

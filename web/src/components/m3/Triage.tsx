@@ -205,7 +205,7 @@ export default function Triage({ screen }: { screen: Extract<Screen, { kind: 'tr
           <X size={16} aria-hidden="true" />
           {!mobile && 'Done triaging'}
         </button>
-        <h1 id={titleId} className="triage-title">
+        <h1 id={titleId} className="triage-title view-title">
           Triage · {view === 'unfiled' ? 'Unfiled' : 'All items'}
         </h1>
         <div className="triage-progress">

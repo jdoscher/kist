@@ -193,7 +193,7 @@ function DuplicatesSection() {
   return (
     <section aria-labelledby={`${id}-h`}>
       <div className="settings-section-head">
-        <h2 id={`${id}-h`}>Duplicates</h2>
+        <h2 id={`${id}-h`} className="view-title">Duplicates</h2>
         <button className="btn-icon" onClick={() => void refetch()} disabled={isFetching}>
           <RefreshCw size={14} strokeWidth={1.75} aria-hidden="true" className={isFetching ? 'spin' : ''} />
           Check again
@@ -408,7 +408,7 @@ function StacksSection() {
   return (
     <section aria-labelledby={`${id}-h`}>
       <div className="settings-section-head">
-        <h2 id={`${id}-h`}>Stacks</h2>
+        <h2 id={`${id}-h`} className="view-title">Stacks</h2>
       </div>
       <p className="settings-intro">
         A stack shows a RAW and its JPEG, a burst or several versions as one item in the grid, with a count on it; press
@@ -488,7 +488,7 @@ function CollectionsSection() {
   return (
     <section aria-labelledby={`${id}-h`}>
       <div className="settings-section-head">
-        <h2 id={`${id}-h`}>You seem to collect…</h2>
+        <h2 id={`${id}-h`} className="view-title">You seem to collect…</h2>
         <button className="btn-icon" onClick={() => setRefresh((n) => n + 1)} disabled={isFetching}>
           <RefreshCw size={14} strokeWidth={1.75} aria-hidden="true" className={isFetching ? 'spin' : ''} />
           Look again
@@ -651,7 +651,7 @@ function PeopleSection() {
   return (
     <section aria-labelledby={`${id}-h`}>
       <div className="settings-section-head">
-        <h2 id={`${id}-h`}>People</h2>
+        <h2 id={`${id}-h`} className="view-title">People</h2>
       </div>
       {flags.ready && !flags.faces && people.length === 0 ? (
         <div className="health-card">

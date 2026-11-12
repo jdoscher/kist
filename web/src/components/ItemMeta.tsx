@@ -8,10 +8,10 @@ export function ItemMeta({ item }: { item: Item }) {
   return (
     <>
       <div className="detail-section meta-list">
-        <div><span>Type</span><span>{item.mime}</span></div>
+        <div><span>Type</span><span className="mono">{item.mime}</span></div>
         <div><span>Size</span><span>{fmtBytes(item.size_bytes)}</span></div>
         {item.width != null && (
-          <div><span>Dimensions</span><span>{item.width}×{item.height}</span></div>
+          <div><span>Dimensions</span><span className="mono">{item.width}×{item.height}</span></div>
         )}
         {item.duration_s != null && (
           <div><span>Duration</span><span>{fmtDuration(item.duration_s)}</span></div>
@@ -21,12 +21,12 @@ export function ItemMeta({ item }: { item: Item }) {
           <div>
             <span>Source</span>
             {source ? (
-              <a href={source.href} target="_blank" rel="noreferrer">
+              <a className="mono" href={source.href} target="_blank" rel="noreferrer">
                 {source.host} <ExternalLink size={13} strokeWidth={1.75} aria-hidden="true" />
               </a>
             ) : (
               // not an http(s) URL: show it, don't link it (and never crash)
-              <span className="source-text">{item.source_url}</span>
+              <span className="source-text mono">{item.source_url}</span>
             )}
           </div>
         )}

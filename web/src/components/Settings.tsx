@@ -127,7 +127,7 @@ function TokensSection() {
   return (
     <section aria-labelledby="tokens-h">
       <div className="settings-section-head">
-        <h2 id="tokens-h">Tokens</h2>
+        <h2 id="tokens-h" className="view-title">Tokens</h2>
         <button className="btn-primary" onClick={() => setCreating(true)}>
           New token
         </button>
@@ -441,7 +441,7 @@ function ArchiveSection() {
   return (
     <section aria-labelledby="archive-h">
       <div className="settings-section-head">
-        <h2 id="archive-h">Archive health</h2>
+        <h2 id="archive-h" className="view-title">Archive health</h2>
       </div>
       <p className="settings-intro">
         Is every file still exactly as it was added, and does a second copy exist? Kist re-checks each original’s
@@ -608,7 +608,7 @@ function AiSection() {
   return (
     <section aria-labelledby="ai-h">
       <div className="settings-section-head">
-        <h2 id="ai-h">AI</h2>
+        <h2 id="ai-h" className="view-title">AI</h2>
       </div>
       <p className="settings-intro">
         Kist looks at every image and reads the text in screenshots and PDFs, entirely on your own hardware, so search

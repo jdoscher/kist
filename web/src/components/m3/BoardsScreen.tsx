@@ -61,7 +61,7 @@ export function BoardsScreen({ trash = false }: { trash?: boolean }) {
             <X size={16} aria-hidden="true" />
           </button>
         )}
-        <h1 id="boards-h">{trash ? 'Boards trash' : 'Boards'}</h1>
+        <h1 id="boards-h" className="view-title">{trash ? 'Boards trash' : 'Boards'}</h1>
         <span className="grow" />
         <button className="btn-icon" aria-pressed={trash} onClick={() => openScreen({ kind: 'boards', trash: !trash })}>
           <Trash2 size={14} aria-hidden="true" /> {trash ? 'Back to boards' : 'Trash'}

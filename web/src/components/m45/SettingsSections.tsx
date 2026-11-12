@@ -60,7 +60,7 @@ export function SharingSection() {
   return (
     <section aria-labelledby="sharing-h">
       <div className="settings-section-head">
-        <h2 id="sharing-h">Sharing</h2>
+        <h2 id="sharing-h" className="view-title">Sharing</h2>
       </div>
       <p className="settings-intro">
         Read-only links to a folder, smart folder, board or a selection. Make one from the Share button above the grid, the selection bar or
@@ -213,7 +213,7 @@ export function ImportSection() {
   return (
     <section aria-labelledby="import-h">
       <div className="settings-section-head">
-        <h2 id="import-h">Import</h2>
+        <h2 id="import-h" className="view-title">Import</h2>
       </div>
       <p className="settings-intro">
         Bring a collection over from another tool. Each run files into its own folder (Imported/&lt;kind&gt; &lt;date&gt;), keeps where each item
@@ -303,7 +303,7 @@ export function PhoneSection() {
   return (
     <section aria-labelledby="phone-h">
       <div className="settings-section-head">
-        <h2 id="phone-h">Phone & browser</h2>
+        <h2 id="phone-h" className="view-title">Phone & browser</h2>
       </div>
       <h3 className="section-label settings-sub">iPhone and iPad: Save to Kist from the share sheet</h3>
       <p className="settings-intro">

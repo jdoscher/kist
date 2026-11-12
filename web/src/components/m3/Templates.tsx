@@ -51,7 +51,7 @@ export function TemplatesSection() {
   return (
     <section aria-labelledby="templates-h">
       <div className="settings-section-head">
-        <h2 id="templates-h">Templates</h2>
+        <h2 id="templates-h" className="view-title">Templates</h2>
         <button className="btn-primary btn-icon" onClick={() => setEditing('new')}>
           <Plus size={15} aria-hidden="true" /> New template
         </button>

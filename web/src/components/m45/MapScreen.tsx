@@ -173,7 +173,7 @@ export default function MapScreen() {
   return (
     <main className={`grid-area map-screen${mobile ? ' mobile' : ''}`} aria-labelledby={`${id}-h`}>
       <header className="screen-head">
-        <h1 id={`${id}-h`}>Map</h1>
+        <h1 id={`${id}-h`} className="view-title">Map</h1>
         <p className="hint" role="status">
           {data ? `${data.total.toLocaleString()} item${data.total === 1 ? '' : 's'} with a location in view` : 'Loading…'}
           {data?.truncated ? ' (zoom in to see every group)' : ''}

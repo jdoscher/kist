@@ -955,6 +955,7 @@ The aesthetic pass: one grey, one control language, one type system.
 - Brass means something again: it's kept for the main button, selection, the focus ring and ratings. Tag, folder and board chips are neutral grey, links in the info panel are white and underlined, the Info toggle, Settings sections and the ⌘K active row show a fill with a thin brass bar, and tile selection uses the theme's own brass.
 - One control language: every button and field is 28 px tall; buttons are quiet (no box until you hover), Upload and other main actions are the only brass buttons, fields keep their outline, and dropdowns get Kist's own chevron.
 - Type details: sentences get 1.5 line spacing and a comfortable line length, small section labels share one 11 px semibold style, every label is in sentence case ("Triage unfiled", "In trash"), and secondary text in gallery grey is a visible step dimmer.
+- Titles get a voice: every view, page and panel title is set in Instrument Serif (Timeline, Map, Boards, Triage, each Settings section); counts are in Inter with even-width figures, and the monospaced face is kept for machine strings like MIME types, hashes and URLs.
 
 ## [1.5.0] - 2026-11-09
 

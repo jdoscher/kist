@@ -750,7 +750,6 @@ a.btn-primary {
 }
 .screen-head h1 {
   margin: 0;
-  font-size: var(--fs-4);
 }
 .screen-head .hint {
   padding: 0;
@@ -820,8 +819,11 @@ a.btn-primary {
   height: 100%;
   background: var(--accent);
 }
+/* a count a person reads: Inter tabular, dim (mono is for machine strings) */
 .tl-count {
   text-align: right;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
 }
 .otd-card {
   border: 1px solid var(--border);

@@ -246,7 +246,7 @@ function LibrarySummary() {
   const { data: version } = useVersion()
   return (
     <div className="multi-summary">
-      <h2 className="panel-title">No selection</h2>
+      <h2 className="panel-title view-title">No selection</h2>
       <p className="hint-text">
         Click an item to see {canEdit ? 'and edit ' : ''}its details. Double-click (or Enter) opens it full screen.
       </p>
@@ -283,7 +283,7 @@ function LibrarySummary() {
             {version && (
               <div>
                 <span>Version</span>
-                <span title={`commit ${version.commit}`}>
+                <span className="mono" title={`commit ${version.commit}`}>
                   {version.version}
                   {version.commit !== 'unknown' ? ` · ${version.commit.slice(0, 12)}` : ''}
                 </span>
@@ -328,7 +328,7 @@ export function DetailPanel() {
         )
       ) : (
         <div className="multi-summary">
-          <h2 className="panel-title">{selected.length} items selected</h2>
+          <h2 className="panel-title view-title">{selected.length} items selected</h2>
           <p>{fmtBytes(selected.reduce((acc, i) => acc + i.size_bytes, 0))} total</p>
           <p className="hint">Use the bar below for bulk tag / move / trash.</p>
         </div>

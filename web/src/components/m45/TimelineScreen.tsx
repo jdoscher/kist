@@ -75,7 +75,7 @@ export default function TimelineScreen({ group }: { group: TimelineGroup }) {
   return (
     <main className="grid-area timeline-screen" aria-labelledby={`${id}-h`}>
       <header className="screen-head">
-        <h1 id={`${id}-h`}>Timeline</h1>
+        <h1 id={`${id}-h`} className="view-title">Timeline</h1>
         <div className="seg" role="group" aria-label="Group by">
           {GROUPS.map(([g, label]) => (
             <button key={g} type="button" aria-pressed={group === g} className={group === g ? 'on' : ''} onClick={() => openScreen({ kind: 'timeline', group: g })}>
@@ -117,7 +117,7 @@ export default function TimelineScreen({ group }: { group: TimelineGroup }) {
                     <span className="tl-bar" aria-hidden="true">
                       <span style={{ width: `${barPct(b.count, max)}%` }} />
                     </span>
-                    <span className="tl-count mono">
+                    <span className="tl-count count">
                       {b.count.toLocaleString()}
                       <span className="sr-only"> item{b.count === 1 ? '' : 's'}, show them</span>
                     </span>
