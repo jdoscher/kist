@@ -52,6 +52,27 @@ body {
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
 }
+/* headings: no browser margins or sizes (the default h2 is 1.5em, an h2
+   in a section was 19.5 px bold, off the scale). A bare heading is a
+   15 / 13 px semibold label; titles and section labels set their own role
+   (.view-title, .section-label) */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin: 0;
+  font-size: var(--fs-3);
+  font-weight: 600;
+  line-height: 1.25;
+}
+h3,
+h4,
+h5,
+h6 {
+  font-size: var(--fs-2);
+}
 /* counts and sizes line up */
 .count,
 .sel-count,
@@ -60,9 +81,10 @@ body {
 .stats {
   font-variant-numeric: tabular-nums;
 }
+/* machine strings (hash, MIME, URL, hex): 11 px JetBrains Mono */
 .mono {
   font-family: var(--font-mono);
-  font-size: 0.92em;
+  font-size: var(--fs-1);
 }
 /* Lucide icons sit on the text baseline at the text's size */
 .lucide {
@@ -1275,7 +1297,7 @@ select:focus-visible {
 .mobile input,
 .mobile select,
 .mobile textarea {
-  font-size: 16px;
+  font-size: 16px; /* type-scale: allow (iOS zoom) */
 }
 .mobile .topbar-break {
   display: block;

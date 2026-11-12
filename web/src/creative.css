@@ -691,7 +691,7 @@ button.on,
 }
 .ann-mark.point .ann-num {
   transform: rotate(45deg);
-  font-size: 11px;
+  font-size: var(--fs-1);
   font-weight: 700;
 }
 .ann-mark.box {
@@ -709,7 +709,7 @@ button.on,
   border-radius: 50%;
   background: var(--accent);
   color: var(--on-accent);
-  font-size: 11px;
+  font-size: var(--fs-1);
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -1208,7 +1208,7 @@ button.on,
 .first-run-title {
   font-family: var(--font-display);
   font-weight: 400;
-  font-size: 44px;
+  font-size: var(--fs-6);
   margin: 0 0 6px;
   color: var(--text);
 }
@@ -1646,7 +1646,7 @@ body.board-space .board-viewport,
   gap: 6px;
   background: #d6d3cc;
   color: #3d3a35;
-  font-size: 13px;
+  font-size: var(--fs-2);
   border: 1px dashed #8a877f;
 }
 .bnode-missing.loading {
@@ -1656,11 +1656,13 @@ body.board-space .board-viewport,
 .bnode.t-note {
   box-shadow: 0 2px 6px #0002;
   padding: 10px 12px;
-  font-size: 15px;
+  font-size: var(--fs-3); /* BoardInspector's default note size, 15 */
   line-height: 1.35;
 }
 .bnode.t-text {
-  font-size: 28px;
+  /* board content, not UI: the default a text node is drawn at, matching
+     BoardInspector's 28 (its sizes are the user's own scale) */
+  font-size: 28px; /* type-scale: allow (board text default) */
   line-height: 1.2;
 }
 .bnode.t-shape {
@@ -1686,7 +1688,7 @@ body.board-space .board-viewport,
   position: absolute;
   top: 6px;
   left: 10px;
-  font-size: 13px;
+  font-size: var(--fs-2);
   font-weight: 600;
   color: #3d3a35;
 }
@@ -1726,7 +1728,7 @@ body.board-space .board-viewport,
 }
 .swatch-hex {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-1);
   color: #1c1b19;
 }
 .bnode.t-link {
@@ -1746,11 +1748,11 @@ body.board-space .board-viewport,
 .link-card .link-title {
   display: block;
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--fs-2);
 }
 .link-card .link-url {
   display: block;
-  font-size: 12px;
+  font-size: var(--fs-1);
   color: #57524a;
   overflow-wrap: anywhere;
 }
@@ -1769,7 +1771,7 @@ body.board-space .board-viewport,
   cursor: pointer;
 }
 .edge-label {
-  font-size: 13px;
+  font-size: var(--fs-2);
   fill: #1c1b19;
   color: #1c1b19;
   paint-order: stroke;

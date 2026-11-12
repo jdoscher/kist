@@ -177,6 +177,16 @@ Instrument Serif exists only at 400, so never set it bold. Scale (six
 steps): 11 / 13 / 15 / 18 / 24 / 34 px (`--fs-1` … `--fs-6`); 13 px is the
 body size. Counts and sizes use tabular figures.
 
+- **Every** `font-size` in the stylesheets is `var(--fs-N)` (or `inherit`).
+  `web/tests/type-scale.test.ts` fails on any raw size; a genuine exception
+  carries `/* type-scale: allow (why) */` on the same line. The allowed ones
+  today: 16 px phone fields (iOS Safari zooms into anything smaller), the
+  28 px default of a board text node (board content, the user's own scale)
+  and the font-specimen glyphs (the item's own font).
+- `h1`–`h6` are reset (no browser margins; 15 px / 600, h3–h6 13 px / 600),
+  so a heading never picks up the browser's 1.5em/1.17em sizes.
+- `.mono` is 11 px.
+
 ## Icons
 
 Lucide (ISC), imported per icon, 1.75 px stroke at 13–20 px. Icon-only

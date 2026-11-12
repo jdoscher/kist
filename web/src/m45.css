@@ -495,12 +495,13 @@ a.button.primary {
   padding: 6px 2px 2px;
 }
 .glyph-grid .glyph {
-  font-size: 28px;
+  /* a font specimen: the glyphs of the item's own font, not UI type */
+  font-size: 28px; /* type-scale: allow (font specimen) */
   line-height: 1.2;
 }
 .glyph-grid .glyph-cp {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--fs-1);
   color: var(--text-dim);
 }
 .pager {
@@ -722,7 +723,7 @@ a.button.primary {
   pointer-events: none;
 }
 .bookmarklet-page textarea {
-  font-size: 12px;
+  font-size: var(--fs-1);
 }
 
 /* ---------- timeline and map ---------- */

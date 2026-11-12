@@ -110,7 +110,7 @@
   min-width: 0;
   min-height: 44px;
   /* 16 px keeps iOS Safari from zooming the page when the field gets focus */
-  font-size: 16px;
+  font-size: 16px; /* type-scale: allow (iOS zoom) */
 }
 .mobile .phone-tag-add button {
   min-height: 44px;
@@ -191,7 +191,7 @@
 }
 .mobile .move-search {
   min-height: 44px;
-  font-size: 16px;
+  font-size: 16px; /* type-scale: allow (iOS zoom) */
 }
 .mobile .move-recent {
   display: flex;

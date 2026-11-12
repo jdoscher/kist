@@ -404,7 +404,7 @@
   background: var(--bg-hover);
 }
 .suggest-why {
-  font-size: 0.72rem;
+  font-size: var(--fs-1);
   color: var(--text-dim);
   text-transform: uppercase;
   letter-spacing: 0.04em;
