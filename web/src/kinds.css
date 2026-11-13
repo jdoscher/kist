@@ -180,3 +180,12 @@
   display: inline-flex;
   grid-column: 1 / -1;
 }
+/* 44 px touch targets for the chip buttons without changing their look */
+.mobile .kd-chip button {
+  position: relative;
+}
+.mobile .kd-chip button::after {
+  content: '';
+  position: absolute;
+  inset: -8px -4px;
+}

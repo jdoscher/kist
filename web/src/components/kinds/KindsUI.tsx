@@ -6,7 +6,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, RotateCcw, Shapes, Settings2, X } from 'lucide-react'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
-import { api, type Item } from '../../api'
+import { api, emptyQuery, type Item } from '../../api'
 import { useAfterUndo, useCaps, useCurrentItems } from '../../data'
 import {
   kindFilterValue,
@@ -123,7 +123,7 @@ export function SidebarKinds() {
                 className="row-main"
                 aria-current={active ? 'page' : undefined}
                 title={k.how}
-                onClick={() => setQuery({ auto_kind: active ? null : k.id, deleted: false })}
+                onClick={() => setQuery(active ? { auto_kind: null } : { ...emptyQuery, order: query.order, auto_kind: k.id })}
               >
                 <span className="icon" aria-hidden="true">
                   {k.depth ? <span className="kd-branch" /> : <Shapes {...ICON} />}
@@ -281,7 +281,7 @@ export function ItemKinds({ item }: { item: Item }) {
   const { data: overview } = useKinds()
   const { data } = useItemKinds(item.id)
   const correct = useCorrect()
-  const { setQuery } = useAppState()
+  const { query, setQuery } = useAppState()
   const selectId = useId()
   const list = data ?? []
   const addable = useMemo(
@@ -299,7 +299,7 @@ export function ItemKinds({ item }: { item: Item }) {
             className={`chip kd-chip${k.source === 'auto' ? ' kd-auto' : ''}${k.member ? '' : ' kd-out'}`}
             title={chipTitle(k)}
           >
-            <button className="kd-chip-name" onClick={() => setQuery({ auto_kind: k.kind })} aria-label={`Show ${k.name}`}>
+            <button className="kd-chip-name" onClick={() => setQuery({ ...emptyQuery, order: query.order, auto_kind: k.kind })} aria-label={`Show ${k.name}`}>
               {k.member ? k.name : `Not ${k.name}`}
               {k.source === 'auto' && <span className="kd-tag">auto</span>}
             </button>

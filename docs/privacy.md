@@ -32,6 +32,8 @@ files once, and importers fetch the images an export links to.
   self-hosts its fonts too.
 - Faces (opt-in) are found and matched on your server only.
 - AI search and OCR run on your hardware.
+- Kinds (Screenshots, Drawings …) are decided on your server from data it
+  already has; corrections and what they teach stay in your library.
 
 ## Sharing
 
