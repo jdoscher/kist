@@ -175,6 +175,10 @@ history shows its name. All tools: [MCP](#mcp-claude-and-other-agents).
 | `TZ` | `UTC` | The worker's time zone, which `KIST_AI_WINDOW` is in |
 | `KIST_FACES` | `0` | Faces and people, opt-in. Set it for the app, worker **and** ml service: the worker then queues a `faces` job per image, and only then does the ml service download (~39 MB) and load the face models. See [Organising](#organising-vocabulary-duplicates-stacks-collections-people) |
 | `KIST_CUTOUTS` | `1` | Subject cut-outs (app, worker and ml service): "Cut out subject" makes a transparent PNG as a new item. The ml service downloads the model the first time someone asks for one (ISNet 179 MB; BiRefNet-lite 224 MB for "Fine edges"); `0` turns it off. See [docs/ai.md](docs/ai.md#subject-cut-outs) |
+| `KIST_KINDS` | `true` | Kinds (Screenshots, Drawings, Low-res …), sorted on your server from embeddings, OCR and file facts; packs, strictness, the sidebar threshold and Low-res's print size are in Settings → Kinds (`library/.kist/kinds.json`). `false` switches them off (app and worker) |
+| `KIST_PRESENT_REMOTE_HOURS` | `4` | Present: how long a phone remote's pairing works (one show; Unpair or a restart ends it sooner) |
+| `KIST_PRESENT_MAX_SLIDES` | `500` | Present: the most slides one show holds |
+| `KIST_PROOF_ACTIONS_PER_IP` / `KIST_PROOF_ACTIONS_PER_SHARE` | `120` / `1500` | Guest proofing on share links: actions per visitor address / per link in 10 minutes (then 429) |
 | `KIST_FACE_MODELS_URL` | — | A mirror for the two face model files (they're checked by sha256 either way) |
 | `KIST_COLLECTIONS_INTERVAL_HOURS` | `24` | How often the worker recomputes suggested collections; `0` = only on request (`?refresh=1`) |
 | `KIST_EXPORT_RETENTION_DAYS` | `7` | Finished portable exports (`library/exports/`) are deleted after this many days; `0` keeps them |
@@ -923,9 +927,10 @@ claude mcp add --transport http kist http://<host>:8080/mcp \
 
 | tool | |
 |---|---|
-| `search_items` | `query` (filename, notes, annotation text, text in images and captions, a saved page's text, the place name), tags (all / any / none; aliases, implied tags and `brand:*` namespaces match), folder, type (image, video, pdf, audio, model, font, design, bundle, other), rating, `view="unfiled"` (the inbox), `state="trashed"`, `preview_status`, `flag`, `label`, `person`, `collapse_stacks`; provenance `ai_generated` (true/false/unknown), `license`, `source_status`; media `taken_after`/`taken_before` (ISO dates), `camera`, `lens`, `has_gps`, `place`, `vertical`, `has_audio`, `duration_min`/`duration_max`; `order` also `-taken`/`taken`; ranked by `semantic` (a description: what the images show), `similar_to` (an item id), `color` (+ `color_tol`), `text` (words inside screenshots and PDFs); `has_text`. Every filter works with every ranking. Ranked items carry `match {kind, score, snippet}` |
+| `search_items` | `query` (filename, notes, annotation text, text in images and captions, a saved page's text, the place name), tags (all / any / none; aliases, implied tags and `brand:*` namespaces match), folder, type (image, video, pdf, audio, model, font, design, bundle, other), rating, `view="unfiled"` (the inbox), `state="trashed"`, `preview_status`, `flag`, `label`, `person`, `collapse_stacks`; provenance `ai_generated` (true/false/unknown), `license`, `source_status`; media `taken_after`/`taken_before` (ISO dates), `camera`, `lens`, `has_gps`, `place`, `vertical`, `has_audio`, `duration_min`/`duration_max`; kinds `auto_kind` (`drawings`, `-screenshots`, `drawings:unsure`); credits `rights_status`, `needs_credit`, `print_min`/`print_max` (`A4`, `8in`, `20cm`); `project` and custom `fields` (`{"season": "SS27"}`); `order` also `-taken`/`taken`; ranked by `semantic` (a description: what the images show), `similar_to` (an item id), `color` (+ `color_tol`; a hex or a colour-book code `book:<book>/<code>`), `text` (words inside screenshots and PDFs); `has_text`. Every filter works with every ranking. Ranked items carry `match {kind, score, snippet}` |
 | `search_by_image` | items that look like an image given by URL or a file under `library/import/` (nothing is saved); the main filters (query, tags, folder, type, rating, color, flag, label, `person`, `collapse_stacks`, and the provenance and media filters) |
 | `item_palette` | an item's colours `[{hex, pct, name}]` |
+| `list_kinds`, `correct_kind(kind, ids, verdict)` | the kinds Kist sorts items into (Screenshots, Drawings, Low-res …) with counts and how each is detected; correct one (`belongs`, `not`, `clear`) for items, one undoable batch that teaches the kind. List a kind's items with `search_items(auto_kind=…)` |
 | `nearest_colour_code`, `list_colour_books` | the nearest code in the user's colour books to a hex or to each colour of an item (`de` is CIEDE2000); the books, or swatches matching a code with their `color` search value |
 | `get_item` | full metadata |
 | `view_item` | returns the image itself so the model can see it |
@@ -956,6 +961,7 @@ claude mcp add --transport http kist http://<host>:8080/mcp \
 | `credits_clearance` | which items of a folder, smart folder, board or list aren't licensed or cleared |
 | `print_check` | print size at 300/150 dpi, papers it fills, file dpi, colour profile |
 | `guest_feedback(share_id?, round?, item_id?, unseen?)`, `accept_guest_feedback(mark_ids, comment_ids, as_?)` | guest picks, hearts and comments from share links that let guests give feedback; accept marks as `pick`, `reject` or `label:<colour>` and comments as notes, in one undoable batch |
+| `cut_out_subject(item_id, model?, feather?, shadow?, board_id?, node_id?)` | cut the subject out on this server's ml service: a job that makes a new transparent PNG item linked `derived_from` the original (which is never changed); with a board node, it takes that node's place |
 | `export_collection`, `export_status` | build a portable BagIt export of a folder, smart folder, items or everything, then hand the user its download link |
 | `get_page_snapshot` | the readable text of the page an item was saved from, if kept |
 | `view_video`, `save_frame`, `make_clip` | watch a video as one contact sheet with timestamps, keep a frame as its own item, cut a clip (a job) |
@@ -1267,6 +1273,44 @@ GET    /api/feedback             (write/admin) guest marks and comments, newest 
                                  POST /api/feedback/accept {mark_ids, comment_ids, as?}
                                  -> {batch_id, accepted, skipped}; DELETE
                                  /api/feedback/comments/{id}
+GET/PATCH /api/kinds             kinds (F1): each kind's count, settings, packs; PATCH
+                                 {packs?, min_items?, low_res_px?, low_res_in?, kinds?}
+PATCH  /api/kinds/{id}           {enabled?, strictness?}
+POST   /api/kinds/{id}/correct   {item_ids, verdict: true|false|null} (one undoable batch)
+POST   /api/kinds/refresh        re-sort everything (a `kinds` job) -> 202
+GET    /api/items/{id}/kinds     the item's kinds: auto or confirmed, score, why
+GET/PATCH /api/credits/settings  credits (F4): {clearance_warning}
+GET    /api/credits/summary      counts by rights status, needs a credit, AI-made
+POST   /api/credits/clearance    {target, target_id?, item_ids?} -> what isn't licensed/cleared
+POST   /api/credits/bulk         {item_ids, creator?, credit?, license?, rights_url?,
+                                 rights_status?, credit_exempt?} (one undoable batch)
+GET    /api/items/{id}/print     print size at 300/150 dpi, papers, file dpi, ICC profile
+GET    /api/items/{id}/credits   credit line, Present caption, auto-fill suggestions;
+                                 POST .../credits/autofill fills the empty fields
+POST   /api/present/slides       Present (F2): {source, compare?, pairs?} -> slides (a
+                                 folder-limited reader gets what it sees); POST
+                                 /api/present/pdf the same as a PDF
+GET/POST /api/shows              saved shows; GET/PATCH/DELETE /api/shows/{id},
+                                 GET /api/shows/{id}/slides|pdf
+POST   /api/present/remote       pair a phone remote {name, item_ids} -> {id, token, path};
+                                 GET .../{id}/poll, POST .../{id}/state, DELETE .../{id}
+GET    /present-relay/{id}/state  the phone's side (its pairing token, no Kist token):
+                                 POST .../cmd, GET .../thumb/{item}
+GET/POST /api/projects           projects (F6); GET/PATCH/DELETE /api/projects/{id};
+                                 POST .../members {kind: folder|smart|board|share|show,
+                                 id}, DELETE .../members/{kind}/{id}; POST .../fields,
+                                 PATCH/DELETE .../fields/{field_id}
+GET    /api/projects-of/{kind}/{id}  the projects a folder, board ... belongs to
+GET    /api/fields               every field, by project; POST /api/fields/bulk
+                                 {item_ids, values} (one undoable batch)
+GET/PATCH /api/items/{id}/fields the item's custom field values
+GET/POST/DELETE /api/pins        the sidebar's Pinned; PUT /api/pins/order {pins}
+GET    /api/cutouts/status       cut-outs (F7): on?, the models and their download state
+POST   /api/items/{id}/cutout    {model?, feather?, shadow?} -> 202 job; POST /api/cutouts
+                                 {item_ids, ...} one per image
+GET    /api/items/{id}/cutouts   the item's cut-outs; GET .../cutout-preview?size= the
+                                 transparent WebP
+POST   /api/boards/{id}/nodes/{node}/cutout  swap a placed image for its cut-out
 POST   /s/{slug}/proof           (public, form post from the share page) a guest's
                                  pick/reject/heart/comment/name; CSRF token + cookie
 POST   /api/imports/upload       (write/admin) multipart 'file': an export sent from the

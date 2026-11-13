@@ -1060,6 +1060,30 @@ The aesthetic pass: one grey, one control language, one type system.
   - New settings: `KIST_PRESENT_REMOTE_HOURS` (4), `KIST_PRESENT_MAX_SLIDES` (500). New endpoints: `POST /api/present/slides`, `POST /api/present/pdf`, `/api/shows` (CRUD, `/slides`, `/pdf`), `/api/present/remote` (pair, poll, state, unpair) and the phone's `/present-relay/<id>/state|cmd|thumb/<item>`. A folder-limited read token can present and print what it sees and nothing else; read tokens can't save shows or pair a phone.
 - **Subject cut-outs (F7).** "Cut out subject" lifts the subject off its background as a new transparent PNG, linked *derived from* the original, with its tags, folders and credit; the original is never touched. It's in the preview, the info panel (which also lists an image's cut-outs), the phone item sheet, the selection bar's More menu (a cut-out per image), a board's inspector (**Cut out** swaps the placed image for its cut-out; Undo puts it back) and MCP (`cut_out_subject`). Choose **Fast** (ISNet, a few seconds on a NAS CPU) or **Fine edges** (BiRefNet-lite, keeps thin parts and white-on-white subjects, about six times slower), an edge feather (0–20 px) and **Keep the shadow**. It runs as a `cutout` job on your own ml service; the model (179 or 224 MB) downloads once, the first time someone asks, and the dialog says so. Boards draw cut-outs with no card or shadow, and board exports keep them transparent. `KIST_CUTOUTS=0` turns it off. Endpoints: `POST /api/items/{id}/cutout`, `POST /api/cutouts`, `GET /api/items/{id}/cutouts`, `GET /api/items/{id}/cutout-preview`, `POST /api/boards/{id}/nodes/{node}/cutout`, `GET /api/cutouts/status`; the ml service has `POST /cutout`.
 
+- **The seven together.** Low-res is a print size now that the print check
+  is there: an image is low-res when its long edge prints under 5 in at
+  300 dpi (1,500 px; Settings → Kinds changes the inches), and AI-made
+  follows the same AI-made flag as the badge and the `ai_generated=true`
+  filter ("not AI-made" wins). Present captions and the slides' PDF use the
+  credit line every export prints; Ken Burns never moves anything in
+  Drawings (with Pencil and Ink), Documents, Screenshots or Plans. In a show
+  the viewing aids sit in the toolbar and answer to Shift, since Present
+  keeps its own letters: ⇧G greyscale, ⇧V posterise, ⇧H mirror, ⇧L grid
+  (no repeat or 100 % in a show). A project can hold saved shows. Cut-outs
+  stay transparent in Present, the repeat preview and the grid (on a quiet
+  checkerboard). The share page and its per-item proofing page both print
+  the credit. Smart folders keep a kind filter, the MCP `item_buckets` tool
+  takes the kind, credits, project and field filters, and the grid's title
+  names the project or "Needs a credit". A kinds re-sort waits behind
+  imports and previews and never holds back a cut-out.
+- Fixed: on a selected tile the pick/reject, protected, AI and feedback
+  badges no longer stretch into a dark bar (only a video's duration moves
+  aside for the check).
+- Upgrade: migrations 0901, 0921 and 0951 run on start (in that order).
+  Afterwards `kist credits-backfill` fills credits for items saved before;
+  `kist kinds-backfill` is optional (the worker sorts the library while
+  idle).
+
 ## [1.5.0] - 2026-11-09
 
 A hardening release. Kist was reviewed for security, data integrity,

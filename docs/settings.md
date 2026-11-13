@@ -75,7 +75,24 @@ Only `KIST_TOKEN` is required.
 | `KIST_SHARE_PASSWORD_ATTEMPTS` | `10` | Wrong share-link passwords allowed per link per 15 minutes (then 429) |
 | `KIST_PROOF_ACTIONS_PER_IP` | `120` | Guest feedback actions (pick, heart, comment, name) per visitor address per 10 minutes on share links that let guests pick and comment (then 429). Behind a reverse proxy, set uvicorn's `FORWARDED_ALLOW_IPS` so Kist sees the real address |
 | `KIST_PROOF_ACTIONS_PER_SHARE` | `1500` | Guest feedback actions per share link per 10 minutes, all visitors together (then 429) |
+| `KIST_PRESENT_REMOTE_HOURS` | `4` | Present: how long a phone remote's pairing works (one show; Unpair or a restart ends it sooner) |
+| `KIST_PRESENT_MAX_SLIDES` | `500` | Present: the most slides one show holds |
 
 M4 and M5 options (exports, link checks, video and bundle limits, map tiles)
 are listed in `.env.example` and the
 [changelog's upgrade notes](https://github.com/jdoscher/kist/blob/main/CHANGELOG.md).
+
+## Settings kept in the library
+
+The art-team features keep their settings as files in `library/.kist/`, so
+`kist rebuild-index` keeps them and `kist verify` checks them:
+
+| file | set in | defaults |
+|---|---|---|
+| `kinds.json` | Settings → Kinds | base kinds on, trade packs off; a kind shows in the sidebar from 20 items; Low-res = prints under 5 in on the long edge at 300 dpi (`low_res_in`, 1,500 px; `low_res_px` 1,200 applies only without the print check) |
+| `credits.json` | Settings → Sharing | the clearance warning on (`clearance_warning`) |
+| `colourbooks/<id>.json` | Settings → Colour books | none: Kist ships no colour books |
+| `projects.json` | Projects, the sidebar's Pinned | no projects, no pins |
+| `shows.json` | Present → Save show | no shows |
+| `shares/<id>/feedback.json` | the Share dialog, Feedback | guest feedback off per link; "show everyone's feedback" off |
+

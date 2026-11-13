@@ -38,6 +38,9 @@ files once, and importers fetch the images an export links to.
   request a page.
 - Kinds (Screenshots, Drawings …) are decided on your server from data it
   already has; corrections and what they teach stay in your library.
+- Colour books are files you import (Kist ships none and never downloads one);
+  projects, pins, custom fields and viewing aids are local too, and the aids
+  change only what you see.
 
 ## Sharing
 

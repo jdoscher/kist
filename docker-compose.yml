@@ -98,6 +98,12 @@ services:
       KIST_SNAPSHOTS: ${KIST_SNAPSHOTS:-false}
       KIST_XMP_SIDECARS: ${KIST_XMP_SIDECARS:-true}
       KIST_SHARE_PASSWORD_ATTEMPTS: ${KIST_SHARE_PASSWORD_ATTEMPTS:-10}
+      # Kist 2.0 art-team features: kinds (F1), Present (F2), guest proofing (F3)
+      KIST_KINDS: ${KIST_KINDS:-true}
+      KIST_PRESENT_REMOTE_HOURS: ${KIST_PRESENT_REMOTE_HOURS:-4}
+      KIST_PRESENT_MAX_SLIDES: ${KIST_PRESENT_MAX_SLIDES:-500}
+      KIST_PROOF_ACTIONS_PER_IP: ${KIST_PROOF_ACTIONS_PER_IP:-120}
+      KIST_PROOF_ACTIONS_PER_SHARE: ${KIST_PROOF_ACTIONS_PER_SHARE:-1500}
       KIST_WAYBACK: ${KIST_WAYBACK:-false}
       KIST_LINK_CHECK_DAYS: ${KIST_LINK_CHECK_DAYS:-0}
       # media (Milestone 5): ffmpeg threads per run; the web map's tiles
@@ -183,6 +189,7 @@ services:
       KIST_CUTOUT_MODEL: ${KIST_CUTOUT_MODEL:-}
       KIST_CUTOUT_MAX_SIDE: ${KIST_CUTOUT_MAX_SIDE:-4096}
       KIST_COLLECTIONS_INTERVAL_HOURS: ${KIST_COLLECTIONS_INTERVAL_HOURS:-24}
+      KIST_KINDS: ${KIST_KINDS:-true}  # F1: the worker sorts items into kinds
       # M4: exports, imports, link-rot watch (Wayback is an outside service:
       # off unless you set it), XMP sidecars, server-side page snapshots
       KIST_EXPORT_RETENTION_DAYS: ${KIST_EXPORT_RETENTION_DAYS:-7}

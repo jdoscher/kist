@@ -40,6 +40,8 @@ language model of its own.
 | `search_items` | words, tags, folder, type, rating, flags, labels, people, dates, camera, place …; ranked by meaning (`semantic`), `similar_to`, `color` or `text` inside images |
 | `search_by_image` | items that look like an image given by URL or a file under `library/import/` (nothing is saved) |
 | `view_item`, `get_item`, `item_palette` | see the image, read its metadata, its colours |
+| `nearest_colour_code`, `list_colour_books` | the nearest code in your colour books to a hex or an item's colours; the books and their swatches |
+| `list_kinds`, `correct_kind` | the kinds (Screenshots, Drawings, Low-res …) and correcting them; `search_items(auto_kind=…)` lists a kind |
 | `add_item` | from a URL, or a file under `library/import/` or `library/inbox/` |
 | `update_item`, `set_tags`, `set_folders`, `set_provenance` | organise: caption, flag, label, rating, protect, folders, credit and licence |
 | `set_credits`, `item_credits`, `credits_clearance`, `print_check` | credits and rights in bulk, auto-fill from the item's own files, what isn't cleared before a share, print size and colour profile |
@@ -48,6 +50,7 @@ language model of its own.
 | `duplicate_groups`, `resolve_duplicates`, `suggest_stacks`, `stack_items` | tidy duplicates and stacks |
 | `list_boards`, `get_board`, `create_board`, `add_to_board`, `annotate` | moodboards and pinned notes |
 | `list_shows`, `create_show` | saved Present shows: a folder, smart folder, board or chosen items as a full-screen show, with compare pairs; open one at its `web_url` |
+| `cut_out_subject` | the subject as a new transparent item (a job on your ml service; the original is untouched) |
 | `view_video`, `save_frame`, `make_clip` | watch a video as a contact sheet, keep a frame, cut a clip |
 | `export_collection`, `export_status`, `get_page_snapshot` | portable exports, the saved text of a source page |
 | `list_projects`, `get_project`, `set_field_values` | projects and their custom fields; set field values on items; `search_items(project=…, fields={...})` |
