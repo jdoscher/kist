@@ -8,6 +8,7 @@ import { ItemHistory } from './ItemHistory'
 import { ItemLinks } from './ItemLinks'
 import { ItemMeta } from './ItemMeta'
 import { ItemSections } from './m45/lazy'
+import { ItemProjectFields } from './projects/ItemProjectFields'
 import { SheetVersions } from './m3/ItemCreative'
 import { ItemStatus } from './ItemStatus'
 import { PhoneItemEdit, PhoneStars } from './PhoneEdit'
@@ -90,6 +91,8 @@ export function ReadOnlyItem({
           <p className="sheet-notes">{item.notes}</p>
         </div>
       )}
+      {/* F6: custom fields (editable when this sheet edits) */}
+      <ItemProjectFields item={item} editable={!!editing} />
       <PaletteSwatches item={item} />
       <ItemFaces item={item} editable={false} />
       <StackInfo item={item} editable={false} />

@@ -109,6 +109,11 @@ def search_filters(
     print_max: Annotated[str | None, Query(max_length=20)] = None,
     # F1 utility collections: drawings, -screenshots, drawings:unsure ...
     auto_kind: Annotated[str | None, Query(max_length=200)] = None,
+    # F6: items in a project's folders; field.<key>=<expr> come from the
+    # raw query string (services/projects.fields_from_params)
+    project: Annotated[str | None, Query(max_length=64)] = None,
+    *,
+    request: Request,
 ) -> dict:
     """The filters GET /api/items and POST /api/search/image share, as
     services.search.search() keyword arguments."""
@@ -133,7 +138,16 @@ def search_filters(
         credits={k: v for k, v in dict(rights_status=rights_status, needs_credit=needs_credit,
                                        print_min=print_min, print_max=print_max).items()
                  if v is not None} or None,
+        project=project,
+        custom_fields=_custom_field_params(request),
     )
+
+
+def _custom_field_params(request: Request) -> dict | None:
+    """F6: field.<key>=<expr> query parameters (services/projects.py)."""
+    from ..services import projects as projects_svc
+
+    return projects_svc.fields_from_params(request.query_params) or None
 
 
 def page_out(result: search.SearchResult) -> ItemPage:

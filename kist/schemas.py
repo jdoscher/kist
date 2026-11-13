@@ -77,6 +77,8 @@ class ItemOut(BaseModel):
     place: str | None = None
     # F4: the credit printed on outputs ("Creator / Credit"; services/credits)
     credit_line: str | None = None
+    # F6: custom field values {field id: value} (services/projects.py)
+    custom_fields: dict[str, Any] = {}
 
     @classmethod
     def from_item(cls, item: Item, match: dict | None = None) -> "ItemOut":
@@ -133,6 +135,7 @@ class ItemOut(BaseModel):
             taken_at=item.taken_at,
             place=item.place,
             credit_line=_credit_line(item),  # F4
+            custom_fields=dict(item.custom_fields or {}),
         )
 
     @classmethod
@@ -359,6 +362,9 @@ class SmartFolderQuery(BaseModel):
     needs_credit: bool | None = None
     print_min: str | None = Field(default=None, max_length=20)
     print_max: str | None = Field(default=None, max_length=20)
+    # F6 (services/projects.py): a project's items; {field key: expr}
+    project: str | None = Field(default=None, max_length=64)
+    custom_fields: dict[str, str] | None = None
 
 
 class PaletteColour(BaseModel):

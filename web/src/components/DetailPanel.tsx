@@ -16,6 +16,7 @@ import { ReadOnlyItem } from './DetailSheet'
 import { CaptionField, ImpliedTags, ItemFaces, MatchWhy, MoreLikeThisButton, PaletteSwatches, StackInfo, TagSuggestions, TagText } from './ItemAI'
 import { ItemBoards, ItemCull, ItemVersions } from './m3/ItemCreative'
 import { ItemKinds } from './kinds/KindsUI'
+import { ItemProjectFields } from './projects/ItemProjectFields'
 
 /** Protected items can't be trashed or deleted. Agents can protect but not
  * unprotect; removing protection needs a full-access (write/admin) token. */
@@ -207,6 +208,9 @@ function SingleItem({ item }: { item: Item }) {
             ))}
         </select>
       </div>
+
+      {/* F6: the custom fields of the item's projects */}
+      <ItemProjectFields item={item} />
 
       <div className="detail-section">
         <label htmlFor={`${uid}-notes`}>

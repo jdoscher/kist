@@ -22,11 +22,13 @@ from . import credits as credits_routes  # F4
 from . import kinds as kinds_routes  # F1
 from . import colourbooks as colourbooks_routes  # F5
 from . import media as media_routes
+from . import projects as projects_routes  # F6
 
 api_router = APIRouter()
 api_router.include_router(misc.router)
 # M6: before items, so /items/buckets isn't read as an item id
 api_router.include_router(buckets_routes.router)
+api_router.include_router(projects_routes.router)  # F6: /items/{id}/fields too
 api_router.include_router(items.router)
 api_router.include_router(folders.router)
 api_router.include_router(smart_folders.router)

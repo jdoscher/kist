@@ -26,11 +26,12 @@ COMPARED = (
     "preview_status", "preview_rev", "thumbhash", "protected", "links", "stack",
     "flag", "label",
     "media",  # Milestone 5
+    "custom_fields",  # F6
 )
 COMPARED_TIMES = ("created_at", "modified_at", "deleted_at")
 # keys older meta.json files don't have yet, and what their absence means
 MISSING_MEANS = {"protected": False, "links": [], "stack": None, "flag": None, "label": None,
-                 "media": None}
+                 "media": None, "custom_fields": {}}
 FIXES = (
     "fixes: kist rewrite-meta (meta.json or folders.json out of date; safe while Kist "
     "runs, it re-reads each item as it writes it), kist rebuild-index (rows missing "
@@ -248,6 +249,9 @@ def run(session: Session) -> Report:
     from . import colourbooks  # F5
 
     report.problems.extend(colourbooks.check_files())
+    from . import projects as projects_svc
+
+    report.problems.extend(projects_svc.check_file(session))  # F6
     for key in meta_svc.pending():
         report.problems.append(f"{key}: an earlier write to disk failed")
     return report

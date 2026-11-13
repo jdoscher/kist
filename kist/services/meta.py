@@ -87,6 +87,8 @@ def to_meta(item: Item) -> dict:
         # Milestone 5: metadata read from the file + cover/poster choices
         # (services/media.py); the filter columns are derived from it
         "media": item.media,
+        # F6: custom field values (services/projects.py)
+        "custom_fields": dict(item.custom_fields or {}),
     }
 
 

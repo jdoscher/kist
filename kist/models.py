@@ -17,6 +17,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy import inspect as sa_inspect
+from sqlalchemy import text as sa_text
 from sqlalchemy.dialects.postgresql import ARRAY, CITEXT, JSONB, TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.types import UserDefinedType
@@ -209,6 +210,12 @@ class Item(Base):
     # the named token that added it (migration 0602): lets an add-only token
     # attach a page snapshot to its own fresh item. Not in meta.json.
     added_by_token: Mapped[str | None] = mapped_column(String(26), nullable=True)
+    # F6 (services/projects.py): custom field values, {field id: value}, for
+    # the fields of the projects whose folders hold the item; meta.json
+    # "custom_fields" is the durable copy (migration 0951)
+    custom_fields: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, default=dict, server_default=sa_text("'{}'::jsonb")
+    )
 
     tags: Mapped[list[Tag]] = relationship(secondary="item_tags", lazy="selectin")
     folders: Mapped[list[Folder]] = relationship(

@@ -45,6 +45,8 @@ import { hasM45Filters } from '../m45/filters'
 import { useCreditSummary } from './credits/Credits' // F4
 import { BadgeCheck } from 'lucide-react'
 import { isNeedsCreditView, NEEDS_CREDIT } from '../credits'
+import { hasProjectFilters } from '../projectFilters'
+import { PinToggle, ProjectsNavRow, SidebarPinned } from './projects/SidebarPinned'
 import { attentionCount } from '../attention'
 import { readPrefs, savePref, type TagView } from '../settings'
 
@@ -298,6 +300,7 @@ function FolderRow({
         }
         actions={
           canEdit && <>
+            <PinToggle kind="folder" refId={node.id} name={node.name} />
             <button title="New subfolder" aria-label={`New subfolder in ${node.name}`} onClick={() => void addChild()}>
               <Plus size={14} aria-hidden="true" />
             </button>
@@ -463,6 +466,7 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
     !organise &&
     !screen &&
     !hasM45Filters(query) &&
+    !hasProjectFilters(query) &&
     !query.similar &&
     !query.color &&
     !query.image &&
@@ -534,6 +538,7 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
                 title="Faces grouped into people"
               />
             )}
+            <ProjectsNavRow />
           </>
         )}
         <Row
@@ -591,6 +596,8 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
       </nav>
 
       <div className="section grow">
+        {/* F6: pinned projects, folders, boards, searches… on top */}
+        <SidebarPinned />
         {!mobile && <SetupChecklist />}
         {/* boards sit above the long folder and tag lists so they don't get buried */}
         <SidebarBoards first />
@@ -634,6 +641,7 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
             onActivate={() => applySmartFolder(s.id, s.query)}
             actions={
               caps.canEdit && <>
+                <PinToggle kind="smart" refId={s.id} name={s.name} />
                 <button title="Rename" aria-label={`Rename smart folder ${s.name}`} onClick={() => void renameSmart(s)}>
                   <Pencil size={14} aria-hidden="true" />
                 </button>

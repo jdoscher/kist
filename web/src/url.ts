@@ -27,6 +27,7 @@
 
 import { emptyQuery, isItemKind, type PreviewStatus, type Query } from './api.ts'
 import { addM45Params, m45FromSearch } from './m45/filters.ts'
+import { addProjectParams, projectFromSearch } from './projectFilters.ts'
 
 export type SettingsSection = 'tokens' | 'archive' | 'ai' | 'vocabulary' | 'cleanup' | 'templates' | 'sharing' | 'import' | 'phone' | 'kinds' | 'colourbooks'
 export const SETTINGS_SECTIONS: SettingsSection[] = ['tokens', 'archive', 'ai', 'vocabulary', 'cleanup', 'templates', 'sharing', 'import', 'phone', 'kinds', 'colourbooks']
@@ -44,10 +45,13 @@ export type Screen =
   | { kind: 'timeline'; group: 'day' | 'month' | 'year' }
   | { kind: 'map' }
   | { kind: 'add'; search: string }
+  // F6: the projects list and one project's page (in the library's frame)
+  | { kind: 'projects'; archived?: boolean }
+  | { kind: 'project'; id: string }
 
 /** Screens shown in the library's frame (top bar, sidebar) instead of the grid. */
 export function inLibraryFrame(sc: Screen | null | undefined): boolean {
-  return !!sc && (sc.kind === 'boards' || sc.kind === 'timeline' || sc.kind === 'map')
+  return !!sc && (sc.kind === 'boards' || sc.kind === 'timeline' || sc.kind === 'map' || sc.kind === 'projects' || sc.kind === 'project')
 }
 
 export function screenUrl(sc: Screen): string {
@@ -56,6 +60,8 @@ export function screenUrl(sc: Screen): string {
   if (sc.kind === 'map') return '/map'
   if (sc.kind === 'boards') return sc.trash ? '/boards?trash=1' : '/boards'
   if (sc.kind === 'board') return `/board/${encodeURIComponent(sc.id)}`
+  if (sc.kind === 'projects') return sc.archived ? '/projects?archived=1' : '/projects'
+  if (sc.kind === 'project') return `/project/${encodeURIComponent(sc.id)}`
   const s = new URLSearchParams()
   s.set('view', sc.view)
   if (sc.folder) s.set('folder', sc.folder)
@@ -137,6 +143,7 @@ export function toUrl(p: Place): string {
   if (q.flag) s.set('flag', q.flag)
   if (q.label) s.set('label', q.label)
   addM45Params(q, s)
+  addProjectParams(q, s)
   if (p.item) s.set('item', p.item)
   if (p.item && p.full) s.set('full', '1')
   const qs = s.toString()
@@ -155,6 +162,7 @@ function filterParams(q: Query): URLSearchParams {
   if (q.flag) s.set('flag', q.flag)
   if (q.label) s.set('label', q.label)
   addM45Params(q, s)
+  addProjectParams(q, s)
   return s
 }
 
@@ -200,6 +208,7 @@ export function fromUrl(pathname: string, search: string): Place {
     flag: ['pick', 'reject', 'none'].includes(s.get('flag') ?? '') ? s.get('flag') : null,
     label: LABEL_PARAMS.includes(s.get('label') ?? '') ? s.get('label') : null,
     ...m45FromSearch(s),
+    ...projectFromSearch(s),
   }
   let smartId: string | null = null
   const [head, arg] = parts
@@ -231,10 +240,15 @@ export function fromUrl(pathname: string, search: string): Place {
       flag: query.flag,
       label: query.label,
       ...m45FromSearch(s),
+      ...projectFromSearch(s),
     }
     return { query: filters, smartId: null, item: null, full: false, screen }
   } else if (head === 'add') {
     return { query: { ...emptyQuery }, smartId: null, item: null, full: false, screen: { kind: 'add', search: search && search !== '?' ? (search.startsWith('?') ? search : `?${search}`) : '' } }
+  }
+  else if (head === 'projects' || (head === 'project' && arg)) {
+    const screen: Screen = head === 'project' ? { kind: 'project', id: arg } : { kind: 'projects', ...(s.get('archived') === '1' ? { archived: true } : {}) }
+    return { query: { ...emptyQuery }, smartId: null, item: null, full: false, screen }
   }
   else if (head === 'boards' || (head === 'board' && arg) || head === 'triage') {
     const screen: Screen =

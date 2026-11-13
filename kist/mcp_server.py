@@ -36,6 +36,7 @@ from .services import ingest, library
 from .services import items as items_svc
 from .services import jobs as jobs_svc
 from .services import links as links_svc
+from .services import projects as projects_svc  # F6
 from .services import search as search_svc
 from .services import smart_folders as smart_svc
 from .services import stacks as stacks_svc
@@ -86,6 +87,7 @@ EXPECTED_ERRORS = (
     boards_svc.Conflict,
     annotations_svc.NotFound,
     templates_svc.NotFound,
+    projects_svc.NotFound,  # F6
     folders_svc.FolderError,
     TransitionError,
     ValueError,  # validation.ValidationError, BadCursor, NotMediaError, ...
@@ -181,7 +183,10 @@ item_out = ItemOut.for_agent
     "has_audio, duration_min/duration_max (seconds). auto_kind is a kind from "
     "list_kinds (screenshots, drawings ...; '-screenshots' leaves them out, "
     "'drawings:unsure' lists the borderline calls to review). Every filter "
-    "applies to every ranking too. "
+    "applies to every ranking too. project=<project id> keeps items filed in that "
+    "project's folders; fields={'season': 'SS27', 'edition': '>=3'} filters by "
+    "custom fields (see list_projects; '*' = any value, 'none' = no value, "
+    "a..b ranges for numbers and dates, substrings for text). "
     "Pass the returned next_cursor to fetch the following page.",
     restricted_ok=True,
 )
@@ -227,6 +232,8 @@ def search_items(
     print_min: str | None = None,
     print_max: str | None = None,
     auto_kind: str | None = None,
+    project: str | None = None,
+    fields: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     limit = max(1, min(limit, 100))
     credits_spec = _credits_filters(rights_status=rights_status, needs_credit=needs_credit,
@@ -248,6 +255,7 @@ def search_items(
             text=text, has_text=has_text,
             stacks="collapse" if collapse_stacks else None, person=person,
             flag=flag, label=label, credits=credits_spec, auto_kind=auto_kind, **extra,
+            project=project, custom_fields=fields,
         )
         return _page(result)
 
@@ -1346,6 +1354,58 @@ def correct_kind(kind: str, ids: list[str], verdict: str) -> dict[str, Any]:
         raise ToolError("verdict must be belongs, not or clear")
     with SessionLocal() as session:
         return kinds_svc.correct(session, ids, kind, values[verdict])
+
+
+# ---------- F6: projects and custom fields (services/projects.py) ----------
+
+
+@tool(
+    "List projects (a job: name, client, job number, phase, status, notes) with "
+    "how many folders, smart folders, boards and share links each groups, and "
+    "their custom fields (id, name, key, type, choices). status is active "
+    "(default), archived or all."
+)
+def list_projects(status: str = "active") -> list[dict[str, Any]]:
+    with SessionLocal() as session:
+        return projects_svc.list_projects(session, status)
+
+
+@tool(
+    "Get one project: its details, its members (folders, smart folders, boards, "
+    "share links; missing=true when one was deleted), its custom fields, and "
+    "its most recently changed items (items filed in its folders). Search a "
+    "project's items with search_items(project=<id>)."
+)
+def get_project(id: str, recent: int = 12) -> dict[str, Any]:
+    with SessionLocal() as session:
+        out = projects_svc.get(session, id)
+        result = search_svc.search(session, project=id, order="-modified",
+                                   limit=max(0, min(recent, 50)) or 1)
+        out["recent_items"] = [item_out(i) for i in result.items][:max(0, recent)]
+        out["item_count"] = result.total
+        return out
+
+
+@tool(
+    "Set custom field values on items. values maps a field id (from "
+    "list_projects or get_project) to a value: text, a number, a date "
+    "(YYYY-MM-DD), one of a choice field's choices, or an http(s) link; null "
+    "or '' clears it. A field applies only to items filed in its project's "
+    "folders: other items are skipped and listed. One batch (undo_batch "
+    "reverts it).",
+    needs=Action.EDIT,
+)
+def set_field_values(item_ids: list[str], values: dict[str, Any]) -> dict[str, Any]:
+    with SessionLocal() as session:
+        out = projects_svc.bulk_set(session, item_ids, values)
+        items = []
+        for item_id in dict.fromkeys(item_ids):
+            try:
+                items.append(item_out(items_svc.get_item(session, item_id)))
+            except items_svc.NotFound:
+                continue
+        out["items"] = items
+        return out
 
 
 # Mounted by kist.app at /mcp; streamable_http_path="/" so the endpoint is

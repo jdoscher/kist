@@ -28,6 +28,7 @@ from .services import faces as faces_svc
 from .services import folders as folders_svc
 from .services import items as items_svc
 from .services import jobs as jobs_svc
+from .services import projects as projects_svc
 from .services import shares as shares_svc
 from .services import smart_folders as smart_svc
 from .services import stacks as stacks_svc
@@ -118,6 +119,7 @@ def _error(status: int, detail) -> JSONResponse:
 @app.exception_handler(shares_svc.NotFound)
 @app.exception_handler(exports_svc.NotFound)
 @app.exception_handler(colourbooks_svc.NotFound)  # F5
+@app.exception_handler(projects_svc.NotFound)  # F6
 async def not_found(request: Request, exc: Exception):
     return _error(404, str(exc))
 

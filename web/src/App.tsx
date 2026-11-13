@@ -40,6 +40,8 @@ const TimelineScreen = lazy(() => import('./components/m45/TimelineScreen'))
 const MapScreen = lazy(() => import('./components/m45/MapScreen'))
 const AddPage = lazy(() => import('./components/m45/AddPage'))
 const BookmarkletPage = lazy(() => import('./components/m45/BookmarkletPage'))
+// F6: the projects list and a project's page
+const ProjectsScreens = lazy(() => import('./components/projects/ProjectsScreen'))
 
 function TokenGate({ onDone, overlay = false }: { onDone: () => void; overlay?: boolean }) {
   const [value, setValue] = useState('')
@@ -190,6 +192,7 @@ function Screens({ mobile }: { mobile: boolean }) {
             {screen?.kind === 'boards' && <BoardsScreen trash={!!screen.trash} />}
             {screen?.kind === 'timeline' && <TimelineScreen group={screen.group} />}
             {screen?.kind === 'map' && <MapScreen />}
+            {(screen?.kind === 'projects' || screen?.kind === 'project') && <ProjectsScreens screen={screen} />}
           </Suspense>
         ) : (
           <>

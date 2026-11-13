@@ -15,6 +15,7 @@ import './styles.css'
 import './m2.css'
 import './creative.css'
 import './m45.css'
+import './projects.css'
 import './phone.css'
 import './credits.css' // F4
 import './kinds.css' // F1 utility collections

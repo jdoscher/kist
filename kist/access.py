@@ -154,6 +154,8 @@ RESTRICTED_PATHS = [
         # lookup behind a colour search chip (books hold no items)
         rf"^{_ITEM}/palette/codes$",
         r"^/api/colourbooks/lookup$",
+        # F6: pins, limited to the reader's folders and boards (services/projects)
+        r"^/api/pins$",
     )
 ]
 HELPER_PREFIX = "/api/ai/jobs"
