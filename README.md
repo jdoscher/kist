@@ -174,6 +174,7 @@ history shows its name. All tools: [MCP](#mcp-claude-and-other-agents).
 | `KIST_ML_BASE_URL` | `https://huggingface.co` | Where model files are downloaded from (a mirror works: files are checked by sha256) |
 | `TZ` | `UTC` | The worker's time zone, which `KIST_AI_WINDOW` is in |
 | `KIST_FACES` | `0` | Faces and people, opt-in. Set it for the app, worker **and** ml service: the worker then queues a `faces` job per image, and only then does the ml service download (~39 MB) and load the face models. See [Organising](#organising-vocabulary-duplicates-stacks-collections-people) |
+| `KIST_CUTOUTS` | `1` | Subject cut-outs (app, worker and ml service): "Cut out subject" makes a transparent PNG as a new item. The ml service downloads the model the first time someone asks for one (ISNet 179 MB; BiRefNet-lite 224 MB for "Fine edges"); `0` turns it off. See [docs/ai.md](docs/ai.md#subject-cut-outs) |
 | `KIST_FACE_MODELS_URL` | — | A mirror for the two face model files (they're checked by sha256 either way) |
 | `KIST_COLLECTIONS_INTERVAL_HOURS` | `24` | How often the worker recomputes suggested collections; `0` = only on request (`?refresh=1`) |
 | `KIST_EXPORT_RETENTION_DAYS` | `7` | Finished portable exports (`library/exports/`) are deleted after this many days; `0` keeps them |
