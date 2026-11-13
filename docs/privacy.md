@@ -18,6 +18,7 @@ which Kist itself contacts something outside your network, and what it sends.
 | feature | setting to turn off | what leaves |
 |---|---|---|
 | Model downloads | `KIST_ML_BASE_URL` (a mirror) | on first start of the `ml` service, the model files from Hugging Face (~600 MB); with `KIST_FACES=1`, the face models (~39 MB) from OpenCV's model zoo on GitHub (`KIST_FACE_MODELS_URL` for a mirror). All are checked by sha256 |
+| Cut-out models | `KIST_CUTOUTS=0` (off), `KIST_CUTOUT_MODELS_URL` (a mirror) | only the first time someone asks for a cut-out: the chosen model from Hugging Face, once (ISNet 179 MB, or BiRefNet-lite 224 MB for "Fine edges"), checked by sha256. The dialog says so before it starts. Your images never leave the server: cut-outs run on your ml service |
 
 Things that happen only when you ask: **Add from URL** downloads that URL
 (private and LAN addresses are refused unless `KIST_URL_ALLOW_PRIVATE` or

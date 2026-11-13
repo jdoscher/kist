@@ -65,6 +65,28 @@ of them with `kist ai-backfill --kind caption`, or new ones automatically with
 Only then does the ml service download the face models (~39 MB). Faces are
 never matched against anything outside your library.
 
+## Subject cut-outs
+
+"Cut out subject" (preview, info panel, phone item sheet, the selection's
+More menu, a board's inspector, MCP `cut_out_subject`) queues a `cutout` job
+on the AI lane. The worker sends a preview-sized copy to the ml service
+(`POST /cutout`), gets the subject's mask back and builds a transparent PNG
+from the original's own pixels and colour profile, trimmed to the subject. It
+becomes a new item linked *derived from* the original, with its tags, folders
+and provenance; the original is never changed. Settings stored with it
+(`media.cutout` in its `meta.json`): model, edge feather, keep shadow, the
+crop box.
+
+| model | licence | size | 1024 px on an Intel N100 | on an Apple M6 |
+|---|---|---|---|---|
+| `isnet-general-use` ("Fast", default) | Apache-2.0 | 179 MB | 3.3–5.2 s | 0.7–1.3 s |
+| `birefnet-lite` ("Fine edges") | MIT | 224 MB | 23–29 s | 4–7 s |
+
+Each model downloads the first time someone picks it (never at start), in
+the background: until it's there, jobs wait without using up an attempt and
+the dialog shows the progress. `KIST_CUTOUTS=0` turns cut-outs off.
+`kist helper` doesn't run cut-out jobs; the ml service does.
+
 ## Tag suggestions
 
 The info panel suggests tags from your own vocabulary, with the reason. They

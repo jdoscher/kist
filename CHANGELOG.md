@@ -988,6 +988,10 @@ The aesthetic pass: one grey, one control language, one type system.
 - On the phone the item sheet, the folder drawer and the Move to… and Tags sheets glide in on the iPhone's own sheet curve (a little slower and softer than desktop menus), with the backdrop fading at the same pace. Reduce Motion turns it off.
 - **Remove a dead token from the list:** after you revoke a token, the notice offers **Remove from list**, and every revoked or expired token's card has the same button (`DELETE /api/tokens/{id}/entry`; a token that still works must be revoked first). Its changes keep its name in item history, and `tokens.json` follows, so `rebuild-index` doesn't bring it back.
 
+### Features from the art-team panel
+
+- **Subject cut-outs (F7).** "Cut out subject" lifts the subject off its background as a new transparent PNG, linked *derived from* the original, with its tags, folders and credit; the original is never touched. It's in the preview, the info panel (which also lists an image's cut-outs), the phone item sheet, the selection bar's More menu (a cut-out per image), a board's inspector (**Cut out** swaps the placed image for its cut-out; Undo puts it back) and MCP (`cut_out_subject`). Choose **Fast** (ISNet, a few seconds on a NAS CPU) or **Fine edges** (BiRefNet-lite, keeps thin parts and white-on-white subjects, about six times slower), an edge feather (0–20 px) and **Keep the shadow**. It runs as a `cutout` job on your own ml service; the model (179 or 224 MB) downloads once, the first time someone asks, and the dialog says so. Boards draw cut-outs with no card or shadow, and board exports keep them transparent. `KIST_CUTOUTS=0` turns it off. Endpoints: `POST /api/items/{id}/cutout`, `POST /api/cutouts`, `GET /api/items/{id}/cutouts`, `GET /api/items/{id}/cutout-preview`, `POST /api/boards/{id}/nodes/{node}/cutout`, `GET /api/cutouts/status`; the ml service has `POST /cutout`.
+
 ## [1.5.0] - 2026-11-09
 
 A hardening release. Kist was reviewed for security, data integrity,
