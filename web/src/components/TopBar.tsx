@@ -17,6 +17,8 @@ import { ColourPicker, hasSearchChips, SearchChips, SearchModeMenu, useImageSear
 import { useCreative } from './m3/Creative'
 import { labelName } from '../cull'
 import { hasM45Filters } from '../m45/filters'
+import { hasProjectFilters } from '../projectFilters'
+import { ProjectChips } from './projects/ProjectChips'
 import { FiltersButton, M45Chips, ViewShareMenu } from './m45/TopBarExtras'
 
 const PLACEHOLDER: Record<SearchMode, string> = {
@@ -149,7 +151,8 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
     !!query.created_before ||
     !!query.flag ||
     !!query.label ||
-    hasM45Filters(query)
+    hasM45Filters(query) ||
+    hasProjectFilters(query)
 
   // debounce free-text search; what it sends depends on the mode
   useEffect(() => {
@@ -299,6 +302,7 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
               />
             )}
             <M45Chips query={query} setQuery={setQuery} />
+            <ProjectChips query={query} setQuery={setQuery} />
           </div>
         )}
         <input

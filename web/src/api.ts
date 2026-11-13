@@ -1,5 +1,6 @@
 import { imageFor } from './imageSearch.ts'
 import { addM45Params, type M45Filters } from './m45/filters.ts'
+import { addProjectParams, type ProjectFilters } from './projectFilters.ts'
 import { bucketParams, scrubSort, type Buckets } from './scrub.ts'
 import { reportNetwork } from './shell.ts'
 
@@ -45,6 +46,8 @@ export interface Item {
   dominant_colors: { hex: string; pct: number }[] | null
   /** base64 ThumbHash for the loading placeholder (newer servers only) */
   thumbhash?: string | null
+  /** F6: custom field values, {field id: value} (projects.ts) */
+  custom_fields?: Record<string, string | number>
   /** can't be trashed or deleted until unprotected (Kist 2.0) */
   protected?: boolean
   folder_ids: string[]
@@ -137,7 +140,7 @@ export interface Stats {
   unfiled?: number
 }
 
-export interface Query extends M45Filters {
+export interface Query extends M45Filters, ProjectFilters {
   q: string
   tags: string[]
   tags_any: string[]
@@ -495,6 +498,7 @@ export function itemsParams(query: Query, cursor?: string, limit = 120): URLSear
   if (query.label) p.set('label', query.label)
   // Milestones 4 and 5: provenance and media filters (m45/filters.ts)
   addM45Params(query, p)
+  addProjectParams(query, p) // F6: project=, field.<key>=
   p.set('order', query.order)
   p.set('limit', String(limit))
   if (cursor) p.set('cursor', cursor)

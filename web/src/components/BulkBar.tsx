@@ -13,6 +13,7 @@ import { useNotices } from './Notices'
 import { useStackActions } from './BulkStack'
 import { BulkBoardSelect, BulkFlags, useBulkCreativeMore } from './m3/BulkCreative'
 import { useBulkM45More } from './m45/BulkM45'
+import { useBulkProjectFields } from './projects/BulkFields'
 
 /** One entry in the bulk bar's More menu. */
 export interface BulkMenuItem {
@@ -245,6 +246,7 @@ export function BulkBar() {
   const stackItems = useStackActions(busy)
   const creativeItems = useBulkCreativeMore(ids, busy)
   const m45Items = useBulkM45More(ids, busy)
+  const projectFields = useBulkProjectFields(ids, busy) // F6
 
   // one item selected: the info panel has every action; the bar is for
   // two or more (B5). Delete still trashes a single selection (above).
@@ -266,6 +268,7 @@ export function BulkBar() {
     ...stackItems,
     ...creativeItems,
     ...m45Items,
+    ...(caps.restricted ? [] : projectFields.items),
   ]
 
   // one 40 px row docked under the grid (B5): count and clear, then Tag,
@@ -273,6 +276,7 @@ export function BulkBar() {
   return (
     <div className="bulkbar" role="toolbar" aria-label="Selection actions">
       <span className="sel-count">{ids.length} selected</span>
+      {projectFields.element}
       <button className="icon-btn" onClick={clearSelection} aria-label="Clear selection" title="Clear selection (Esc)">
         <X size={16} aria-hidden="true" />
       </button>
