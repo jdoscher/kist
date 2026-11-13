@@ -1151,6 +1151,67 @@ def item_buckets(
         return buckets.buckets(session, filters, sort=sort, order=order)
 
 
+# ---------- 2.0 F2: Present (services/present.py) ----------
+
+
+def _show_out(show: dict) -> dict[str, Any]:
+    return {**show, "web_url": f"/?present={show['id']}"}
+
+
+@tool(
+    "List saved Present shows (full-screen slideshows): id, name, source "
+    "(folder|smart|board|items), options and compare pairs. Open one in the "
+    "web app at its web_url.",
+    restricted_ok=True,
+)
+def list_shows() -> list[dict[str, Any]]:
+    from .services import present as present_svc
+
+    with SessionLocal() as session:
+        return [_show_out(s) for s in present_svc.list_shows(session)]
+
+
+@tool(
+    "Save a Present show (a full-screen slideshow for a crit or client review) "
+    "of a folder, smart folder or board (source_kind folder|smart|board with "
+    "source_id; a board plays in board order) or of chosen items in order "
+    "(source_kind items with item_ids). compare is a list of [a, b] item id "
+    "pairs shown side by side; pairs='stacks' or 'versions' pairs every item "
+    "with its stack partner or previous version. Options: surround grey|black, "
+    "captions (title + credit), filenames (off by default), ken_burns (off by "
+    "default; never moves drawings or documents), advance_seconds (0 = off), "
+    "gesture_seconds 30|60|120|300 for a gesture-drawing timer. Returns the "
+    "show with web_url and slide_count.",
+    needs=Action.EDIT,
+)
+def create_show(name: str, source_kind: str, source_id: str | None = None,
+                item_ids: list[str] | None = None, compare: list[list[str]] | None = None,
+                pairs: str = "none", surround: str = "grey", captions: bool = True,
+                filenames: bool = False, ken_burns: bool = False, advance_seconds: int = 0,
+                gesture_seconds: int | None = None) -> dict[str, Any]:
+    from .services import present as present_svc
+
+    if source_kind == "search":
+        raise ToolError("use source_kind items with the item_ids search_items found")
+    source: dict[str, Any] = {"kind": source_kind}
+    if source_id:
+        source["id"] = source_id
+    if item_ids:
+        source["item_ids"] = item_ids
+    with SessionLocal() as session:
+        show = present_svc.create_show(session, name=name, source=source, compare=compare,
+                                       options={"pairs": pairs, "surround": surround,
+                                                "captions": captions, "filenames": filenames,
+                                                "ken_burns": ken_burns,
+                                                "advance_seconds": advance_seconds,
+                                                "gesture_seconds": gesture_seconds})
+        try:
+            slides = present_svc.show_slides(session, show["id"])
+        except present_svc.NotFound as exc:
+            raise ToolError(str(exc)) from None
+        return {**_show_out(show), "slide_count": len(slides["slides"])}
+
+
 # Mounted by kist.app at /mcp; streamable_http_path="/" so the endpoint is
 # exactly /mcp. host="0.0.0.0" disables the SDK's localhost-only DNS-rebinding
 # allowlist (the app is reached over the LAN; our bearer middleware guards it).

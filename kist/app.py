@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from . import __version__, share_pages
 from .access import FORBIDDEN_MESSAGE, Forbidden
 from .api import api_router
+from .api import present as present_api  # 2.0 F2
 from .auth import BearerTokenMiddleware
 from .compress import CompressText
 from .config import get_settings
@@ -87,6 +88,8 @@ class McpPathRewrite:
 app = FastAPI(title="Kist", version=__version__, lifespan=lifespan)
 app.include_router(api_router, prefix="/api")
 app.include_router(share_pages.router)  # /s/<slug> and /robots.txt: public, no token
+# 2.0 F2: the phone remote's relay (its own pairing token, no Kist token)
+app.include_router(present_api.relay_router)
 app.mount("/mcp", mcp_http_app)
 app.add_middleware(BearerTokenMiddleware)
 app.add_middleware(McpPathRewrite)
@@ -190,7 +193,7 @@ if WEB_DIST.is_dir():
     @app.get("/{path:path}", include_in_schema=False)
     async def spa(path: str):
         # an unknown API path is an error, not the web app
-        if path.split("/", 1)[0] in ("api", "mcp", "s"):
+        if path.split("/", 1)[0] in ("api", "mcp", "s", "present-relay"):
             return JSONResponse({"detail": "Not Found"}, status_code=404)
         candidate = (WEB_DIST / path).resolve()
         if path and candidate.is_file() and candidate.is_relative_to(WEB_DIST):

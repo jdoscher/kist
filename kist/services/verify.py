@@ -239,6 +239,9 @@ def run(session: Session) -> Report:
     report.problems.extend(suggestions_svc.check_feedback_files(session))
     check_creative(session, report)
     check_m4(session, report)
+    from . import present  # 2.0 F2: saved shows (library/.kist/shows.json)
+
+    report.problems.extend(present.check_file(session))
     for key in meta_svc.pending():
         report.problems.append(f"{key}: an earlier write to disk failed")
     return report
