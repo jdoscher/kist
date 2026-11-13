@@ -121,6 +121,11 @@ class Settings(BaseSettings):
     xmp_sidecars: bool = True
     # failed share-link password tries allowed per link per 15 minutes
     share_password_attempts: int = 10
+    # F3 guest proofing (services/proofing.py): guest feedback actions
+    # (pick, heart, comment, name) allowed per visitor address and per share
+    # link in 10 minutes; in memory, nothing about the visitor is stored
+    proof_actions_per_ip: int = 120
+    proof_actions_per_share: int = 1500
 
     @property
     def exports_dir(self) -> Path:

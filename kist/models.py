@@ -646,3 +646,71 @@ class Annotation(Base):
         DateTime(timezone=True), server_default=func.now()
     )
     resolved: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+
+
+# ---------- F3: guest proofing on share links (services/proofing.py) ----------
+
+
+class ShareProofing(Base):
+    """A share link's guest-feedback settings and rounds. The durable copy
+    is library/.kist/shares/<share_id>/feedback.json."""
+
+    __tablename__ = "share_proofing"
+
+    share_id: Mapped[str] = mapped_column(
+        String(26), ForeignKey("shares.id", ondelete="CASCADE"), primary_key=True
+    )
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    show_all: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    round: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    round_open: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    # [{n, started_at, closed_at}]
+    rounds: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
+    seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class _ProofRow:
+    id: Mapped[str] = mapped_column(String(26), primary_key=True)
+    round: Mapped[int] = mapped_column(Integer)
+    guest_id: Mapped[str] = mapped_column(Text)
+    guest_name: Mapped[str] = mapped_column(Text, default="", server_default="")
+    item_id: Mapped[str] = mapped_column(String(26))  # no FK: kept after a purge
+    item_sha256: Mapped[str] = mapped_column(Text, default="", server_default="")
+    item_version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    accepted_batch: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class ProofMark(_ProofRow, Base):
+    """One guest's pick/reject and heart on one item in one round."""
+
+    __tablename__ = "proof_marks"
+
+    share_id: Mapped[str] = mapped_column(
+        String(26), ForeignKey("shares.id", ondelete="CASCADE")
+    )
+    verdict: Mapped[str | None] = mapped_column(Text, nullable=True)  # pick | reject
+    heart: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    accepted_as: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class ProofComment(_ProofRow, Base):
+    """One guest comment on one item in one round (plain text)."""
+
+    __tablename__ = "proof_comments"
+
+    share_id: Mapped[str] = mapped_column(
+        String(26), ForeignKey("shares.id", ondelete="CASCADE")
+    )
+    text: Mapped[str] = mapped_column(Text)
+    # the annotation an accepted comment became
+    annotation_id: Mapped[str | None] = mapped_column(String(26), nullable=True)

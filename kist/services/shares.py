@@ -312,6 +312,9 @@ def delete(session: Session, share_id: str) -> None:
     session.delete(share)
     session.commit()
     sync_file(session)
+    from . import proofing  # F3: its guest feedback goes with it
+
+    proofing.on_share_deleted(share_id)
 
 
 # ---------- the public side ----------

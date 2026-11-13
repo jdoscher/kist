@@ -327,6 +327,14 @@ def rebuild_index(wipe: bool) -> int:
             warnings += 1
         elif restored_shares:
             print(f"share links: {restored_shares} restored")
+        from .services import proofing as proofing_svc  # F3: after the shares
+
+        restored_feedback, bad_feedback = proofing_svc.restore(session)
+        if bad_feedback:
+            warn(f"{bad_feedback} guest feedback file(s) unreadable")
+            warnings += 1
+        elif restored_feedback:
+            print(f"guest feedback: {restored_feedback} restored")
 
         restored_tokens, token_problem = tokens_svc.restore(session)
         if token_problem:
@@ -560,6 +568,9 @@ def rewrite_meta() -> int:
         from .services import shares as shares_svc
 
         folders_ok = shares_svc.sync_file(session) and folders_ok
+        from .services import proofing as proofing_svc  # F3
+
+        folders_ok = proofing_svc.sync_all(session) and folders_ok
     if not failed and folders_ok:
         meta_svc.clear_pending()
     print(f"rewrote meta.json for {written} items (+ folders.json, tokens.json, "

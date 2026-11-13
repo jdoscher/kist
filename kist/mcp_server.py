@@ -1151,6 +1151,47 @@ def item_buckets(
         return buckets.buckets(session, filters, sort=sort, order=order)
 
 
+# ---------- F3: guest proofing on share links ----------
+
+
+@tool(
+    "Guest feedback from share links that let guests pick and comment: "
+    "marks (verdict pick/reject, heart) and comments, newest first. Filter by "
+    "share_id, round, item_id; unseen=true lists only what the owner hasn't "
+    "looked at. Each row has the item, the guest's display name, the round "
+    "and whether it was accepted. Guests never change the library; use "
+    "accept_guest_feedback to turn feedback into picks or annotations.",
+    needs=Action.EDIT,
+)
+def guest_feedback(share_id: str | None = None, round: int | None = None,
+                   item_id: str | None = None, unseen: bool = False,
+                   limit: int = 50) -> list[dict[str, Any]]:
+    from .services import proofing as proofing_svc
+
+    with SessionLocal() as session:
+        rows = proofing_svc.feedback_rows(session, share_id=share_id, round=round,
+                                          item_id=item_id, unseen=unseen, limit=limit)
+        return json.loads(json.dumps(rows, default=str))
+
+
+@tool(
+    "Accept guest feedback (ids from guest_feedback): marks become the item's "
+    "pick/reject flag (as_='pick'|'reject'|'label:<colour>', default what the "
+    "guest chose; a heart alone becomes a pick), comments become annotations "
+    "on the whole image by 'Guest: <name> via <share>'. One undoable batch; "
+    "returns its batch_id, the accepted ids and the skipped ones with why.",
+    needs=Action.EDIT,
+)
+def accept_guest_feedback(mark_ids: list[str] | None = None,
+                          comment_ids: list[str] | None = None,
+                          as_: str | None = None) -> dict[str, Any]:
+    from .services import proofing as proofing_svc
+
+    with SessionLocal() as session:
+        return proofing_svc.accept(session, mark_ids=mark_ids, comment_ids=comment_ids,
+                                   as_=as_)
+
+
 # Mounted by kist.app at /mcp; streamable_http_path="/" so the endpoint is
 # exactly /mcp. host="0.0.0.0" disables the SDK's localhost-only DNS-rebinding
 # allowlist (the app is reached over the LAN; our bearer middleware guards it).

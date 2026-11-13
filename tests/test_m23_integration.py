@@ -419,7 +419,7 @@ def test_migrations_are_one_line():
     from alembic.script import ScriptDirectory
 
     script = ScriptDirectory.from_config(Config("alembic.ini"))
-    assert script.get_heads() == ["0803"]
+    assert script.get_heads() == ["0921"]  # F3 guest proofing
     chain = [r.revision for r in script.walk_revisions("base", "heads")]
-    assert chain[:12] == ["0803", "0802", "0801", "0701", "0603", "0602", "0601", "0501",
+    assert chain[:13] == ["0921", "0803", "0802", "0801", "0701", "0603", "0602", "0601", "0501",
                           "0401", "0301", "0201", "0101"]

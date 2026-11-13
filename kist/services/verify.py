@@ -215,6 +215,9 @@ def check_m4(session: Session, report: Report) -> None:
     from . import export_images, shares, snapshots
 
     report.problems.extend(shares.check_file(session))
+    from . import proofing  # F3 guest feedback (shares/<id>/feedback.json)
+
+    report.problems.extend(proofing.check_files(session))
     report.problems.extend(snapshots.check(session))
     report.problems.extend(export_images.check_file())
 

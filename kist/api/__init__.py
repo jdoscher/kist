@@ -11,6 +11,7 @@ from . import (
     m4,
     misc,
     organise,
+    proofing,  # F3
     search,
     shares,  # M4
     smart_folders,
@@ -37,5 +38,6 @@ api_router.include_router(organise.router)
 api_router.include_router(boards.router)
 api_router.include_router(creative.router)
 api_router.include_router(shares.router)
+api_router.include_router(proofing.router)  # F3 guest proofing
 api_router.include_router(m4.router)
 api_router.include_router(media_routes.router)  # Milestone 5
