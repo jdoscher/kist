@@ -96,11 +96,14 @@ def test_project_crud_members_and_status(client, upload):
 def test_show_member_kind_can_be_registered():
     from kist.services import projects as svc
 
+    # the integration registers Present's shows (projects._shows); put it back
+    real = svc.MEMBER_KINDS.get("show")
+    assert real is svc._shows
     try:
         svc.register_member_kind("show", lambda session, ids: {i: {"name": "Crit"} for i in ids})
-        assert "show" in svc.MEMBER_KINDS
+        assert svc.MEMBER_KINDS["show"] is not real
     finally:
-        svc.MEMBER_KINDS.pop("show", None)
+        svc.register_member_kind("show", real)
 
 
 def test_custom_fields_values_scope_and_validation(client, upload):
