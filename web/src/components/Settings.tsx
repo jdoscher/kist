@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { BookOpen, Check, Copy, Cpu, Eraser, FolderInput, KeyRound, Share2, ShieldCheck, Smartphone, Stamp, TriangleAlert, X } from 'lucide-react'
+import { BookOpen, Check, Copy, Cpu, Eraser, FolderInput, KeyRound, Shapes, Share2, ShieldCheck, Smartphone, Stamp, TriangleAlert, X } from 'lucide-react'
 import { lazy, Suspense, useId, useState } from 'react'
 import { api, emptyQuery, type ApiToken, type ArchiveHealth } from '../api'
 import { useCaps, useFolderNames, useFolders, useMe, useStats } from '../data'
@@ -20,11 +20,13 @@ const TemplatesSection = lazy(() => import('./m3/Templates').then((m) => ({ defa
 const SharingSection = lazy(() => import('./m45/SettingsSections').then((m) => ({ default: m.SharingSection })))
 const ImportSection = lazy(() => import('./m45/SettingsSections').then((m) => ({ default: m.ImportSection })))
 const PhoneSection = lazy(() => import('./m45/SettingsSections').then((m) => ({ default: m.PhoneSection })))
+const KindsSection = lazy(() => import('./kinds/KindsSettings')) // F1
 
 const SECTIONS: { id: SettingsSection; label: string; icon: typeof KeyRound }[] = [
   { id: 'tokens', label: 'Tokens', icon: KeyRound },
   { id: 'archive', label: 'Archive health', icon: ShieldCheck },
   { id: 'ai', label: 'AI', icon: Cpu },
+  { id: 'kinds', label: 'Kinds', icon: Shapes }, // F1 utility collections
   { id: 'vocabulary', label: 'Vocabulary', icon: BookOpen },
   { id: 'cleanup', label: 'Tag cleanup', icon: Eraser },
   { id: 'templates', label: 'Templates', icon: Stamp },
@@ -84,6 +86,7 @@ export function SettingsScreen() {
               {section === 'sharing' && <SharingSection />}
               {section === 'import' && <ImportSection />}
               {section === 'phone' && <PhoneSection />}
+              {section === 'kinds' && <KindsSection />}
             </Suspense>
           </main>
         </div>

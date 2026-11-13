@@ -32,6 +32,7 @@ export default function FiltersPanel({ onClose }: { onClose: () => void }) {
     ai_generated: cur.ai_generated ?? '',
     license: cur.license ?? '',
     source_status: cur.source_status ?? '',
+    auto_kind: cur.auto_kind ?? '', // F1: kept (picked in the sidebar's Kinds)
   }))
   const id = useId()
   const set = (k: M45FilterKey, v: string) => setF((x) => ({ ...x, [k]: v }))

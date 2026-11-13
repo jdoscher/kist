@@ -6,6 +6,7 @@
 // tests/m45.test.ts.
 
 import type { Query } from '../api.ts'
+import { cleanKindFilter, kindTitle } from '../kindsCore.ts'
 
 export const M45_FILTER_KEYS = [
   'taken_after',
@@ -24,6 +25,8 @@ export const M45_FILTER_KEYS = [
   'ai_generated',
   'license',
   'source_status',
+  // F1 utility collections (kindsCore.ts): drawings, -screenshots, drawings:unsure
+  'auto_kind',
 ] as const
 export type M45FilterKey = (typeof M45_FILTER_KEYS)[number]
 export type M45Filters = Partial<Record<M45FilterKey, string | null>>
@@ -49,6 +52,7 @@ export function cleanFilter(key: M45FilterKey, raw: unknown): string | null {
   if (key === 'bbox') return parseBbox(v) ? v : null
   if (key === 'source_status') return STATUSES.includes(v) ? v : null
   if (key === 'ai_generated') return AI.includes(v) ? v : null
+  if (key === 'auto_kind') return cleanKindFilter(v)
   return v.slice(0, 200)
 }
 
@@ -144,5 +148,7 @@ export function filterChipLabel(key: M45FilterKey, v: string): string {
       return v === 'none' ? 'No licence' : `Licence: ${v}`
     case 'source_status':
       return `Source ${v}`
+    case 'auto_kind':
+      return kindTitle(v)
   }
 }

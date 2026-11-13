@@ -40,6 +40,7 @@ import { useAiFlags } from './ItemAI'
 import type { Query } from '../api'
 import { SidebarBoards, SidebarCull } from './m3/Boards'
 import { SetupChecklist } from './m3/FirstRun'
+import { SidebarKinds } from './kinds/KindsUI'
 import { hasM45Filters } from '../m45/filters'
 import { attentionCount } from '../attention'
 import { readPrefs, savePref, type TagView } from '../settings'
@@ -593,6 +594,8 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
         {tree.length === 0 && (
           <div className="hint">{mobile || !caps.canEdit ? 'No folders yet.' : 'No folders yet. Press + to make one.'}</div>
         )}
+
+        <SidebarKinds />
 
         {!caps.restricted && (
           <>

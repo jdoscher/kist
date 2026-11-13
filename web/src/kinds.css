@@ -1,0 +1,182 @@
+/* F1 utility collections ("Kinds"): sidebar rows, the kind bar over the
+   grid, the info-panel chips, Settings → Kinds. Every class starts with
+   kd- (web/tests/css-collisions.test.ts). Tokens only: docs/brand.md. */
+
+/* ---------- sidebar ---------- */
+
+.kd-row.kd-child .row-main {
+  padding-left: 22px;
+}
+.kd-branch {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-left: 4px;
+  border-left: 1px solid var(--text-dim);
+  border-bottom: 1px solid var(--text-dim);
+  transform: translateY(-3px);
+}
+
+/* ---------- the kind bar over the grid ---------- */
+
+.kd-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: 8px 0 4px;
+  font-size: var(--fs-2);
+}
+.kd-strict {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.kd-strict label {
+  color: var(--text-dim);
+}
+.kd-strict input[type='range'] {
+  width: 120px;
+  accent-color: var(--text);
+}
+.kd-dim {
+  color: var(--text-dim);
+}
+.kd-act {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: auto;
+}
+.kd-act button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.kd-act kbd {
+  font-family: var(--font-mono);
+  font-size: var(--fs-1);
+  line-height: 1;
+  color: var(--text-dim);
+  border: 1px solid var(--chrome-line);
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+
+/* ---------- info panel chips ---------- */
+
+/* an automatic call: dashed outline and a small "auto" mark until someone
+   confirms it; a confirmed one is a plain chip */
+.chip.kd-auto {
+  background: transparent;
+  box-shadow: none;
+  outline: 1px dashed var(--text-dim);
+  outline-offset: -1px;
+}
+.chip.kd-out .kd-chip-name {
+  text-decoration: line-through;
+  color: var(--text-dim);
+}
+.kd-chip-name {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.kd-chip-name:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.kd-tag {
+  font-size: var(--fs-1);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.kd-item select {
+  margin-top: 6px;
+}
+
+/* ---------- Settings → Kinds ---------- */
+
+.kd-packs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+}
+.kd-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.kd-check input {
+  accent-color: var(--text);
+}
+.kd-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.kd-inline input {
+  width: 96px;
+}
+.kd-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.kd-kind {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.2fr) 90px minmax(200px, 1fr) auto;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 6px 0;
+  border-top: 1px solid var(--chrome-line);
+}
+.kd-kind:first-child {
+  border-top: 0;
+}
+.kd-kind.kd-child .kd-check {
+  padding-left: 22px;
+}
+.kd-how {
+  grid-column: 1 / -1;
+  font-size: var(--fs-1);
+}
+.kd-kind.kd-child .kd-how {
+  padding-left: 22px;
+}
+.kd-count {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- phone ---------- */
+
+.mobile .kd-bar {
+  gap: 8px;
+}
+.mobile .kd-act {
+  margin-left: 0;
+  width: 100%;
+}
+.mobile .kd-act button {
+  flex: 1;
+  justify-content: center;
+  min-height: 44px;
+}
+.mobile .kd-act kbd,
+.mobile .kd-strict {
+  display: none;
+}
+.mobile .kd-modes {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.mobile .kd-kind {
+  grid-template-columns: 1fr auto;
+}
+.mobile .kd-kind .kd-strict {
+  display: inline-flex;
+  grid-column: 1 / -1;
+}

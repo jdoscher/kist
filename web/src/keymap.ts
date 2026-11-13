@@ -40,6 +40,8 @@ export const KEYMAP: Record<KeyContext, Binding[]> = {
     { keys: ['S'], does: 'open or close the focused stack' },
     { keys: ['C'], does: 'compare the selection (2–4 items)' },
     { keys: ['N'], does: 'survey the selection: pick and reject one by one' },
+    { keys: ['X'], does: 'in a kind (Kinds in the sidebar): not this, for the selection' },
+    { keys: ['B'], does: 'in a kind: belongs here (confirm), for the selection' },
     { keys: ['ContextMenu'], does: 'the item menu (More like this, colour, stack)' },
     { keys: ['Mod+Z'], does: 'Recent changes, focused on the newest Undo' },
     { keys: ['Mod+K'], does: 'command palette' },
@@ -58,6 +60,8 @@ export const KEYMAP: Record<KeyContext, Binding[]> = {
     { keys: ['M'], does: 'note at the current time (video)' },
     { keys: ['I'], does: 'mark in (video)' },
     { keys: ['O'], does: 'mark out: a note over the range (video)' },
+    { keys: ['X'], does: 'in a kind: not this (then the next item)' },
+    { keys: ['B'], does: 'in a kind: belongs here (confirm)' },
     { keys: ['Mod+K'], does: 'command palette' },
   ],
   triage: [

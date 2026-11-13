@@ -461,3 +461,15 @@ def test_kind_catalogue_is_consistent():
     assert {"screenshots", "documents", "drawings", "pencil", "ink", "paintings", "photos",
             "low-res"} <= base
     assert get_settings().__class__.model_fields["kinds"].default is True
+
+
+def test_web_names_match_the_catalogue():
+    """web/src/kindsCore.ts KIND_NAMES (titles before the overview loads)."""
+    import re
+    from pathlib import Path
+
+    src = (Path(__file__).parent.parent / "web" / "src" / "kindsCore.ts").read_text()
+    block = src[src.index("export const KIND_NAMES"):]
+    block = block[:block.index("}")]
+    names = dict(re.findall(r"^\s*'?([a-z0-9-]+)'?: '([^']+)',", block, re.MULTILINE))
+    assert names == {k.id: k.name for k in kinds_catalog.KINDS}
