@@ -149,3 +149,7 @@
   border-radius: 0;
   background: transparent;
 }
+/* native controls stay neutral (brand.md: brass only for the primary button) */
+.cutout-dialog input[type='checkbox'] {
+  accent-color: var(--text);
+}
