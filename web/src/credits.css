@@ -1,0 +1,106 @@
+/* F4: credits and rights, the AI-made badge and the print check.
+ * Class prefix cr- (keeps tests/css-collisions.test.ts green). Only
+ * existing tokens: no new colour pairs. Neutral styling on purpose: a
+ * missing credit or an uncleared item is information, not "needs
+ * attention", and brass stays for the primary button, selection, focus and
+ * stars. */
+
+/* the clearance warning in share/export dialogs and the board's Export menu */
+.cr-warning {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 8px 0;
+  padding: 8px 10px;
+  border: 1px solid var(--field-border);
+  border-radius: 6px;
+  color: var(--text);
+}
+.cr-warning-icon {
+  flex: none;
+  margin-top: 2px;
+}
+.cr-warning-body {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+.cr-warning-body p {
+  margin: 0;
+}
+.cr-warning-list {
+  margin: 0;
+  padding-left: 18px;
+  max-height: 160px;
+  overflow: auto;
+  font-size: var(--fs-1);
+}
+.cr-file {
+  overflow-wrap: anywhere;
+}
+.cr-warning.cr-compact {
+  margin: 6px 0 0;
+  padding: 6px 8px;
+  font-size: var(--fs-1);
+}
+
+/* info panel */
+.cr-rows {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.cr-ai-note {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin: 0;
+  font-size: var(--fs-1);
+}
+.cr-fill {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+}
+.cr-print .section-label {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+.cr-units {
+  display: inline-flex;
+  gap: 2px;
+}
+.cr-units button {
+  min-width: 32px;
+}
+.cr-units button[aria-pressed='true'] {
+  background: var(--accent-soft);
+  outline: 1px solid var(--selected-line);
+  outline-offset: -1px;
+}
+
+/* the AI-made badge: bottom-left on a tile, like the other tile badges */
+.tile .badge.cr-ai {
+  top: auto;
+  bottom: 4px;
+  left: 6px;
+  right: auto;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.mobile .tile .badge.cr-ai {
+  bottom: 3px;
+  left: 3px;
+  padding: 0 4px;
+}
+
+/* bulk dialog */
+.cr-bulk-dialog .form-grid input,
+.cr-bulk-dialog .form-grid select {
+  min-width: 0;
+}
+
+.cr-settings {
+  margin-top: 24px;
+}

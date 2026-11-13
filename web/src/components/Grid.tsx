@@ -1,4 +1,6 @@
 import { defaultRangeExtractor, useVirtualizer, type Range } from '@tanstack/react-virtual'
+import { AiBadge } from './credits/Credits' // F4
+import { creditsTileLabel } from '../credits'
 import { Check, File, FileText, Film, Hourglass, Image as ImageIcon, Lock, Star, TriangleAlert, type LucideIcon } from 'lucide-react'
 import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { emptyQuery, thumbUrl, type Item } from '../api'
@@ -122,7 +124,7 @@ const Tile = memo(function Tile({
       aria-selected={selected}
       aria-setsize={total}
       aria-posinset={index + 1}
-      aria-label={tileLabel(item) + (cullText(item) ? `, ${cullText(item)}` : '') + extraLabel}
+      aria-label={tileLabel(item) + (cullText(item) ? `, ${cullText(item)}` : '') + creditsTileLabel(item.provenance) + extraLabel}
       tabIndex={tabbable ? 0 : -1}
       className={`tile${selected ? ' selected' : ''}${thumb ? '' : ' no-thumb'}${member ? ' stack-member' : ''}${stacked ? ' stacked' : ''}${item.rating > 0 ? ' rated' : ''}`}
       style={
@@ -188,6 +190,7 @@ const Tile = memo(function Tile({
         </span>
       )}
       <TileMatch item={item} badge={matchBadge} />
+      <AiBadge item={item} />
       <StackBadge item={item} member={member} />
       {selected && (
         <>

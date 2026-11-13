@@ -20,6 +20,7 @@ import {
 import { describeError } from '../../writes'
 import { Modal } from '../Dialog'
 import type { Target } from './M45'
+import { ClearanceWarning } from '../credits/Credits' // F4
 
 export function CopyButton({ text, label = 'Copy link' }: { text: string; label?: string }) {
   const [done, setDone] = useState(false)
@@ -184,6 +185,7 @@ export default function ShareDialog({ target, onClose }: { target: Target; onClo
           </span>
         </fieldset>
 
+        <ClearanceWarning target={{ kind: target.kind, id: target.id, itemIds: target.itemIds }} />
         <div className="error" role="alert">
           {tried && errors.length ? errors.join(' ') : error}
         </div>

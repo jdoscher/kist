@@ -13,6 +13,7 @@ import { useNotices } from './Notices'
 import { useStackActions } from './BulkStack'
 import { BulkBoardSelect, BulkFlags, useBulkCreativeMore } from './m3/BulkCreative'
 import { useBulkM45More } from './m45/BulkM45'
+import { useBulkCreditsMore } from './credits/Credits' // F4
 
 /** One entry in the bulk bar's More menu. */
 export interface BulkMenuItem {
@@ -245,6 +246,7 @@ export function BulkBar() {
   const stackItems = useStackActions(busy)
   const creativeItems = useBulkCreativeMore(ids, busy)
   const m45Items = useBulkM45More(ids, busy)
+  const creditItems = useBulkCreditsMore(ids, busy) // F4
 
   // one item selected: the info panel has every action; the bar is for
   // two or more (B5). Delete still trashes a single selection (above).
@@ -266,6 +268,7 @@ export function BulkBar() {
     ...stackItems,
     ...creativeItems,
     ...m45Items,
+    ...creditItems,
   ]
 
   // one 40 px row docked under the grid (B5): count and clear, then Tag,

@@ -41,6 +41,9 @@ import type { Query } from '../api'
 import { SidebarBoards, SidebarCull } from './m3/Boards'
 import { SetupChecklist } from './m3/FirstRun'
 import { hasM45Filters } from '../m45/filters'
+import { useCreditSummary } from './credits/Credits' // F4
+import { BadgeCheck } from 'lucide-react'
+import { isNeedsCreditView, NEEDS_CREDIT } from '../credits'
 import { attentionCount } from '../attention'
 import { readPrefs, savePref, type TagView } from '../settings'
 
@@ -466,6 +469,8 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
     query.tags.length === 0 &&
     query.tags_any.length === 0
   const attention = attentionCount(stats)
+  // F4: informational, never "Needs attention"
+  const creditSummary = useCreditSummary(!caps.restricted && caps.canEdit)
 
   const visibleTags = (tags ?? []).filter(
     (t) => !tagFilter || t.name.toLowerCase().includes(tagFilter.toLowerCase()),
@@ -544,6 +549,16 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
           onActivate={() => openScreen({ kind: 'map' })}
           title="Photos and videos with a location, on a map"
         />
+        {!caps.restricted && caps.canEdit && (creditSummary.data?.needs_credit ?? 0) > 0 && (
+          <Row
+            icon={<BadgeCheck {...ROW_ICON} />}
+            name="Needs a credit"
+            count={creditSummary.data?.needs_credit}
+            active={isNeedsCreditView(query as unknown as Record<string, unknown>) && !smartId && !settings}
+            onActivate={() => setQuery({ ...emptyQuery, ...NEEDS_CREDIT, order: query.order } as Query)}
+            title="Items with no credit or creator recorded (mark own work as needing none)"
+          />
+        )}
         {attention > 0 && (
           <Row
             className="attention-row"

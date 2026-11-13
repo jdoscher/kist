@@ -65,6 +65,7 @@ import { BoardList } from './BoardList'
 import { useBoardKeys } from './keys'
 import { useM45 } from '../../m45/M45'
 import { PhoneBoardMenu } from './PhoneBoardMenu'
+import { ClearanceWarning } from '../../credits/Credits' // F4
 
 export type Tool = 'select' | 'hand' | 'connect'
 type SaveState = 'saved' | 'unsaved' | 'saving' | 'error' | 'conflict'
@@ -629,7 +630,8 @@ function ExportMenu({ id, name }: { id: string; name: string }) {
         <a href={api3.exportUrl(id, 'html')} download={`${name}.html`}>
           One HTML file <span className="dim">(images inside, opens anywhere)</span>
         </a>
-        <p className="hint">Exports are made from the last saved version.</p>
+        <p className="hint">Exports are made from the last saved version, with a credits list.</p>
+        <ClearanceWarning target={{ kind: 'board', id }} compact />
       </div>
     </details>
   )
