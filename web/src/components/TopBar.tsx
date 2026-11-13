@@ -20,6 +20,7 @@ import { hasM45Filters } from '../m45/filters'
 import { hasProjectFilters } from '../projectFilters'
 import { ProjectChips } from './projects/ProjectChips'
 import { FiltersButton, M45Chips, ViewShareMenu } from './m45/TopBarExtras'
+import { PresentButton } from './present/PresentHost'
 
 const PLACEHOLDER: Record<SearchMode, string> = {
   auto: 'Search, or describe it…',
@@ -445,6 +446,7 @@ export function TopBar({ mobile = false }: { mobile?: boolean }) {
           <History size={16} aria-hidden="true" />
         </button>
       )}
+      <PresentButton />
       <ViewShareMenu />
       <AppearanceMenu />
       {caps.isAdmin && (

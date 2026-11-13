@@ -24,6 +24,7 @@ from . import kinds as kinds_routes  # F1
 from . import colourbooks as colourbooks_routes  # F5
 from . import media as media_routes
 from . import projects as projects_routes  # F6
+from . import present as present_routes  # 2.0 F2
 
 api_router = APIRouter()
 api_router.include_router(misc.router)
@@ -49,3 +50,4 @@ api_router.include_router(media_routes.router)  # Milestone 5
 api_router.include_router(credits_routes.router)  # F4 credits & rights
 api_router.include_router(kinds_routes.router)  # F1 utility collections
 api_router.include_router(colourbooks_routes.router)  # F5 colour books
+api_router.include_router(present_routes.router)  # 2.0 F2: Present

@@ -921,6 +921,7 @@ claude mcp add --transport http kist http://<host>:8080/mcp \
 | `list_projects`, `get_project`, `set_field_values` | projects (client, job number, phase; their folders, smart folders, boards, share links and custom fields), a project's recent items, and setting custom field values on items (one undoable batch). `search_items(project=, fields={key: expr})` filters by them |
 | `list_boards`, `get_board` | boards (moodboards) and their nodes |
 | `create_board(name, item_ids, layout)`, `add_to_board(id, item_ids, layout, notes)` | lay items out as a `grid` or `masonry` board, add more items and notes |
+| `list_shows()`, `create_show(name, source_kind, source_id, item_ids, compare, pairs, surround, captions, filenames, ken_burns, advance_seconds, gesture_seconds)` | saved Present shows (full-screen slideshows) of a folder, smart folder, board or chosen items; returns the show's `web_url` |
 | `annotate(item_id, text, box?, point?, time?)`, `list_annotations` | pin a note to an area (`box=[x, y, w, h]`, fractions 0–1), a spot or a video time (`time=[start, end]` seconds) |
 | `set_provenance` | creator, credit, license, page/image URL, `ai_generated` … (undoable) |
 | `set_credits` | creator, credit, license, rights_url, rights_status (ref_only/comp/licensed/cleared), credit_exempt on many items (one undoable batch) |

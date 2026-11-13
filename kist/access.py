@@ -156,6 +156,11 @@ RESTRICTED_PATHS = [
         r"^/api/colourbooks/lookup$",
         # F6: pins, limited to the reader's folders and boards (services/projects)
         r"^/api/pins$",
+        # 2.0 F2 Present: slides and the PDF of what the reader sees
+        # (services/present.py filters every item through items.visible)
+        r"^/api/present/(slides|pdf)$",
+        r"^/api/shows$",
+        r"^/api/shows/[^/]+(/(slides|pdf))?$",
     )
 ]
 HELPER_PREFIX = "/api/ai/jobs"
@@ -163,7 +168,7 @@ TOKENS_PREFIX = "/api/tokens"
 # harmless for any caller: who am I, and the web UI's crash reports
 ANYONE = {"/api/me", "/api/client-errors"}
 # POSTs that only read (a search with an uploaded image): the read scope may
-READ_POSTS = {"/api/search/image"}
+READ_POSTS = {"/api/search/image", "/api/present/slides", "/api/present/pdf"}
 
 
 def _under(path: str, prefix: str) -> bool:

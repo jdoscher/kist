@@ -130,6 +130,12 @@ class Settings(BaseSettings):
     proof_actions_per_ip: int = 120
     proof_actions_per_share: int = 1500
 
+    # ---- 2.0 F2: Present (services/present.py, present_remote.py) ----
+    # a paired phone remote stops working this many hours after pairing
+    present_remote_hours: float = 4.0
+    # the most slides one show resolves to (a bigger folder is cut there)
+    present_max_slides: int = 500
+
     @property
     def exports_dir(self) -> Path:
         return self.library_dir / "exports"

@@ -255,6 +255,9 @@ def run(session: Session) -> Report:
     from . import projects as projects_svc
 
     report.problems.extend(projects_svc.check_file(session))  # F6
+    from . import present  # 2.0 F2: saved shows (library/.kist/shows.json)
+
+    report.problems.extend(present.check_file(session))
     for key in meta_svc.pending():
         report.problems.append(f"{key}: an earlier write to disk failed")
     return report
