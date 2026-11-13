@@ -274,9 +274,12 @@ def test_remote_relays_commands_and_state(client, upload):
     # the phone sends next; the show window's poll gets it
     assert phone.post(f"/present-relay/{r['id']}/cmd", json={"cmd": "next"},
                       headers=h).status_code == 200
-    phone.post(f"/present-relay/{r['id']}/cmd", json={"cmd": "pick"}, headers=h)
+    phone.post(f"/present-relay/{r['id']}/cmd", json={"cmd": "pick", "index": 1}, headers=h)
     polled = client.get(f"/api/present/remote/{r['id']}/poll?after=0&wait=0").json()
     assert [e["cmd"] for e in polled["events"]] == ["next", "pick"] and polled["connected"]
+    assert polled["events"][1]["index"] == 1
+    assert phone.post(f"/present-relay/{r['id']}/cmd", json={"cmd": "pick", "index": 2},
+                      headers=h).status_code == 422
     again = client.get(f"/api/present/remote/{r['id']}/poll?after={polled['seq']}&wait=0")
     assert again.json()["events"] == []
     assert phone.post(f"/present-relay/{r['id']}/cmd", json={"cmd": "delete"},

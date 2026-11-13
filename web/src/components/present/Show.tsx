@@ -69,11 +69,26 @@ const REST_MS = 2000 // the grey pause between gesture poses
 const TOAST_MS = 1600
 
 function SlideImage({ it, index, kb, seconds }: { it: SlideItem; index: number; kb: boolean; seconds: number }) {
+  // the 1024 thumbnail shows at once; the full image takes its place, in
+  // the same box, as soon as it has loaded (preloading makes that instant)
+  const [loaded, setLoaded] = useState(false)
   let media: ReactNode
   if (it.kind === 'video' && it.src) {
     media = <video className="present-media" src={it.src} controls playsInline preload="auto" />
   } else if (it.src) {
-    media = <img className="present-media" src={it.src} alt={it.title || `Slide ${index + 1}`} decoding="async" draggable={false} />
+    media = (
+      <div className="present-layers">
+        {it.thumb && !loaded && <img className="present-media present-under" src={it.thumb} alt="" aria-hidden="true" draggable={false} />}
+        <img
+          className="present-media"
+          src={it.src}
+          alt={it.title || `Slide ${index + 1}`}
+          decoding="async"
+          draggable={false}
+          onLoad={() => setLoaded(true)}
+        />
+      </div>
+    )
   } else if (it.thumb) {
     media = <img className="present-media" src={it.thumb} alt={it.title || `Slide ${index + 1}`} draggable={false} />
   } else {
@@ -450,6 +465,7 @@ export default function Show({ resolved, options, offlineCap, onClose }: Running
     const k = e.key
     if (note) return false // the note field has the keys
     if (k === 'Escape') {
+      e.preventDefault()
       if (choose) setChoose(null)
       else if (help) setHelp(false)
       else if (pairOpen) setPairOpen(false)
@@ -458,16 +474,20 @@ export default function Show({ resolved, options, offlineCap, onClose }: Running
       return true
     }
     if (choose && (k === '1' || k === '2')) {
+      // the key mustn't also land in the note field this opens
+      e.preventDefault()
       void mark(choose, Number(k) - 1)
       return true
     }
     const j = typedJump(jump.current, k)
     jump.current = j.buffer
     if (/^[0-9]$/.test(k)) {
+      e.preventDefault()
       say(`Go to ${j.buffer}…`)
       return true
     }
     if (j.go !== null) {
+      e.preventDefault()
       go(j.go)
       return true
     }
@@ -557,6 +577,7 @@ export default function Show({ resolved, options, offlineCap, onClose }: Running
   return (
     <div
       ref={rootRef}
+      data-present-key={showKey}
       className={`present-show present-surround-${opts.surround}${hud ? ' present-hud-on' : ''}`}
       role="dialog"
       aria-modal="true"
@@ -633,7 +654,8 @@ export default function Show({ resolved, options, offlineCap, onClose }: Running
 
       {hud && (
         <>
-          <div className="present-top float-surface" onClick={(e) => e.stopPropagation()}>
+          <div className="present-hud float-surface" role="toolbar" aria-label="Show controls" onClick={(e) => e.stopPropagation()}>
+            <span className="present-hud-info">
             <span className="present-name">{resolved.name}</span>
             <span className="present-count">
               {index + 1} / {count}
@@ -645,11 +667,7 @@ export default function Show({ resolved, options, offlineCap, onClose }: Running
               </span>
             )}
             {pair.connected && <span className="present-offline">Phone connected</span>}
-            <button type="button" className="icon-btn" aria-label="End the show" title="End the show (Esc)" onClick={onClose}>
-              <X size={16} aria-hidden="true" />
-            </button>
-          </div>
-          <div className="present-controls float-surface" role="toolbar" aria-label="Show controls" onClick={(e) => e.stopPropagation()}>
+            </span>
             <button type="button" className="icon-btn" aria-label="Previous slide" title="Previous (←)" onClick={() => step(-1)} disabled={index === 0}>
               <ChevronLeft size={20} aria-hidden="true" />
             </button>
@@ -696,6 +714,9 @@ export default function Show({ resolved, options, offlineCap, onClose }: Running
             )}
             <button type="button" className="present-keys-btn" title="Keys (?)" onClick={() => setHelp((h) => !h)}>
               ?
+            </button>
+            <button type="button" className="icon-btn" aria-label="End the show" title="End the show (Esc)" onClick={onClose}>
+              <X size={16} aria-hidden="true" />
             </button>
           </div>
         </>

@@ -15,7 +15,8 @@ Both sides long-poll (no WebSocket, nothing outbound), so it works on the
 LAN and through the reverse proxy. The token sits in the URL fragment, so
 it never reaches a server or proxy log; the phone sends it in the
 X-Kist-Remote header. A remote can do exactly four things: send next /
-prev / pick / reject / first / last / goto to its own show window, read the
+prev / pick / reject / first / last / goto / blank to its own show
+window (pick and reject may name a compare slide's side), read the
 state that window publishes (slide number, title, credit, notes), and
 fetch thumbnails of that show's items. It never reads or writes the
 library itself: a pick is applied by the show window, with the owner's
@@ -160,9 +161,14 @@ def info(s: Session) -> dict:
 def send_command(s: Session, cmd: str, index: int | None = None) -> dict:
     if cmd not in COMMANDS:
         raise validation.ValidationError(f"cmd is one of {', '.join(COMMANDS)}")
-    if cmd == "goto":
-        if not isinstance(index, int) or isinstance(index, bool) or not 0 <= index <= 100_000:
-            raise validation.ValidationError("goto needs an index")
+    if index is not None and (not isinstance(index, int) or isinstance(index, bool)
+                              or not 0 <= index <= 100_000):
+        raise validation.ValidationError("index is a slide number from 0")
+    if cmd == "goto" and index is None:
+        raise validation.ValidationError("goto needs an index")
+    if cmd in ("pick", "reject") and index is not None and index > 1:
+        raise validation.ValidationError(
+            "pick and reject take index 0 or 1 (a compare slide's side)")
     now = time.monotonic()
     with _lock:
         recent = [t for t in s.cmd_times if now - t < 1.0]
@@ -172,7 +178,7 @@ def send_command(s: Session, cmd: str, index: int | None = None) -> dict:
         s.cmd_times.append(now)
         s.seq += 1
         event = {"seq": s.seq, "cmd": cmd}
-        if cmd == "goto":
+        if index is not None and cmd in ("goto", "pick", "reject"):
             event["index"] = index
         s.to_show.append(event)
     return event

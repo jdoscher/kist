@@ -106,7 +106,7 @@ export default function PresenterPage() {
         </section>
         <section aria-label="Notes" className="present-pv-notes">
           <h2 className="section-label">Notes</h2>
-          <p>{state.notes || 'No notes on this slide. Add them in the item’s Notes field.'}</p>
+          {state.notes ? <p>{state.notes}</p> : <p className="present-pv-none">No notes on this slide. They come from the item’s Notes (or its caption).</p>}
         </section>
       </aside>
       <footer className="present-pv-controls">

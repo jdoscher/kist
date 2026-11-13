@@ -20,7 +20,7 @@ export function qrPath(text: string): { size: number; d: string } {
 export function QrCode({ text, label }: { text: string; label: string }) {
   const { size, d } = useMemo(() => qrPath(text), [text])
   return (
-    <svg className="present-qr" viewBox={`0 0 ${size} ${size}`} role="img" aria-label={label} shapeRendering="crispEdges">
+    <svg className="present-qr" data-url={text} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={label} shapeRendering="crispEdges">
       <rect width={size} height={size} fill="#ffffff" />
       <path d={d} fill="#000000" />
     </svg>
@@ -67,6 +67,9 @@ export function PairPanel({
             Works for this show until {until} or until you unpair. Anyone who scans it can move the slides, so pair before the screen is shared.
           </p>
           <div className="present-pair-actions">
+            <button type="button" onClick={() => void navigator.clipboard?.writeText(url).catch(() => undefined)} title="Copy the link, to send to the phone another way">
+              Copy link
+            </button>
             <button type="button" onClick={onPair} disabled={pair.busy} title="A new code; the old one stops working">
               New code
             </button>

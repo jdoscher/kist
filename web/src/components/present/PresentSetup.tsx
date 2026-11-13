@@ -69,7 +69,8 @@ export default function PresentSetup({ request, onClose }: { request: PresentReq
   const slideCount = data?.slides.length ?? 0
   const canOffline = offlineAvailable()
   const offlineSize = data ? Math.min(data.offline_bytes, capMb * 1e6) : 0
-  const name = data?.name ?? req.name
+  // a search has no name of its own: the view's (folder, smart folder, query)
+  const name = (showKey ? data?.name : null) ?? (req.source.kind === 'search' ? req.name : (data?.name ?? req.name))
 
   const start = () => {
     if (!data || !slideCount) return
@@ -78,7 +79,7 @@ export default function PresentSetup({ request, onClose }: { request: PresentReq
     } catch {
       /* private mode */
     }
-    startShow({ resolved: data, options: opts, offlineCap: offline && canOffline ? capMb * 1e6 : 0, request: req })
+    startShow({ resolved: { ...data, name }, options: opts, offlineCap: offline && canOffline ? capMb * 1e6 : 0, request: req })
   }
 
   const makePdf = async () => {
@@ -210,7 +211,7 @@ export default function PresentSetup({ request, onClose }: { request: PresentReq
           <div className="form-grid">
             <label htmlFor={`${id}-pairs`}>Side by side</label>
             <select id={`${id}-pairs`} value={opts.pairs} disabled={!!showKey} onChange={(e) => set({ pairs: e.target.value as PairMode })}>
-              <option value="none">Only pairs I make (press 2 in the show)</option>
+              <option value="none">Only pairs I make (J in the show)</option>
               <option value="stacks">Each item with its stack partner</option>
               <option value="versions">Each item with its previous version</option>
             </select>

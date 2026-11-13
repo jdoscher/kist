@@ -43,7 +43,6 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  border-color: var(--field-border);
 }
 .present-seg button.on {
   background: var(--accent-soft);
@@ -218,24 +217,37 @@
 }
 
 /* the controls: only while the mouse moves (or a tap in the middle) */
-.present-top,
-.present-controls {
+/* one bar at the top, so it never sits on a caption */
+.present-hud {
   position: absolute;
+  top: 12px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
+  gap: 4px;
+  padding: 4px 6px 4px 12px;
   color: var(--text);
   max-width: calc(100vw - 24px);
-}
-.present-top {
-  top: 12px;
   font-size: var(--fs-2);
 }
-.present-controls {
-  bottom: 16px;
+.present-hud-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 6px;
+  min-width: 0;
+}
+.present-layers {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+.present-layers > .present-media {
+  position: absolute;
+  inset: 0;
 }
 .present-name {
   font-weight: 600;
@@ -260,7 +272,7 @@
   color: var(--text);
   white-space: nowrap;
 }
-.present-controls .icon-btn.on {
+.present-hud .icon-btn.on {
   background: var(--accent-soft);
   outline: 1px solid var(--selected-line);
   outline-offset: -1px;
@@ -279,7 +291,7 @@
 .present-toast {
   position: absolute;
   left: 50%;
-  bottom: 72px;
+  bottom: 56px;
   transform: translateX(-50%);
   pointer-events: none;
 }
@@ -293,7 +305,7 @@
 }
 .present-choose {
   position: absolute;
-  top: 56px;
+  top: 64px;
   left: 50%;
   transform: translateX(-50%);
   padding: 8px 14px;
@@ -354,7 +366,7 @@
 /* ---------- phone remote pairing ---------- */
 .present-pair {
   position: absolute;
-  top: 56px;
+  top: 64px;
   right: 16px;
   width: 300px;
   padding: 12px;
@@ -466,6 +478,10 @@
   white-space: pre-wrap;
   margin: 0;
 }
+.present-pv-notes p.present-pv-none {
+  font-size: var(--fs-3);
+  color: var(--text-dim);
+}
 .present-pv-end {
   color: var(--text-dim);
 }
@@ -535,6 +551,16 @@
 .present-remote-text p {
   margin: 0 0 4px;
 }
+/* the phone page sits on the app's chrome, not on the show's surround */
+.present-remote-text .present-cap-title {
+  color: var(--text);
+}
+.present-remote-text .present-cap-credit {
+  color: var(--text-dim);
+}
+.present-remote-next .section-label {
+  color: var(--present-text);
+}
 .present-remote-notes {
   white-space: pre-wrap;
   max-height: 22vh;
@@ -596,13 +622,12 @@
   .present-slide {
     padding: 1vh 1vw;
   }
-  .present-controls {
-    bottom: max(8px, env(safe-area-inset-bottom));
+  .present-hud {
+    top: max(6px, env(safe-area-inset-top));
     gap: 2px;
-    flex-wrap: wrap;
-    justify-content: center;
+    padding: 2px 4px;
   }
-  .present-controls .icon-btn {
+  .present-hud .icon-btn {
     min-width: 40px;
     min-height: 40px;
   }
