@@ -426,3 +426,83 @@ def test_settings_file_unreadable_is_reported(client):
     assert credits.check_file()
     assert credits.read_settings() == {"clearance_warning": True}
     assert isinstance(datetime.now(), datetime)
+
+
+# ---------- credits on outputs ----------
+
+
+def _credited(client, upload, name="c.png", **prov):
+    item = upload(name)["item"]
+    client.patch(f"/api/items/{item['id']}", json={"provenance": {
+        "creator": "Ann Lee", "credit": "Lee Studio", "license": "CC BY 4.0", **prov}})
+    return item
+
+
+def test_board_exports_carry_credits(client, upload):
+    a = _credited(client, upload, "a.png")
+    b = upload("b.png")["item"]
+    board = client.post("/api/boards", json={"name": "Mood", "item_ids": [a["id"], b["id"]],
+                                              "layout": "grid"}).json()
+    html = client.get(f"/api/boards/{board['id']}/export?format=html").text
+    assert 'class="credits"' in html and "Ann Lee / Lee Studio · CC BY 4.0" in html
+    png = client.get(f"/api/boards/{board['id']}/export?format=png&scale=0.5")
+    assert png.status_code == 200
+    with_band = Image.open(io.BytesIO(png.content)).size
+    client.patch(f"/api/items/{a['id']}", json={"provenance": {
+        "creator": None, "credit": None, "license": None}})
+    plain = Image.open(io.BytesIO(client.get(
+        f"/api/boards/{board['id']}/export?format=png&scale=0.5").content)).size
+    assert with_band[0] == plain[0] and with_band[1] > plain[1]
+    assert 'class="credits"' not in client.get(
+        f"/api/boards/{board['id']}/export?format=html").text
+    pdf = client.get(f"/api/boards/{board['id']}/export?format=pdf")
+    assert pdf.status_code == 200 and pdf.content.startswith(b"%PDF")
+
+
+def test_contact_sheet_and_bagit_carry_credits(client, upload):
+    import csv
+    import zipfile
+
+    from kist import worker
+
+    a = _credited(client, upload, "a.png", rights_status="cleared")
+    b = upload("b.png")["item"]
+    res = client.post("/api/items/export-images", json={
+        "item_ids": [a["id"], b["id"]], "preset": "contact-sheet"})
+    assert res.status_code == 200 and res.content.startswith(b"%PDF")
+    res = client.post("/api/exports", json={"target": "items", "item_ids": [a["id"], b["id"]]})
+    export_id = res.json()["id"]
+    while worker.run_one():
+        pass
+    status = client.get(f"/api/exports/{export_id}").json()
+    zf = zipfile.ZipFile(io.BytesIO(client.get(status["download_url"]).content))
+    rows = {r["id"]: r for r in csv.DictReader(io.StringIO(zf.read("items.csv").decode()))}
+    assert rows[a["id"]]["credit_line"] == "Ann Lee / Lee Studio · CC BY 4.0"
+    assert rows[a["id"]]["rights_status"] == "cleared"
+    text = zf.read("CREDITS.txt").decode()
+    assert "Ann Lee / Lee Studio" in text and "[Cleared]" in text
+    assert "No credit recorded" in text and rows[b["id"]]["path"] in text
+    assert "CREDITS.txt" in zf.read("tagmanifest-sha256.txt").decode()
+
+
+def test_share_page_shows_credits(client, upload):
+    from fastapi.testclient import TestClient
+
+    folder = client.post("/api/folders", json={"name": "Out"}).json()
+    a = _credited(client, upload, "a.png")
+    client.patch(f"/api/items/{a['id']}", json={"folder_ids": [folder["id"]]})
+    res = client.post("/api/shares", json={"target_kind": "folder", "target_id": folder["id"]})
+    assert res.status_code == 201, res.text
+    anon = TestClient(client.app)
+    page = anon.get(f"/s/{res.json()['slug']}")
+    assert page.status_code == 200
+    assert '<span class="credit">Ann Lee / Lee Studio · CC BY 4.0</span>' in page.text
+
+
+def test_present_caption_hook(client, upload):
+    a = _credited(client, upload, "a.png", page_title="Tower at dusk")
+    got = client.get(f"/api/items/{a['id']}/credits").json()
+    assert got["caption"] == {"title": "Tower at dusk",
+                              "credit": "Ann Lee / Lee Studio · CC BY 4.0",
+                              "rights_status": None}
+    assert client.get(f"/api/items/{a['id']}").json()["credit_line"] == "Ann Lee / Lee Studio"

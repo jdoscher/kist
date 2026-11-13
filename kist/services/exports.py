@@ -16,6 +16,7 @@ runs as a worker job and writes library/exports/<id>.zip with
     data/.../<name>.xmp                  XMP for other photo tools (sidecars)
     data/.../<name>.<ext>.events.jsonl   item history (events)
     items.csv                            one row per item
+    CREDITS.txt                          every file's credit (F4)
     index.html + thumbs/<id>.webp        browse it offline from any disk
 
 The status is library/exports/<id>.json. Finished exports are deleted
@@ -43,6 +44,7 @@ from ..filetypes import kind_for
 from ..ids import new_ulid
 from ..lifecycle import JobKind
 from ..models import Item, Job
+from . import credits as credits_svc  # F4
 from . import meta as meta_svc
 from . import provenance as provenance_svc
 from . import selection, thumbs, validation, xmp
@@ -277,7 +279,8 @@ def _zip_time(path: Path):
 
 CSV_FIELDS = ("id", "path", "filename", "folders", "tags", "rating", "notes", "page_url",
               "image_url", "creator", "credit", "license", "ai_generated", "captured_at",
-              "created_at", "modified_at", "mime", "size_bytes", "width", "height", "sha256")
+              "created_at", "modified_at", "mime", "size_bytes", "width", "height", "sha256",
+              "rights_status", "credit_line")  # F4
 
 
 def run(session: Session, export_id: str, job_id: int | None = None) -> dict:
@@ -366,6 +369,9 @@ def _build(session: Session, record: dict, dest: Path, job_id: int | None) -> tu
                 "created_at": meta["created_at"], "modified_at": meta["modified_at"],
                 "mime": item.mime, "size_bytes": item.size_bytes, "width": item.width or "",
                 "height": item.height or "", "sha256": item.sha256,
+                # F4: rights status and the printed credit
+                "rights_status": prov.get("rights_status", ""),
+                "credit_line": credits_svc.output_text(item) or "",
             }
             rows.append(row)
             cards.append(_card(row, thumb_rel, kind_for(item.mime, item.ext)))
@@ -376,6 +382,7 @@ def _build(session: Session, record: dict, dest: Path, job_id: int | None) -> tu
         for row in rows:
             w.writerow(row)
         bag.add_bytes("items.csv", buf.getvalue().encode("utf-8"), tag=True)
+        bag.add_bytes("CREDITS.txt", credits_svc.bag_credits(rows).encode("utf-8"), tag=True)
         bag.add_bytes("index.html", _index_html(record, cards).encode("utf-8"), tag=True)
 
         manifest = "".join(f"{d}  {bagit_path(p)}\n" for d, p in bag.payload)

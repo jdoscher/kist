@@ -783,3 +783,90 @@ def print_info(item) -> dict:
             out.update(_header_info(str(path), item.sha256, item.ext))
     out["untagged"] = out["colour_space"] in ("RGB", None) and not out["icc"] and bool(w)
     return out
+
+
+# ---------- credits on outputs: boards ----------
+
+
+def board_credit_lines(session, doc: dict) -> list[str]:
+    """One line per credited item on a board, in board order, deduplicated;
+    only items the caller can see (a folder-limited reader's export)."""
+    from ..models import Item
+    from . import items as items_svc
+    from .boards import item_ids_of
+
+    seen: set[str] = set()
+    out: list[str] = []
+    for item_id in item_ids_of(doc):
+        item = session.get(Item, item_id)
+        if item is None or item.deleted_at is not None or not items_svc.visible(item):
+            continue
+        text = output_text(item)
+        if text and text not in seen:
+            seen.add(text)
+            out.append(text)
+    return out
+
+
+def board_footer(session, doc: dict, img, scale: float):
+    """The rendered board with a 'Credits' band under it (PNG and PDF)."""
+    from PIL import Image, ImageDraw
+
+    from . import board_render as render
+
+    lines = board_credit_lines(session, doc)
+    if not lines:
+        return img
+    size = max(11.0, min(28.0, 13 * max(scale, 0.5)))
+    font = render._font(size)
+    probe = ImageDraw.Draw(img)
+    pad = int(size)
+    width = max(1, img.width - 2 * pad)
+    wrapped: list[str] = []
+    for line in ["Credits"] + lines:
+        wrapped += render._wrap(probe, line, font, width) or [line]
+    line_h = int(size * 1.4)
+    band = Image.new("RGB", (img.width, pad * 2 + line_h * len(wrapped)),
+                     render.canvas_bg(doc))
+    d = ImageDraw.Draw(band)
+    ink = render.canvas_ink(doc)
+    d.line((pad, 0, img.width - pad, 0), fill=ink, width=1)
+    y = pad
+    for line in wrapped:
+        d.text((pad, y), line, fill=ink, font=font)
+        y += line_h
+    out = Image.new("RGB", (img.width, img.height + band.height), render.canvas_bg(doc))
+    out.paste(img, (0, 0))
+    out.paste(band, (0, img.height))
+    return out
+
+
+def board_html_credits(session, doc: dict) -> str:
+    """A <footer> for the board's HTML export ('' without credits)."""
+    import html as html_mod
+
+    from . import board_render as render
+
+    lines = board_credit_lines(session, doc)
+    if not lines:
+        return ""
+    items = "".join(f"<li>{html_mod.escape(t)}</li>" for t in lines)
+    ink = render.canvas_ink(doc)
+    return (f'<footer class="credits" style="padding:16px;color:{html_mod.escape(ink)};'
+            'font:13px/1.4 system-ui,sans-serif"><strong>Credits</strong>'
+            f'<ul style="margin:6px 0 0;padding-left:18px">{items}</ul></footer>')
+
+
+def bag_credits(rows: list[dict]) -> str:
+    """CREDITS.txt for a BagIt export: each file and its credit, then the
+    files with none (so nobody mistakes 'missing' for 'not needed')."""
+    with_credit = [r for r in rows if r.get("credit_line")]
+    without = [r for r in rows if not r.get("credit_line")]
+    out = ["Credits", "=======", ""]
+    for r in with_credit:
+        status = RIGHTS_TEXT.get(r.get("rights_status") or "", "")
+        out.append(f"{r['path']}\n    {r['credit_line']}" + (f"  [{status}]" if status else ""))
+    if without:
+        out += ["", "No credit recorded", "------------------"]
+        out += [r["path"] for r in without]
+    return "\n".join(out) + "\n"

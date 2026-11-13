@@ -283,7 +283,7 @@ def contact_sheet(items: list, preset: dict) -> bytes:
     cols = cs["cols"]
     page_w, page_h, margin = 1240, 1754, 60
     cell_w = (page_w - 2 * margin) // cols
-    caption_h = 0 if cs["caption"] == "none" else 36
+    caption_h = 0 if cs["caption"] == "none" else 58  # F4: name, then the credit
     cell_h = cell_w + caption_h
     rows_per_page = max(1, (page_h - 2 * margin) // cell_h)
     font = _font(16)
@@ -312,6 +312,16 @@ def contact_sheet(items: list, preset: dict) -> bytes:
             while text and draw.textlength(text, font=font) > cell_w - 8:
                 text = text[:-2]
             draw.text((x + 4, y + cell_w + 6), text, fill="black", font=font)
+            from .credits import output_text  # F4: credits on the contact sheet
+
+            credit = output_text(item, with_license=False) or ""
+            small = _font(13)
+            if draw.textlength(credit, font=small) > cell_w - 8:
+                while credit and draw.textlength(credit + "…", font=small) > cell_w - 8:
+                    credit = credit[:-1]
+                credit = credit.rstrip() + "…" if credit else ""
+            if credit:
+                draw.text((x + 4, y + cell_w + 28), credit, fill="#444444", font=small)
     if not pages:
         pages = [Image.new("RGB", (page_w, page_h), "white")]
     buf = io.BytesIO()
