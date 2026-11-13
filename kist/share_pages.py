@@ -174,6 +174,10 @@ def share_page(
     total = shares_svc.count(session, share)
     rows = shares_svc.items(session, share, limit=PAGE_SIZE, offset=(page - 1) * PAGE_SIZE)
     shares_svc.record_view(session, share)
+    # F3: guest picks/hearts/comments when the link lets guests give feedback
+    from .proofing_pages import gallery_context
+
+    proof = gallery_context(session, request, share, [i.id for i in rows], page)
     s = quote(share.slug, safe="")
     title = share.title or "Shared collection"
     figures = []
@@ -184,9 +188,11 @@ def share_page(
         if share.allow_download:
             links += f" · <a href=\"{base}/file\" download>download</a>"
         links += _credit_html(item)  # F4
+        extra = proof.actions(item.id, str(page)) if proof else ""
+        fid = f" id=\"i-{item.id}\"" if proof else ""
         figures.append(
-            f"<figure><a href=\"{base}/display\"><img src=\"{base}/thumb\" alt=\"{name}\" "
-            f"loading=\"lazy\"></a><figcaption>{links}</figcaption></figure>"
+            f"<figure{fid}><a href=\"{base}/display\"><img src=\"{base}/thumb\" alt=\"{name}\" "
+            f"loading=\"lazy\"></a><figcaption>{links}</figcaption>{extra}</figure>"
         )
     nav = ""
     if total > page * PAGE_SIZE or page > 1:
@@ -200,9 +206,10 @@ def share_page(
     body = (
         f"<header><h1>{html.escape(title)}</h1><div class=\"sub\">{count} · shared from Kist"
         "</div></header>"
-        f"<main>{''.join(figures)}</main>{nav}"
+        + (proof.header() if proof else "")
+        + f"<main>{''.join(figures)}</main>{nav}"
     )
-    return _page(title, body)
+    return proof.finish(_page(title, body)) if proof else _page(title, body)
 
 
 @router.post("/s/{slug}")

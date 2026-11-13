@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import __version__, share_pages
+from . import __version__, proofing_pages, share_pages
 from .access import FORBIDDEN_MESSAGE, Forbidden
 from .api import api_router
 from .auth import BearerTokenMiddleware
@@ -89,6 +89,7 @@ class McpPathRewrite:
 app = FastAPI(title="Kist", version=__version__, lifespan=lifespan)
 app.include_router(api_router, prefix="/api")
 app.include_router(share_pages.router)  # /s/<slug> and /robots.txt: public, no token
+app.include_router(proofing_pages.router)  # F3: guest feedback on /s/<slug>: public, no token
 app.mount("/mcp", mcp_http_app)
 app.add_middleware(BearerTokenMiddleware)
 app.add_middleware(McpPathRewrite)

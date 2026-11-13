@@ -15,6 +15,7 @@
 //   /boards           the boards list (Milestone 3)
 //   /board/:id        a board's canvas
 //   /triage           triage mode (?view=unfiled|all, ?folder=)
+//   /feedback         guest feedback from share links (F3; ?share=<id>)
 //   ?item=:id         the item shown in the info panel / item sheet
 //   &full=1           ...opened full screen
 //
@@ -48,16 +49,19 @@ export type Screen =
   // F6: the projects list and one project's page (in the library's frame)
   | { kind: 'projects'; archived?: boolean }
   | { kind: 'project'; id: string }
+  // F3: guest feedback from share links (/feedback, ?share=<id>)
+  | { kind: 'feedback'; share?: string | null }
 
 /** Screens shown in the library's frame (top bar, sidebar) instead of the grid. */
 export function inLibraryFrame(sc: Screen | null | undefined): boolean {
-  return !!sc && (sc.kind === 'boards' || sc.kind === 'timeline' || sc.kind === 'map' || sc.kind === 'projects' || sc.kind === 'project')
+  return !!sc && (sc.kind === 'boards' || sc.kind === 'timeline' || sc.kind === 'map' || sc.kind === 'projects' || sc.kind === 'project' || sc.kind === 'feedback')
 }
 
 export function screenUrl(sc: Screen): string {
   if (sc.kind === 'add') return `/add${sc.search}`
   if (sc.kind === 'timeline') return sc.group === 'month' ? '/timeline' : `/timeline?group=${sc.group}`
   if (sc.kind === 'map') return '/map'
+  if (sc.kind === 'feedback') return sc.share ? `/feedback?share=${encodeURIComponent(sc.share)}` : '/feedback'
   if (sc.kind === 'boards') return sc.trash ? '/boards?trash=1' : '/boards'
   if (sc.kind === 'board') return `/board/${encodeURIComponent(sc.id)}`
   if (sc.kind === 'projects') return sc.archived ? '/projects?archived=1' : '/projects'
@@ -249,6 +253,9 @@ export function fromUrl(pathname: string, search: string): Place {
   else if (head === 'projects' || (head === 'project' && arg)) {
     const screen: Screen = head === 'project' ? { kind: 'project', id: arg } : { kind: 'projects', ...(s.get('archived') === '1' ? { archived: true } : {}) }
     return { query: { ...emptyQuery }, smartId: null, item: null, full: false, screen }
+  }
+  else if (head === 'feedback') {
+    return { query: { ...emptyQuery }, smartId: null, item: null, full: false, screen: { kind: 'feedback', share: s.get('share') || null } }
   }
   else if (head === 'boards' || (head === 'board' && arg) || head === 'triage') {
     const screen: Screen =

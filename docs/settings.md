@@ -69,6 +69,8 @@ Only `KIST_TOKEN` is required.
 | `KIST_WAYBACK` | `false` | Ask the Wayback Machine (archive.org, an outside service) for an archived copy of sources that are gone. Off by default: it tells archive.org which pages you kept |
 | `KIST_XMP_SIDECARS` | `true` | Write `items/<id>/original.xmp` (rating, keywords, notes, label, creator, rights, provenance) for images on every change, for Lightroom, darktable and digiKam |
 | `KIST_SHARE_PASSWORD_ATTEMPTS` | `10` | Wrong share-link passwords allowed per link per 15 minutes (then 429) |
+| `KIST_PROOF_ACTIONS_PER_IP` | `120` | Guest feedback actions (pick, heart, comment, name) per visitor address per 10 minutes on share links that let guests pick and comment (then 429). Behind a reverse proxy, set uvicorn's `FORWARDED_ALLOW_IPS` so Kist sees the real address |
+| `KIST_PROOF_ACTIONS_PER_SHARE` | `1500` | Guest feedback actions per share link per 10 minutes, all visitors together (then 429) |
 
 M4 and M5 options (exports, link checks, video and bundle limits, map tiles)
 are listed in `.env.example` and the

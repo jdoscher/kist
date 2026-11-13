@@ -927,6 +927,7 @@ claude mcp add --transport http kist http://<host>:8080/mcp \
 | `item_credits` | an item's credit line, Present caption and auto-fill suggestions; `apply=true` fills empty fields from its own metadata/snapshot |
 | `credits_clearance` | which items of a folder, smart folder, board or list aren't licensed or cleared |
 | `print_check` | print size at 300/150 dpi, papers it fills, file dpi, colour profile |
+| `guest_feedback(share_id?, round?, item_id?, unseen?)`, `accept_guest_feedback(mark_ids, comment_ids, as_?)` | guest picks, hearts and comments from share links that let guests give feedback; accept marks as `pick`, `reject` or `label:<colour>` and comments as notes, in one undoable batch |
 | `export_collection`, `export_status` | build a portable BagIt export of a folder, smart folder, items or everything, then hand the user its download link |
 | `get_page_snapshot` | the readable text of the page an item was saved from, if kept |
 | `view_video`, `save_frame`, `make_clip` | watch a video as one contact sheet with timestamps, keep a frame as its own item, cut a clip (a job) |
@@ -1229,6 +1230,17 @@ GET    /api/exports              and /api/exports/{id} (status; ?download=1 = th
 GET    /api/exports/{id}/download  DELETE /api/exports/{id}
 GET/POST /api/shares             (write/admin) share links; GET/PATCH/DELETE
                                  /api/shares/{id}, POST /api/shares/{id}/revoke
+GET/PATCH /api/shares/{id}/proofing (write/admin) guest feedback on a link (F3):
+                                 {enabled, show_all, round_open}; POST .../proofing/rounds
+                                 starts the next round
+GET    /api/feedback             (write/admin) guest marks and comments, newest first
+                                 (share_id, round, item_id, unseen, limit); /summary,
+                                 /counts; POST /api/feedback/seen {share_id?};
+                                 POST /api/feedback/accept {mark_ids, comment_ids, as?}
+                                 -> {batch_id, accepted, skipped}; DELETE
+                                 /api/feedback/comments/{id}
+POST   /s/{slug}/proof           (public, form post from the share page) a guest's
+                                 pick/reject/heart/comment/name; CSRF token + cookie
 POST   /api/imports/upload       (write/admin) multipart 'file': an export sent from the
                                  browser, kept in library/import/uploads/ -> {source}
 POST   /api/imports              (write/admin) {kind, source, dry_run?, folder?} -> 202;

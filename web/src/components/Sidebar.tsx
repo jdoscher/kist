@@ -11,6 +11,7 @@ import {
   Inbox,
   LayoutGrid,
   List,
+  MessageSquareHeart,
   Tags,
   Pencil,
   Plus,
@@ -48,6 +49,7 @@ import { isNeedsCreditView, NEEDS_CREDIT } from '../credits'
 import { hasProjectFilters } from '../projectFilters'
 import { PinToggle, ProjectsNavRow, SidebarPinned } from './projects/SidebarPinned'
 import { attentionCount } from '../attention'
+import { useFeedbackSummary } from './proofing/hooks'
 import { readPrefs, savePref, type TagView } from '../settings'
 
 interface TreeNode extends Folder {
@@ -476,6 +478,7 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
   const attention = attentionCount(stats)
   // F4: informational, never "Needs attention"
   const creditSummary = useCreditSummary(!caps.restricted && caps.canEdit)
+  const feedback = useFeedbackSummary() // F3
 
   const visibleTags = (tags ?? []).filter(
     (t) => !tagFilter || t.name.toLowerCase().includes(tagFilter.toLowerCase()),
@@ -563,6 +566,15 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
             active={isNeedsCreditView(query as unknown as Record<string, unknown>) && !smartId && !settings}
             onActivate={() => setQuery({ ...emptyQuery, ...NEEDS_CREDIT, order: query.order } as Query)}
             title="Items with no credit or creator recorded (mark own work as needing none)"
+        {feedback.data && feedback.data.shares.length > 0 && (
+          // F3: guest feedback from share links; the count is what's new
+          <Row
+            icon={<MessageSquareHeart {...ROW_ICON} />}
+            name="Feedback"
+            count={feedback.data.unseen || undefined}
+            active={screen?.kind === 'feedback'}
+            onActivate={() => openScreen({ kind: 'feedback' })}
+            title="Picks, hearts and comments guests left on your share links"
           />
         )}
         {attention > 0 && (

@@ -45,6 +45,13 @@ show only that share's items (originals only if you allow it), with no script,
 `noindex` and `Referrer-Policy: no-referrer`. Visitors' addresses aren't
 logged. Expired or revoked links answer 410.
 
+When you let guests pick and comment on a link (off by default), Kist keeps
+what they typed (an optional display name, their picks, hearts and comments)
+and a random guest id in `library/.kist/shares/<id>/feedback.json`. The id and
+name ride in an HttpOnly cookie scoped to that link. Rate limits count actions
+per visitor address in memory only (hashed, never written down). Nothing is
+sent anywhere; no email goes out.
+
 ## Exports
 
 Export presets strip metadata by default and GPS always. Portable exports keep
