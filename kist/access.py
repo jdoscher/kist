@@ -146,6 +146,10 @@ RESTRICTED_PATHS = [
         rf"^{_ITEM}/(scrub|scrub\.json|stream|waveform|svg|model|font-info|glyphs|bundle)$",
         rf"^{_ITEM}/bundle/.+$",
         r"^/api/(timeline|on-this-day|map|map/config|map/basemap\.pmtiles)$",
+        # F5: nearest colour-book codes for an item it sees, and the code
+        # lookup behind a colour search chip (books hold no items)
+        rf"^{_ITEM}/palette/codes$",
+        r"^/api/colourbooks/lookup$",
     )
 ]
 HELPER_PREFIX = "/api/ai/jobs"

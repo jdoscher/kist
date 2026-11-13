@@ -159,7 +159,8 @@ item_out = ItemOut.for_agent
     "any descriptive request); query plus semantic is a hybrid of words and "
     "meaning; similar_to=<item id> finds more like that item; color='#2f4f3a' "
     "(color_tol 0-100, default 30) keeps items with that colour in their "
-    "palette; text='words' keeps items whose screenshot/PDF text has those "
+    "palette (or a colour book code: color='book:<book>/<code>'); text='words' "
+    "keeps items whose screenshot/PDF text has those "
     "words (snippet shows where); has_text=true keeps items with any text. "
     "query also matches text inside images and captions. type 'font' finds "
     "font files. "
@@ -341,6 +342,50 @@ def item_palette(id: str) -> list[dict[str, Any]]:
 
     with SessionLocal() as session:
         return colour.palette(items_svc.get_item(session, id).dominant_colors)
+
+
+# ---------- F5: colour books ----------
+
+
+@tool(
+    "The nearest code in the user's own colour books (house colours, RAL, "
+    "TCX lists they imported) to a colour. Give hex ('#2f4f3a') for one "
+    "colour, or item_id for each colour of that item's palette. book limits "
+    "it to one book (id or name). Each match is {book_id, book, code, name, "
+    "hex, de}; de is the CIEDE2000 difference (under ~2 is hard to tell "
+    "apart, over ~5 is clearly different). To find items in a code's "
+    "colour, pass search_items(color='book:<book_id>/<code>').",
+    restricted_ok=True,
+)
+def nearest_colour_code(
+    hex: str | None = None, item_id: str | None = None, book: str | None = None
+) -> list[dict[str, Any]]:
+    from .services import colour, colourbooks
+
+    if not hex and not item_id:
+        raise ToolError("give hex or item_id")
+    try:
+        books = [colourbooks.get_book(book)] if book else None
+    except colourbooks.NotFound as exc:
+        raise ToolError(str(exc)) from None
+    if item_id:
+        with SessionLocal() as session:
+            pal = colour.palette(items_svc.get_item(session, item_id).dominant_colors)
+        return [{**p, "matches": colourbooks.nearest(p["hex"], books)} for p in pal]
+    return [{"hex": colour.parse_hex(hex or ""), "matches": colourbooks.nearest(hex or "", books)}]
+
+
+@tool(
+    "The user's colour books: {id, name, enabled, format, count}. With "
+    "query, the swatches whose code or name matches instead (each with "
+    "ref, the value for search_items(color=...)).",
+)
+def list_colour_books(query: str | None = None, limit: int = 20) -> list[dict[str, Any]]:
+    from .services import colourbooks
+
+    if query:
+        return colourbooks.lookup(query, max(1, min(limit, 100)))
+    return [b.summary() for b in colourbooks.list_books()]
 
 
 @tool("Get full metadata for one item by id.", restricted_ok=True)

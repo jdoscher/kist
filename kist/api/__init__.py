@@ -18,6 +18,7 @@ from . import (
     tokens,
 )
 from . import buckets as buckets_routes  # M6
+from . import colourbooks as colourbooks_routes  # F5
 from . import media as media_routes
 
 api_router = APIRouter()
@@ -39,3 +40,4 @@ api_router.include_router(creative.router)
 api_router.include_router(shares.router)
 api_router.include_router(m4.router)
 api_router.include_router(media_routes.router)  # Milestone 5
+api_router.include_router(colourbooks_routes.router)  # F5 colour books
