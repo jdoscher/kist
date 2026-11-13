@@ -181,6 +181,12 @@ def test_cut_out_makes_a_linked_transparent_item_and_leaves_the_original(client,
     assert client.get(f"/api/items/{new_id}").json()["deleted_at"] is not None
     assert client.get(f"/api/items/{item['id']}").json()["deleted_at"] is None
 
+    # the same cut-out asked for again comes back out of the trash
+    client.post(f"/api/items/{item['id']}/cutout", json={"feather": 1.5})
+    assert drain() == ["done"]
+    assert cutout_jobs()[-1].payload["result_item_id"] == new_id
+    assert client.get(f"/api/items/{new_id}").json()["deleted_at"] is None
+
 
 def test_shadow_and_model_choice(client, upload, ml):
     _folder, item = setup_item(client, upload)

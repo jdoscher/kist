@@ -505,6 +505,10 @@ def run_job(session: Session, job: Job) -> None:
                 source_url=item.source_url, provenance=_copied_provenance(item),
             )
             new = result.item
+            if not result.created and new.deleted_at is not None:
+                # the same cut-out was made before and is in the trash (an
+                # undo): asking again brings it back
+                new = items_svc.restore(session, new.id)
             if result.created:
                 info = {"source_item": item.id, "model": model,
                         "feather": float(p.get("feather") or 0), "shadow": bool(p.get("shadow")),

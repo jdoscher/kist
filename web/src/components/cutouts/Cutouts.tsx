@@ -5,8 +5,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { Scissors } from 'lucide-react'
 import { lazy, Suspense, useSyncExternalStore } from 'react'
-import { thumbUrl, type Item } from '../../api'
-import { canCutOut, cutoutApi, cutoutInfo, cutoutRequest, openCutout, subscribeCutout } from '../../cutouts'
+import type { Item } from '../../api'
+import { canCutOut, cutoutApi, cutoutInfo, cutoutPreviewUrl, cutoutRequest, openCutout, subscribeCutout } from '../../cutouts'
 import { useCaps, useCurrentItems } from '../../data'
 import { useAppState } from '../../state'
 import type { BulkMenuItem } from '../BulkBar'
@@ -80,16 +80,14 @@ export function ItemCutouts({ item }: { item: Item }) {
       </div>
       {cuts.length > 0 && (
         <ul className="cutout-list">
-          {cuts.map((c) => {
-            const t = thumbUrl(c, 256)
-            return (
-              <li key={c.id}>
-                <button type="button" className="cutout-thumb" onClick={() => selectOnly(c.id)} title={c.filename} aria-label={`Open the cut-out ${c.filename}`}>
-                  {t ? <img src={t} alt="" loading="lazy" /> : <Scissors size={16} aria-hidden="true" />}
-                </button>
-              </li>
-            )
-          })}
+          {cuts.map((c) => (
+            <li key={c.id}>
+              {/* the transparent copy, on a checkerboard (the grid's preview is flattened) */}
+              <button type="button" className="cutout-thumb" onClick={() => selectOnly(c.id)} title={c.filename} aria-label={`Open the cut-out ${c.filename}`}>
+                <img src={cutoutPreviewUrl(c)} alt="" loading="lazy" />
+              </button>
+            </li>
+          ))}
         </ul>
       )}
     </div>

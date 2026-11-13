@@ -70,8 +70,11 @@ export default function CutoutDialog({ req }: { req: CutoutRequest }) {
     void qc.invalidateQueries({ queryKey: ['batches'] })
     if (board && results.length) {
       void qc.invalidateQueries({ queryKey: ['board', board.boardId] })
+      // the notice carries Undo; the dialog has nothing left to say
+      closeCutout()
       notify({
         message: 'The cut-out is on the board in place of the image.',
+        timeoutMs: 15_000,
         action: {
           label: 'Undo',
           run: () => void api.undoBatch(batch.current).then(() => {
