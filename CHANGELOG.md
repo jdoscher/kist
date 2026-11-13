@@ -988,6 +988,11 @@ The aesthetic pass: one grey, one control language, one type system.
 - On the phone the item sheet, the folder drawer and the Move to… and Tags sheets glide in on the iPhone's own sheet curve (a little slower and softer than desktop menus), with the backdrop fading at the same pace. Reduce Motion turns it off.
 - **Remove a dead token from the list:** after you revoke a token, the notice offers **Remove from list**, and every revoked or expired token's card has the same button (`DELETE /api/tokens/{id}/entry`; a token that still works must be revoked first). Its changes keep its name in item history, and `tokens.json` follows, so `rebuild-index` doesn't bring it back.
 
+### Features from the art-team panel
+
+- **Viewing aids (F5).** In the full-screen preview and in compare: greyscale for a value check (G; the grey has the colour's real lightness, computed in linear light), posterise to 3 or 5 values (V), mirror (H), a grid of thirds, 4 × 4 or your own count (L), a 2 × 2 or 3 × 3 repeat preview for patterns, straight, half-drop or half-brick (T), and true 100 % where one image pixel is one screen pixel, Retina included (1; compare has a 1:1 button). A View button holds them all, on the phone too; a small badge says what is on and turns it off. They only change what you see: nothing is saved and the file is untouched. Escape leaves 100 % or the repeat before it closes the preview.
+- **Your own colour books (F5).** Settings → Colour books imports colour lists you have the right to use: Adobe Swatch Exchange (.ase), GIMP palettes (.gpl) or CSV (code, name, and hex or Lab). Under an item's colours the info panel shows the nearest code from each book you use, with how far off it is (ΔE, CIEDE2000); press one to find items in that colour. The colour search takes a code too (type it under "Or a code from your colour books", or `color=book:<book>/<code>` in the API, and a bare code works). Books can be switched off, renamed or deleted, live as files in `library/.kist/colourbooks/` (so `rebuild-index` keeps them and `verify` checks them) and Kist ships none. For agents: the MCP tools `nearest_colour_code` and `list_colour_books`.
+
 ## [1.5.0] - 2026-11-09
 
 A hardening release. Kist was reviewed for security, data integrity,
