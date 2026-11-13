@@ -405,6 +405,12 @@ button.on,
   --danger: var(--preview-danger);
   --danger-bg: #4a1d1a;
   --danger-on: #ffd9d6;
+  /* menus and popovers opened inside it (View, Cut out…) float on the
+     preview's own dark surfaces, not the page theme's: in light, --bg-float
+     is white and the preview's text is light (tests/overlay-tokens.test.ts) */
+  --bg-float: var(--preview-panel);
+  --float-hover: var(--preview-hover);
+  --float-line: var(--preview-border);
   color-scheme: dark;
   position: fixed;
   inset: 0;

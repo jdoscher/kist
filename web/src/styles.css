@@ -1560,6 +1560,19 @@ select:focus-visible {
   --bg-active: var(--preview-active);
   --field-border: var(--preview-line);
   --focus: var(--preview-accent);
+  --accent-soft: var(--preview-soft);
+  --soft-dim: var(--preview-soft-dim);
+  --selected-line: var(--preview-dim);
+  --on-accent: var(--preview-on-accent);
+  --bg: var(--preview-panel);
+  --border: var(--preview-border);
+  --danger: var(--preview-danger);
+  /* menus and popovers opened inside it (View, Cut out…) float on the
+     preview's own dark surfaces, not the page theme's: in light, --bg-float
+     is white and the preview's text is light (tests/overlay-tokens.test.ts) */
+  --bg-float: var(--preview-panel);
+  --float-hover: var(--preview-hover);
+  --float-line: var(--preview-border);
   color-scheme: dark;
   color: var(--text);
   position: fixed;
