@@ -75,6 +75,8 @@ class ItemOut(BaseModel):
     media: dict[str, Any] | None = None
     taken_at: datetime | None = None
     place: str | None = None
+    # F6: custom field values {field id: value} (services/projects.py)
+    custom_fields: dict[str, Any] = {}
 
     @classmethod
     def from_item(cls, item: Item, match: dict | None = None) -> "ItemOut":
@@ -130,6 +132,7 @@ class ItemOut(BaseModel):
             if item.media else None,
             taken_at=item.taken_at,
             place=item.place,
+            custom_fields=dict(item.custom_fields or {}),
         )
 
     @classmethod
@@ -341,6 +344,9 @@ class SmartFolderQuery(BaseModel):
     date_after: datetime | None = None
     date_before: datetime | None = None
     bbox: str | None = Field(default=None, max_length=200)
+    # F6 (services/projects.py): a project's items; {field key: expr}
+    project: str | None = Field(default=None, max_length=64)
+    custom_fields: dict[str, str] | None = None
 
 
 class PaletteColour(BaseModel):

@@ -120,6 +120,9 @@ def smart_filters(q: dict) -> list:
         source_status=q.get("source_status") or None,
         media={k: (_dt(q[k]) if k.startswith(("taken_", "date_")) else q[k])
                for k in MEDIA_KEYS if q.get(k) is not None},
+        # F6: a project and custom field filters
+        project=q.get("project") or None,
+        custom_fields=q.get("custom_fields") or None,
     )
     if q.get("has_text") is not None:
         out.append(ranking.has_text_filter(bool(q["has_text"])))

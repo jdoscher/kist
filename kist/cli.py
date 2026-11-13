@@ -203,6 +203,9 @@ def item_from_meta(session, meta: dict, original: Path, folder_ids: set[str]) ->
                     geocode=False)
     item.tags = tags_svc.get_or_create(session, meta.get("tags", []), validate=False)
     item.folders = [session.get(Folder, f) for f in raw_folders if f in folder_ids]
+    from .services import projects as projects_svc
+
+    projects_svc.restore_from_meta(item, meta)  # F6 custom field values
     return item
 
 

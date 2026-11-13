@@ -206,11 +206,17 @@ def build_filters(
     # with a session, tag filters are resolved to tag ids first (see
     # tag_condition): same items, better plans
     session: Session | None = None,
+    # F6 (services/projects.filters): items in a project's folders, and
+    # custom field filters {field key: expr} (field.<key>=<expr> in URLs)
+    project: str | None = None,
+    custom_fields: dict | None = None,
 ) -> list[Any]:
     from . import media as media_svc
+    from . import projects as projects_svc
     from . import provenance
 
     filters: list[Any] = list(extra or [])
+    filters += projects_svc.filters(custom_fields=custom_fields, project=project)
     filters += media_svc.filters(media)
     filters += provenance.filters(ai_generated=ai_generated, license=license,
                                   source_status=source_status)
@@ -374,6 +380,8 @@ def search(
     # extra SQL conditions (internal callers)
     extra: list[Any] | None = None,
     media: dict | None = None,
+    project: str | None = None,  # F6
+    custom_fields: dict | None = None,  # F6
 ) -> SearchResult:
     """One page of items. total is counted on the first page only (no
     cursor); later pages return None.
@@ -425,6 +433,7 @@ def search(
         extra=extra,
         media=media,
         session=session,
+        project=project, custom_fields=custom_fields,
     )
     if collapse_ranked:
         # the trash lists every trashed item on its own (as build_filters does)
