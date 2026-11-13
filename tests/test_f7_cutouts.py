@@ -451,7 +451,9 @@ def test_board_export_draws_a_cutout_without_its_background(client, upload, ml):
     subject = (np.abs(a - [40, 90, 170]).sum(axis=2) < 30).mean()
     flattened = (np.abs(a - [24, 24, 27]).sum(axis=2) < 12).mean()
     # the cut-out's transparent margin shows the board; no dark preview card
-    assert magenta > 0.05 and subject > 0.3 and flattened == 0
+    # (a card would cover a large share; the few dark pixels allowed are the
+    # F4 credits band's text under the board, since the cut-out keeps its credit)
+    assert magenta > 0.05 and subject > 0.3 and flattened < 0.01
 
 
 def test_keep_shadow_finds_none_on_a_busy_background():

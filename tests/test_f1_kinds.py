@@ -163,26 +163,35 @@ def test_rule_kinds_without_ai(client, upload):
 
 
 def test_low_res_threshold_and_print_size_hook(client, upload):
-    mid = upload("mid.png", data=png_bytes(size=(1000, 800)))["item"]
+    # integration: F4's print check is registered, so Low-res is a print
+    # size (kinds.json low_res_in, 5 in at 300 dpi by default)
+    assert kinds._print_size is kinds._f4_print_size
+    mid = upload("mid.png", data=png_bytes(size=(1000, 800)))["item"]  # 3.3 in
     run_jobs()
     assert mid["id"] in ids(client, auto_kind="low-res")
-    client.patch("/api/kinds", json={"low_res_px": 900})
+    got = {k["kind"]: k for k in client.get(f"/api/items/{mid['id']}/kinds").json()}
+    assert "300 dpi" in got["low-res"]["why"]
+    assert client.get("/api/kinds").json()["low_res_in"] == 5.0
+    client.patch("/api/kinds", json={"low_res_in": 3})
     run_jobs()  # the re-sort job
     assert mid["id"] not in ids(client, auto_kind="low-res")
-    # F4's print check, when registered, decides
-    kinds.register_print_size(lambda item: (8.0, 6.0))
+    assert client.patch("/api/kinds", json={"low_res_in": 0.1}).status_code == 422
+    # without a print size, pixels decide (low_res_px, 1,200 by default)
+    kinds.register_print_size(None)
     try:
         with SessionLocal() as s:
             kinds.backfill(s, all_items=True)
-        got = {k["kind"]: k for k in client.get(f"/api/items/{mid['id']}/kinds").json()}
-        assert "low-res" not in got
+        assert mid["id"] in ids(client, auto_kind="low-res")
+        client.patch("/api/kinds", json={"low_res_px": 900})
+        run_jobs()
+        assert mid["id"] not in ids(client, auto_kind="low-res")
         kinds.register_print_size(lambda item: (2.0, 1.5))
         with SessionLocal() as s:
             kinds.backfill(s, all_items=True)
         got = {k["kind"]: k for k in client.get(f"/api/items/{mid['id']}/kinds").json()}
-        assert "300 dpi" in got["low-res"]["why"]
+        assert "under 3 in" in got["low-res"]["why"]
     finally:
-        kinds.register_print_size(None)
+        kinds.register_print_size(kinds._f4_print_size)
 
 
 def test_ai_made_is_opt_in_and_metadata_only(client, upload):

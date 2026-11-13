@@ -3,6 +3,7 @@ date filters (date_after/date_before on taken-else-added), the map's area
 filter (bbox), and the app shell refusing to be framed (the /add card)."""
 
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -28,8 +29,12 @@ def test_date_and_bbox_filters(client, upload):
     plain = upload("plain.png", F.png(), "image/png")["item"]
     assert paris["taken_at"].startswith("2023-06-15")
 
-    # the timeline's day for an undated item is the day it was added
-    added = plain["created_at"][:10]
+    # the timeline's day for an undated item is the day it was added, as a
+    # UTC day (services/timeline.py groups in UTC). created_at comes back in
+    # the database session's zone (America/Los_Angeles on Quarry), so its
+    # first ten characters were the local date and missed the bucket after
+    # 16:00 Pacific; take the UTC date instead
+    added = datetime.fromisoformat(plain["created_at"]).astimezone(UTC).date().isoformat()
     day = client.get("/api/timeline?group=day").json()
     assert any(b["key"] == added for b in day)
     assert _ids(client, f"date_after={added}T00:00:00Z&date_before={added}T23:59:59Z") == {
