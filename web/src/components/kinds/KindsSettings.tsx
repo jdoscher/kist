@@ -170,7 +170,7 @@ function KindRow({ k, busy, onSave }: { k: KindInfo; busy: boolean; onSave: (bod
           {k.opt_in && <span className="kd-dim"> · opt-in</span>}
         </span>
       </label>
-      <span className="kd-dim kd-count">{k.enabled ? `${k.count.toLocaleString()} items` : 'off'}</span>
+      <span className="kd-dim kd-count">{k.enabled ? `${k.count.toLocaleString()} ${k.count === 1 ? 'item' : 'items'}` : 'off'}</span>
       {k.clip ? (
         <span className="kd-strict">
           <label htmlFor={`${id}-s`} className="sr-only">

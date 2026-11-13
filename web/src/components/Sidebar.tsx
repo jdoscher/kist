@@ -632,7 +632,8 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
           <div className="hint">{mobile || !caps.canEdit ? 'No folders yet.' : 'No folders yet. Press + to make one.'}</div>
         )}
 
-        <SidebarKinds />
+        {/* a folder-limited reader has no smart folders: its kinds follow its folders */}
+        {caps.restricted && <SidebarKinds />}
 
         {!caps.restricted && (
           <>
@@ -672,6 +673,9 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
             {mobile || !caps.canEdit ? 'No saved searches yet.' : 'Save a search: filter the grid, then press + above.'}
           </div>
         )}
+
+        {/* what you made (boards, folders, smart folders) first, then what Kist sorted */}
+        <SidebarKinds />
 
         <SidebarCull />
 

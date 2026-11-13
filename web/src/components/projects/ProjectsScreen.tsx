@@ -40,6 +40,7 @@ import { describeError } from '../../writes'
 import { Modal, useDialog } from '../Dialog'
 import { usePresent } from '../present/PresentHost' // F2: open a saved show
 import { presentApi } from '../../presentApi'
+import { cutoutPreviewUrl, isCutout } from '../../cutouts' // F7: cut-outs stay transparent
 import { useBoards } from '../m3/Boards'
 import { useNotices } from '../Notices'
 import { useProject, useProjects, useProjectsRefresh } from './hooks'
@@ -384,7 +385,7 @@ export function ProjectPage({ id }: { id: string }) {
                       selectOnly(it.id)
                     }}
                   >
-                    {it.has_thumb ? <img src={thumbUrl(it) ?? undefined} alt="" loading="lazy" /> : <span className="pj-recent-ext">.{it.ext}</span>}
+                    {it.has_thumb ? <img src={(isCutout(it) ? cutoutPreviewUrl(it) : thumbUrl(it)) ?? undefined} alt="" loading="lazy" className={isCutout(it) ? 'pj-recent-cutout' : undefined} /> : <span className="pj-recent-ext">.{it.ext}</span>}
                   </button>
                 </li>
               ))}
