@@ -25,6 +25,7 @@ import { bannerText, describeError, hasDrafts } from './writes'
 import { CreativeProvider } from './components/m3/Creative'
 import { M45Provider } from './components/m45/M45'
 import { inLibraryFrame } from './url'
+import { PresentProvider } from './components/present/PresentHost' // 2.0 F2
 
 // Screens past the library load on first use, so the first load is the
 // library alone (Settings, the boards list, a board, triage, Organise;
@@ -39,6 +40,9 @@ const TimelineScreen = lazy(() => import('./components/m45/TimelineScreen'))
 const MapScreen = lazy(() => import('./components/m45/MapScreen'))
 const AddPage = lazy(() => import('./components/m45/AddPage'))
 const BookmarkletPage = lazy(() => import('./components/m45/BookmarkletPage'))
+// 2.0 F2 Present: the phone remote (no token) and the presenter window
+const PresentRemotePage = lazy(() => import('./components/present/RemotePage'))
+const PresenterPage = lazy(() => import('./components/present/PresenterPage'))
 
 function TokenGate({ onDone, overlay = false }: { onDone: () => void; overlay?: boolean }) {
   const [value, setValue] = useState('')
@@ -271,7 +275,22 @@ export default function App() {
       </Suspense>
     )
 
+  // the phone remote pairs by QR code with its own short-lived token
+  if (window.location.pathname.startsWith('/present/remote/'))
+    return (
+      <Suspense fallback={<main className="center" role="status">Loading…</main>}>
+        <PresentRemotePage />
+      </Suspense>
+    )
+
   if (!authed && !shown) return <TokenGate onDone={recheck} />
+
+  if (window.location.pathname === '/present/presenter')
+    return (
+      <Suspense fallback={<main className="center" role="status">Loading…</main>}>
+        <PresenterPage />
+      </Suspense>
+    )
 
   return (
     <NoticesProvider>
@@ -280,6 +299,7 @@ export default function App() {
           <UploadManager>
             <CreativeProvider>
               <M45Provider>
+              <PresentProvider>
               <div className={`app-shell${mobile ? ' mobile' : ''}`}>
                 <ServerBanner />
                 <ShellStatus />
@@ -290,6 +310,7 @@ export default function App() {
                 <UndoShortcut />
                 {!authed && <TokenGate onDone={recheck} overlay />}
               </div>
+              </PresentProvider>
               </M45Provider>
             </CreativeProvider>
           </UploadManager>

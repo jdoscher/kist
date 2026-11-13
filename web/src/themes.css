@@ -72,6 +72,12 @@
   --canvas-dim: #9c9a93;
   --canvas-focus: #e8b04b;
   --preview-bg: #0d0d0c;
+  /* Present (2.0 F2): the show's surround, grey (the gallery grey) or
+     black, the same in every theme, with its own caption colours */
+  --present-grey: #5c5c5c;
+  --present-black: #000000;
+  --present-text: #f5f5f5;
+  --present-text-dim: #dadada;
   --preview-text: #eceae4;
   --preview-dim: #b4b2ab;
   --preview-accent: #e8b04b;
@@ -135,6 +141,12 @@
   --canvas-dim: #5f5d57;
   --canvas-focus: #8c5a00;
   --preview-bg: #5c5c5c;
+  /* Present (2.0 F2): the show's surround, grey (the gallery grey) or
+     black, the same in every theme, with its own caption colours */
+  --present-grey: #5c5c5c;
+  --present-black: #000000;
+  --present-text: #f5f5f5;
+  --present-text-dim: #dadada;
   --preview-text: #ffffff;
   --preview-dim: #dadada;
   --preview-accent: #ffffff;
@@ -198,6 +210,12 @@
   --canvas-dim: #dadada;
   --canvas-focus: #f6cf7e;
   --preview-bg: #5c5c5c;
+  /* Present (2.0 F2): the show's surround, grey (the gallery grey) or
+     black, the same in every theme, with its own caption colours */
+  --present-grey: #5c5c5c;
+  --present-black: #000000;
+  --present-text: #f5f5f5;
+  --present-text-dim: #dadada;
   --preview-text: #ffffff;
   --preview-dim: #dadada;
   --preview-accent: #ffffff;

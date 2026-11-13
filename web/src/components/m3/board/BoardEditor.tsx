@@ -65,6 +65,7 @@ import { BoardList } from './BoardList'
 import { useBoardKeys } from './keys'
 import { useM45 } from '../../m45/M45'
 import { PhoneBoardMenu } from './PhoneBoardMenu'
+import { PresentBoardButton } from '../../present/PresentHost' // 2.0 F2
 
 export type Tool = 'select' | 'hand' | 'connect'
 type SaveState = 'saved' | 'unsaved' | 'saving' | 'error' | 'conflict'
@@ -537,6 +538,7 @@ export default function BoardEditor({ id }: { id: string }) {
         </button>
         {canEdit && <BackgroundMenu ed={ed} />}
         <ExportMenu id={id} name={content.name} />
+        <PresentBoardButton id={id} name={content.name} />
         {caps.canEdit && (
           <button
             className="icon-btn"

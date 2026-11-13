@@ -31,6 +31,7 @@ import { useWrite } from '../useWrite'
 import { Mark, Wordmark } from './Brand'
 import { Modal, useDialog } from './Dialog'
 import { ViewShareMenu } from './m45/TopBarExtras'
+import { PresentButton } from './present/PresentHost'
 import { useNotices } from './Notices'
 import { AppearanceControls } from './Appearance'
 import { useUploads } from './UploadManager'
@@ -790,6 +791,7 @@ export function Drawer() {
             <Mark />
             <Wordmark />
           </div>
+          <PresentButton onDone={closeDrawer} />
           <ViewShareMenu />
           <button className="drawer-close" aria-label="Close menu" onClick={closeDrawer}>
             <X size={20} aria-hidden="true" />

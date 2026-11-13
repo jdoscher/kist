@@ -224,3 +224,16 @@ test('the worker: one cache per build, waits for Reload (SKIP_WAITING)', () => {
   // the unbuilt source still parses (dev version, nothing listed)
   assert.equal(loadWorker().sw.CACHE, 'kist-shell-dev')
 })
+
+test('Present (2.0 F2): only present=1 item images are offline-able; the relay never', () => {
+  const { sw } = loadWorker({ version: 'v1', assets: ['/'] })
+  const o = 'https://ki.example'
+  for (const p of ['/api/items/01H/file?present=1', '/api/items/01H/thumb?size=4096&v=2&present=1'])
+    assert.equal(sw.route(req(p), o), 'present', p)
+  for (const p of ['/api/items/01H/file', '/api/items/01H/file?present=0', '/api/items?present=1', '/api/items/01H/history?present=1', '/present-relay/01H/state'])
+    assert.equal(sw.route(req(p), o), 'network', p)
+  assert.equal(sw.route(req('/api/items/01H/file?present=1', 'cors', 'POST'), o), 'network')
+  assert.equal(sw.route({ url: 'https://other.example/api/items/01H/file?present=1', mode: 'cors', method: 'GET' }, o), 'network')
+  // the phone remote's page is the app shell (works offline as a page)
+  assert.equal(sw.route(req('/present/remote/01H', 'navigate'), o), 'page')
+})
