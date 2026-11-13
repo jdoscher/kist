@@ -72,3 +72,9 @@ test('a code search survives the address bar', () => {
   const junk = fromUrl('/', '?color=javascript:alert(1)')
   assert.equal(junk.query.color, null)
 })
+
+test('a code search is titled by its code', async () => {
+  const { searchTitle } = await import('../src/search.ts')
+  assert.equal(searchTitle({ ...emptyQuery, color: 'book:ral/RAL 7016' }), 'Colour RAL 7016')
+  assert.equal(searchTitle({ ...emptyQuery, color: '#abcdef' }), 'Colour #abcdef')
+})

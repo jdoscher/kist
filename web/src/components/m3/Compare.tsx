@@ -272,8 +272,8 @@ export default function Compare({
             <span className="cmp-zoom" aria-live="polite">
               {Math.round((sync ? shared.zoom : 1) * 100)}%
             </span>
-            <button className="btn-icon" onClick={actualSize} title="The current item at 100 %: one image pixel per screen pixel">
-              100 %
+            <button className="btn-icon" onClick={actualSize} aria-label="True 100 %" title="The current item at true 100 %: one image pixel per screen pixel">
+              1:1
             </button>
           </>
         )}

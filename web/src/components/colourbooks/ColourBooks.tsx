@@ -238,7 +238,7 @@ export function CodeSearch({ onPick }: { onPick: (ref: string) => void }) {
   const list: FoundSwatch[] = found.data ?? []
   return (
     <div className="cbook-search">
-      <label htmlFor={`${uid}-q`} className="section-label">
+      <label htmlFor={`${uid}-q`} className="cbook-search-label">
         <Palette size={14} aria-hidden="true" /> Or a code from your colour books
       </label>
       <input
@@ -282,8 +282,8 @@ export function CodeSearch({ onPick }: { onPick: (ref: string) => void }) {
                 onClick={() => onPick(s.ref)}
               >
                 <span className="cbook-chip" style={{ background: s.hex }} aria-hidden="true" />
-                <span>{swatchLabel(s)}</span>
-                <span className="cbook-code-name">{s.book}</span>
+                <span className="cbook-result-code">{swatchLabel(s)}</span>
+                <span className="cbook-result-book">{s.book}</span>
               </button>
             </li>
           ))}
@@ -308,7 +308,7 @@ export function useCodeChip(value: string | null): { hex: string | null; label: 
   })
   if (!ref) return null
   const s = found.data?.[0]
-  return { hex: s?.hex ?? null, label: s ? `${swatchLabel(s)} (${s.book})` : ref.code }
+  return { hex: s?.hex ?? null, label: s ? swatchLabel(s) : ref.code }
 }
 
 export function CodeChipText({ value }: { value: string }) {

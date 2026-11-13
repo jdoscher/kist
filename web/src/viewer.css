@@ -408,3 +408,46 @@
 .mobile .cbook-code {
   min-height: 44px;
 }
+/* native checkboxes and number fields stay neutral (brass is only for the
+   primary button, selection, focus and stars) */
+:is(.va-menu, .cbook-row, .cbook-import) input {
+  accent-color: var(--text);
+}
+.cbook-search-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-2);
+  color: var(--text-dim);
+}
+.cbook-search input {
+  height: var(--ctl-h);
+  padding: 0 var(--ctl-pad-x);
+  border: 1px solid var(--field-border);
+  border-radius: var(--ctl-radius);
+  background: var(--bg);
+  color: var(--text);
+}
+.cbook-result-code {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cbook-result-book {
+  flex: none;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-1);
+  color: var(--text-dim);
+}
+.cbook-results .cbook-chip {
+  flex: none;
+}
+/* a phone has no keyboard: no key hints */
+.va-phone kbd {
+  display: none;
+}

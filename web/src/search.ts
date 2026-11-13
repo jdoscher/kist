@@ -203,7 +203,8 @@ export function searchTitle(q: Query, names: { item?: (id: string) => string | u
     return n ? `More like “${n}”` : 'More like this'
   }
   if (q.image) return 'Like your image'
-  if (q.color) return `Colour ${q.color}`
+  // a colour book code (F5) shows as its code: 'book:ral/RAL 7016' -> RAL 7016
+  if (q.color) return `Colour ${q.color.replace(/^book:[^/]+\//i, '')}`
   if (q.person) return names.person?.(q.person) ?? 'Person'
   return null
 }

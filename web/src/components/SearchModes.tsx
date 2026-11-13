@@ -178,14 +178,19 @@ export function ColourPicker({
   const [text, setText] = useState(hexColor(initial ?? '', false) ?? '#2f4f3a')
   const [t, setT] = useState(tol || DEFAULT_COLOR_TOL)
   const ref = useRef<HTMLDivElement>(null)
+  // onClose is a new function on every parent render: keep the latest in a
+  // ref so this runs once, and focus isn't pulled back to the colour well
+  // while typing in the hex or code field
+  const closeRef = useRef(onClose)
+  closeRef.current = onClose
   useEffect(() => {
     const close = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) onClose()
+      if (!ref.current?.contains(e.target as Node)) closeRef.current()
     }
     window.addEventListener('mousedown', close)
     requestAnimationFrame(() => ref.current?.querySelector<HTMLInputElement>('input[type=color]')?.focus())
     return () => window.removeEventListener('mousedown', close)
-  }, [onClose])
+  }, [])
   const valid = hexColor(text, false)
   return (
     <div

@@ -196,7 +196,8 @@ function TileView({ item, n, aids }: { item: FrameItem; n: number; aids: ViewAid
         <span
           key={`${c.x}:${c.y}`}
           className="va-tile"
-          style={{ left: `${(c.x / n) * 100}%`, top: `${(c.y / n) * 100}%`, width: `${100 / n}%`, height: `${100 / n}%`, backgroundImage: `url("${src}")` }}
+          // 1 px of overlap: sub-pixel edges would otherwise show as false seams
+          style={{ left: `${(c.x / n) * 100}%`, top: `${(c.y / n) * 100}%`, width: `calc(${100 / n}% + 1px)`, height: `calc(${100 / n}% + 1px)`, backgroundImage: `url("${src}")` }}
         />
       ))}
     </div>
