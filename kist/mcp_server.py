@@ -1197,7 +1197,8 @@ def cut_out_subject(item_id: str, model: str | None = None, feather: float = 0.0
     "quick 'when is this from' overview. sort is created, modified or taken "
     "(date taken, else added); order asc or desc. Takes search_items' "
     "filters (query, tags, folder, view='unfiled', type, flag, label, the "
-    "provenance and media filters ...). Each bucket {key 'YYYY-MM', count, "
+    "provenance, media, credits (rights_status, needs_credit, print_min/max), "
+    "auto_kind, project and fields filters ...). Each bucket {key 'YYYY-MM', count, "
     "cursor}: pass cursor to search_items with order=<item_order> to start "
     "at that month's first item.",
     restricted_ok=True,
@@ -1234,6 +1235,13 @@ def item_buckets(
     has_audio: bool | None = None,
     duration_min: float | None = None,
     duration_max: float | None = None,
+    rights_status: str | None = None,
+    needs_credit: bool | None = None,
+    print_min: str | None = None,
+    print_max: str | None = None,
+    auto_kind: str | None = None,
+    project: str | None = None,
+    fields: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     from .services import buckets
 
@@ -1250,6 +1258,10 @@ def item_buckets(
             folder=folder, kind=type, rating_min=rating_min,
             stacks="collapse" if collapse_stacks else None, person=person,
             flag=flag, label=label, **extra,
+            # the art-team filters, as in search_items (F1, F4, F6)
+            credits=_credits_filters(rights_status=rights_status, needs_credit=needs_credit,
+                                     print_min=print_min, print_max=print_max),
+            auto_kind=auto_kind, project=project, custom_fields=fields,
         ), session)
         return buckets.buckets(session, filters, sort=sort, order=order)
 

@@ -1,6 +1,7 @@
 // Query helpers shared by the sidebar, top bar and app state (no React).
 import { emptyQuery, type Item, type Query } from './api.ts'
 import { hasM45Filters, m45Filters } from './m45/filters.ts'
+import { isNeedsCreditView } from './credits.ts'
 import { kindTitle } from './kindsCore.ts'
 import { hasProjectFilters, projectFilters } from './projectFilters.ts'
 
@@ -125,7 +126,7 @@ export function smartFolderQuery(q: Query): Partial<Query> {
 /** The name of what the grid shows, for headings, labels and messages. */
 export function viewTitle(
   q: Query,
-  names: { folder?: (id: string) => string | undefined; smart?: string | null } = {},
+  names: { folder?: (id: string) => string | undefined; smart?: string | null; project?: (id: string) => string | undefined } = {},
 ): string {
   if (names.smart) return names.smart
   if (q.deleted) return 'Trash'
@@ -134,6 +135,8 @@ export function viewTitle(
   if (q.folder) return names.folder?.(q.folder) ?? 'this folder'
   if (q.tags.length) return q.tags.map((t) => `#${t}`).join(' ')
   if (q.auto_kind) return kindTitle(q.auto_kind) // F1 kinds
+  if (q.project) return names.project?.(q.project) ?? 'this project' // F6
+  if (isNeedsCreditView(q as unknown as Record<string, unknown>)) return 'Needs a credit' // F4
   return 'All items'
 }
 

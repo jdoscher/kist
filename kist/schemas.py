@@ -362,6 +362,9 @@ class SmartFolderQuery(BaseModel):
     needs_credit: bool | None = None
     print_min: str | None = Field(default=None, max_length=20)
     print_max: str | None = Field(default=None, max_length=20)
+    # F1 utility collections (services/kinds.filters): drawings, -screenshots,
+    # drawings:unsure (it was dropped on save before the integration)
+    auto_kind: str | None = Field(default=None, max_length=200)
     # F6 (services/projects.py): a project's items; {field key: expr}
     project: str | None = Field(default=None, max_length=64)
     custom_fields: dict[str, str] | None = None

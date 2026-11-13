@@ -1,3 +1,4 @@
+import { useProject } from './projects/hooks' // F6
 import { cutoutPreviewUrl, isCutout } from '../cutouts' // F7
 import { defaultRangeExtractor, useVirtualizer, type Range } from '@tanstack/react-virtual'
 import { AiBadge } from './credits/Credits' // F4
@@ -626,7 +627,8 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
   const personName = usePersonName(query.person)
   const smartName = smartId ? (smartFolders ?? []).find((s) => s.id === smartId)?.name : null
   const searchName = searchTitle(query, { item: () => similarTo?.filename, person: () => personName ?? undefined })
-  const title = searchName ?? viewTitle(query, { folder: (id) => folderNames.get(id), smart: smartName })
+  const projectName = useProject(query.project ?? null).data?.name // F6: the grid's title under a project filter
+  const title = searchName ?? viewTitle(query, { folder: (id) => folderNames.get(id), smart: smartName, project: () => projectName })
   // a folder or tag page gets the large title with a small eyebrow above
   // it (B7): the parent folder's name, or what the page is
   const folderPage = !searchName && !smartId && !query.deleted && !!query.folder && query.folder !== 'none'
