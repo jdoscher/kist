@@ -78,6 +78,9 @@ FLOOR = 0.12
 T_MIN, T_MAX = 0.1, 0.9
 DEFAULT_MIN_ITEMS = 20
 DEFAULT_LOW_RES_PX = 1200
+# with F4's print check registered, Low-res is a print size: under 5 in on
+# the long edge at 300 dpi (1,500 px), the panel's cutoff (kinds.json low_res_in)
+DEFAULT_LOW_RES_IN = 5.0
 LEARN_MIN = 10
 L2 = 1.0
 L2_SCALE = 3.0
@@ -194,6 +197,7 @@ def settings() -> dict:
                        "strictness": float(strictness)}
     min_items = raw.get("min_items")
     low_res = raw.get("low_res_px")
+    low_in = raw.get("low_res_in")
     return {
         "packs": packs,
         "kinds": kinds,
@@ -201,6 +205,8 @@ def settings() -> dict:
         else DEFAULT_MIN_ITEMS,
         "low_res_px": int(low_res) if isinstance(low_res, int) and 16 <= low_res <= 100_000
         else DEFAULT_LOW_RES_PX,
+        "low_res_in": float(low_in) if isinstance(low_in, (int, float))
+        and not isinstance(low_in, bool) and 0.5 <= low_in <= 100 else DEFAULT_LOW_RES_IN,
     }
 
 
@@ -231,7 +237,7 @@ def threshold(kind_id: str, s: dict | None = None) -> float:
 
 def update_settings(session: Session, *, packs: dict | None = None,
                     min_items: int | None = None, low_res_px: int | None = None,
-                    kinds: dict | None = None) -> dict:
+                    kinds: dict | None = None, low_res_in: float | None = None) -> dict:
     """Change settings (any subset). kinds: {id: {enabled: bool|None,
     strictness: 0..1}}. Strictness applies at once; anything that changes
     which items are in a kind queues a re-sort."""
@@ -257,6 +263,11 @@ def update_settings(session: Session, *, packs: dict | None = None,
         if not 16 <= int(low_res_px) <= 100_000:
             raise validation.ValidationError("low_res_px must be 16-100000")
         raw["low_res_px"] = int(low_res_px)
+    if low_res_in is not None:
+        v = float(low_res_in)
+        if math.isnan(v) or not 0.5 <= v <= 100:
+            raise validation.ValidationError("low_res_in must be 0.5-100 (inches at 300 dpi)")
+        raw["low_res_in"] = round(v, 2)
     strict_changed: list[str] = []
     if kinds:
         cur = {k: dict(v) for k, v in (raw.get("kinds") or {}).items()}
@@ -560,20 +571,26 @@ def _rule(kind: catalog.KindDef, item: Item, words: int, text: str, clip: float 
             return 0.0, ""
         limit = s["low_res_px"]
         size = _print_size(item) if _print_size else None
-        if size:
-            long_in = max(size)
-            if long_in * 300 < limit:
-                return 1.0, f"{long_in:.1f} in at 300 dpi (under {limit / 300:.1f} in)"
+        if size:  # F4's print check: a print size, kinds.json low_res_in
+            long_in, limit_in = max(size), s["low_res_in"]
+            if long_in < limit_in:
+                return 1.0, f"{long_in:.1f} in at 300 dpi (under {limit_in:g} in)"
             return 0.0, ""
         long_px = max(item.width or 0, item.height or 0)
         if long_px < limit:
             return 1.0, f"{item.width} × {item.height} px: under {limit:,} px on the long side"
         return 0.0, ""
     if r == "ai_made":
+        # the same flag as F4's badge and provenance.filters(ai_generated="true");
+        # an explicit false (someone said it isn't) wins over the source type
         prov = item.provenance or {}
         if prov.get("ai_generated") is True:
-            why = "C2PA says AI-made" if prov.get("c2pa") else "Provenance says AI-made"
+            why = ("C2PA says AI-made" if prov.get("c2pa") else
+                   f"Made with {prov['ai_generator']}" if prov.get("ai_generator") else
+                   "Provenance says AI-made")
             return 1.0, why
+        if prov.get("ai_generated") is False:
+            return 0.0, ""
         dst = str(prov.get("digital_source_type") or "").lower()
         if any(t in dst for t in AI_SOURCE_TYPES):
             return 1.0, f"Digital source type: {dst.rsplit('/', 1)[-1]}"
@@ -635,6 +652,7 @@ def signature(s: dict, kinds: list[catalog.KindDef], model: str | None,
         "kinds": [k.id for k in kinds],
         "strict": {k.id: s["kinds"][k.id]["strictness"] for k in kinds},
         "low_res": s["low_res_px"],
+        "low_res_in": s["low_res_in"] if _print_size else None,
         "model": model,
         "prompts": hashlib.sha1("|".join(all_prompts(kinds)).encode()).hexdigest()[:10]
         if model else None,
@@ -928,6 +946,22 @@ def filters(auto_kind: str | None) -> list:
     return out
 
 
+# kinds Present (F2) never moves with Ken Burns: flat art and text
+MOTION_BLOCKED = ("drawings", "pencil", "ink", "documents", "screenshots", "plans")
+
+
+def motion_blocked_ids(session: Session, ids: list[str]) -> set[str]:
+    """F2 Present hook: the items among `ids` in Drawings (with Pencil and
+    Ink), Documents, Screenshots or Plans, whether or not a kind is switched
+    on or shown in the sidebar (a confirmed call counts; a "not this" removes
+    it). Ken Burns never applies to these."""
+    if not ids:
+        return set()
+    conds = [member_condition(k) for k in MOTION_BLOCKED if k in catalog.BY_ID]
+    rows = session.execute(sa.select(Item.id).where(Item.id.in_(list(ids)), sa.or_(*conds)))
+    return set(rows.scalars())
+
+
 # ---------- listing ----------
 
 
@@ -995,6 +1029,7 @@ def overview(session: Session) -> dict:
                   for p, n in catalog.PACKS.items()],
         "min_items": s["min_items"],
         "low_res_px": s["low_res_px"],
+        "low_res_in": s["low_res_in"],
         "print_size_source": "print check" if _print_size else "pixels",
         "pending_jobs": pending,
     }
@@ -1229,3 +1264,13 @@ def restore(session: Session) -> tuple[int, int]:
         session.commit()
         sorted_n = backfill(session, fetch=False)
     return verdicts, sorted_n
+
+
+def _f4_print_size(item: Item) -> tuple[float, float] | None:
+    from . import credits  # F4 print check
+
+    return credits.print_size_in(item)
+
+
+# integration: Low-res reads F4's print size (credits.print_size_in)
+register_print_size(_f4_print_size)

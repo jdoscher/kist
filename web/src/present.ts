@@ -60,6 +60,8 @@ export interface SlideItem {
   /** may Ken Burns move it? never drawings, documents, PDFs or video */
   motion_ok: boolean
   low_res: boolean
+  /** F7: a cut-out (its thumb keeps the transparency) */
+  cutout?: boolean
 }
 
 export interface Slide {

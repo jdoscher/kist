@@ -90,22 +90,46 @@ export default function KindsSettings() {
                 />
                 items
               </span>
-              <label htmlFor={`${id}-lowres`}>Low-res: long edge under</label>
-              <span className="kd-inline">
-                <input
-                  id={`${id}-lowres`}
-                  type="number"
-                  min={16}
-                  max={100000}
-                  defaultValue={data.low_res_px}
-                  key={`lr-${data.low_res_px}`}
-                  onBlur={(e) => {
-                    const v = Number(e.target.value)
-                    if (Number.isFinite(v) && v !== data.low_res_px) void save('lowres', () => kindsApi.patch({ low_res_px: Math.max(16, Math.round(v)) }))
-                  }}
-                />
-                px <span className="kd-dim">(≈ {(data.low_res_px / 300).toFixed(1)} in at 300 dpi)</span>
-              </span>
+              {data.print_size_source === 'print check' && data.low_res_in ? (
+                <>
+                  <label htmlFor={`${id}-lowres`}>Low-res: prints under</label>
+                  <span className="kd-inline">
+                    <input
+                      id={`${id}-lowres`}
+                      type="number"
+                      min={0.5}
+                      max={100}
+                      step={0.5}
+                      defaultValue={data.low_res_in}
+                      key={`lri-${data.low_res_in}`}
+                      onBlur={(e) => {
+                        const v = Number(e.target.value)
+                        if (Number.isFinite(v) && v !== data.low_res_in) void save('lowres', () => kindsApi.patch({ low_res_in: Math.min(100, Math.max(0.5, v)) }))
+                      }}
+                    />
+                    in <span className="kd-dim">on the long edge at 300 dpi (≈ {Math.round(data.low_res_in * 300).toLocaleString()} px; the print check)</span>
+                  </span>
+                </>
+              ) : (
+                <>
+                  <label htmlFor={`${id}-lowres`}>Low-res: long edge under</label>
+                  <span className="kd-inline">
+                    <input
+                      id={`${id}-lowres`}
+                      type="number"
+                      min={16}
+                      max={100000}
+                      defaultValue={data.low_res_px}
+                      key={`lr-${data.low_res_px}`}
+                      onBlur={(e) => {
+                        const v = Number(e.target.value)
+                        if (Number.isFinite(v) && v !== data.low_res_px) void save('lowres', () => kindsApi.patch({ low_res_px: Math.max(16, Math.round(v)) }))
+                      }}
+                    />
+                    px <span className="kd-dim">(≈ {(data.low_res_px / 300).toFixed(1)} in at 300 dpi)</span>
+                  </span>
+                </>
+              )}
             </div>
             {data.pending_jobs > 0 && (
               <p className="hint" role="status">

@@ -245,6 +245,15 @@ def too_small_condition(value: str, *, dpi: int = DPI):
                    sa.not_(print_condition(value, dpi=dpi)))
 
 
+def print_size_in(item, dpi: int = DPI) -> tuple[float, float] | None:
+    """(width, height) in inches at `dpi`, or None without pixel sizes: the
+    print size F1's Low-res kind reads (kinds.register_print_size)."""
+    w, h = getattr(item, "width", None), getattr(item, "height", None)
+    if not w or not h:
+        return None
+    return w / dpi, h / dpi
+
+
 def low_res_condition(threshold: str = LOW_RES_PRINT_MAX):
     """For F1's Low-res collection: too small to print `threshold` at 300 dpi."""
     return too_small_condition(threshold)

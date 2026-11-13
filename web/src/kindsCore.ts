@@ -36,6 +36,8 @@ export interface KindsOverview {
   packs: { id: string; name: string; enabled: boolean }[]
   min_items: number
   low_res_px: number
+  /** with F4's print check: Low-res = prints under this many inches at 300 dpi */
+  low_res_in?: number
   print_size_source: string
   pending_jobs: number
 }

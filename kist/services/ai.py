@@ -55,6 +55,7 @@ from ..config import get_settings
 from ..filetypes import kind_for
 from ..lifecycle import (
     AI_KINDS,
+    BACKGROUND_KINDS,
     DEFAULT_AI_KINDS,
     HELPER_DEFAULT_KINDS,
     HELPER_KINDS,
@@ -758,7 +759,7 @@ def light_jobs_waiting(session: Session) -> bool:
     return session.execute(
         sa.select(Job.id).where(
             Job.status == JobStatus.PENDING,
-            Job.kind.notin_(AI_KINDS),
+            Job.kind.notin_((*AI_KINDS, *BACKGROUND_KINDS)),
             Job.run_after <= sa.func.now(),
         ).limit(1)
     ).first() is not None

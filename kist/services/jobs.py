@@ -27,6 +27,7 @@ from ..config import get_settings
 from ..ids import new_ulid
 from ..lifecycle import (
     AI_KINDS,
+    BACKGROUND_KINDS,
     HEAVY_KINDS,
     MAX_ATTEMPTS,
     JobKind,
@@ -102,7 +103,7 @@ def claim_next(session: Session) -> Job | None:
             Job.run_after <= sa.func.now(),
             Job.kind.notin_(AI_KINDS),
         )
-        .order_by(sa.case((Job.kind.in_(HEAVY_KINDS), 1), else_=0), Job.id)
+        .order_by(sa.case((Job.kind.in_((*HEAVY_KINDS, *BACKGROUND_KINDS)), 1), else_=0), Job.id)
         .limit(1)
         .with_for_update(skip_locked=True)
     ).scalar_one_or_none()

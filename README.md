@@ -649,6 +649,32 @@ the handlers and the table in step.
 | `1` | zoom to 100% |
 | `Escape` | clear the selection, back to the select tool |
 | `⌘/Ctrl K` | command palette |
+
+**Present (a full-screen show)**
+
+| Keys | Does |
+| --- | --- |
+| `→` `↓` `PageDown` `Space` | next slide |
+| `←` `↑` `PageUp` `Backspace` | previous slide |
+| `Home` `End` | first, last slide |
+| `0` `1` `2` `3` `4` `5` `6` `7` `8` `9` | type a slide number, then Enter to go there |
+| `P` | pick (again: clear; on a side-by-side slide, then 1 or 2) |
+| `X` | reject (again: clear) |
+| `N` | a note on the image (an annotation) |
+| `J` | side by side with the next slide / split |
+| `C` | captions on or off |
+| `F` | file names on or off |
+| `G` | grey or black surround |
+| `B` `.` | blank the screen |
+| `T` | pause or resume the timer |
+| `V` | presenter view (a second window) |
+| `R` | phone remote (pair by QR code) |
+| `?` `H` | the keys |
+| `⇧ G` | greyscale (value check) on or off |
+| `⇧ V` | posterise: off, 3 values, 5 values |
+| `⇧ H` | mirror on or off |
+| `⇧ L` | grid: off, thirds, 4 × 4, custom |
+| `Escape` | end the show |
 <!-- keymap:end -->
 
 ## Storage layout

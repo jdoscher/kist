@@ -198,6 +198,24 @@ register_member_kind("board", _boards)
 register_member_kind("share", _shares)
 
 
+def _shows(session: Session, ids: list[str]) -> dict[str, dict]:
+    """F2 Present's saved shows (library/.kist/shows.json), the ones this
+    token may see."""
+    from . import present as present_svc
+
+    try:
+        shows = present_svc.list_shows(session)
+    except validation.ValidationError:  # an unreadable shows.json: verify says so
+        return {}
+    want = set(ids)
+    return {s["id"]: {"name": s.get("name") or "Show", "web_url": f"/?present={s['id']}",
+                      "source_kind": (s.get("source") or {}).get("kind")}
+            for s in shows if s.get("id") in want}
+
+
+register_member_kind("show", _shows)  # F2 Present (integration)
+
+
 # ---------- cleaning input ----------
 
 

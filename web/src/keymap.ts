@@ -10,7 +10,7 @@
 // `ArrowLeft`, `Space`. A screen is a shortcuts.ts layer as the user sees it:
 // the library and a board are both the 'grid' layer but never shown at once.
 
-export type KeyContext = 'library' | 'quicklook' | 'preview' | 'triage' | 'compare' | 'board'
+export type KeyContext = 'library' | 'quicklook' | 'preview' | 'triage' | 'compare' | 'board' | 'present'
 
 export interface Binding {
   keys: string[]
@@ -24,6 +24,7 @@ export const CONTEXT_NAMES: Record<KeyContext, string> = {
   triage: 'Triage (/triage)',
   compare: 'Compare and survey',
   board: 'Board canvas (/board/…)',
+  present: 'Present (a full-screen show)',
 }
 
 export const KEYMAP: Record<KeyContext, Binding[]> = {
@@ -128,6 +129,31 @@ export const KEYMAP: Record<KeyContext, Binding[]> = {
     { keys: ['1'], does: 'zoom to 100%' },
     { keys: ['Escape'], does: 'clear the selection, back to the select tool' },
     { keys: ['Mod+K'], does: 'command palette' },
+  ],
+  // F2 Present (components/present/Show.tsx). Present's own keys win; the
+  // F5 viewing aids answer to Shift here (viewaids/presentAids.tsx)
+  present: [
+    { keys: ['ArrowRight', 'ArrowDown', 'PageDown', 'Space'], does: 'next slide' },
+    { keys: ['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'], does: 'previous slide' },
+    { keys: ['Home', 'End'], does: 'first, last slide' },
+    { keys: ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'], does: 'type a slide number, then Enter to go there' },
+    { keys: ['P'], does: 'pick (again: clear; on a side-by-side slide, then 1 or 2)' },
+    { keys: ['X'], does: 'reject (again: clear)' },
+    { keys: ['N'], does: 'a note on the image (an annotation)' },
+    { keys: ['J'], does: 'side by side with the next slide / split' },
+    { keys: ['C'], does: 'captions on or off' },
+    { keys: ['F'], does: 'file names on or off' },
+    { keys: ['G'], does: 'grey or black surround' },
+    { keys: ['B', '.'], does: 'blank the screen' },
+    { keys: ['T'], does: 'pause or resume the timer' },
+    { keys: ['V'], does: 'presenter view (a second window)' },
+    { keys: ['R'], does: 'phone remote (pair by QR code)' },
+    { keys: ['?', 'H'], does: 'the keys' },
+    { keys: ['Shift+G'], does: 'greyscale (value check) on or off' },
+    { keys: ['Shift+V'], does: 'posterise: off, 3 values, 5 values' },
+    { keys: ['Shift+H'], does: 'mirror on or off' },
+    { keys: ['Shift+L'], does: 'grid: off, thirds, 4 × 4, custom' },
+    { keys: ['Escape'], does: 'end the show' },
   ],
 }
 

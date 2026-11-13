@@ -61,6 +61,7 @@ import { useCaps } from '../../data'
 import { useLayer, useShortcut } from '../../useShortcuts'
 import { describeError } from '../../writes'
 import { presentAids } from './aids'
+import '../viewaids/presentAids' // F5 viewing aids in the show (Shift+G/V/H/L)
 import { PairPanel, type PairState } from './PairPanel'
 import type { Running } from './PresentHost'
 
@@ -749,6 +750,10 @@ export default function Show({ resolved, options, offlineCap, onClose }: Running
             <dd>Pause the timer</dd>
             <dt>V / R</dt>
             <dd>Presenter view / phone remote</dd>
+            <dt>⇧G / ⇧V</dt>
+            <dd>Greyscale / posterise (view only)</dd>
+            <dt>⇧H / ⇧L</dt>
+            <dd>Mirror / grid (view only)</dd>
             <dt>Esc</dt>
             <dd>End the show</dd>
           </dl>

@@ -112,6 +112,10 @@ HELPER_KINDS = (JobKind.EMBED, JobKind.OCR, JobKind.CAPTION)
 HELPER_DEFAULT_KINDS = (JobKind.EMBED, JobKind.OCR)
 # ffmpeg's heavy work: claimed after every waiting ingest and preview job
 HEAVY_KINDS = (JobKind.CLIP, JobKind.PROXY)
+# bookkeeping on the light lane (F1's library re-sort): claimed after every
+# waiting ingest and preview job, and never holds back AI work such as a
+# cut-out someone is waiting for (services/ai.light_jobs_waiting)
+BACKGROUND_KINDS = (JobKind.KINDS,)
 
 
 MAX_ATTEMPTS = 3

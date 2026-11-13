@@ -38,6 +38,8 @@ import { useAppState } from '../../state'
 import { useWrite } from '../../useWrite'
 import { describeError } from '../../writes'
 import { Modal, useDialog } from '../Dialog'
+import { usePresent } from '../present/PresentHost' // F2: open a saved show
+import { presentApi } from '../../presentApi'
 import { useBoards } from '../m3/Boards'
 import { useNotices } from '../Notices'
 import { useProject, useProjects, useProjectsRefresh } from './hooks'
@@ -300,8 +302,10 @@ export function ProjectPage({ id }: { id: string }) {
       },
     })
   }
+  const present = usePresent()
   const openMember = (m: Member) => {
     if (m.missing) return
+    if (m.kind === 'show') return present.openPresent({ name: m.name, source: { kind: 'items', item_ids: [] }, showId: m.id })
     if (m.kind === 'folder') setQuery({ ...emptyQuery, folder: m.id })
     else if (m.kind === 'smart') applySmartFolder(m.id, (m.query as Partial<Query>) ?? {})
     else if (m.kind === 'board') openScreen({ kind: 'board', id: m.id })
@@ -445,6 +449,7 @@ function AddMember({ project, onDone }: { project: Project; onDone: () => void }
   const { data: smart } = useSmartFolders()
   const boards = useBoards()
   const shares = useQuery({ queryKey: ['shares'], queryFn: api45.listShares })
+  const shows = useQuery({ queryKey: ['present', 'shows'], queryFn: presentApi.shows }) // F2
   const w = useWrite()
   const has = (kind: string, mid: string) => project.members.some((m) => m.kind === kind && m.id === mid)
   const add = (value: string) => {
@@ -453,7 +458,7 @@ function AddMember({ project, onDone }: { project: Project; onDone: () => void }
     void w.run('add', () => projectsApi.addMember(project.id, kind, mid), { what: 'add it to the project', onDone })
   }
   return (
-    <select className="pj-add" value="" aria-label="Add a folder, smart folder, board or share link to the project" onChange={(e) => add(e.target.value)}>
+    <select className="pj-add" value="" aria-label="Add a folder, smart folder, board, share link or show to the project" onChange={(e) => add(e.target.value)}>
       <option value="">Add…</option>
       <optgroup label="Folders">
         {(folders ?? []).filter((f) => !has('folder', f.id)).map((f) => (
@@ -480,6 +485,13 @@ function AddMember({ project, onDone }: { project: Project; onDone: () => void }
         {(shares.data ?? []).filter((s) => s.status === 'active' && !has('share', s.id)).map((s) => (
           <option key={s.id} value={`share:${s.id}`}>
             {s.title || `Share of a ${s.target_kind}`}
+          </option>
+        ))}
+      </optgroup>
+      <optgroup label="Shows">
+        {(shows.data ?? []).filter((s) => !has('show', s.id)).map((s) => (
+          <option key={s.id} value={`show:${s.id}`}>
+            {s.name}
           </option>
         ))}
       </optgroup>

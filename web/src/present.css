@@ -646,3 +646,9 @@
   margin: 0;
   padding: 0;
 }
+
+/* F2 + F5: the viewing aids' frame fills the slide like the picture does */
+.va-frame.present-va {
+  width: 100%;
+  height: 100%;
+}

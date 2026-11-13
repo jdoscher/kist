@@ -211,7 +211,7 @@ def item_page(slug: str, item_id: str, request: Request,
     title = share.title or "Shared collection"
     body = (
         f'<header><h1><a href="/s/{s}" style="color:inherit">{_esc(title)}</a></h1>'
-        f'<div class="sub">{name}</div></header>{ctx.header("item")}'
+        f'<div class="sub">{name}{sp._credit_html(item)}</div></header>{ctx.header("item")}'
         f'<div class="pf-item"><img src="/s/{s}/i/{item.id}/display" alt="{name}">'
         f'{ctx.actions(item.id, "item")}'
         f'<h2 id="comments" style="font-size:16px">Comments</h2>'

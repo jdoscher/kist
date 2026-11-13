@@ -57,6 +57,7 @@ const HANDLERS: [string, KeyContext[]][] = [
   ['components/m3/Compare.tsx', ['compare']],
   ['components/kinds/KindsUI.tsx', ['library', 'preview']], // F1
   ['viewAids.ts', ['preview', 'compare']],
+  ['components/viewaids/presentAids.tsx', ['present']], // F2 + F5: aids on Shift in a show
 ]
 
 test('every letter or digit a handler checks is in the table for its screen', () => {

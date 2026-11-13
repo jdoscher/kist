@@ -236,16 +236,16 @@ def image_src(item: Item) -> tuple[str | None, str]:
 
 
 def credit_of(item: Item) -> str:
-    """The credit line a caption shows. F4 (credits & rights) may provide
-    provenance.credit_line(item); until then: credit, else the creator."""
-    fn = getattr(provenance_svc, "credit_line", None)
-    if callable(fn):
-        try:
-            return str(fn(item) or "")
-        except Exception:  # a caption must never break a show
-            pass
-    prov = provenance_svc.out(item)
-    return str(prov.get("credit") or prov.get("creator") or "")
+    """The credit line a caption shows: F4's credit line ("Creator /
+    Credit", the line every export prints; the licence is its own field).
+    Never where the item was saved from."""
+    from . import credits as credits_svc
+
+    try:
+        return str(credits_svc.item_credit(item)["line"] or "")
+    except Exception:  # a caption must never break a show
+        prov = provenance_svc.out(item)
+        return str(prov.get("credit") or prov.get("creator") or "")
 
 
 def _ocr_words(session: Session, ids: list[str]) -> dict[str, int]:
@@ -296,6 +296,8 @@ def motion_ok_map(session: Session, items: list[Item]) -> dict[str, bool]:
 
 def slide_item(item: Item, motion_ok: bool) -> dict:
     src, src_kind = image_src(item)
+    cutout = isinstance((item.media or {}).get("cutout"), dict)  # F7
+    quick = "cutout-preview" if cutout else "thumb"
     prov = provenance_svc.out(item)
     long_side = max(item.width or 0, item.height or 0)
     return {
@@ -310,8 +312,11 @@ def slide_item(item: Item, motion_ok: bool) -> dict:
         "preview_rev": item.preview_rev or 0,
         "src": src,
         "src_kind": src_kind,
-        "thumb": (f"/api/items/{item.id}/thumb?size=1024&v={item.preview_rev or 0}&present=1"
+        # F7: a cut-out's quick copy keeps its transparency (the 1024
+        # thumbnail is flattened)
+        "thumb": (f"/api/items/{item.id}/{quick}?size=1024&v={item.preview_rev or 0}&present=1"
                   if item.preview_status == "ready" else None),
+        "cutout": cutout,
         "title": str(prov.get("page_title") or ""),
         "credit": credit_of(item),
         "license": str(prov.get("license") or ""),

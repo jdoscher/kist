@@ -18,6 +18,7 @@ export const kindsApi = {
     packs?: Record<string, boolean>
     min_items?: number
     low_res_px?: number
+    low_res_in?: number
     kinds?: Record<string, { enabled?: boolean | null; strictness?: number }>
   }) => request<KindsOverview>('/api/kinds', json(body, 'PATCH')),
   patchKind: (id: string, body: { enabled?: boolean | null; strictness?: number }) =>

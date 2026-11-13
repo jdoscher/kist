@@ -1,7 +1,7 @@
 """F1 utility collections ("Kinds") endpoints.
 
     GET    /api/kinds                     every kind: settings, counts, learning
-    PATCH  /api/kinds                     {packs?, min_items?, low_res_px?,
+    PATCH  /api/kinds                     {packs?, min_items?, low_res_px?, low_res_in?,
                                            kinds?: {id: {enabled?, strictness?}}}
     PATCH  /api/kinds/{id}                {enabled?, strictness?}
     POST   /api/kinds/{id}/correct        {item_ids, verdict: true | false | null}
@@ -36,6 +36,8 @@ class KindsPatch(BaseModel):
     packs: dict[str, bool] | None = None
     min_items: int | None = Field(default=None, ge=0, le=100_000)
     low_res_px: int | None = Field(default=None, ge=16, le=100_000)
+    # with F4's print check: Low-res = prints under this many inches at 300 dpi
+    low_res_in: float | None = Field(default=None, ge=0.5, le=100)
     kinds: dict[str, dict] | None = None
 
 
@@ -53,7 +55,8 @@ def list_kinds(session: Annotated[Session, Depends(get_session)]) -> dict:
 @router.patch("/kinds")
 def patch_kinds(body: KindsPatch, session: Annotated[Session, Depends(get_session)]) -> dict:
     kinds_svc.update_settings(session, packs=body.packs, min_items=body.min_items,
-                              low_res_px=body.low_res_px, kinds=body.kinds)
+                              low_res_px=body.low_res_px, kinds=body.kinds,
+                              low_res_in=body.low_res_in)
     return kinds_svc.overview(session)
 
 
