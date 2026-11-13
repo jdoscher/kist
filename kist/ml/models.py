@@ -150,6 +150,10 @@ class CutoutSpec:
     # "isnet": x/max - 0.5, output already a probability, min-max stretched
     # "birefnet": x/255, ImageNet mean/std, output logits (sigmoid)
     kind: str
+    # what the ml container needs for one run of it, with CLIP and OCR loaded
+    # beside it (measured peak RSS on dev0, Nov 2026: ISNet 1.4 GB,
+    # BiRefNet-lite 6.3 GB); below it the container is killed mid-cut-out
+    needs_memory: int = 2 * 1024**3
 
 
 # Cutouts (KIST_CUTOUTS, on by default; downloaded on the first cut-out a
@@ -183,6 +187,7 @@ CUTOUT_MODELS: dict[str, CutoutSpec] = {
         license="MIT",
         side=1024,
         kind="birefnet",
+        needs_memory=8 * 1024**3,
     ),
 }
 DEFAULT_CUTOUT_MODEL = "isnet-general-use"

@@ -167,7 +167,7 @@ history shows its name. All tools: [MCP](#mcp-claude-and-other-agents).
 | `KIST_ML_TIMEOUT_SECONDS` | `120` | One ml request's time limit |
 | `KIST_ML_THREADS` | `4` | Inference threads per request in the ml service (4 keeps a 10-core NAS responsive) |
 | `KIST_ML_CONCURRENCY` | `1` | Requests the ml service runs at once (the rest wait) |
-| `KIST_ML_MEM_LIMIT` / `KIST_ML_CPUS` | `2g` / `4` | Memory and CPU caps for the ml container |
+| `KIST_ML_MEM_LIMIT` / `KIST_ML_CPUS` | `4g` / `4` | Memory and CPU caps for the ml container. The "Fine edges" cut-out model needs `8g` and isn't offered below that |
 | `KIST_ML_DEVICE` | `cpu` | `cpu`, or `openvino-gpu` for an Intel GPU (build with `KIST_ML_OPENVINO=1` and pass `/dev/dri` through: see `docker-compose.yml`) |
 | `KIST_ML_OPENVINO` | `0` | Build argument: `1` builds the ml image with ONNX Runtime's OpenVINO build (+~200 MB) |
 | `KIST_ML_IDLE_SECONDS` | `300` | The ml service unloads a model unused this long (0 = never) |
@@ -330,8 +330,11 @@ HTTP; 100 real screenshots as 512-px WebP thumbnails):
 ml service memory (resident, macOS): 50 MB idle, 480 MB with the image tower
 loaded, **1.2 GB with ViT-B-32 and RapidOCR loaded and used**, about 1.1–1.6
 GB once the text tower is also in (1.6 GB with two requests at once). The
-default `KIST_ML_MEM_LIMIT=2g` with `KIST_ML_CONCURRENCY=1` fits that;
-idle models unload after 5 minutes.
+default `KIST_ML_MEM_LIMIT=4g` with `KIST_ML_CONCURRENCY=1` fits that plus a
+Fast (ISNet) cut-out, which peaks at about 1.4 GB; idle models unload after 5
+minutes. A "Fine edges" (BiRefNet-lite) cut-out peaks at about 6.3 GB on top
+(measured on dev0, Linux), so Kist offers it only when the ml container has
+8 GB (`KIST_ML_MEM_LIMIT=8g`); it's unloaded right after each cut-out.
 
 **Intel i5-1235U (the NAS), estimated, not measured:** its two performance
 cores plus eight efficiency cores at 4 threads should run ViT-B-32 about 3–4×

@@ -47,7 +47,8 @@ export default function CutoutDialog({ req }: { req: CutoutRequest }) {
   const choices = modelChoices(st)
   const model = opts.model ?? st?.default_model ?? null
   const notice = downloadNotice(st, model)
-  const errors = optionErrors(opts, st?.feather_max)
+  const tooBig = choices.find((m) => m.name === model)?.memory_problem ?? null
+  const errors = [...optionErrors(opts, st?.feather_max), ...(tooBig ? [`This model ${tooBig}.`] : [])]
 
   const polled = useQueries({
     queries: (jobs ?? []).map((j) => ({
@@ -128,11 +129,20 @@ export default function CutoutDialog({ req }: { req: CutoutRequest }) {
           <fieldset className="cutout-models">
             <legend className="section-label">Model</legend>
             {(choices.length ? choices : [{ name: 'isnet-general-use', label: 'Fast', note: 'a few seconds a cut-out' }]).map((m) => (
-              <label key={m.name} className={`cutout-model${model === m.name ? ' is-on' : ''}`}>
-                <input type="radio" name={`${uid}-model`} value={m.name} checked={model === m.name} onChange={() => setOpts({ ...opts, model: m.name })} />
+              <label key={m.name} className={`cutout-model${model === m.name ? ' is-on' : ''}${'memory_problem' in m && m.memory_problem ? ' is-off' : ''}`}>
+                <input
+                  type="radio"
+                  name={`${uid}-model`}
+                  value={m.name}
+                  checked={model === m.name}
+                  disabled={'memory_problem' in m && !!m.memory_problem}
+                  onChange={() => setOpts({ ...opts, model: m.name })}
+                />
                 <span>
                   <span className="cutout-model-name">{m.label}</span>
-                  <span className="cutout-model-note">{m.note}</span>
+                  <span className="cutout-model-note">
+                    {'memory_problem' in m && m.memory_problem ? `Not available: ${m.memory_problem}.` : m.note}
+                  </span>
                 </span>
               </label>
             ))}

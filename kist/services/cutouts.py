@@ -95,6 +95,10 @@ DROPPED_FAILED = ("Kist's AI service stopped {n} times on this image, most likel
 ML_DOWN = "Kist's AI service isn't answering right now (it may be starting); waiting for it"
 
 
+class MlTooBig(RuntimeError):
+    """The ml service hasn't the memory for the chosen model (507)."""
+
+
 class NoSubject(RuntimeError):
     """The model found nothing to keep."""
 
@@ -145,6 +149,7 @@ def status() -> dict:
             "state": st.get("state") or "unknown",
             "downloaded_bytes": st.get("downloaded_bytes") or 0,
             "error": st.get("error"),
+            "memory_problem": st.get("memory_problem"),
         })
     default = settings.cutout_model or (ml or {}).get("default") or "isnet-general-use"
     reason = None
@@ -274,6 +279,13 @@ def _ml_mask(data: bytes, model: str | None) -> tuple[bytes, str, float]:
     if r.status_code == 404:
         raise RuntimeError("the ml service has cut-outs turned off (KIST_CUTOUTS) or is "
                            "older than this server")
+    if r.status_code == 507:
+        # not enough memory for this model: retrying can't help
+        try:
+            detail = str(r.json().get("detail") or r.text)
+        except ValueError:
+            detail = r.text
+        raise MlTooBig(detail[:400])
     if r.status_code >= 500:
         try:
             detail = str(r.json().get("detail") or r.text)
@@ -509,6 +521,12 @@ def run_job(session: Session, job: Job) -> None:
     im, icc = source_image(item)
     try:
         mask_png, model, ms = _ml_mask(_ml_copy(im), p.get("model"))
+    except MlTooBig:
+        from .jobs import MAX_ATTEMPTS
+
+        job.attempts = MAX_ATTEMPTS  # fail now: no retry can help
+        session.commit()
+        raise
     except MlDropped as exc:
         from . import ai
         from .jobs import MAX_ATTEMPTS

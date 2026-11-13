@@ -58,6 +58,9 @@ class FakeMl:
             if self.status == 503:
                 return httpx.Response(503, json={"detail": "downloading the cut-out model "
                                                            "isnet-general-use (12 of 179 MB)"})
+            if self.status == 507:
+                detail = "The birefnet-lite model needs about 8 GB for Kist's AI service"
+                return httpx.Response(507, json={"detail": detail})
             if self.status != 200:
                 return httpx.Response(self.status, json={"detail": "nope"})
             im = Image.open(io.BytesIO(request.content))
@@ -300,6 +303,16 @@ def test_a_dropped_request_then_success_makes_the_cut_out(client, upload, ml):
     _due_now()
     assert drain() == ["done"]
     assert cutout_jobs()[0].payload["result_item_id"]
+
+
+def test_a_model_too_big_for_the_ml_memory_fails_at_once_with_the_reason(client, upload, ml):
+    _folder, item = setup_item(client, upload)
+    client.post(f"/api/items/{item['id']}/cutout", json={"model": "birefnet-lite"})
+    ml.status = 507
+    assert drain() == ["failed"]
+    job = cutout_jobs()[0]
+    assert job.status == JobStatus.FAILED  # no retries: more tries can't help
+    assert "needs about 8 GB" in job.last_error
 
 
 def test_no_subject_fails_the_job_with_a_reason(client, upload, ml):

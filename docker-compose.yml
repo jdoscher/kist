@@ -256,7 +256,7 @@ services:
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
     # ViT-B-32 + RapidOCR loaded and used: about 1.2 GB resident (see README)
-    mem_limit: ${KIST_ML_MEM_LIMIT:-2g}
+    mem_limit: ${KIST_ML_MEM_LIMIT:-4g}
     cpus: ${KIST_ML_CPUS:-4}
     pids_limit: 256
     environment:

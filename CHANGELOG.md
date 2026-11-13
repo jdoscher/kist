@@ -1083,6 +1083,7 @@ The aesthetic pass: one grey, one control language, one type system.
   Afterwards `kist credits-backfill` fills credits for items saved before;
   `kist kinds-backfill` is optional (the worker sorts the library while
   idle).
+- **Cut-outs and memory:** a "Fine edges" cut-out needs about 8 GB for the ml service (`KIST_ML_MEM_LIMIT=8g`); below that it's shown but not offered, with the reason, instead of crashing the service. It's unloaded after each cut-out and its memory goes back to the system. The ml service's default memory limit is now 4 GB. A cut-out that brings the service down is tried three times, then fails with a plain reason instead of waiting for ever. Progress bars are neutral grey.
 
 ## [1.5.0] - 2026-11-09
 

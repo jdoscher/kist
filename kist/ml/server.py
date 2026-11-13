@@ -248,6 +248,10 @@ def _cutout(data: bytes, model: str | None) -> tuple[bytes, float, str]:
         m = engine.get(model)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
+    problem = m.memory_problem()
+    if problem:
+        # refuse rather than be killed mid-run (and take CLIP/OCR down with it)
+        raise HTTPException(507, f"The {m.spec.name} model {problem}")
     try:
         m.ensure()  # outside the gate: a download never blocks embedding
     except cutout_mod.Downloading as exc:

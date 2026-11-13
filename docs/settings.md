@@ -52,7 +52,7 @@ Only `KIST_TOKEN` is required.
 | `KIST_ML_TIMEOUT_SECONDS` | `120` | One ml request's time limit |
 | `KIST_ML_THREADS` | `4` | Inference threads per request in the ml service (4 keeps a 10-core NAS responsive) |
 | `KIST_ML_CONCURRENCY` | `1` | Requests the ml service runs at once (the rest wait) |
-| `KIST_ML_MEM_LIMIT` / `KIST_ML_CPUS` | `2g` / `4` | Memory and CPU caps for the ml container |
+| `KIST_ML_MEM_LIMIT` / `KIST_ML_CPUS` | `4g` / `4` | Memory and CPU caps for the ml container. The "Fine edges" cut-out model needs `8g` and isn't offered below that |
 | `KIST_ML_DEVICE` | `cpu` | `cpu`, or `openvino-gpu` for an Intel GPU (build with `KIST_ML_OPENVINO=1` and pass `/dev/dri` through: see `docker-compose.yml`) |
 | `KIST_ML_OPENVINO` | `0` | Build argument: `1` builds the ml image with ONNX Runtime's OpenVINO build (+~200 MB) |
 | `KIST_ML_IDLE_SECONDS` | `300` | The ml service unloads a model unused this long (0 = never) |

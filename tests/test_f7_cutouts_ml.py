@@ -119,6 +119,22 @@ def test_cutout_sessions_turn_off_the_cpu_arena(monkeypatch, tmp_path):
     assert seen[1].enable_cpu_mem_arena is True
 
 
+def test_a_model_too_big_for_the_container_is_refused_before_it_runs(ml_app, monkeypatch):
+    monkeypatch.setattr(mlcut, "memory_limit", lambda: 4 * 1024**3)
+    loads = []
+    monkeypatch.setattr(mlcut._Model, "ensure", lambda self: None)
+    monkeypatch.setattr(mlcut._Model, "load", lambda self: loads.append(1) or _FakeSession())
+    models = ml_app.get("/health").json()["cutout"]["models"]
+    assert "KIST_ML_MEM_LIMIT=8g" in models["birefnet-lite"]["memory_problem"]
+    assert models["isnet-general-use"]["memory_problem"] is None
+    res = ml_app.post("/cutout?model=birefnet-lite", content=_png())
+    assert res.status_code == 507 and "needs about 8 GB" in res.text and loads == []
+    assert ml_app.post("/cutout", content=_png((200, 100))).status_code == 200
+    monkeypatch.setattr(mlcut, "memory_limit", lambda: None)  # no limit: offered
+    models = ml_app.get("/health").json()["cutout"]["models"]
+    assert models["birefnet-lite"]["memory_problem"] is None
+
+
 def test_ml_cutout_says_so_while_the_model_downloads(ml_app, monkeypatch):
     started = []
 

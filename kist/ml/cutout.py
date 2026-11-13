@@ -91,6 +91,34 @@ def flatten(im):
     return im.convert("RGB")
 
 
+def memory_limit() -> int | None:
+    """This container's memory limit in bytes (cgroup v2, then v1); None
+    when there's none (or not Linux)."""
+    from pathlib import Path
+
+    for f in ("/sys/fs/cgroup/memory.max", "/sys/fs/cgroup/memory/memory.limit_in_bytes"):
+        try:
+            raw = Path(f).read_text().strip()
+        except OSError:
+            continue
+        if raw == "max":
+            return None
+        try:
+            n = int(raw)
+        except ValueError:
+            continue
+        return None if n >= 1 << 60 else n  # v1 "unlimited" is a huge number
+    return None
+
+
+class TooBig(RuntimeError):
+    """The model needs more memory than this container has."""
+
+
+def _gb(n: int) -> str:
+    return f"{n / 1024**3:.0f} GB"
+
+
 # models too big to keep loaded next to CLIP and OCR: loaded per cut-out,
 # dropped right after (a few seconds of load against a ~25 s run)
 UNLOAD_AFTER_USE = frozenset({"birefnet-lite"})
@@ -110,8 +138,18 @@ class _Model:
         self.got = 0
         self.error: str | None = None
 
+    def memory_problem(self) -> str | None:
+        """Why this model can't run in this container's memory, or None."""
+        limit = memory_limit()
+        if limit is None or limit >= self.spec.needs_memory:
+            return None
+        return (f"needs about {_gb(self.spec.needs_memory)} for Kist's AI service, which "
+                f"has {_gb(limit)} (set KIST_ML_MEM_LIMIT={_gb(self.spec.needs_memory)[:-3]}g "
+                f"in .env)")
+
     def status(self) -> dict:
         ready = cutout_ready(self.spec, self.cfg.cache_dir)
+        problem = self.memory_problem()
         with self.lock:
             downloading = self.thread is not None and self.thread.is_alive()
             state = "ready" if ready else "downloading" if downloading else "missing"
@@ -123,6 +161,8 @@ class _Model:
                 "downloaded_bytes": self.spec.size if ready else self.got,
                 "error": None if ready or downloading else self.error,
                 "loaded": self.tower.loaded is not None,
+                "needs_memory": self.spec.needs_memory,
+                "memory_problem": problem,
             }
 
     def _fetch(self) -> None:

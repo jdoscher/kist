@@ -160,3 +160,11 @@
 img.pj-recent-cutout {
   background: repeating-conic-gradient(#6b6b6b 0 25%, #575757 0 50%) 0 0 / 16px 16px;
 }
+
+/* a model this server hasn't the memory for: shown, not offered */
+.cutout-model.is-off {
+  cursor: default;
+}
+.cutout-model.is-off .cutout-model-name {
+  color: var(--text-dim);
+}

@@ -15,6 +15,8 @@ export interface CutoutModel {
   state: CutoutModelState
   downloaded_bytes: number
   error: string | null
+  /** why this model can't run in the ml service's memory (then it's not offered) */
+  memory_problem?: string | null
 }
 
 export interface CutoutStatus {
