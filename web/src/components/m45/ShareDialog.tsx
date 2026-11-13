@@ -20,6 +20,7 @@ import {
 import { describeError } from '../../writes'
 import { Modal } from '../Dialog'
 import type { Target } from './M45'
+import { enableProofing, ProofingOption } from '../proofing/ShareProofing'
 
 export function CopyButton({ text, label = 'Copy link' }: { text: string; label?: string }) {
   const [done, setDone] = useState(false)
@@ -50,6 +51,7 @@ export default function ShareDialog({ target, onClose }: { target: Target; onClo
   const [error, setError] = useState('')
   const [created, setCreated] = useState<Share | null>(null)
   const [tried, setTried] = useState(false)
+  const [proofing, setProofing] = useState(false) // F3, off by default
   const qc = useQueryClient()
   const id = useId()
   const set = (patch: Partial<ShareForm>) => setForm((f) => ({ ...f, ...patch }))
@@ -63,6 +65,13 @@ export default function ShareDialog({ target, onClose }: { target: Target; onClo
     setError('')
     try {
       const s = await api45.createShare(sharePayload(form))
+      if (proofing) {
+        try {
+          await enableProofing(s.id)
+        } catch (err) {
+          setError(`The link was made, but guest feedback couldn't be turned on: ${describeError(err)}`)
+        }
+      }
       setCreated(s)
       void qc.invalidateQueries({ queryKey: ['shares'] })
     } catch (err) {
@@ -89,8 +98,14 @@ export default function ShareDialog({ target, onClose }: { target: Target; onClo
           </div>
           <p className="hint">
             {created.allow_download ? (created.allow_original ? 'Visitors can download the originals.' : 'Visitors can download display copies.') : 'Visitors can look but not download.'}{' '}
+            {proofing && !error ? 'Guests can pick and comment; see Feedback in the sidebar. ' : ''}
             Revoke it any time under Settings → Sharing.
           </p>
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
           <div className="dialog-actions">
             <a className="btn-icon" href={link} target="_blank" rel="noreferrer">
               Open <ExternalLink size={14} aria-hidden="true" />
@@ -183,6 +198,8 @@ export default function ShareDialog({ target, onClose }: { target: Target; onClo
             {form.allowDownload ? 'Otherwise visitors get display copies.' : 'Turn on downloads first.'}
           </span>
         </fieldset>
+
+        <ProofingOption checked={proofing} onChange={setProofing} />
 
         <div className="error" role="alert">
           {tried && errors.length ? errors.join(' ') : error}

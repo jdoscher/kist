@@ -8,6 +8,7 @@ import { ItemHistory } from './ItemHistory'
 import { ItemLinks } from './ItemLinks'
 import { ItemMeta } from './ItemMeta'
 import { ItemSections } from './m45/lazy'
+import { ItemFeedback } from './proofing/lazy'
 import { SheetVersions } from './m3/ItemCreative'
 import { ItemStatus } from './ItemStatus'
 import { PhoneItemEdit, PhoneStars } from './PhoneEdit'
@@ -95,6 +96,7 @@ export function ReadOnlyItem({
       {afterStack}
       <ItemLinks item={item} editable={false} />
       <ItemMeta item={item} />
+      <ItemFeedback item={item} />
       <ItemSections item={item} />
       <a className="open-original" href={fileUrl(item)} target="_blank" rel="noreferrer">
         Open original <ExternalLink size={14} aria-hidden="true" />

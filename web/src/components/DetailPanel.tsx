@@ -10,6 +10,7 @@ import { ItemHistory } from './ItemHistory'
 import { ItemLinks } from './ItemLinks'
 import { ItemMeta } from './ItemMeta'
 import { ItemSections, OnThisDay } from './m45/lazy'
+import { ItemFeedback } from './proofing/lazy'
 import { ItemStatus } from './ItemStatus'
 import { TYPES } from './TopBar'
 import { ReadOnlyItem } from './DetailSheet'
@@ -226,6 +227,7 @@ function SingleItem({ item }: { item: Item }) {
 
       <ItemVersions item={item} />
       <ItemBoards item={item} />
+      <ItemFeedback item={item} />
 
       <ItemMeta item={item} />
       <ItemSections item={item} />

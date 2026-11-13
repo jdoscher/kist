@@ -15,6 +15,7 @@ import { describeError } from '../../writes'
 import { useDialog } from '../Dialog'
 import { useNotices } from '../Notices'
 import { CopyButton } from './ShareDialog'
+import { ShareProofingRow } from '../proofing/ShareProofing'
 
 // ---------- sharing ----------
 
@@ -85,6 +86,7 @@ export function SharingSection() {
                   {s.allow_download ? (s.allow_original ? 'originals' : 'downloads') : 'view only'} · made {timeAgo(s.created_at)} by {s.created_by}
                 </div>
                 {s.status === 'active' && <div className="mono share-url">{link}</div>}
+                <ShareProofingRow shareId={s.id} active={s.status === 'active'} />
               </div>
               <div className="token-actions">
                 {s.status === 'active' && (

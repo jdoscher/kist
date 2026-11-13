@@ -29,6 +29,7 @@ import { BulkBar } from './BulkBar'
 import { EmptyState, ItemContextMenu, RankedError, rankedErrorText, SearchNote, usePersonName, showMatchBadge, StackBadge, TileMatch, tileExtra, useExpandedStacks, useStackToggle } from './GridExtras'
 import { searchTitle } from '../search'
 import { CullBadges, cullText } from './m3/CullControls'
+import { GuestTileBadge } from './proofing/TileBadge'
 import { FirstRun } from './m3/FirstRun'
 import { ScrubHover } from './m45/ScrubHover'
 import { Scrubber } from './Scrubber'
@@ -182,6 +183,7 @@ const Tile = memo(function Tile({
         </span>
       )}
       <CullBadges item={item} />
+      <GuestTileBadge itemId={item.id} />
       {item.protected && (
         <span className="badge lock" aria-hidden="true" title="Protected">
           <Lock size={14} />

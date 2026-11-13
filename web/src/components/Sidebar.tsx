@@ -11,6 +11,7 @@ import {
   Inbox,
   LayoutGrid,
   List,
+  MessageSquareHeart,
   Tags,
   Pencil,
   Plus,
@@ -42,6 +43,7 @@ import { SidebarBoards, SidebarCull } from './m3/Boards'
 import { SetupChecklist } from './m3/FirstRun'
 import { hasM45Filters } from '../m45/filters'
 import { attentionCount } from '../attention'
+import { useFeedbackSummary } from './proofing/hooks'
 import { readPrefs, savePref, type TagView } from '../settings'
 
 interface TreeNode extends Folder {
@@ -466,6 +468,7 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
     query.tags.length === 0 &&
     query.tags_any.length === 0
   const attention = attentionCount(stats)
+  const feedback = useFeedbackSummary() // F3
 
   const visibleTags = (tags ?? []).filter(
     (t) => !tagFilter || t.name.toLowerCase().includes(tagFilter.toLowerCase()),
@@ -544,6 +547,17 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
           onActivate={() => openScreen({ kind: 'map' })}
           title="Photos and videos with a location, on a map"
         />
+        {feedback.data && feedback.data.shares.length > 0 && (
+          // F3: guest feedback from share links; the count is what's new
+          <Row
+            icon={<MessageSquareHeart {...ROW_ICON} />}
+            name="Feedback"
+            count={feedback.data.unseen || undefined}
+            active={screen?.kind === 'feedback'}
+            onActivate={() => openScreen({ kind: 'feedback' })}
+            title="Picks, hearts and comments guests left on your share links"
+          />
+        )}
         {attention > 0 && (
           <Row
             className="attention-row"

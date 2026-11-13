@@ -36,6 +36,7 @@ const Triage = lazy(() => import('./components/m3/Triage'))
 // Milestones 4 and 5: the timeline, the map (MapLibre loads with it), the
 // bookmarklet's /add card and its /bookmarklet generator
 const TimelineScreen = lazy(() => import('./components/m45/TimelineScreen'))
+const FeedbackScreen = lazy(() => import('./components/proofing/FeedbackScreen')) // F3
 const MapScreen = lazy(() => import('./components/m45/MapScreen'))
 const AddPage = lazy(() => import('./components/m45/AddPage'))
 const BookmarkletPage = lazy(() => import('./components/m45/BookmarkletPage'))
@@ -188,6 +189,7 @@ function Screens({ mobile }: { mobile: boolean }) {
           <Suspense fallback={<main className="grid-area center" role="status">Loading…</main>}>
             {screen?.kind === 'boards' && <BoardsScreen trash={!!screen.trash} />}
             {screen?.kind === 'timeline' && <TimelineScreen group={screen.group} />}
+            {screen?.kind === 'feedback' && <FeedbackScreen shareId={screen.share ?? null} />}
             {screen?.kind === 'map' && <MapScreen />}
           </Suspense>
         ) : (
