@@ -9,6 +9,7 @@ import { ItemLinks } from './ItemLinks'
 import { ItemMeta } from './ItemMeta'
 import { ItemSections } from './m45/lazy'
 import { SheetVersions } from './m3/ItemCreative'
+import { CutoutButton } from './cutouts/Cutouts' // F7
 import { ItemStatus } from './ItemStatus'
 import { PhoneItemEdit, PhoneStars } from './PhoneEdit'
 import { CaptionField, ImpliedTags, ItemFaces, MatchWhy, MoreLikeThisButton, PaletteSwatches, StackInfo, TagText } from './ItemAI'
@@ -181,6 +182,7 @@ export function DetailSheet() {
 
       <div className="sheet-body">
         {canEdit && <PhoneItemEdit key={item.id} item={item} />}
+        <CutoutButton item={item} className="sheet-cutout" label="Cut out subject" />
         <ReadOnlyItem item={item} editing={canEdit} afterStack={<SheetVersions item={item} />} />
       </div>
     </aside>

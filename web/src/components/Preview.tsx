@@ -9,6 +9,7 @@ import { useFocusInOut, useFocusTrap, useInertBackground } from '../useInert'
 import { useLayer, useShortcut } from '../useShortcuts'
 import { tileDomId } from './Grid'
 import { MoreLikeThisButton } from './ItemAI'
+import { CutoutButton } from './cutouts/Cutouts' // F7
 import { PhoneEditBar } from './PhoneEdit'
 import { hasMediaView, MediaView } from './m45/lazy'
 
@@ -200,6 +201,7 @@ export function Preview() {
           {meta && <span className="meta">{meta}</span>}
           <span className="preview-actions">
             <MoreLikeThisButton item={item} className="preview-more" />
+            <CutoutButton item={item} className="preview-cutout" />
             <a href={fileUrl(item)} target="_blank" rel="noreferrer">
               Open original <ExternalLink size={14} aria-hidden="true" />
               <span className="sr-only"> (new tab)</span>
