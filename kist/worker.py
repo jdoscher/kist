@@ -113,6 +113,10 @@ def process_job(session, job: Job) -> None:
         from .importers import base as importers
 
         importers.run_job(session, job)
+    elif job.kind == JobKind.KINDS:
+        from .services import kinds
+
+        kinds.run_job(session, job)  # F1: sort items into utility collections
     elif job.kind in HEAVY_KINDS:
         from .services import media
 
@@ -428,6 +432,16 @@ def run_organise() -> None:
             log.warning("suggested collections postponed: %s", exc)
         except Exception:
             log.exception("suggested collections failed")
+    if settings.kinds:  # F1: items whose kinds are out of date (after a rebuild ...)
+        try:
+            from .services import kinds as kinds_svc
+
+            with SessionLocal() as s:
+                done = kinds_svc.upkeep(s)
+            if done:
+                log.info("kinds: %d items sorted", done)
+        except Exception:
+            log.exception("kinds upkeep failed")
 
 
 def main() -> None:

@@ -237,6 +237,9 @@ def run(session: Session) -> Report:
     report.problems.extend(vocabulary.check_events_file(session))
     report.problems.extend(faces_svc.check(session))
     report.problems.extend(suggestions_svc.check_feedback_files(session))
+    from . import kinds as kinds_svc
+
+    report.problems.extend(kinds_svc.check(session))  # F1
     check_creative(session, report)
     check_m4(session, report)
     for key in meta_svc.pending():

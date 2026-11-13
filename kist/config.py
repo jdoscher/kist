@@ -80,6 +80,9 @@ class Settings(BaseSettings):
     # the worker recomputes suggested collections this often (0: only on
     # demand, GET /api/collections/suggested?refresh=1)
     collections_interval_hours: float = 24.0
+    # Kist 2.0 F1: utility collections ("Kinds": Screenshots, Drawings ...),
+    # sorted locally from embeddings, OCR and file facts (services/kinds.py)
+    kinds: bool = True
 
     # ---- captions (services/captions.py; off unless a provider is set) ----
     # ollama | openai | anthropic | gemini. The last three send each image

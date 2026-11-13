@@ -118,6 +118,7 @@ def smart_filters(q: dict) -> list:
         flag=q.get("flag") or None, label=q.get("label") or None,
         ai_generated=q.get("ai_generated"), license=q.get("license") or None,
         source_status=q.get("source_status") or None,
+        auto_kind=q.get("auto_kind") or None,  # F1
         media={k: (_dt(q[k]) if k.startswith(("taken_", "date_")) else q[k])
                for k in MEDIA_KEYS if q.get(k) is not None},
     )

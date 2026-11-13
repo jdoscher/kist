@@ -174,8 +174,10 @@ item_out = ItemOut.for_agent
     "source_status ok|gone|moved|error|unchecked (the link-rot watch). "
     "Photos and media: taken_after/taken_before (ISO dates), camera and lens "
     "(substrings, e.g. 'X100'), has_gps, place ('Kyoto'), vertical, "
-    "has_audio, duration_min/duration_max (seconds). Every filter applies to "
-    "every ranking too. "
+    "has_audio, duration_min/duration_max (seconds). auto_kind is a kind from "
+    "list_kinds (screenshots, drawings ...; '-screenshots' leaves them out, "
+    "'drawings:unsure' lists the borderline calls to review). Every filter "
+    "applies to every ranking too. "
     "Pass the returned next_cursor to fetch the following page.",
     restricted_ok=True,
 )
@@ -216,6 +218,7 @@ def search_items(
     has_audio: bool | None = None,
     duration_min: float | None = None,
     duration_max: float | None = None,
+    auto_kind: str | None = None,
 ) -> dict[str, Any]:
     limit = max(1, min(limit, 100))
     extra = _m45_filters(
@@ -234,7 +237,7 @@ def search_items(
             semantic=semantic, similar=similar_to, color=color, color_tol=color_tol,
             text=text, has_text=has_text,
             stacks="collapse" if collapse_stacks else None, person=person,
-            flag=flag, label=label, **extra,
+            flag=flag, label=label, auto_kind=auto_kind, **extra,
         )
         return _page(result)
 
@@ -1149,6 +1152,48 @@ def item_buckets(
             flag=flag, label=label, **extra,
         ), session)
         return buckets.buckets(session, filters, sort=sort, order=order)
+
+
+# ---------- F1 utility collections (services/kinds.py) ----------
+
+
+@tool(
+    "Kinds: the utility collections Kist sorts items into by itself "
+    "(Screenshots, Documents & pages, Drawings with Pencil & graphite and Ink "
+    "& line art, Paintings, Photos from a camera, Low-res, and trade packs "
+    "such as Fashion or Film & games when switched on). For each: id, name, "
+    "enabled, count of items in it, how it's detected, strictness, and "
+    "whether it has learned from corrections. List a kind's items with "
+    "search_items(auto_kind=<id>).",
+    restricted_ok=True,
+)
+def list_kinds() -> dict[str, Any]:
+    from .services import kinds as kinds_svc
+
+    with SessionLocal() as session:
+        data = kinds_svc.overview(session)
+    keep = ("id", "name", "parent", "enabled", "count", "confirmed", "rejected", "how",
+            "strictness", "learned", "packs")
+    return {"kinds": [{k: v for k, v in row.items() if k in keep} for row in data["kinds"]],
+            "packs": data["packs"]}
+
+
+@tool(
+    "Correct a kind for one or more items: verdict 'belongs' (it belongs in "
+    "this kind), 'not' (not this; it stays out for good) or 'clear' (back to "
+    "Kist's automatic call). A confirmed call always beats the automatic one, "
+    "and corrections teach that kind. One batch: undo_batch reverts it. "
+    "Returns how many items changed.",
+    needs=Action.EDIT,
+)
+def correct_kind(kind: str, ids: list[str], verdict: str) -> dict[str, Any]:
+    from .services import kinds as kinds_svc
+
+    values = {"belongs": True, "not": False, "clear": None}
+    if verdict not in values:
+        raise ToolError("verdict must be belongs, not or clear")
+    with SessionLocal() as session:
+        return kinds_svc.correct(session, ids, kind, values[verdict])
 
 
 # Mounted by kist.app at /mcp; streamable_http_path="/" so the endpoint is

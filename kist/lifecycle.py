@@ -94,6 +94,7 @@ class JobKind(StrEnum):
     IMPORT = "import"  # M4: an importer run (kist/importers)
     CLIP = "clip"  # cut a clip / GIF from a video or audio item (services/media.py)
     PROXY = "proxy"  # web-safe copy of a video or audio file browsers can't play
+    KINDS = "kinds"  # F1: sort items into utility collections (services/kinds.py)
 
 
 # the heavy kinds: they wait while any light job (ingest, previews) is

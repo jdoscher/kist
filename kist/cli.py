@@ -494,6 +494,15 @@ def rebuild_index(wipe: bool) -> int:
         pages = snapshots_svc.restore(session)
         if pages:
             print(f"page snapshot texts loaded: {pages}")
+        from .services import kinds as kinds_svc  # F1
+
+        try:
+            kind_verdicts, kind_sorted = kinds_svc.restore(session)
+            print(f"kinds: {kind_verdicts} corrections loaded, {kind_sorted} items sorted")
+        except Exception as exc:
+            session.rollback()
+            warn(f"kinds not restored: {exc}")
+            warnings += 1
 
         # keep snapshots in sync with what we just restored
         folders_svc.snapshot(session)
@@ -557,6 +566,9 @@ def rewrite_meta() -> int:
         ).scalars().all():
             suggestions_svc.write_feedback_sidecar(session, item_id)
         failed += rewrite_creative(session)
+        from .services import kinds as kinds_svc
+
+        failed += kinds_svc.rewrite_sidecars(session)  # F1 kinds corrections
         from .services import shares as shares_svc
 
         folders_ok = shares_svc.sync_file(session) and folders_ok
@@ -1045,6 +1057,9 @@ def main() -> None:
     from . import media_cli
 
     media_cli.add_parsers(sub)  # media-backfill, geo-download (Milestone 5)
+    from . import kinds_cli
+
+    kinds_cli.add_parsers(sub)  # kinds-backfill (F1)
 
     if len(sys.argv) > 1 and sys.argv[1] == "helper":
         from . import helper
@@ -1081,6 +1096,8 @@ def main() -> None:
         sys.exit(link_check(args.limit))
     if args.cmd in media_cli.COMMANDS:
         sys.exit(media_cli.run(args))
+    if args.cmd in kinds_cli.COMMANDS:
+        sys.exit(kinds_cli.run(args))
 
 
 if __name__ == "__main__":
