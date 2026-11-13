@@ -566,6 +566,8 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
             active={isNeedsCreditView(query as unknown as Record<string, unknown>) && !smartId && !settings}
             onActivate={() => setQuery({ ...emptyQuery, ...NEEDS_CREDIT, order: query.order } as Query)}
             title="Items with no credit or creator recorded (mark own work as needing none)"
+          />
+        )}
         {feedback.data && feedback.data.shares.length > 0 && (
           // F3: guest feedback from share links; the count is what's new
           <Row
