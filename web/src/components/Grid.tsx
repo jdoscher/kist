@@ -30,6 +30,7 @@ import { describeError } from '../writes'
 import { BulkBar } from './BulkBar'
 import { EmptyState, ItemContextMenu, RankedError, rankedErrorText, SearchNote, usePersonName, showMatchBadge, StackBadge, TileMatch, tileExtra, useExpandedStacks, useStackToggle } from './GridExtras'
 import { searchTitle } from '../search'
+import { KindBar } from './kinds/KindsUI'
 import { CullBadges, cullText } from './m3/CullControls'
 import { FirstRun } from './m3/FirstRun'
 import { ScrubHover } from './m45/ScrubHover'
@@ -654,6 +655,7 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
       </div>
       {!mobile && <ViewControls />}
       <SearchNote />
+      <KindBar />
       {folderDescription && <p className="view-subtitle folder-description">{folderDescription}</p>}
       {query.fixity === 'failed' && (
         <p className="view-subtitle">

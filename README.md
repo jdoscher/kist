@@ -546,6 +546,8 @@ the handlers and the table in step.
 | `S` | open or close the focused stack |
 | `C` | compare the selection (2–4 items) |
 | `N` | survey the selection: pick and reject one by one |
+| `X` | in a kind (Kinds in the sidebar): not this, for the selection |
+| `B` | in a kind: belongs here (confirm), for the selection |
 | `ContextMenu` | the item menu (More like this, colour, stack) |
 | `⌘/Ctrl Z` | Recent changes, focused on the newest Undo |
 | `⌘/Ctrl K` | command palette |
@@ -570,6 +572,8 @@ the handlers and the table in step.
 | `M` | note at the current time (video) |
 | `I` | mark in (video) |
 | `O` | mark out: a note over the range (video) |
+| `X` | in a kind: not this (then the next item) |
+| `B` | in a kind: belongs here (confirm) |
 | `⌘/Ctrl K` | command palette |
 
 **Triage (/triage)**

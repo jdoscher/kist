@@ -28,8 +28,8 @@
 import { emptyQuery, isItemKind, type PreviewStatus, type Query } from './api.ts'
 import { addM45Params, m45FromSearch } from './m45/filters.ts'
 
-export type SettingsSection = 'tokens' | 'archive' | 'ai' | 'vocabulary' | 'cleanup' | 'templates' | 'sharing' | 'import' | 'phone'
-export const SETTINGS_SECTIONS: SettingsSection[] = ['tokens', 'archive', 'ai', 'vocabulary', 'cleanup', 'templates', 'sharing', 'import', 'phone']
+export type SettingsSection = 'tokens' | 'archive' | 'ai' | 'vocabulary' | 'cleanup' | 'templates' | 'sharing' | 'import' | 'phone' | 'kinds'
+export const SETTINGS_SECTIONS: SettingsSection[] = ['tokens', 'archive', 'ai', 'vocabulary', 'cleanup', 'templates', 'sharing', 'import', 'phone', 'kinds']
 
 export type OrganiseSection = 'duplicates' | 'stacks' | 'collections' | 'people'
 export const ORGANISE_SECTIONS: OrganiseSection[] = ['duplicates', 'stacks', 'collections', 'people']

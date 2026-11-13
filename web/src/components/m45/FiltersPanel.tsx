@@ -38,6 +38,7 @@ export default function FiltersPanel({ onClose }: { onClose: () => void }) {
     needs_credit: cur.needs_credit ?? '',
     print_min: cur.print_min ?? '',
     print_max: cur.print_max ?? '',
+    auto_kind: cur.auto_kind ?? '', // F1: kept (picked in the sidebar's Kinds)
   }))
   const id = useId()
   const set = (k: M45FilterKey, v: string) => setF((x) => ({ ...x, [k]: v }))

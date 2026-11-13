@@ -646,3 +646,38 @@ class Annotation(Base):
         DateTime(timezone=True), server_default=func.now()
     )
     resolved: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+
+
+# ---------- Kist 2.0 F1: utility collections (services/kinds.py) ----------
+
+
+class ItemKind(Base):
+    """An item's call for one kind (Screenshots, Drawings ...): the automatic
+    score and call, and the person's verdict, which always wins."""
+
+    __tablename__ = "item_kinds"
+
+    item_id: Mapped[str] = mapped_column(
+        String(26), ForeignKey("items.id", ondelete="CASCADE"), primary_key=True
+    )
+    kind: Mapped[str] = mapped_column(Text, primary_key=True)
+    score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    auto: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    why: Mapped[str | None] = mapped_column(Text, nullable=True)
+    verdict: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    verdict_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    member: Mapped[bool] = mapped_column(
+        Boolean, Computed("coalesce(verdict, auto)", persisted=True)
+    )
+
+
+class ItemKindPass(Base):
+    """Which settings/models signature an item was last sorted with."""
+
+    __tablename__ = "item_kind_passes"
+
+    item_id: Mapped[str] = mapped_column(
+        String(26), ForeignKey("items.id", ondelete="CASCADE"), primary_key=True
+    )
+    sig: Mapped[str] = mapped_column(Text)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

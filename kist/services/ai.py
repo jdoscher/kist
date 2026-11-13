@@ -415,7 +415,15 @@ def store_embedding(session: Session, item_id: str, model: str, vec: list[float]
     write_embedding_sidecar(item_id, model, vec, now)
     _upsert_embedding(session, item_id, model, vec, now)
     session.commit()
+    _kinds_after(session, [item_id])
     return True
+
+
+def _kinds_after(session: Session, item_ids: list[str]) -> None:
+    """F1: an embedding or text changes an item's kinds (services/kinds.py)."""
+    from . import kinds
+
+    kinds.sort_now(session, item_ids)
 
 
 def _clean_text(text: str) -> str:
@@ -447,6 +455,7 @@ def store_text(session: Session, item_id: str, *, source: str, text: str,
     write_ocr_sidecar(item_id, record)
     _upsert_text(session, item_id, source, text, lang, model, now)
     session.commit()
+    _kinds_after(session, [item_id])
     return True
 
 
@@ -661,6 +670,9 @@ def _payload(item: Item, backfill: bool) -> dict:
 def on_new_item(session: Session, item: Item) -> None:
     """Called after an item is created or its previews are redone. Never
     fails the caller: AI is extra."""
+    from . import kinds
+
+    kinds.on_new_item(session, item)  # F1: the rules need no AI
     if not get_settings().ai_enabled:
         return
     try:
@@ -871,6 +883,8 @@ def run_embed_batch(session: Session, jobs: list[Job]) -> dict[int, str | None]:
             results[job.id] = str(exc) or type(exc).__name__
     if stored:
         session.commit()
+        _kinds_after(session, [job.payload.get("item_id") for job, _i, _v in ready
+                               if results.get(job.id) is None])
     return results
 
 

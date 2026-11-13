@@ -35,6 +35,8 @@ files once, and importers fetch the images an export links to.
 - Credits auto-fill and the AI-made flag read only files already in your
   library (the original's metadata and a stored page snapshot); they never
   request a page.
+- Kinds (Screenshots, Drawings …) are decided on your server from data it
+  already has; corrections and what they teach stay in your library.
 
 ## Sharing
 

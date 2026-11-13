@@ -15,6 +15,7 @@ import { TYPES } from './TopBar'
 import { ReadOnlyItem } from './DetailSheet'
 import { CaptionField, ImpliedTags, ItemFaces, MatchWhy, MoreLikeThisButton, PaletteSwatches, StackInfo, TagSuggestions, TagText } from './ItemAI'
 import { ItemBoards, ItemCull, ItemVersions } from './m3/ItemCreative'
+import { ItemKinds } from './kinds/KindsUI'
 
 /** Protected items can't be trashed or deleted. Agents can protect but not
  * unprotect; removing protection needs a full-access (write/admin) token. */
@@ -167,6 +168,8 @@ function SingleItem({ item }: { item: Item }) {
         <ImpliedTags item={item} />
         <TagSuggestions item={item} />
       </div>
+
+      <ItemKinds item={item} />
 
       <div className="detail-section">
         <label htmlFor={`${uid}-folders`}>Folders</label>
@@ -321,7 +324,10 @@ export function DetailPanel() {
           caps.canEdit ? (
             <SingleItem key={single.id} item={single} />
           ) : (
-            <ReadOnlyItem key={single.id} item={single} withThumb />
+            <>
+              <ReadOnlyItem key={single.id} item={single} withThumb />
+              <ItemKinds item={single} />
+            </>
           )
         ) : (
           <div className="hint" role="status">Loading…</div>

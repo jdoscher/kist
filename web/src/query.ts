@@ -1,6 +1,7 @@
 // Query helpers shared by the sidebar, top bar and app state (no React).
 import { emptyQuery, type Item, type Query } from './api.ts'
 import { hasM45Filters, m45Filters } from './m45/filters.ts'
+import { kindTitle } from './kindsCore.ts'
 
 // "Unfiled" is the inbox: items in no folder AND with no tags. The server
 // defines it (GET /api/items?view=unfiled, MCP search_items(view="unfiled")),
@@ -129,6 +130,7 @@ export function viewTitle(
   if (q.folder === 'none') return 'items in no folder'
   if (q.folder) return names.folder?.(q.folder) ?? 'this folder'
   if (q.tags.length) return q.tags.map((t) => `#${t}`).join(' ')
+  if (q.auto_kind) return kindTitle(q.auto_kind) // F1 kinds
   return 'All items'
 }
 

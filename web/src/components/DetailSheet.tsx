@@ -11,6 +11,7 @@ import { ItemSections } from './m45/lazy'
 import { SheetVersions } from './m3/ItemCreative'
 import { ItemStatus } from './ItemStatus'
 import { PhoneItemEdit, PhoneStars } from './PhoneEdit'
+import { ItemKinds } from './kinds/KindsUI'
 import { CaptionField, ImpliedTags, ItemFaces, MatchWhy, MoreLikeThisButton, PaletteSwatches, StackInfo, TagText } from './ItemAI'
 
 /** An item's details without edit controls: the phone sheet's body, and
@@ -181,6 +182,7 @@ export function DetailSheet() {
 
       <div className="sheet-body">
         {canEdit && <PhoneItemEdit key={item.id} item={item} />}
+        <ItemKinds item={item} />
         <ReadOnlyItem item={item} editing={canEdit} afterStack={<SheetVersions item={item} />} />
       </div>
     </aside>

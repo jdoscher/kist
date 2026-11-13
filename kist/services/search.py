@@ -198,6 +198,9 @@ def build_filters(
     ai_generated: str | bool | None = None,
     license: str | None = None,
     source_status: str | None = None,
+    # F1 utility collections (services/kinds.filters): drawings, -screenshots,
+    # drawings:unsure ...
+    auto_kind: str | None = None,
     # extra SQL conditions (internal callers)
     extra: list[Any] | None = None,
     # Milestone 5 media filters (services/media.filters: taken_after, camera,
@@ -222,6 +225,10 @@ def build_filters(
 
         filters += credits_svc.filters(credits)
     filters += _creative_filters(flag, label)
+    if auto_kind:
+        from . import kinds as kinds_svc
+
+        filters += kinds_svc.filters(auto_kind)
     if fixity is not None:
         if fixity != "failed":
             raise ValidationError(f"unknown fixity {fixity!r}; expected failed")
@@ -382,6 +389,7 @@ def search(
     extra: list[Any] | None = None,
     media: dict | None = None,
     credits: dict | None = None,  # F4 (services/credits.filters)
+    auto_kind: str | None = None,  # F1 (services/kinds.filters)
 ) -> SearchResult:
     """One page of items. total is counted on the first page only (no
     cursor); later pages return None.
@@ -433,6 +441,7 @@ def search(
         extra=extra,
         media=media,
         credits=credits,
+        auto_kind=auto_kind,
         session=session,
     )
     if collapse_ranked:

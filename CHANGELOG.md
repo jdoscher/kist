@@ -997,6 +997,47 @@ The aesthetic pass: one grey, one control language, one type system.
 - **AI-made flag, from metadata only.** Besides C2PA and IPTC, Kist now recognises generators that name themselves (Stable Diffusion/ComfyUI/InvokeAI PNG text, EXIF Software or XMP CreatorTool such as Midjourney, DALL·E, Firefly) and records which one. AI-made items get a small "AI" badge on their tile and stay in every view (flag, never hide); `ai_generated=true` filters them. Kist never guesses from pixels.
 - **Print check:** the info panel shows how big an image prints at 300 and 150 dpi (cm or inches), which paper sizes it fills, the dpi written in the file and its colour profile (or that it has none). `print_min=A4` / `print_max=5in` find what will and won't print.
 - MCP: `set_credits`, `item_credits`, `credits_clearance` and `print_check`, and the new filters on `search_items`.
+- **Kinds: utility collections you can correct (F1).** Kist sorts pictures
+  into kinds by itself: Screenshots, Documents & pages, Drawings (with
+  Pencil & graphite and Ink & line art under it), Paintings, Photos (from a
+  camera) and Low-res, plus opt-in AI-made (only what the file's own
+  metadata says: C2PA, IPTC digital source type, the provenance flag) and
+  four trade packs switched on in Settings → Kinds (Fashion, Architecture
+  & product, Film & games, Editorial). It decides on your own hardware from
+  what it already has: CLIP zero-shot on the existing embeddings (prompt
+  sets against alternatives), OCR word counts, file type, EXIF and pixel
+  size. A child kind is only given when CLIP is clearly surer of it than of
+  its siblings; otherwise the item stays in the parent.
+  - A **Kinds** section in the sidebar lists the kinds with at least 20
+    items (Settings → Kinds changes the number). A kind is a filter like
+    any other (`auto_kind=drawings`, `-screenshots`, `drawings:unsure`),
+    so it works in search, ranked and image search, the timeline and map,
+    smart folders and their shares, and MCP `search_items`.
+  - **Not this (X) / Belongs here (B)** on the selection or the item in the
+    full-screen preview, and ✓ / ✕ on the info panel's kind chips (also on
+    the phone's item sheet). A confirmed call always beats the automatic
+    one. Automatic calls show dashed, with a small "auto" mark, until
+    someone confirms them. Every correction is in the item history and
+    undoes as a batch; it never moves `modified_at`.
+  - After 10 corrections a kind trains a small classifier on top of its
+    zero-shot score (logistic regression on the CLIP embeddings, numpy),
+    and the library is sorted again with it. Each kind has a strictness
+    slider, and the kind bar has To review (borderline calls), Confirmed
+    and Ruled out.
+  - Low-res reads F4's print size when it is registered
+    (`kinds.register_print_size`), else the long edge in pixels (1,200 by
+    default, set in Settings → Kinds).
+  - New items are sorted as they arrive and again after their embedding
+    and OCR; settings changes and learning re-sort in a `kinds` job;
+    `kist kinds-backfill` does only the missing work (`--all` for
+    everything). Corrections are kept in `items/<id>/ai/kinds.json`,
+    settings in `library/.kist/kinds.json`; `kist rebuild-index` restores
+    the corrections and sorts again (from cached prompt vectors when the ml
+    service is down), and `kist verify` checks the files.
+  - REST `GET/PATCH /api/kinds`, `PATCH /api/kinds/{id}`,
+    `POST /api/kinds/{id}/correct`, `POST /api/kinds/refresh`,
+    `GET /api/items/{id}/kinds`; MCP `list_kinds` and `correct_kind`.
+    `KIST_KINDS=false` switches it all off. Migration 0901.
 
 ## [1.5.0] - 2026-11-09
 

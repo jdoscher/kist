@@ -106,6 +106,8 @@ def search_filters(
     needs_credit: bool | None = None,
     print_min: Annotated[str | None, Query(max_length=20)] = None,
     print_max: Annotated[str | None, Query(max_length=20)] = None,
+    # F1 utility collections: drawings, -screenshots, drawings:unsure ...
+    auto_kind: Annotated[str | None, Query(max_length=200)] = None,
 ) -> dict:
     """The filters GET /api/items and POST /api/search/image share, as
     services.search.search() keyword arguments."""
@@ -122,6 +124,7 @@ def search_filters(
         limit=limit, cursor=cursor, has_text=has_text, color=color, color_tol=color_tol,
         text=text, stacks=stacks, person=person, flag=flag, label=label,
         ai_generated=ai_generated, license=license, source_status=source_status,
+        auto_kind=auto_kind,
         media=dict(taken_after=taken_after, taken_before=taken_before, has_gps=has_gps,
                    camera=camera, lens=lens, duration_min=duration_min,
                    duration_max=duration_max, vertical=vertical, has_audio=has_audio,
