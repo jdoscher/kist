@@ -91,6 +91,11 @@ def flatten(im):
     return im.convert("RGB")
 
 
+# models too big to keep loaded next to CLIP and OCR: loaded per cut-out,
+# dropped right after (a few seconds of load against a ~25 s run)
+UNLOAD_AFTER_USE = frozenset({"birefnet-lite"})
+
+
 class _Model:
     """One cutout model: its file, its download and its loaded session."""
 
@@ -157,7 +162,28 @@ class _Model:
     def load(self):
         from .engine import _session
 
-        return _session(ensure_cutout(self.spec, self.cfg.cache_dir), self.cfg)
+        return _session(ensure_cutout(self.spec, self.cfg.cache_dir), self.cfg, low_memory=True)
+
+    def drop(self) -> None:
+        """Unload now (the heavy model after every cut-out) and hand the
+        memory back to the system."""
+        with self.tower.lock:
+            self.tower.loaded = None
+        release_memory()
+
+
+def release_memory() -> None:
+    """Return freed memory to the OS: glibc keeps freed heap otherwise, so
+    the container's usage stays at its peak (Linux only; a no-op elsewhere)."""
+    import gc
+
+    gc.collect()
+    try:
+        import ctypes
+
+        ctypes.CDLL("libc.so.6").malloc_trim(0)
+    except (OSError, AttributeError):
+        pass
 
 
 class CutoutEngine:
@@ -204,7 +230,12 @@ class CutoutEngine:
 
         model, x, size = prepared
         sess = model.tower.get(model.load)
-        out = sess.run(None, {sess.get_inputs()[0].name: x})[0]
+        try:
+            out = sess.run(None, {sess.get_inputs()[0].name: x})[0]
+        finally:
+            del sess
+            if model.spec.name in UNLOAD_AFTER_USE:
+                model.drop()
         mask = postprocess(out, model.spec)
         im = Image.fromarray(np.clip(mask * 255.0 + 0.5, 0, 255).astype(np.uint8), "L")
         if im.size != size:
@@ -217,4 +248,7 @@ class CutoutEngine:
         import time
 
         now = time.monotonic()
-        return [f"cutout:{n}" for n, m in self.models.items() if m.tower.unload_if_idle(now)]
+        dropped = [f"cutout:{n}" for n, m in self.models.items() if m.tower.unload_if_idle(now)]
+        if dropped:
+            release_memory()
+        return dropped

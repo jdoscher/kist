@@ -122,7 +122,8 @@ export function jobText(job: Pick<CutoutJob, 'status' | 'last_error'> | undefine
       const m = /\(([^)]*MB)\)/.exec(err)
       return `Downloading the model${m ? ` (${m[1]})` : ''}; the cut-out starts when it's there…`
     }
-    if (err) return `Waiting for the ml service (${err.replace(/^the ml service /, '')})…`
+    // the server's own words are plain; drop the technical tail in brackets
+    if (err) return `${err.replace(/\s*\([A-Za-z]+(Error|Timeout)\)$/, '')}…`
     return 'Waiting for the worker…'
   }
   if (job.status === 'running') return 'Cutting out the subject…'

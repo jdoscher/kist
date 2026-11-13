@@ -94,10 +94,16 @@ def providers_for(device: str, cache_dir: Path) -> list:
     return ["CPUExecutionProvider"]
 
 
-def _session(path: Path, cfg: EngineConfig):
+def _session(path: Path, cfg: EngineConfig, *, low_memory: bool = False):
     import onnxruntime as ort
 
     so = ort.SessionOptions()
+    if low_memory:
+        # big one-off graphs (cut-outs): ONNX Runtime's CPU arena keeps the
+        # peak of every run for the life of the session and never gives it
+        # back, which pinned the ml container at its limit (Nov 2026)
+        so.enable_cpu_mem_arena = False
+        so.enable_mem_pattern = False
     if cfg.threads > 0:
         so.intra_op_num_threads = cfg.threads
     so.inter_op_num_threads = 1

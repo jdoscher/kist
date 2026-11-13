@@ -93,8 +93,30 @@ def test_ml_cutout_returns_a_mask_the_size_of_the_image(ml_app, monkeypatch):
     assert mask.getpixel((100, 50)) > 250 and mask.getpixel((2, 2)) < 5
     health = ml_app.get("/health").json()["cutout"]
     assert health["default"] == "isnet-general-use"
-    assert health["models"]["birefnet-lite"]["loaded"] is True
+    # the heavy model is dropped right after its cut-out (memory, Nov 2026);
+    # the fast one stays loaded until idle
+    assert health["models"]["birefnet-lite"]["loaded"] is False
+    assert ml_app.post("/cutout", content=_png((200, 100))).status_code == 200
+    assert ml_app.get("/health").json()["cutout"]["models"]["isnet-general-use"]["loaded"] is True
     assert ml_app.post("/cutout?model=nope", content=_png()).status_code == 422
+
+
+def test_cutout_sessions_turn_off_the_cpu_arena(monkeypatch, tmp_path):
+    import onnxruntime as ort
+
+    from kist.ml import engine
+
+    seen = []
+    def fake(path, so, providers):
+        seen.append(so)
+        return object()
+
+    monkeypatch.setattr(ort, "InferenceSession", fake)
+    cfg = engine.EngineConfig(cache_dir=tmp_path, device="cpu")
+    engine._session(tmp_path / "m.onnx", cfg, low_memory=True)
+    engine._session(tmp_path / "m.onnx", cfg)
+    assert seen[0].enable_cpu_mem_arena is False and seen[0].enable_mem_pattern is False
+    assert seen[1].enable_cpu_mem_arena is True
 
 
 def test_ml_cutout_says_so_while_the_model_downloads(ml_app, monkeypatch):

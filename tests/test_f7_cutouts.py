@@ -40,10 +40,13 @@ class FakeMl:
         self.status = 200
         self.box = (120 / 400, 80 / 300, 280 / 400, 220 / 300)
         self.empty = False
+        self.raise_on_cutout: Exception | None = None
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         path = request.url.path
         self.calls.append((path, dict(request.url.params)))
+        if path == "/cutout" and self.raise_on_cutout is not None:
+            raise self.raise_on_cutout
         if path == "/health":
             return httpx.Response(200, json={"status": "ok", "model": "ViT-B-32__openai",
                                              "cutout": {"default": "isnet-general-use", "models": {
@@ -241,6 +244,62 @@ def test_ml_down_or_downloading_puts_the_job_back(client, upload, ml):
     job = cutout_jobs()[0]
     assert job.status == JobStatus.PENDING and job.attempts == 0
     assert "downloading the cut-out model" in job.last_error
+
+
+def _due_now():
+    with SessionLocal() as s:
+        s.execute(sa.update(Job).where(Job.kind == JobKind.CUTOUT)
+                  .values(run_after=sa.func.now() - sa.text("interval '1 second'")))
+        s.commit()
+
+
+def test_ml_down_before_the_request_waits_without_using_attempts(client, upload, ml):
+    _folder, item = setup_item(client, upload)
+    client.post(f"/api/items/{item['id']}/cutout", json={})
+    ml.raise_on_cutout = httpx.ConnectError("refused")
+    for _ in range(5):  # never gives up while the service is simply down
+        assert drain() == ["unavailable"]
+        _due_now()
+    job = cutout_jobs()[0]
+    assert job.status == JobStatus.PENDING and job.attempts == 0
+    assert "isn't answering" in job.last_error and "ml service" not in job.last_error
+    assert not (job.payload or {}).get("ml_drops")
+
+
+def test_a_cut_out_that_keeps_killing_the_ml_service_fails_in_plain_words(client, upload, ml):
+    # RemoteProtocolError = the ml service took the image and died (out of
+    # memory); retried a few times, then failed, never retried for ever
+    _folder, item = setup_item(client, upload)
+    client.post(f"/api/items/{item['id']}/cutout", json={})
+    ml.raise_on_cutout = httpx.RemoteProtocolError("Server disconnected")
+    results = []
+    for _ in range(cutouts.MAX_ML_DROPS):
+        results += drain()
+        _due_now()
+    assert results == ["unavailable"] * (cutouts.MAX_ML_DROPS - 1) + ["failed"]
+    job = cutout_jobs()[0]
+    assert job.status == JobStatus.FAILED
+    assert "most likely out of memory" in job.last_error
+    assert "RemoteProtocolError" not in job.last_error
+    assert job.payload["ml_drops"] == cutouts.MAX_ML_DROPS
+    # Retry in Settings → Jobs starts the count over
+    with SessionLocal() as s:
+        from kist.services import jobs as jobs_svc
+
+        jobs_svc.retry(s, job.id)
+    assert "ml_drops" not in cutout_jobs()[0].payload
+
+
+def test_a_dropped_request_then_success_makes_the_cut_out(client, upload, ml):
+    _folder, item = setup_item(client, upload)
+    client.post(f"/api/items/{item['id']}/cutout", json={})
+    ml.raise_on_cutout = httpx.ReadError("reset")
+    assert drain() == ["unavailable"]
+    assert "trying again (1 of 3)" in cutout_jobs()[0].last_error
+    ml.raise_on_cutout = None
+    _due_now()
+    assert drain() == ["done"]
+    assert cutout_jobs()[0].payload["result_item_id"]
 
 
 def test_no_subject_fails_the_job_with_a_reason(client, upload, ml):

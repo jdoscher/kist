@@ -3219,3 +3219,51 @@ button.small {
     border-bottom: 1px solid var(--border);
   }
 }
+
+/* progress bars: neutral, in every theme and inside the preview (the
+   browser's own bar is blue, which no Kist surface uses) */
+progress {
+  appearance: none;
+  -webkit-appearance: none;
+  height: 6px;
+  border: 0;
+  border-radius: 3px;
+  background: var(--bg-active);
+  color: var(--text);
+  overflow: hidden;
+}
+progress::-webkit-progress-bar {
+  background: var(--bg-active);
+  border-radius: 3px;
+}
+progress::-webkit-progress-value {
+  background: var(--text-dim);
+  border-radius: 3px;
+}
+progress::-moz-progress-bar {
+  background: var(--text-dim);
+  border-radius: 3px;
+}
+/* no value = still working: a soft neutral sweep (still under reduced motion) */
+progress:not([value]) {
+  background: linear-gradient(90deg, var(--bg-active) 0%, var(--text-dim) 50%, var(--bg-active) 100%)
+    0 0 / 200% 100%;
+  animation: progress-sweep 1.4s linear infinite;
+}
+progress:not([value])::-webkit-progress-bar {
+  background: transparent;
+}
+progress:not([value])::-moz-progress-bar {
+  background: transparent;
+}
+@keyframes progress-sweep {
+  to {
+    background-position: -200% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  progress:not([value]) {
+    animation: none;
+    background: var(--text-dim);
+  }
+}

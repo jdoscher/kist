@@ -271,6 +271,7 @@ def retry(session: Session, job_id: int) -> Job:
         staged = get_settings().staging_dir / f"retry-{new_ulid()}-{parked.name}"
         payload["path"] = str(staged)
         payload.pop("failed_path", None)
+    payload.pop("ml_drops", None)  # a cut-out's crash count starts over (cutouts.py)
     job.payload = payload
     job.status = JobStatus.PENDING
     job.attempts = 0

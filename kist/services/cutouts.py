@@ -79,6 +79,22 @@ class CutoutsOff(TransitionError):
     """KIST_CUTOUTS=0 (HTTP 409 like any action that isn't available)."""
 
 
+class MlDropped(RuntimeError):
+    """The ml service took the request and the connection died before it
+    answered: it crashed or was killed mid-cut-out (usually memory)."""
+
+
+# a cut-out that crashes the ml service this many times fails instead of
+# being retried for ever (each try would crash it again)
+MAX_ML_DROPS = 3
+DROPPED_RETRY = ("Kist's AI service stopped while making this cut-out (most likely it ran "
+                 "out of memory); trying again")
+DROPPED_FAILED = ("Kist's AI service stopped {n} times on this image, most likely out of "
+                  "memory. Try the Fast model, or give the ml service more memory "
+                  "(KIST_ML_MEM_LIMIT in .env)")
+ML_DOWN = "Kist's AI service isn't answering right now (it may be starting); waiting for it"
+
+
 class NoSubject(RuntimeError):
     """The model found nothing to keep."""
 
@@ -137,7 +153,7 @@ def status() -> dict:
     elif not settings.ml_url:
         reason = "no ml service is configured (KIST_ML_URL)"
     elif health is None:
-        reason = "the ml service can't be reached"
+        reason = "Kist's AI service isn't answering right now"
     elif ml is None:
         reason = "the ml service has cut-outs turned off or is older than this server"
     return {"enabled": bool(settings.cutouts), "available": reason is None,
@@ -249,8 +265,12 @@ def _ml_mask(data: bytes, model: str | None) -> tuple[bytes, str, float]:
         with ai._client() as c:
             r = c.post("/cutout", content=data, params=params,
                        headers={"Content-Type": "application/octet-stream"})
+    except (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout) as exc:
+        # never got in: the service is down or restarting (no attempt used)
+        raise ai.AiUnavailable(f"{ML_DOWN} ({type(exc).__name__})") from exc
     except httpx.HTTPError as exc:
-        raise ai.AiUnavailable(f"the ml service can't be reached: {type(exc).__name__}") from exc
+        # got in, then lost: it died while working on this image
+        raise MlDropped(type(exc).__name__) from exc
     if r.status_code == 404:
         raise RuntimeError("the ml service has cut-outs turned off (KIST_CUTOUTS) or is "
                            "older than this server")
@@ -487,7 +507,22 @@ def run_job(session: Session, job: Job) -> None:
     check_source(item)
     t0 = time.perf_counter()
     im, icc = source_image(item)
-    mask_png, model, ms = _ml_mask(_ml_copy(im), p.get("model"))
+    try:
+        mask_png, model, ms = _ml_mask(_ml_copy(im), p.get("model"))
+    except MlDropped as exc:
+        from . import ai
+        from .jobs import MAX_ATTEMPTS
+
+        drops = int(p.get("ml_drops") or 0) + 1
+        job.payload = {**p, "ml_drops": drops}
+        if drops >= MAX_ML_DROPS:
+            job.attempts = MAX_ATTEMPTS  # fail now: every retry would crash it again
+        session.commit()  # kept across the worker's rollback and release
+        log.warning("cutout job %s: the ml service dropped the request (%s), %d of %d",
+                    job.id, exc, drops, MAX_ML_DROPS)
+        if drops >= MAX_ML_DROPS:
+            raise RuntimeError(DROPPED_FAILED.format(n=drops)) from exc
+        raise ai.AiUnavailable(f"{DROPPED_RETRY} ({drops} of {MAX_ML_DROPS})") from exc
     cut, box, kept = compose(im, Image.open(io.BytesIO(mask_png)),
                        feather=float(p.get("feather") or 0), shadow=bool(p.get("shadow")))
     settings = get_settings()

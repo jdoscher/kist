@@ -68,7 +68,15 @@ test('options and job lines', () => {
   assert.equal(optionErrors({ model: null, feather: Number.NaN, shadow: false }).length, 1)
   assert.equal(jobText(undefined), 'Waiting for the worker…')
   assert.match(jobText({ status: 'pending', last_error: 'the ml service answered 503: downloading the cut-out model isnet-general-use (12 of 179 MB); try again shortly' }), /^Downloading the model \(12 of 179 MB\)/)
-  assert.match(jobText({ status: 'pending', last_error: "the ml service can't be reached: ConnectError" }), /^Waiting for the ml service \(can't be reached/)
+  assert.equal(
+    jobText({ status: 'pending', last_error: "Kist's AI service isn't answering right now (it may be starting); waiting for it (ConnectError)" }),
+    "Kist's AI service isn't answering right now (it may be starting); waiting for it…",
+  )
+  assert.equal(
+    jobText({ status: 'pending', last_error: "Kist's AI service stopped while making this cut-out (most likely it ran out of memory); trying again (1 of 3)" }),
+    "Kist's AI service stopped while making this cut-out (most likely it ran out of memory); trying again (1 of 3)…",
+  )
+  assert.doesNotMatch(jobText({ status: 'pending', last_error: 'x (RemoteProtocolError)' }), /RemoteProtocolError/)
   assert.equal(jobText({ status: 'running', last_error: null }), 'Cutting out the subject…')
   assert.equal(jobText({ status: 'done', last_error: null }), 'The cut-out is ready.')
   assert.equal(jobText({ status: 'failed', last_error: 'no subject' }), 'The cut-out failed: no subject.')
