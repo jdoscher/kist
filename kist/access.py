@@ -146,6 +146,7 @@ RESTRICTED_PATHS = [
         rf"^{_ITEM}/(scrub|scrub\.json|stream|waveform|svg|model|font-info|glyphs|bundle)$",
         rf"^{_ITEM}/bundle/.+$",
         r"^/api/(timeline|on-this-day|map|map/config|map/basemap\.pmtiles)$",
+        rf"^{_ITEM}/(print|credits)$",  # F4: the reader's own items only
     )
 ]
 HELPER_PREFIX = "/api/ai/jobs"

@@ -17,6 +17,7 @@ import { AiExtras } from './AiExtras'
 const VocabularySection = lazy(() => import('./TagSettings').then((m) => ({ default: m.VocabularySection })))
 const CleanupSection = lazy(() => import('./TagSettings').then((m) => ({ default: m.CleanupSection })))
 const TemplatesSection = lazy(() => import('./m3/Templates').then((m) => ({ default: m.TemplatesSection })))
+const CreditsSettings = lazy(() => import('./credits/Credits').then((m) => ({ default: m.CreditsSettings }))) // F4
 const SharingSection = lazy(() => import('./m45/SettingsSections').then((m) => ({ default: m.SharingSection })))
 const ImportSection = lazy(() => import('./m45/SettingsSections').then((m) => ({ default: m.ImportSection })))
 const PhoneSection = lazy(() => import('./m45/SettingsSections').then((m) => ({ default: m.PhoneSection })))
@@ -81,7 +82,12 @@ export function SettingsScreen() {
               {section === 'vocabulary' && <VocabularySection />}
               {section === 'cleanup' && <CleanupSection />}
               {section === 'templates' && <TemplatesSection />}
-              {section === 'sharing' && <SharingSection />}
+              {section === 'sharing' && (
+                <>
+                  <SharingSection />
+                  <CreditsSettings />
+                </>
+              )}
               {section === 'import' && <ImportSection />}
               {section === 'phone' && <PhoneSection />}
             </Suspense>

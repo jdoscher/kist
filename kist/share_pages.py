@@ -83,7 +83,16 @@ button{padding:8px 14px}
 .err{color:#f88}
 nav{padding:16px 20px}
 nav a{color:#8cf;margin-right:16px}
+.credit{display:block;color:#aaa;word-break:normal;margin-top:2px}
 """
+
+
+def _credit_html(item) -> str:
+    """F4: the item's credit under its name ('' when none is recorded)."""
+    from .services.credits import output_text
+
+    text = output_text(item)
+    return f"<span class=\"credit\">{html.escape(text)}</span>" if text else ""
 
 
 def _page(title: str, body: str, status: int = 200, extra_headers: dict | None = None):
@@ -174,6 +183,7 @@ def share_page(
         links = f"<a href=\"{base}/display\">{name}</a>"
         if share.allow_download:
             links += f" · <a href=\"{base}/file\" download>download</a>"
+        links += _credit_html(item)  # F4
         figures.append(
             f"<figure><a href=\"{base}/display\"><img src=\"{base}/thumb\" alt=\"{name}\" "
             f"loading=\"lazy\"></a><figcaption>{links}</figcaption></figure>"

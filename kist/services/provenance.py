@@ -2,7 +2,12 @@
 
     provenance {page_url, image_url, page_title, captured_at, method,
                 creator, credit, license, rights_url, ai_generated,
-                digital_source_type, c2pa, imported_from, original_id, geo}
+                digital_source_type, c2pa, imported_from, original_id, geo,
+                rights_status, credit_exempt, ai_generator}
+
+F4 (services/credits.py) added rights_status (ref_only | comp | licensed |
+cleared), credit_exempt (true: needs no credit) and ai_generator (the AI
+tool a file's metadata names).
 
 It lives in meta.json (and the items.provenance JSONB column). page_url is
 the item's source_url: the column stays the one place it is stored, and
@@ -25,16 +30,19 @@ from . import validation, xmp
 
 METHODS = ("upload", "paste", "url", "extension", "bookmarklet", "inbox", "mcp", "import")
 TEXT_FIELDS = ("page_title", "creator", "credit", "license", "digital_source_type",
-               "imported_from", "original_id", "site")
+               "imported_from", "original_id", "site",
+               "ai_generator")  # F4
 # flat fields POST /api/items takes beside (or instead of) a provenance
 # object: what the browser extension and the /add bookmarklet page send.
 # Aliases map to the stored name.
 FLAT_ALIASES = {"title": "page_title", "author": "creator", "license_url": "rights_url",
                 "site_name": "site"}
 FLAT_FIELDS = ("page_url", "image_url", "captured_at", "method", "creator", "credit",
-               "license", "rights_url", "site", "page_title", "ai_generated")
+               "license", "rights_url", "site", "page_title", "ai_generated",
+               "rights_status")  # F4
 URL_FIELDS = ("page_url", "image_url", "rights_url")
-FIELDS = (*URL_FIELDS, "captured_at", "method", *TEXT_FIELDS, "ai_generated", "c2pa", "geo")
+FIELDS = (*URL_FIELDS, "captured_at", "method", *TEXT_FIELDS, "ai_generated", "c2pa", "geo",
+          "rights_status", "credit_exempt")  # F4
 TEXT_MAX = 2000
 
 # events.context().source -> the capture method an ingest gets by default
@@ -88,7 +96,16 @@ def clean(data: dict | None, *, partial: bool = False) -> dict:
                         "provenance.captured_at must be an ISO 8601 time"
                     ) from None
             out[key] = (dt if dt.tzinfo else dt.replace(tzinfo=UTC)).isoformat()
-        elif key in ("ai_generated", "c2pa"):
+        elif key == "rights_status":  # F4
+            from .credits import RIGHTS_STATUSES
+
+            v = "_".join(str(value).strip().lower().replace("-", " ").split())
+            if v not in RIGHTS_STATUSES:
+                raise validation.ValidationError(
+                    f"provenance.rights_status must be one of {', '.join(RIGHTS_STATUSES)}"
+                )
+            out[key] = v
+        elif key in ("ai_generated", "c2pa", "credit_exempt"):
             if not isinstance(value, bool):
                 raise validation.ValidationError(f"provenance.{key} must be true, false or null")
             out[key] = value
@@ -208,6 +225,17 @@ def from_file(path: Path, xmp_path: Path | None = None) -> dict:
         fields = {**fields, **side}
         if prov:
             fields["provenance"] = prov
+    # F4: EXIF/IPTC-IIM creator, credit and copyright, and AI generator
+    # names (EXIF Software, PNG text, XMP CreatorTool) fill what XMP left
+    from . import credits
+
+    extra = credits.file_fields(path)
+    if extra:
+        prov = dict(fields.get("provenance") or {})
+        for k, v in extra.items():
+            if prov.get(k) in (None, ""):
+                prov[k] = v
+        fields["provenance"] = prov
     c2pa, ai = detect_c2pa(path)
     if c2pa:
         prov = dict(fields.get("provenance") or {})

@@ -704,16 +704,21 @@ def export(session: Session, board_id: str, fmt: str, scale: float = 1.0,
     if not (0.05 <= scale <= 8):
         raise validation.ValidationError("scale is from 0.05 to 8")
     limit = min(max_pixels or render.MAX_PIXELS, render.MAX_PIXELS)
+    from . import credits as credits_svc  # F4: a credits band/footer
+
     if fmt == "png":
         img = render.render(doc, scale, exists, limit)
+        img = credits_svc.board_footer(session, doc, img, scale)
         return render.png_bytes(img), "image/png", f"{safe}.png"
     if fmt == "pdf":
         img = render.render(doc, scale, exists, limit)
+        img = credits_svc.board_footer(session, doc, img, scale)
         return render.pdf_bytes(img, render.fit_scale(doc, scale, limit)), "application/pdf", (
             f"{safe}.pdf")
     if fmt == "html":
-        return (render.render_html(doc, exists, board.name).encode(), "text/html; charset=utf-8",
-                f"{safe}.html")
+        page = render.render_html(doc, exists, board.name).replace(
+            "</body>", credits_svc.board_html_credits(session, doc) + "</body>", 1)
+        return (page.encode(), "text/html; charset=utf-8", f"{safe}.html")
     raise validation.ValidationError("format is png, pdf or html")
 
 

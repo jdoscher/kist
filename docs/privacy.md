@@ -32,6 +32,9 @@ files once, and importers fetch the images an export links to.
   self-hosts its fonts too.
 - Faces (opt-in) are found and matched on your server only.
 - AI search and OCR run on your hardware.
+- Credits auto-fill and the AI-made flag read only files already in your
+  library (the original's metadata and a stored page snapshot); they never
+  request a page.
 
 ## Sharing
 

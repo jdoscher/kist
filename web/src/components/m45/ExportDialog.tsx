@@ -10,6 +10,7 @@ import { api45, type ExportRecord } from '../../m45/api45'
 import { describeError } from '../../writes'
 import { Modal } from '../Dialog'
 import type { Target } from './M45'
+import { ClearanceWarning } from '../credits/Credits' // F4
 
 export default function ExportDialog({ target, onClose }: { target: Target; onClose: () => void }) {
   const [originals, setOriginals] = useState(true)
@@ -77,6 +78,7 @@ export default function ExportDialog({ target, onClose }: { target: Target; onCl
           <p className="hint" id={`${id}-keep`}>
             Exports are kept on the server for a few days, then removed.
           </p>
+          <ClearanceWarning target={{ kind: target.kind, id: target.id, itemIds: target.itemIds }} />
           <div className="error" role="alert">
             {error}
           </div>

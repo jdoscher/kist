@@ -7,6 +7,7 @@ import type { Query } from '../../api'
 import { cleanFilter, clearedM45, m45Filters, type M45FilterKey } from '../../m45/filters'
 import { useAppState } from '../../state'
 import { Modal } from '../Dialog'
+import { CreditFilterFields } from '../credits/Credits' // F4
 
 type Form = Record<M45FilterKey, string>
 
@@ -32,6 +33,11 @@ export default function FiltersPanel({ onClose }: { onClose: () => void }) {
     ai_generated: cur.ai_generated ?? '',
     license: cur.license ?? '',
     source_status: cur.source_status ?? '',
+    // F4
+    rights_status: cur.rights_status ?? '',
+    needs_credit: cur.needs_credit ?? '',
+    print_min: cur.print_min ?? '',
+    print_max: cur.print_max ?? '',
   }))
   const id = useId()
   const set = (k: M45FilterKey, v: string) => setF((x) => ({ ...x, [k]: v }))
@@ -115,6 +121,7 @@ export default function FiltersPanel({ onClose }: { onClose: () => void }) {
             </select>
           </div>
         </fieldset>
+        <CreditFilterFields f={f} set={set} />
         {(f.bbox || f.date_after || f.date_before) && (
           <p className="hint">The map area and timeline dates set elsewhere stay on until you clear them here or with their chips.</p>
         )}

@@ -28,6 +28,7 @@ import {
 import { useAppState } from '../../state'
 import { describeError } from '../../writes'
 import { useM45 } from './M45'
+import { CreditsRows, PrintCheck, RightsFields } from '../credits/Credits' // F4
 
 function SourceBadge({ item }: { item: Item }) {
   const s = item.source_status
@@ -53,6 +54,9 @@ function ProvenanceSection({ item, editable }: { item: Item; editable: boolean }
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState<Provenance>({})
   const [ai, setAi] = useState<AiChoice>(aiChoice(prov))
+  // F4: rights status and "no credit needed"
+  const [rights, setRights] = useState('')
+  const [exempt, setExempt] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const apply = useApplyItems()
@@ -68,6 +72,8 @@ function ProvenanceSection({ item, editable }: { item: Item; editable: boolean }
   const begin = () => {
     setForm(Object.fromEntries(PROV_FIELDS.map((f) => [f.key, String(prov[f.key] ?? '')])))
     setAi(aiChoice(prov))
+    setRights(typeof prov.rights_status === 'string' ? prov.rights_status : '')
+    setExempt(prov.credit_exempt === true)
     setError('')
     setEditing(true)
   }
@@ -75,7 +81,12 @@ function ProvenanceSection({ item, editable }: { item: Item; editable: boolean }
   const save = async (e: React.FormEvent) => {
     e.preventDefault()
     if (Object.keys(errors).length) return
-    const diff = provenanceDiff(prov, { ...form, ai_generated: aiValue(ai) })
+    const diff = provenanceDiff(prov, {
+      ...form,
+      ai_generated: aiValue(ai),
+      rights_status: rights || null,
+      credit_exempt: exempt ? true : null,
+    })
     if (!Object.keys(diff).length) {
       setEditing(false)
       return
@@ -118,6 +129,7 @@ function ProvenanceSection({ item, editable }: { item: Item; editable: boolean }
       <SourceBadge item={item} />
       {!editing ? (
         <>
+          <CreditsRows item={item} editable={editable} />
           <div className="meta-list">
             {shown.map((f) => {
               const v = String(prov[f.key])
@@ -171,6 +183,7 @@ function ProvenanceSection({ item, editable }: { item: Item; editable: boolean }
               <option key={l} value={l} />
             ))}
           </datalist>
+          <RightsFields value={rights} exempt={exempt} onChange={setRights} onExempt={setExempt} />
           <fieldset className="prov-ai">
             <legend>AI-generated</legend>
             {(['unknown', 'yes', 'no'] as AiChoice[]).map((c) => (
@@ -283,6 +296,7 @@ export default function ItemSections({ item }: { item: Item }) {
   return (
     <>
       <MediaDetails item={item} />
+      <PrintCheck item={item} />
       <ProvenanceSection item={item} editable={editable} />
     </>
   )

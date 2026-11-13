@@ -9,6 +9,7 @@ import { formToPreset, presetErrors, presetSummary, presetToForm, WATERMARK_POSI
 import { describeError } from '../../writes'
 import { Modal, useDialog } from '../Dialog'
 import { useNotices } from '../Notices'
+import { ClearanceWarning } from '../credits/Credits' // F4
 
 export default function ExportImagesDialog({ ids, onClose }: { ids: string[]; onClose: () => void }) {
   const presets = useQuery({ queryKey: ['export-presets'], queryFn: api45.presets })
@@ -169,6 +170,7 @@ export default function ExportImagesDialog({ ids, onClose }: { ids: string[]; on
           )}
         </fieldset>
 
+        <ClearanceWarning target={{ kind: 'items', id: null, itemIds: ids }} />
         <div className="error" role="alert">
           {errors[0] ?? error}
         </div>

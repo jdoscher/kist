@@ -6,6 +6,7 @@
 // tests/m45.test.ts.
 
 import type { Query } from '../api.ts'
+import { CREDIT_FILTER_KEYS, cleanCreditFilter, creditChipLabel, type CreditFilterKey } from '../credits.ts'
 
 export const M45_FILTER_KEYS = [
   'taken_after',
@@ -24,6 +25,8 @@ export const M45_FILTER_KEYS = [
   'ai_generated',
   'license',
   'source_status',
+  // F4 (credits.ts): rights status, needs a credit, print size at 300 dpi
+  ...CREDIT_FILTER_KEYS,
 ] as const
 export type M45FilterKey = (typeof M45_FILTER_KEYS)[number]
 export type M45Filters = Partial<Record<M45FilterKey, string | null>>
@@ -40,6 +43,7 @@ export function cleanFilter(key: M45FilterKey, raw: unknown): string | null {
   if (raw === null || raw === undefined) return null
   const v = String(raw).trim()
   if (!v) return null
+  if ((CREDIT_FILTER_KEYS as readonly string[]).includes(key)) return cleanCreditFilter(key as CreditFilterKey, v)
   if (BOOLS.includes(key)) return v === 'true' || v === '1' ? 'true' : v === 'false' || v === '0' ? 'false' : null
   if (NUMS.includes(key)) {
     const n = Number(v)
@@ -144,5 +148,7 @@ export function filterChipLabel(key: M45FilterKey, v: string): string {
       return v === 'none' ? 'No licence' : `Licence: ${v}`
     case 'source_status':
       return `Source ${v}`
+    default:
+      return creditChipLabel(key, v)
   }
 }

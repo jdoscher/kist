@@ -203,6 +203,9 @@ def build_filters(
     # Milestone 5 media filters (services/media.filters: taken_after, camera,
     # has_gps ...)
     media: dict | None = None,
+    # F4 (services/credits.filters): rights_status, needs_credit, print_min,
+    # print_max
+    credits: dict | None = None,
     # with a session, tag filters are resolved to tag ids first (see
     # tag_condition): same items, better plans
     session: Session | None = None,
@@ -214,6 +217,10 @@ def build_filters(
     filters += media_svc.filters(media)
     filters += provenance.filters(ai_generated=ai_generated, license=license,
                                   source_status=source_status)
+    if credits:  # F4
+        from . import credits as credits_svc
+
+        filters += credits_svc.filters(credits)
     filters += _creative_filters(flag, label)
     if fixity is not None:
         if fixity != "failed":
@@ -374,6 +381,7 @@ def search(
     # extra SQL conditions (internal callers)
     extra: list[Any] | None = None,
     media: dict | None = None,
+    credits: dict | None = None,  # F4 (services/credits.filters)
 ) -> SearchResult:
     """One page of items. total is counted on the first page only (no
     cursor); later pages return None.
@@ -424,6 +432,7 @@ def search(
         ai_generated=ai_generated, license=license, source_status=source_status,
         extra=extra,
         media=media,
+        credits=credits,
         session=session,
     )
     if collapse_ranked:

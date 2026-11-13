@@ -24,6 +24,7 @@ import { useAppState } from './state'
 import { bannerText, describeError, hasDrafts } from './writes'
 import { CreativeProvider } from './components/m3/Creative'
 import { M45Provider } from './components/m45/M45'
+import { CreditsProvider } from './components/credits/Credits' // F4
 import { inLibraryFrame } from './url'
 
 // Screens past the library load on first use, so the first load is the
@@ -280,6 +281,7 @@ export default function App() {
           <UploadManager>
             <CreativeProvider>
               <M45Provider>
+              <CreditsProvider>
               <div className={`app-shell${mobile ? ' mobile' : ''}`}>
                 <ServerBanner />
                 <ShellStatus />
@@ -290,6 +292,7 @@ export default function App() {
                 <UndoShortcut />
                 {!authed && <TokenGate onDone={recheck} overlay />}
               </div>
+              </CreditsProvider>
               </M45Provider>
             </CreativeProvider>
           </UploadManager>

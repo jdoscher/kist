@@ -75,6 +75,8 @@ class ItemOut(BaseModel):
     media: dict[str, Any] | None = None
     taken_at: datetime | None = None
     place: str | None = None
+    # F4: the credit printed on outputs ("Creator / Credit"; services/credits)
+    credit_line: str | None = None
 
     @classmethod
     def from_item(cls, item: Item, match: dict | None = None) -> "ItemOut":
@@ -130,6 +132,7 @@ class ItemOut(BaseModel):
             if item.media else None,
             taken_at=item.taken_at,
             place=item.place,
+            credit_line=_credit_line(item),  # F4
         )
 
     @classmethod
@@ -155,6 +158,12 @@ def _m4_fields(item: Item) -> dict[str, Any]:
         "source_checked_at": getattr(item, "source_checked_at", None),
         "source_wayback_url": getattr(item, "source_wayback_url", None),
     }
+
+
+def _credit_line(item: Item) -> str | None:
+    from .services.credits import credit_line
+
+    return credit_line(item.provenance)
 
 
 def web_url(item: Item) -> str:
@@ -341,6 +350,11 @@ class SmartFolderQuery(BaseModel):
     date_after: datetime | None = None
     date_before: datetime | None = None
     bbox: str | None = Field(default=None, max_length=200)
+    # F4: rights and print size (services/credits.filters)
+    rights_status: str | None = Field(default=None, max_length=100)
+    needs_credit: bool | None = None
+    print_min: str | None = Field(default=None, max_length=20)
+    print_max: str | None = Field(default=None, max_length=20)
 
 
 class PaletteColour(BaseModel):

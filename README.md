@@ -906,6 +906,10 @@ claude mcp add --transport http kist http://<host>:8080/mcp \
 | `create_board(name, item_ids, layout)`, `add_to_board(id, item_ids, layout, notes)` | lay items out as a `grid` or `masonry` board, add more items and notes |
 | `annotate(item_id, text, box?, point?, time?)`, `list_annotations` | pin a note to an area (`box=[x, y, w, h]`, fractions 0–1), a spot or a video time (`time=[start, end]` seconds) |
 | `set_provenance` | creator, credit, license, page/image URL, `ai_generated` … (undoable) |
+| `set_credits` | creator, credit, license, rights_url, rights_status (ref_only/comp/licensed/cleared), credit_exempt on many items (one undoable batch) |
+| `item_credits` | an item's credit line, Present caption and auto-fill suggestions; `apply=true` fills empty fields from its own metadata/snapshot |
+| `credits_clearance` | which items of a folder, smart folder, board or list aren't licensed or cleared |
+| `print_check` | print size at 300/150 dpi, papers it fills, file dpi, colour profile |
 | `export_collection`, `export_status` | build a portable BagIt export of a folder, smart folder, items or everything, then hand the user its download link |
 | `get_page_snapshot` | the readable text of the page an item was saved from, if kept |
 | `view_video`, `save_frame`, `make_clip` | watch a video as one contact sheet with timestamps, keep a frame as its own item, cut a clip (a job) |
