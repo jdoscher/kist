@@ -564,12 +564,18 @@ the handlers and the table in step.
 | --- | --- |
 | `→` `↓` | next item |
 | `←` `↑` | previous item |
-| `Escape` | cancel a note, tool or loupe; else close |
+| `Escape` | leave 100 % or repeat; cancel a note, tool or loupe; else close |
 | `A` | show or hide notes (annotations) |
 | `Z` | loupe on or off (images) |
 | `M` | note at the current time (video) |
 | `I` | mark in (video) |
 | `O` | mark out: a note over the range (video) |
+| `G` | greyscale (value check) on or off |
+| `V` | posterise: off, 3 values, 5 values |
+| `H` | mirror on or off |
+| `L` | grid: off, thirds, 4 × 4, custom |
+| `T` | repeat tile: off, 2 × 2, 3 × 3 |
+| `1` | true 100 % (1 image pixel = 1 screen pixel) |
 | `⌘/Ctrl K` | command palette |
 
 **Triage (/triage)**
@@ -604,6 +610,10 @@ the handlers and the table in step.
 | `+` `=` | zoom in (all panes) |
 | `-` | zoom out |
 | `0` | fit |
+| `G` | greyscale (value check) on or off |
+| `V` | posterise: off, 3 values, 5 values |
+| `H` | mirror on or off |
+| `L` | grid: off, thirds, 4 × 4, custom |
 | `Escape` | close |
 | `⌘/Ctrl K` | command palette |
 

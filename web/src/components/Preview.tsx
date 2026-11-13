@@ -11,6 +11,8 @@ import { tileDomId } from './Grid'
 import { MoreLikeThisButton } from './ItemAI'
 import { PhoneEditBar } from './PhoneEdit'
 import { hasMediaView, MediaView } from './m45/lazy'
+import { useViewAidKeys, useViewAids, ViewAidsBadge, ViewAidsFrame, ViewAidsMenu } from './viewaids/ViewAids'
+import { DEFAULT_AIDS } from '../viewAids'
 
 // notes on the image (Milestone 3) load apart from the first page, and are
 // fetched once the app is idle so opening a preview doesn't wait for them
@@ -90,6 +92,11 @@ export function Preview() {
     },
     !!item,
   )
+  // F5 viewing aids (G V H L T 1): images only; after the keys above so
+  // they're offered first, and Escape leaves 100 % / tile before closing
+  const [aids, setAids] = useViewAids()
+  const aidsOk = !!item && item.kind === 'image' && !hasMediaView(item)
+  useViewAidKeys('preview', aidsOk)
 
   // touch: swipe left/right for the next/previous item, down to close
   const touch = useRef<{ x: number; y: number; n: number } | null>(null)
@@ -116,7 +123,7 @@ export function Preview() {
 
   const onTouchStart = (e: React.TouchEvent) => {
     // scrubbing, turning a model, typing a font sample, picking a file
-    if ((e.target as HTMLElement).closest('video, audio, model-viewer, .waveform, .font-stage, .bundle-tree, .media-tools, .phone-edit')) return
+    if ((e.target as HTMLElement).closest('video, audio, model-viewer, .waveform, .font-stage, .bundle-tree, .media-tools, .phone-edit, .va-actual, .va-menu')) return
     const t = e.touches[0]
     touch.current = { x: t.clientX, y: t.clientY, n: e.touches.length }
   }
@@ -142,9 +149,13 @@ export function Preview() {
       ) : item.kind === 'pdf' ? (
         <PdfFrame item={item} />
       ) : item.has_thumb && item.kind === 'image' && item.ext !== 'svg' ? (
-        <ProgressiveImage key={item.id} item={item} mobile={mobile} />
+        <ViewAidsFrame item={item} aids={aids}>
+          <ProgressiveImage key={item.id} item={item} mobile={mobile} />
+        </ViewAidsFrame>
       ) : item.kind === 'image' ? (
-        <img src={fileUrl(item)} alt={item.filename} />
+        <ViewAidsFrame item={item} aids={aids}>
+          <img src={fileUrl(item)} alt={item.filename} />
+        </ViewAidsFrame>
       ) : (
         <div className="preview-fallback">
           <p>No preview for .{item.ext}</p>
@@ -167,11 +178,14 @@ export function Preview() {
       {/* the top band (B6): Loupe and Notes portal into .preview-tools,
           so the three controls sit in one row off the image */}
       <div className="preview-band" onClick={(e) => e.stopPropagation()}>
+        {aidsOk && <ViewAidsMenu aids={aids} setAids={setAids} mobile={mobile} />}
         <div className="preview-tools" ref={setToolbar} />
         <button ref={closeRef} className="preview-close" aria-label="Close preview" title="Close (Esc)" onClick={() => setPreviewId(null)}>
           <X size={16} aria-hidden="true" />
         </button>
       </div>
+
+      {aidsOk && <ViewAidsBadge aids={aids} onClear={() => setAids({ ...DEFAULT_AIDS, gridN: aids.gridN, tileMode: aids.tileMode })} />}
 
       <button
         className="preview-nav prev"

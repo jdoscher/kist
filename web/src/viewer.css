@@ -1,0 +1,410 @@
+/* F5: viewing aids (va-) and colour books (cbook-). Global sheet: every
+   class here carries one of those prefixes (tests/css-collisions.test.ts). */
+
+/* ---------- viewing aids ---------- */
+
+.va-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.va-frame {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  max-height: 100%;
+}
+/* the picture itself: a filter and a flip, nothing else changes */
+.va-frame :is(img, video, .va-tiles),
+.va-scope .cmp-img img {
+  filter: var(--va-filter, none);
+  transform: var(--va-flip, none);
+}
+/* the loupe shows the file's own colours; it has no sense on a mirrored,
+   tiled or 100 % picture */
+.ann-media:has(.va-frame.va-moved) .loupe {
+  display: none;
+}
+/* notes are placed on the unmirrored picture: hide their pins while the
+   picture is mirrored, tiled or at 100 % */
+.ann-media:has(.va-frame.va-moved) .ann-layer {
+  visibility: hidden;
+}
+.va-grid-host {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.va-grid {
+  position: absolute;
+  overflow: visible;
+}
+/* a light line over a dark one, so the grid reads on any picture */
+.va-grid line,
+.va-grid rect {
+  fill: none;
+  stroke: #ffffffcc;
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+  filter: drop-shadow(0 0 1px #000000d0);
+}
+
+/* repeat tile: the picture n × n times in a box of the picture's shape */
+.va-tiles {
+  position: relative;
+  overflow: hidden;
+  width: min(calc(100vw - 140px), calc(var(--preview-room, 80vh) * var(--va-aspect, 1)));
+  max-width: calc(100vw - 140px);
+  max-height: var(--preview-room, 80vh);
+}
+.va-tile {
+  position: absolute;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+.mobile .va-tiles {
+  max-width: 100vw;
+  width: min(100vw, calc((100vh - 40px) * var(--va-aspect, 1)));
+}
+
+/* true 100 %: scroll (or drag) around the picture at its own pixels */
+.va-actual {
+  position: relative;
+  width: calc(100vw - 140px);
+  height: var(--preview-room, 80vh);
+}
+.mobile .va-actual {
+  width: 100vw;
+  height: calc(100vh - 40px);
+}
+.va-actual-scroll {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  cursor: grab;
+  overscroll-behavior: contain;
+  touch-action: pan-x pan-y;
+}
+.va-actual-scroll:active {
+  cursor: grabbing;
+}
+.va-actual-pad {
+  min-width: 100%;
+  min-height: 100%;
+  width: max-content;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.va-actual-pic {
+  position: relative;
+  line-height: 0;
+}
+.preview-overlay .va-actual-img,
+.va-actual-img {
+  max-width: none;
+  max-height: none;
+  image-rendering: auto;
+}
+.va-actual-badge,
+.va-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  font-size: var(--fs-1);
+  line-height: 1.4;
+  background: #000000b0;
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  pointer-events: none;
+}
+.va-badge {
+  position: fixed;
+  top: calc(var(--preview-band, 64px) + 8px);
+  left: 16px;
+  z-index: 101;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  pointer-events: auto;
+}
+.va-badge-clear {
+  min-height: 0;
+  height: 20px;
+  width: 20px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: #fff;
+}
+.va-badge-clear:hover {
+  background: #ffffff30;
+}
+.mobile .va-badge {
+  top: auto;
+  bottom: calc(150px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.va-actual-note {
+  color: var(--text-dim);
+}
+
+/* the View button and menu */
+.va-menu-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.va-toggle {
+  position: relative;
+}
+.app-shell:not(.mobile) .preview-band .va-toggle {
+  height: 32px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: none;
+  border-radius: var(--ctl-radius);
+  background: none;
+  color: var(--text);
+}
+.app-shell:not(.mobile) .preview-band .va-toggle:hover {
+  background: var(--bg-hover);
+}
+.app-shell:not(.mobile) .preview-band .va-toggle.on {
+  background: var(--bg-active);
+}
+.va-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  display: inline-block;
+}
+.va-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 120;
+  width: 340px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--text);
+  text-align: left;
+  font-size: var(--fs-2);
+}
+.va-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.va-row-label {
+  white-space: nowrap;
+}
+.va-seg button {
+  padding: 0 8px;
+}
+.va-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+}
+.va-menu kbd {
+  margin-left: 4px;
+}
+.va-gridn input {
+  width: 64px;
+}
+.va-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-top: 1px solid var(--float-line);
+  padding-top: 8px;
+}
+/* compare: the button sits in its bar */
+.cmp-bar .va-menu {
+  left: 0;
+  right: auto;
+}
+
+/* phone: a glass capsule at the top left, the menu as a panel below it */
+.mobile .preview-overlay .va-menu-wrap.va-phone {
+  position: fixed;
+  top: max(10px, env(safe-area-inset-top));
+  left: 14px;
+  z-index: 102;
+}
+.mobile .preview-overlay .va-phone .va-toggle {
+  min-height: 44px;
+  border-radius: 22px;
+  padding: 0 14px;
+  background: color-mix(in srgb, var(--preview-capsule) 72%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  backdrop-filter: blur(20px) saturate(1.4);
+  border: 1px solid var(--capsule-line, var(--preview-line));
+  box-shadow: 0 6px 24px var(--shadow);
+  color: var(--preview-text);
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .mobile .preview-overlay .va-phone .va-toggle {
+    background: var(--preview-capsule);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+.va-phone .va-menu {
+  position: fixed;
+  top: calc(max(10px, env(safe-area-inset-top)) + 52px);
+  left: 10px;
+  right: 10px;
+  width: auto;
+  max-height: calc(100vh - 140px);
+  overflow: auto;
+}
+.va-phone .va-menu :is(button, .va-check) {
+  min-height: 44px;
+}
+.va-phone .va-row {
+  flex-wrap: wrap;
+}
+
+/* ---------- colour books ---------- */
+
+.cbook-codes {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--fs-2);
+}
+.cbook-code {
+  display: grid;
+  grid-template-columns: 14px 14px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+}
+.cbook-chip {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px #00000030;
+}
+.cbook-code-btn {
+  min-height: 0;
+  height: auto;
+  padding: 2px 4px;
+  border: none;
+  background: none;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  font-size: inherit;
+}
+.cbook-code-btn:hover {
+  background: var(--bg-hover);
+}
+.cbook-code-name {
+  color: var(--text-dim);
+}
+.cbook-de {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.cbook-list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cbook-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 16px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--ctl-radius);
+}
+.cbook-row.cbook-off .cbook-strip {
+  opacity: 0.45;
+}
+.cbook-name {
+  font-weight: 500;
+}
+.cbook-meta {
+  color: var(--text-dim);
+  font-size: var(--fs-1);
+}
+.cbook-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.cbook-strip {
+  grid-column: 1 / -1;
+  display: flex;
+  height: 12px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.cbook-strip span {
+  flex: 1;
+}
+.cbook-import {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.cbook-search {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cbook-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 180px;
+  overflow: auto;
+}
+.cbook-results button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-align: left;
+  border: none;
+  background: none;
+}
+.cbook-results button:hover,
+.cbook-results button[aria-selected='true'] {
+  background: var(--bg-hover);
+}
+.mobile .cbook-code {
+  min-height: 44px;
+}
