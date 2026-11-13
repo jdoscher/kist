@@ -770,7 +770,9 @@ def claim(session: Session, *, runner: str, kinds: tuple[str, ...] = AI_KINDS,
     if not include_pdf:
         conds.append(sa.func.coalesce(Job.payload["pdf"].astext, "false") != "true")
     jobs = list(session.execute(
-        sa.select(Job).where(*conds).order_by(Job.id).limit(limit)
+        # F7: a cut-out someone just asked for goes before queued AI work
+        sa.select(Job).where(*conds)
+        .order_by(sa.case((Job.kind == JobKind.CUTOUT, 0), else_=1), Job.id).limit(limit)
         .with_for_update(skip_locked=True)
     ).scalars())
     now = datetime.now(UTC)
@@ -804,6 +806,8 @@ def worker_kinds() -> tuple[str, ...]:
         kinds += [JobKind.EMBED, JobKind.OCR]
         if settings.faces:
             kinds.append(JobKind.FACES)
+        if settings.cutouts:
+            kinds.append(JobKind.CUTOUT)  # F7 (services/cutouts.py)
     if captions.worker_can_run():
         kinds.append(JobKind.CAPTION)
     return tuple(kinds)
@@ -920,6 +924,10 @@ def run_job(session: Session, job: Job) -> None:
         if src is None:
             raise RuntimeError("the item has no image to look for faces in")
         faces_svc.store(session, item.id, faces_svc.ml_faces(src.read_bytes()))
+    elif job.kind == JobKind.CUTOUT:
+        from . import cutouts
+
+        cutouts.run_job(session, job)
     else:
         raise ValueError(f"not an AI job: {job.kind}")
 

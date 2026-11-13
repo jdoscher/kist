@@ -239,6 +239,9 @@ def run(session: Session) -> Report:
     report.problems.extend(suggestions_svc.check_feedback_files(session))
     check_creative(session, report)
     check_m4(session, report)
+    from . import cutouts as cutouts_svc  # F7
+
+    report.problems.extend(cutouts_svc.check(session))
     for key in meta_svc.pending():
         report.problems.append(f"{key}: an earlier write to disk failed")
     return report

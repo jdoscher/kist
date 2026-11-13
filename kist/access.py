@@ -146,6 +146,8 @@ RESTRICTED_PATHS = [
         rf"^{_ITEM}/(scrub|scrub\.json|stream|waveform|svg|model|font-info|glyphs|bundle)$",
         rf"^{_ITEM}/bundle/.+$",
         r"^/api/(timeline|on-this-day|map|map/config|map/basemap\.pmtiles)$",
+        # F7: a board's transparent copy of a cut-out (get_item checks the reader)
+        rf"^{_ITEM}/cutout-preview$",
     )
 ]
 HELPER_PREFIX = "/api/ai/jobs"

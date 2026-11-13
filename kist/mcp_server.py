@@ -1086,6 +1086,39 @@ def make_clip(item_id: str, start: float, end: float, format: str = "mp4",
         return jobs_svc.job_out(job).model_dump(mode="json")
 
 
+# ---------- F7: cutouts (services/cutouts.py) ----------
+
+
+@tool(
+    "Cut the subject out of an image (background removal on this server's "
+    "ml service, no outside service): a job that makes a NEW transparent PNG "
+    "item linked derived_from the original, with its tags, folders and "
+    "provenance; the original is never changed. model 'isnet-general-use' "
+    "(fast, the default) or 'birefnet-lite' (finer edges, about six times "
+    "slower); feather 0-20 px softens the edge; shadow keeps the cast shadow. "
+    "board_id + node_id: put the cut-out in that board node's place when "
+    "done. list_jobs shows the job; its result_item_id is the cut-out.",
+    needs=Action.EDIT,
+)
+def cut_out_subject(item_id: str, model: str | None = None, feather: float = 0.0,
+                    shadow: bool = False, board_id: str | None = None,
+                    node_id: str | None = None) -> dict[str, Any]:
+    from .services import cutouts as cutouts_svc
+
+    with SessionLocal() as session:
+        if board_id or node_id:
+            if not (board_id and node_id):
+                raise ToolError("give both board_id and node_id, or neither")
+            out = cutouts_svc.board_cutout(session, board_id, node_id, model=model,
+                                           feather=feather, shadow=shadow)
+            if out["board"] is not None:
+                return {"swapped": True, "board": boards_svc.summary(out["board"])}
+            return {"swapped": False,
+                    "job": jobs_svc.job_out(out["job"]).model_dump(mode="json")}
+        job = cutouts_svc.queue(session, item_id, model=model, feather=feather, shadow=shadow)
+        return jobs_svc.job_out(job).model_dump(mode="json")
+
+
 # ---------- Milestone 6: date buckets (services/buckets.py) ----------
 
 

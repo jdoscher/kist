@@ -77,6 +77,17 @@ class Settings(BaseSettings):
     # faces and people (opt-in): queue `faces` jobs for images. The ml
     # service needs KIST_FACES=1 too (it only loads the face models then)
     faces: bool = False
+    # F7 cutouts: "Cut out subject" makes a transparent PNG as a new item
+    # (services/cutouts.py). The ml service downloads the model the first
+    # time someone asks for a cut-out (ISNet 179 MB; BiRefNet-lite 224 MB
+    # for "fine edges"). False hides the action and refuses the endpoints
+    cutouts: bool = True
+    # the model a cut-out uses unless the request names one: "" lets the ml
+    # service decide (its KIST_CUTOUT_MODEL, else isnet-general-use)
+    cutout_model: str = ""
+    # a cut-out's long side at most this many pixels (the original's own
+    # size when smaller)
+    cutout_max_side: int = 4096
     # the worker recomputes suggested collections this often (0: only on
     # demand, GET /api/collections/suggested?refresh=1)
     collections_interval_hours: float = 24.0
