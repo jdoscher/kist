@@ -20,6 +20,7 @@ from . import (
 from . import buckets as buckets_routes  # M6
 from . import credits as credits_routes  # F4
 from . import kinds as kinds_routes  # F1
+from . import colourbooks as colourbooks_routes  # F5
 from . import media as media_routes
 
 api_router = APIRouter()
@@ -43,3 +44,4 @@ api_router.include_router(m4.router)
 api_router.include_router(media_routes.router)  # Milestone 5
 api_router.include_router(credits_routes.router)  # F4 credits & rights
 api_router.include_router(kinds_routes.router)  # F1 utility collections
+api_router.include_router(colourbooks_routes.router)  # F5 colour books

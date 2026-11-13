@@ -10,6 +10,8 @@ import { api, type Query } from '../api'
 import { firstImage, imagePreviewUrl, registerImage } from '../imageSearch'
 import { org } from '../organiseApi'
 import { DEFAULT_COLOR_TOL, hexColor, SEARCH_MODES, type SearchMode } from '../search'
+import { isBookRef } from '../colourBooks'
+import { CodeChipText, CodeSearch } from './colourbooks/ColourBooks'
 
 const MODE_KEY = 'kist.searchMode'
 
@@ -171,18 +173,24 @@ export function ColourPicker({
   onClose: () => void
 }) {
   const id = useId()
-  const [hex, setHex] = useState(initial ?? '#2f4f3a')
-  const [text, setText] = useState(initial ?? '#2f4f3a')
+  // a colour book code (F5) isn't a hex: start from the default
+  const [hex, setHex] = useState(hexColor(initial ?? '', false) ?? '#2f4f3a')
+  const [text, setText] = useState(hexColor(initial ?? '', false) ?? '#2f4f3a')
   const [t, setT] = useState(tol || DEFAULT_COLOR_TOL)
   const ref = useRef<HTMLDivElement>(null)
+  // onClose is a new function on every parent render: keep the latest in a
+  // ref so this runs once, and focus isn't pulled back to the colour well
+  // while typing in the hex or code field
+  const closeRef = useRef(onClose)
+  closeRef.current = onClose
   useEffect(() => {
     const close = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) onClose()
+      if (!ref.current?.contains(e.target as Node)) closeRef.current()
     }
     window.addEventListener('mousedown', close)
     requestAnimationFrame(() => ref.current?.querySelector<HTMLInputElement>('input[type=color]')?.focus())
     return () => window.removeEventListener('mousedown', close)
-  }, [onClose])
+  }, [])
   const valid = hexColor(text, false)
   return (
     <div
@@ -244,6 +252,8 @@ export function ColourPicker({
           />
         ))}
       </div>
+      {/* F5: or a code from the user's colour books */}
+      <CodeSearch onPick={(ref) => onSearch(ref, t)} />
       <label className="colour-tol">
         <span>
           How close: <strong>{t <= 15 ? 'exact' : t <= 40 ? 'near' : 'loose'}</strong>
@@ -349,8 +359,14 @@ export function SearchChips({ query, setQuery }: { query: Query; setQuery: (p: P
       )}
       {query.color && (
         <span className="chip search-chip" title={`Items with ${query.color} in their palette`}>
-          <span className="chip-swatch" style={{ background: query.color }} aria-hidden="true" />
-          colour {query.color}
+          {isBookRef(query.color) ? (
+            <CodeChipText value={query.color} />
+          ) : (
+            <>
+              <span className="chip-swatch" style={{ background: query.color }} aria-hidden="true" />
+              colour {query.color}
+            </>
+          )}
           <button aria-label="Clear colour" title="Clear colour" onClick={() => setQuery({ color: null })}>
             <X size={14} aria-hidden="true" />
           </button>

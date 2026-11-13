@@ -18,6 +18,7 @@ import { describeError } from '../writes'
 import { Snippet, useAfterStackChange, useExpandedStacks, useStackToggle } from './GridExtras'
 import { useNotices } from './Notices'
 import { useDialog } from './Dialog'
+import { PaletteCodes } from './colourbooks/ColourBooks'
 
 /** What the server has switched on (AI status is the owner's; others
  * learn about faces from whether any people exist). */
@@ -141,6 +142,8 @@ export function PaletteSwatches({ item }: { item: Item }) {
           ))}
         </div>
       )}
+      {/* F5: the nearest code in the user's colour books */}
+      <PaletteCodes item={item} />
     </div>
   )
 }

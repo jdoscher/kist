@@ -18,6 +18,7 @@ import './m45.css'
 import './phone.css'
 import './credits.css' // F4
 import './kinds.css' // F1 utility collections
+import './viewer.css' // F5 viewing aids and colour books
 import { readPrefs } from './settings'
 import { onReconnect, reloadRequested, setBrowserOnline, shouldRegisterSW, swUpdate } from './shell'
 import { applyAppearance, watchSystemTheme } from './theme'

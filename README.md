@@ -258,7 +258,7 @@ tags and namespaces, folder, type, rating, dates, trash, `person`, `flag`,
 | `semantic=brown suede boots` | everything, best matches first | meaning (what the image shows) |
 | `q=…&semantic=…` | both at once ("hybrid") | reciprocal rank fusion of the word and meaning ranks |
 | `similar=<item id>` | more like that item (not itself) | visual similarity |
-| `color=#2f4f3a&color_tol=30` | items with that colour in their palette (tolerance 0–100) | how much of the palette is near it (CIEDE2000) |
+| `color=#2f4f3a&color_tol=30` | items with that colour in their palette (tolerance 0–100); also a colour book code, `color=book:<book>/<code>` or a bare code | how much of the palette is near it (CIEDE2000) |
 | `text=zero trust` | only the text inside images and PDFs (every word, as a prefix) | text relevance |
 | `has_text=true` / `false` | items whose OCR found text / found none | — |
 | `type=font` | font files | — |
@@ -566,7 +566,7 @@ the handlers and the table in step.
 | --- | --- |
 | `→` `↓` | next item |
 | `←` `↑` | previous item |
-| `Escape` | cancel a note, tool or loupe; else close |
+| `Escape` | leave 100 % or repeat; cancel a note, tool or loupe; else close |
 | `A` | show or hide notes (annotations) |
 | `Z` | loupe on or off (images) |
 | `M` | note at the current time (video) |
@@ -574,6 +574,12 @@ the handlers and the table in step.
 | `O` | mark out: a note over the range (video) |
 | `X` | in a kind: not this (then the next item) |
 | `B` | in a kind: belongs here (confirm) |
+| `G` | greyscale (value check) on or off |
+| `V` | posterise: off, 3 values, 5 values |
+| `H` | mirror on or off |
+| `L` | grid: off, thirds, 4 × 4, custom |
+| `T` | repeat tile: off, 2 × 2, 3 × 3 |
+| `1` | true 100 % (1 image pixel = 1 screen pixel) |
 | `⌘/Ctrl K` | command palette |
 
 **Triage (/triage)**
@@ -608,6 +614,10 @@ the handlers and the table in step.
 | `+` `=` | zoom in (all panes) |
 | `-` | zoom out |
 | `0` | fit |
+| `G` | greyscale (value check) on or off |
+| `V` | posterise: off, 3 values, 5 values |
+| `H` | mirror on or off |
+| `L` | grid: off, thirds, 4 × 4, custom |
 | `Escape` | close |
 | `⌘/Ctrl K` | command palette |
 
@@ -658,7 +668,8 @@ library/
 │                           # templates.json (metadata templates),
 │                           # board-events-purged.jsonl,
 │                           # shares.json (share links, hashed passwords),
-│                           # export-presets.json
+│                           # export-presets.json,
+│                           # colourbooks/{id}.json (your colour books)
 ├── boards/
 │   └── {ulid}/
 │       ├── board.json      # the board: nodes, edges, canvas, version
@@ -888,6 +899,7 @@ claude mcp add --transport http kist http://<host>:8080/mcp \
 | `search_items` | `query` (filename, notes, annotation text, text in images and captions, a saved page's text, the place name), tags (all / any / none; aliases, implied tags and `brand:*` namespaces match), folder, type (image, video, pdf, audio, model, font, design, bundle, other), rating, `view="unfiled"` (the inbox), `state="trashed"`, `preview_status`, `flag`, `label`, `person`, `collapse_stacks`; provenance `ai_generated` (true/false/unknown), `license`, `source_status`; media `taken_after`/`taken_before` (ISO dates), `camera`, `lens`, `has_gps`, `place`, `vertical`, `has_audio`, `duration_min`/`duration_max`; `order` also `-taken`/`taken`; ranked by `semantic` (a description: what the images show), `similar_to` (an item id), `color` (+ `color_tol`), `text` (words inside screenshots and PDFs); `has_text`. Every filter works with every ranking. Ranked items carry `match {kind, score, snippet}` |
 | `search_by_image` | items that look like an image given by URL or a file under `library/import/` (nothing is saved); the main filters (query, tags, folder, type, rating, color, flag, label, `person`, `collapse_stacks`, and the provenance and media filters) |
 | `item_palette` | an item's colours `[{hex, pct, name}]` |
+| `nearest_colour_code`, `list_colour_books` | the nearest code in the user's colour books to a hex or to each colour of an item (`de` is CIEDE2000); the books, or swatches matching a code with their `color` search value |
 | `get_item` | full metadata |
 | `view_item` | returns the image itself so the model can see it |
 | `add_item` | from a URL, or a file under `library/import/` or `library/inbox/` |
@@ -1205,6 +1217,12 @@ GET    /api/items/{id}/snapshot/text
 POST   /api/items/export-images  {item_ids, preset: name | {max_side, format, quality,
                                  strip_metadata, watermark?, contact_sheet?}} -> zip | PDF
 GET/POST /api/export-presets     saved presets; PUT/DELETE /api/export-presets/{name}
+GET/POST /api/colourbooks        colour books; POST is multipart 'file' (.ase/.csv/.gpl),
+                                 name?, format?; GET/PATCH {name?, enabled?}/DELETE
+                                 /api/colourbooks/{id} (DELETE: write/admin)
+GET    /api/colourbooks/nearest  ?hex=..&hex=..[&book=] nearest code per enabled book (ΔE)
+GET    /api/colourbooks/lookup   ?q= swatches by code or name, each with its search ref
+GET    /api/items/{id}/palette/codes  the palette with the nearest codes
 POST   /api/exports              {target, target_id?, item_ids?, include?, format} -> 202
 GET    /api/exports              and /api/exports/{id} (status; ?download=1 = the zip),
 GET    /api/exports/{id}/download  DELETE /api/exports/{id}

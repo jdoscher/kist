@@ -5,7 +5,7 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Ban, Check, Columns2, Grid2x2, Layers, Link2, Link2Off, SplitSquareHorizontal, X, ZoomIn, ZoomOut } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { thumbUrl, type Item } from '../../api'
 import { clampZoom, type Viewport } from '../../board'
 import { api3 } from '../../creativeApi'
@@ -17,6 +17,11 @@ import type { CompareMode } from './Creative'
 import { cullText, FlagButtons } from './CullControls'
 import { displaySrc, originalSrc } from '../../look'
 import { usePatchItem } from './writes3'
+import { aidsStyle, useViewAidKeys, useViewAids, ViewAidsDefs, ViewAidsGrid, ViewAidsMenu } from '../viewaids/ViewAids'
+import { trueZoom, type AidFeatures } from '../../viewAids'
+
+// F5: compare offers the value, mirror and grid aids; its own zoom does 100 %
+const CMP_AIDS: AidFeatures = { tile: false, actual: false }
 
 type View = 'side' | 'wipe' | 'overlay'
 
@@ -78,6 +83,10 @@ export default function Compare({
   const [current, setCurrent] = useState<string | null>(ids[0] ?? null)
   const [hideRejects, setHideRejects] = useState(false)
   const [auto, setAuto] = useState(true)
+  const [aids, setAids] = useViewAids()
+  const aidsId = `cmpva${useId().replace(/[^a-zA-Z0-9]/g, '')}`
+  // once 100 % was asked for, panes draw the original
+  const [hiRes, setHiRes] = useState(false)
 
   const box = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
@@ -137,6 +146,21 @@ export default function Compare({
     return true
   })
 
+  useViewAidKeys('preview', true, CMP_AIDS)
+
+  /** Zoom so the current item's pixels are the screen's (1:1 with
+   * devicePixelRatio), centred. */
+  const actualSize = () => {
+    const cur = items.find((i) => i.id === current) ?? items[0]
+    const img = box.current?.querySelector<HTMLImageElement>(`[data-cmp-id="${cur?.id}"] img`) ?? box.current?.querySelector<HTMLImageElement>('.cmp-img img')
+    const z = cur && img ? trueZoom(cur.width ?? 0, img.offsetWidth, window.devicePixelRatio || 1) : null
+    if (!z || !cur) return
+    setHiRes(true)
+    const v = { zoom: z, x: 0, y: 0 }
+    if (sync || view !== 'side') setShared(v)
+    else setVps((m) => ({ ...m, [cur.id]: v }))
+  }
+
   const shown = mode === 'survey' && hideRejects ? items.filter((i) => i.flag !== 'reject') : items
   const two = items.length === 2
   const picks = items.filter((i) => i.flag === 'pick')
@@ -147,6 +171,7 @@ export default function Compare({
     return (
       <figure
         key={item.id}
+        data-cmp-id={item.id}
         className={`cmp-pane${current === item.id ? ' current' : ''}${item.flag === 'reject' ? ' rejected' : ''}`}
         aria-label={`${item.filename}${cullText(item) ? `, ${cullText(item)}` : ''}`}
       >
@@ -163,8 +188,9 @@ export default function Compare({
           onDoubleClick={() => (vp.zoom > 1 ? setVpOf(item.id)(ONE) : setVpOf(item.id)({ zoom: 2.5, x: 0, y: 0 }))}
         >
           <div className="cmp-img" style={{ transform: `translate(${vp.x}px, ${vp.y}px) scale(${vp.zoom})` }}>
-            <Sharp item={item} zoomed={vp.zoom > 1.5} />
+            <Sharp item={item} zoomed={vp.zoom > 1.5 || (hiRes && vp.zoom > 1)} />
           </div>
+          <ViewAidsGrid aids={aids} measureKey={`${vp.x}:${vp.y}:${vp.zoom}`} />
         </div>
         <figcaption>
           <span className="cmp-n" aria-hidden="true">
@@ -193,7 +219,8 @@ export default function Compare({
   return (
     <div
       ref={box}
-      className={`compare-overlay${mobile ? ' mobile' : ''}`}
+      className={`compare-overlay va-scope${mobile ? ' mobile' : ''}`}
+      style={aidsStyle(aids, aidsId)}
       role="dialog"
       aria-modal="true"
       aria-label={mode === 'survey' ? `Survey ${items.length} items` : `Compare ${items.length} items`}
@@ -205,6 +232,7 @@ export default function Compare({
         }
       }}
     >
+      <ViewAidsDefs id={aidsId} />
       <div className="cmp-bar">
         <div className="seg" role="group" aria-label="Mode">
           <button className={mode === 'compare' ? 'on' : ''} aria-pressed={mode === 'compare'} onClick={() => onMode('compare')}>
@@ -244,8 +272,12 @@ export default function Compare({
             <span className="cmp-zoom" aria-live="polite">
               {Math.round((sync ? shared.zoom : 1) * 100)}%
             </span>
+            <button className="btn-icon" onClick={actualSize} aria-label="True 100 %" title="The current item at true 100 %: one image pixel per screen pixel">
+              1:1
+            </button>
           </>
         )}
+        <ViewAidsMenu aids={aids} setAids={setAids} features={CMP_AIDS} mobile={mobile} />
         {mode === 'survey' && (
           <>
             <label className="check-inline">
@@ -396,6 +428,7 @@ function WipeView({
 }) {
   const panState = useRef<PanState>({ drag: null, pointers: new Map() })
   const pz = makePanZoom(vp, setVp, panState.current)
+  const [aids] = useViewAids()
   const stage = useRef<HTMLDivElement>(null)
   const dragging = useRef(false)
   const setFromX = (clientX: number) => {
@@ -443,6 +476,7 @@ function WipeView({
           </div>
         </div>
         {!overlay && <div className="wipe-handle" style={{ left: `${wipe}%` }} aria-hidden="true" />}
+        <ViewAidsGrid aids={aids} measureKey={`${vp.x}:${vp.y}:${vp.zoom}`} />
       </div>
       <div className="cmp-controls">
         <span className="fname">A: {a.filename}</span>

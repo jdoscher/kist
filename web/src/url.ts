@@ -28,8 +28,8 @@
 import { emptyQuery, isItemKind, type PreviewStatus, type Query } from './api.ts'
 import { addM45Params, m45FromSearch } from './m45/filters.ts'
 
-export type SettingsSection = 'tokens' | 'archive' | 'ai' | 'vocabulary' | 'cleanup' | 'templates' | 'sharing' | 'import' | 'phone' | 'kinds'
-export const SETTINGS_SECTIONS: SettingsSection[] = ['tokens', 'archive', 'ai', 'vocabulary', 'cleanup', 'templates', 'sharing', 'import', 'phone', 'kinds']
+export type SettingsSection = 'tokens' | 'archive' | 'ai' | 'vocabulary' | 'cleanup' | 'templates' | 'sharing' | 'import' | 'phone' | 'kinds' | 'colourbooks'
+export const SETTINGS_SECTIONS: SettingsSection[] = ['tokens', 'archive', 'ai', 'vocabulary', 'cleanup', 'templates', 'sharing', 'import', 'phone', 'kinds', 'colourbooks']
 
 export type OrganiseSection = 'duplicates' | 'stacks' | 'collections' | 'people'
 export const ORGANISE_SECTIONS: OrganiseSection[] = ['duplicates', 'stacks', 'collections', 'people']
@@ -191,7 +191,8 @@ export function fromUrl(pathname: string, search: string): Place {
     deleted: s.get('trash') === '1',
     semantic: s.get('semantic') ?? '',
     similar: s.get('similar') || null,
-    color: /^#[0-9a-f]{6}$/i.test(s.get('color') ?? '') ? (s.get('color') as string).toLowerCase() : null,
+    // a hex, or a colour book code (F5): book:<book>/<code>
+    color: /^#[0-9a-f]{6}$/i.test(s.get('color') ?? '') ? (s.get('color') as string).toLowerCase() : /^book:[^/]{1,60}\/.{1,120}$/i.test(s.get('color') ?? '') ? (s.get('color') as string) : null,
     color_tol: tolerance(s.get('tol')),
     text: s.get('text') ?? '',
     person: s.get('person') || null,

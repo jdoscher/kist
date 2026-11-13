@@ -10,7 +10,9 @@ build_filters, including what a folder-limited token may see):
     (image vector)     search by image (POST /api/search/image), same thing
                        for a file that isn't in the library
     color=<hex>        only items with a palette colour within the tolerance
-                       (CIEDE2000), ranked by how much of the palette matches
+                       (CIEDE2000), ranked by how much of the palette matches;
+                       also a colour book code (F5): book:<book>/<code> or a
+                       bare code from an enabled book (services/colourbooks)
     text=<words>       only items whose OCR / PDF text has every word (word
                        prefixes match), ranked by ts_rank
     q=<words> together with a meaning signal: keyword hits are a signal of
@@ -114,14 +116,24 @@ class ColourQuery:
 
     @classmethod
     def parse(cls, value: str, tolerance: float | None) -> "ColourQuery":
+        lab = None
         try:
             h = colour.parse_hex(value)
         except ValueError as exc:
-            raise ValidationError(str(exc)) from None
+            # F5: a colour book code, 'book:<book>/<code>' or a bare code
+            from . import colourbooks
+
+            try:
+                _book, sw = colourbooks.resolve(value)
+            except colourbooks.NotFound as missing:
+                raise ValidationError(
+                    str(missing) if colourbooks.REF_RE.match(value.strip()) else str(exc)
+                ) from None
+            h, lab = sw.hex, sw.lab
         tol = colour.DEFAULT_TOLERANCE if tolerance is None else tolerance
         if not 0 <= tol <= 100:
             raise ValidationError("color_tol must be between 0 and 100")
-        return cls(h, colour.hex_to_lab(h), colour.max_delta(tol))
+        return cls(h, lab or colour.hex_to_lab(h), colour.max_delta(tol))
 
     def delta(self):
         light, a, b = self.lab

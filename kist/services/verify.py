@@ -245,6 +245,9 @@ def run(session: Session) -> Report:
     report.problems.extend(kinds_svc.check(session))  # F1
     check_creative(session, report)
     check_m4(session, report)
+    from . import colourbooks  # F5
+
+    report.problems.extend(colourbooks.check_files())
     for key in meta_svc.pending():
         report.problems.append(f"{key}: an earlier write to disk failed")
     return report

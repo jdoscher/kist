@@ -150,6 +150,10 @@ RESTRICTED_PATHS = [
         # F1 kinds: counts and an item's kinds, filtered to the reader's items
         r"^/api/kinds$",
         rf"^{_ITEM}/kinds$",
+        # F5: nearest colour-book codes for an item it sees, and the code
+        # lookup behind a colour search chip (books hold no items)
+        rf"^{_ITEM}/palette/codes$",
+        r"^/api/colourbooks/lookup$",
     )
 ]
 HELPER_PREFIX = "/api/ai/jobs"

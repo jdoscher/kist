@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { BookOpen, Check, Copy, Cpu, Eraser, FolderInput, KeyRound, Shapes, Share2, ShieldCheck, Smartphone, Stamp, TriangleAlert, X } from 'lucide-react'
+import { BookOpen, Check, Copy, Cpu, Droplet, Eraser, FolderInput, KeyRound, Shapes, Share2, ShieldCheck, Smartphone, Stamp, TriangleAlert, X } from 'lucide-react'
 import { lazy, Suspense, useId, useState } from 'react'
 import { api, emptyQuery, type ApiToken, type ArchiveHealth } from '../api'
 import { useCaps, useFolderNames, useFolders, useMe, useStats } from '../data'
@@ -20,6 +20,7 @@ const TemplatesSection = lazy(() => import('./m3/Templates').then((m) => ({ defa
 const CreditsSettings = lazy(() => import('./credits/Credits').then((m) => ({ default: m.CreditsSettings }))) // F4
 const SharingSection = lazy(() => import('./m45/SettingsSections').then((m) => ({ default: m.SharingSection })))
 const ImportSection = lazy(() => import('./m45/SettingsSections').then((m) => ({ default: m.ImportSection })))
+const ColourBooksSection = lazy(() => import('./colourbooks/ColourBooks').then((m) => ({ default: m.ColourBooksSection })))
 const PhoneSection = lazy(() => import('./m45/SettingsSections').then((m) => ({ default: m.PhoneSection })))
 const KindsSection = lazy(() => import('./kinds/KindsSettings')) // F1
 
@@ -34,6 +35,7 @@ const SECTIONS: { id: SettingsSection; label: string; icon: typeof KeyRound }[] 
   { id: 'sharing', label: 'Sharing', icon: Share2 },
   { id: 'import', label: 'Import', icon: FolderInput },
   { id: 'phone', label: 'Phone & browser', icon: Smartphone },
+  { id: 'colourbooks', label: 'Colour books', icon: Droplet },
 ]
 
 const dateText = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : '')
@@ -93,6 +95,7 @@ export function SettingsScreen() {
               {section === 'import' && <ImportSection />}
               {section === 'phone' && <PhoneSection />}
               {section === 'kinds' && <KindsSection />}
+              {section === 'colourbooks' && <ColourBooksSection />}
             </Suspense>
           </main>
         </div>

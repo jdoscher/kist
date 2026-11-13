@@ -68,7 +68,8 @@ def search_filters(
     # only items whose OCR found text (true) or found none (false)
     has_text: bool | None = None,
     # colour search: a hex colour, tolerance 0-100 (default 30)
-    color: Annotated[str | None, Query(max_length=9)] = None,
+    # or a colour book code: book:<book>/<code>, or a bare code (F5)
+    color: Annotated[str | None, Query(max_length=200)] = None,
     color_tol: Annotated[int | None, Query(ge=0, le=100)] = None,
     # only matches inside images and PDFs (OCR / PDF text), ranked
     text: Annotated[str | None, Query(max_length=500)] = None,

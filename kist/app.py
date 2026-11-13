@@ -21,6 +21,7 @@ from .services import ai as ai_svc
 from .services import annotations as annotations_svc
 from .services import boards as boards_svc
 from .services import collections as collections_svc
+from .services import colourbooks as colourbooks_svc  # F5
 from .services import events as events_svc
 from .services import exports as exports_svc
 from .services import faces as faces_svc
@@ -116,6 +117,7 @@ def _error(status: int, detail) -> JSONResponse:
 @app.exception_handler(templates_svc.NotFound)
 @app.exception_handler(shares_svc.NotFound)
 @app.exception_handler(exports_svc.NotFound)
+@app.exception_handler(colourbooks_svc.NotFound)  # F5
 async def not_found(request: Request, exc: Exception):
     return _error(404, str(exc))
 
