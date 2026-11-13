@@ -19,13 +19,13 @@ from . import (
     tokens,
 )
 from . import buckets as buckets_routes  # M6
-from . import credits as credits_routes  # F4
-from . import kinds as kinds_routes  # F1
 from . import colourbooks as colourbooks_routes  # F5
+from . import credits as credits_routes  # F4
 from . import cutouts as cutouts_routes  # F7
+from . import kinds as kinds_routes  # F1
 from . import media as media_routes
-from . import projects as projects_routes  # F6
 from . import present as present_routes  # 2.0 F2
+from . import projects as projects_routes  # F6
 
 api_router = APIRouter()
 api_router.include_router(misc.router)
