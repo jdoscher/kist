@@ -1045,6 +1045,9 @@ def main() -> None:
     from . import media_cli
 
     media_cli.add_parsers(sub)  # media-backfill, geo-download (Milestone 5)
+    from . import credits_cli
+
+    credits_cli.add_parsers(sub)  # credits-backfill (F4)
 
     if len(sys.argv) > 1 and sys.argv[1] == "helper":
         from . import helper
@@ -1081,6 +1084,8 @@ def main() -> None:
         sys.exit(link_check(args.limit))
     if args.cmd in media_cli.COMMANDS:
         sys.exit(media_cli.run(args))
+    if args.cmd in credits_cli.COMMANDS:
+        sys.exit(credits_cli.run(args))
 
 
 if __name__ == "__main__":

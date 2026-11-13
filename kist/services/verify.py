@@ -217,6 +217,9 @@ def check_m4(session: Session, report: Report) -> None:
     report.problems.extend(shares.check_file(session))
     report.problems.extend(snapshots.check(session))
     report.problems.extend(export_images.check_file())
+    from . import credits
+
+    report.problems.extend(credits.check_file())  # F4: library/.kist/credits.json
 
 
 def run(session: Session) -> Report:

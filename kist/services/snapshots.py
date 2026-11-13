@@ -192,7 +192,20 @@ def save(session: Session, item_id: str, html: str, *, source: str,
     meta_svc.atomic_write_text(d / INFO_FILE, json.dumps(info, indent=2, ensure_ascii=False))
     _upsert_text(session, item.id, text)
     session.commit()
+    _autofill_credits(session, item.id)  # F4
     return info
+
+
+def _autofill_credits(session: Session, item_id: str) -> None:
+    """F4: fill empty credit fields from the page just stored (its meta
+    tags; no request). Background bookkeeping: modified_at stays."""
+    try:
+        from . import credits
+
+        credits.autofill(session, item_id, keep_modified=True)
+    except Exception:
+        session.rollback()
+        log.exception("credits auto-fill after the snapshot of %s failed", item_id)
 
 
 def _upsert_text(session: Session, item_id: str, text: str) -> None:

@@ -99,6 +99,13 @@ def search_filters(
     date_after: datetime | None = None,
     date_before: datetime | None = None,
     bbox: Annotated[str | None, Query(max_length=200)] = None,
+    # F4 (services/credits.filters): ref_only|comp|licensed|cleared|none|
+    # uncleared; no credit or creator; prints at least / not this size at
+    # 300 dpi ('8in', '20cm', 'A4')
+    rights_status: Annotated[str | None, Query(max_length=100)] = None,
+    needs_credit: bool | None = None,
+    print_min: Annotated[str | None, Query(max_length=20)] = None,
+    print_max: Annotated[str | None, Query(max_length=20)] = None,
 ) -> dict:
     """The filters GET /api/items and POST /api/search/image share, as
     services.search.search() keyword arguments."""
@@ -119,6 +126,9 @@ def search_filters(
                    camera=camera, lens=lens, duration_min=duration_min,
                    duration_max=duration_max, vertical=vertical, has_audio=has_audio,
                    place=place, date_after=date_after, date_before=date_before, bbox=bbox),
+        credits={k: v for k, v in dict(rights_status=rights_status, needs_credit=needs_credit,
+                                       print_min=print_min, print_max=print_max).items()
+                 if v is not None} or None,
     )
 
 

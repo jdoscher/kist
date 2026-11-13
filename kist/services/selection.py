@@ -120,6 +120,7 @@ def smart_filters(q: dict) -> list:
         source_status=q.get("source_status") or None,
         media={k: (_dt(q[k]) if k.startswith(("taken_", "date_")) else q[k])
                for k in MEDIA_KEYS if q.get(k) is not None},
+        credits=_credits_spec(q),  # F4
     )
     if q.get("has_text") is not None:
         out.append(ranking.has_text_filter(bool(q["has_text"])))
@@ -127,6 +128,12 @@ def smart_filters(q: dict) -> list:
     if tsq:
         out.append(ranking.text_match(tsq, ranking.READ_SOURCES))
     return out
+
+
+def _credits_spec(q: dict) -> dict | None:
+    from .credits import from_params
+
+    return from_params(q)
 
 
 def board_ids(session: Session, board_id: str | None) -> list[str]:

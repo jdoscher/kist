@@ -61,6 +61,7 @@ MANAGED = {
     *(_q("kist", k) for k in (
         "PageURL", "ImageURL", "CapturedAt", "CaptureMethod", "AIGenerated", "ItemID",
         "ImportedFrom", "OriginalID",
+        "RightsStatus", "CreditExempt", "AIGenerator",  # F4
     )),
 }
 
@@ -169,10 +170,13 @@ def fields_from_properties(props: dict[str, list[str]]) -> dict:
         ("page_url", "kist", "PageURL"), ("image_url", "kist", "ImageURL"),
         ("captured_at", "kist", "CapturedAt"), ("method", "kist", "CaptureMethod"),
         ("imported_from", "kist", "ImportedFrom"), ("original_id", "kist", "OriginalID"),
+        ("rights_status", "kist", "RightsStatus"), ("ai_generator", "kist", "AIGenerator"),
     ):
         value = one(prefix, name)
         if value:
             prov[key] = value
+    if one("kist", "CreditExempt") in ("True", "true", "1"):  # F4
+        prov["credit_exempt"] = True
     if "rights" in prov and "license" not in prov:
         prov["license"] = prov["rights"]
     prov.pop("rights", None)
@@ -307,9 +311,12 @@ def build(fields: dict, existing: bytes | None = None) -> bytes:
         ("page_url", "PageURL"), ("image_url", "ImageURL"), ("captured_at", "CapturedAt"),
         ("method", "CaptureMethod"), ("imported_from", "ImportedFrom"),
         ("original_id", "OriginalID"),
+        ("rights_status", "RightsStatus"), ("ai_generator", "AIGenerator"),  # F4
     ):
         if prov.get(key):
             desc.set(_q("kist", name), str(prov[key]))
+    if prov.get("credit_exempt"):  # F4
+        desc.set(_q("kist", "CreditExempt"), "True")
     if prov.get("ai_generated") is not None:
         desc.set(_q("kist", "AIGenerated"), "True" if prov["ai_generated"] else "False")
     if prov.get("credit"):
