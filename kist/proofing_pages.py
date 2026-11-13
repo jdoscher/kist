@@ -38,7 +38,8 @@ align-items:center;font-size:13px;color:#bbb}
 .pf-bar form{display:flex;gap:6px;align-items:center;margin:0}
 .pf-bar input{width:auto;margin:0;padding:5px 8px;min-height:28px;box-sizing:border-box}
 .pf-acts{display:flex;gap:6px;padding:0 8px 8px;flex-wrap:wrap;align-items:center;margin:0}
-.pf-acts button,.pf-bar button,.pf-c button{min-height:28px;padding:4px 10px;border-radius:6px;
+.pf-acts button,.pf-bar button,.pf-c button,.pf-item form button{
+min-height:28px;padding:4px 10px;border-radius:6px;
 border:1px solid #555;background:#222;color:#eee;font:inherit;font-size:13px;cursor:pointer}
 .pf-acts button[aria-pressed=true]{background:#3a3a3a;outline:1px solid #ddd}
 .pf-acts a{color:#8cf;font-size:13px}
@@ -49,7 +50,7 @@ border:1px solid #555;background:#222;color:#eee;font:inherit;font-size:13px;cur
 .pf-c li{background:#1b1b1b;border-radius:6px;padding:8px 10px;margin:8px 0;white-space:pre-wrap;
 overflow-wrap:anywhere}
 .pf-c .who{color:#aaa;font-size:12px;white-space:normal}
-textarea{width:100%;min-height:90px;box-sizing:border-box;padding:8px;font:inherit}
+textarea{width:100%;min-height:90px;box-sizing:border-box;padding:8px;font:inherit;margin:6px 0}
 .pf-closed{color:#fc9}
 """
 

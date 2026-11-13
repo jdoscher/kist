@@ -212,6 +212,9 @@
 .pf-share-row .check-row {
   margin: 0;
 }
+.pf-share-row input[type='checkbox'] {
+  accent-color: var(--text);
+}
 
 /* the tile badge: bottom left, across from the rating */
 .tile .badge.pf-tile-badge {
