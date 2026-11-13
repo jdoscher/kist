@@ -1,3 +1,4 @@
+import { cutoutPreviewUrl, isCutout } from '../cutouts' // F7
 import { defaultRangeExtractor, useVirtualizer, type Range } from '@tanstack/react-virtual'
 import { AiBadge } from './credits/Credits' // F4
 import { creditsTileLabel } from '../credits'
@@ -111,7 +112,8 @@ const Tile = memo(function Tile({
 }) {
   // tiles are cover-cropped, so pick the thumb that covers the tile at the
   // screen's pixel density (thumb_512 is sized by its short side)
-  const thumb = thumbUrl(item, pickThumbSize(item, width, height, window.devicePixelRatio || 1))
+  const cutout = isCutout(item) && item.preview_status === 'ready' // F7: shown transparent, on a checkerboard
+  const thumb = cutout ? cutoutPreviewUrl(item, 1024) : thumbUrl(item, pickThumbSize(item, width, height, window.devicePixelRatio || 1))
   const placeholder = useMemo(() => (thumb ? placeholderStyle(placeholderFor(item)) : {}), [thumb, item])
   const KindIcon =
     item.preview_status === 'failed'
@@ -128,7 +130,7 @@ const Tile = memo(function Tile({
       aria-posinset={index + 1}
       aria-label={tileLabel(item) + (cullText(item) ? `, ${cullText(item)}` : '') + creditsTileLabel(item.provenance) + extraLabel}
       tabIndex={tabbable ? 0 : -1}
-      className={`tile${selected ? ' selected' : ''}${thumb ? '' : ' no-thumb'}${member ? ' stack-member' : ''}${stacked ? ' stacked' : ''}${item.rating > 0 ? ' rated' : ''}`}
+      className={`tile${cutout ? ' cutout-tile' : ''}${selected ? ' selected' : ''}${thumb ? '' : ' no-thumb'}${member ? ' stack-member' : ''}${stacked ? ' stacked' : ''}${item.rating > 0 ? ' rated' : ''}`}
       style={
         left === undefined
           ? { width, height, ...placeholder }
@@ -171,7 +173,7 @@ const Tile = memo(function Tile({
       )}
       {thumb && item.media?.scrub ? <ScrubHover item={item} width={width} height={height} /> : null}
       {item.kind === 'video' && item.duration_s != null && (
-        <span className="badge" aria-hidden="true">
+        <span className="badge tile-dur" aria-hidden="true">
           {fmtDuration(item.duration_s)}
         </span>
       )}

@@ -12,6 +12,8 @@
 
 import { Eye, X } from 'lucide-react'
 import { useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
+import type { Item } from '../../api'
+import { cutoutPreviewUrl, isCutout } from '../../cutouts'
 import { displaySrc, originalSrc, type LookItem } from '../../look'
 import { useShortcut } from '../../useShortcuts'
 import type { Layer } from '../../shortcuts'
@@ -147,7 +149,13 @@ export function ViewAidsGrid({ aids, measureKey = '' }: { aids: ViewAids; measur
   )
 }
 
-type FrameItem = LookItem & { filename?: string }
+type FrameItem = LookItem & { filename?: string; media?: Item['media']; cutout?: boolean }
+
+/** F7: a cut-out's tiles keep its transparency (the display copy is flattened). */
+function tileSrc(item: FrameItem): string {
+  const cut = item.cutout || (item.media != null && isCutout({ media: item.media }))
+  return cut ? cutoutPreviewUrl(item, 2048) : displaySrc(item)
+}
 
 /** The picture with the aids applied; `children` is the normal image. */
 export function ViewAidsFrame({
@@ -181,7 +189,7 @@ export function ViewAidsFrame({
 }
 
 function TileView({ item, n, aids }: { item: FrameItem; n: number; aids: ViewAids }) {
-  const src = displaySrc(item)
+  const src = tileSrc(item)
   const w = item.width || 1
   const h = item.height || 1
   const cells = tileCells(n, aids.tileMode)

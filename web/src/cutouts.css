@@ -153,3 +153,9 @@
 .cutout-dialog input[type='checkbox'] {
   accent-color: var(--text);
 }
+
+/* a cut-out's grid tile: its transparent copy on a quiet checkerboard
+   (the grid's other previews are flattened onto the canvas grey) */
+.tile.cutout-tile > img {
+  background: repeating-conic-gradient(#6b6b6b 0 25%, #575757 0 50%) 0 0 / 16px 16px;
+}

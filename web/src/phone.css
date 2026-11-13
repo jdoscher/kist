@@ -392,7 +392,7 @@
 .mobile .grid-area.sheet-open .tile .sel-check {
   display: none;
 }
-.mobile .grid-area.sheet-open .tile.selected .badge:not(.rating) {
+.mobile .grid-area.sheet-open .tile.selected .badge.tile-dur {
   right: 6px;
 }
 

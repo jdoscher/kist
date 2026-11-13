@@ -224,9 +224,6 @@
   right: auto;
   gap: 4px;
 }
-.tile.selected .badge.pf-tile-badge:not(.rating) {
-  right: auto;
-}
 
 /* phone */
 .pf-screen.mobile .pf-list {

@@ -1181,8 +1181,9 @@ select:focus-visible {
   box-shadow: 0 0 0 1.5px #1a1408;
   pointer-events: none;
 }
-/* a video's duration moves aside for the check */
-.tile.selected .badge:not(.rating) {
+/* a video's duration moves aside for the check (only it: the pick/reject,
+   lock, AI and feedback badges sit on the left and keep their size) */
+.tile.selected .badge.tile-dur {
   right: 34px;
 }
 [data-density='compact'] .tile .sel-check {
