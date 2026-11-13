@@ -87,7 +87,7 @@ export default function PresentSetup({ request, onClose }: { request: PresentReq
     setBusy('pdf')
     setError('')
     try {
-      const body = showKey ? { source: data.source, show_id: showKey } : { source: req.source, pairs: opts.pairs }
+      const body = showKey ? { source: data.source, show_id: showKey } : { source: req.source, pairs: opts.pairs, name }
       const { blob, name: file } = await presentApi.pdf(body, pdf, req.params)
       saveBlob(blob, file)
       notify({ message: `Saved ${file}.` })

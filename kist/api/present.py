@@ -34,6 +34,8 @@ class SlidesIn(BaseModel):
 class PdfIn(SlidesIn):
     show_id: str | None = None
     pdf: dict[str, Any] | None = None
+    # the PDF's title and file name (a search has no name of its own)
+    name: str | None = Field(default=None, max_length=200)
 
 
 class ShowIn(BaseModel):
@@ -126,6 +128,8 @@ def pdf(
             raise _404(exc) from None
     else:
         resolved = _resolve(session, body, filters, semantic, similar)
+    if body.name and body.name.strip():
+        resolved["name"] = body.name.strip()
     return _pdf_response(present_pdf.render(session, resolved, body.pdf), resolved["name"])
 
 

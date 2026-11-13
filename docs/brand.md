@@ -105,6 +105,10 @@ which also replaces the old star yellow. All colours are CSS variables in
 | chrome line (chrome / images edge) | #34332F | #E2DFD8 | white 28 % (#FFFFFF47) |
 | canvas (image surround) | #131312 | #ECECEC | #5C5C5C |
 | preview surround (`preview-bg`) | #0D0D0C | #5C5C5C | #5C5C5C |
+| Present surround, grey (`present-grey`) | #5C5C5C | #5C5C5C | #5C5C5C |
+| Present surround, black (`present-black`) | #000000 | #000000 | #000000 |
+| Present caption title (`present-text`) | #F5F5F5 | #F5F5F5 | #F5F5F5 |
+| Present caption credit (`present-text-dim`) | #DADADA | #DADADA | #DADADA |
 | phone-fill (phone controls) | #2C2C29 | #EFEDE8 | #6A6A6A |
 | phone-sunken (phone search pill) | #121211 | #EBE9E4 | #4B4B4B |
 | preview-capsule / preview-star (phone preview capsules) | #262624 / #E8B04B | #2A2A2A / #F6CF7E | #2A2A2A / #F6CF7E |
@@ -197,6 +201,10 @@ parts and focus indicators (1.4.11, 2.4.11/2.4.13).
 | primary button label (`on-accent` on `accent`) | 4.5 | 9.36 | 5.87 | 12.33 |
 | primary button label, hover (`on-accent` on `accent-hover`) | 4.5 | 11.03 | 7.71 | 13.75 |
 | selected row / chip text (`text` on `accent-soft`) | 4.5 | 10.97 | 13.43 | 8.13 |
+| Present: caption title on the grey surround (`present-text` on `present-grey`) | 4.5 | 6.13 | 6.13 | 6.13 |
+| Present: caption credit on the grey surround (`present-text-dim` on `present-grey`) | 4.5 | 4.78 | 4.78 | 4.78 |
+| Present: caption title on the black surround (`present-text` on `present-black`) | 4.5 | 19.26 | 19.26 | 19.26 |
+| Present: caption credit on the black surround (`present-text-dim` on `present-black`) | 4.5 | 15.02 | 15.02 | 15.02 |
 | counts on a selected row (`soft-dim` on `accent-soft`) | 4.5 | 4.69 | 5.14 | 6.34 |
 | selected-row outline (`selected-line` on `accent-soft`) | 3 | 4.69 | 3.64 | 5.69 |
 | pressed-toggle outline (`selected-line` on `bg-active`) | 3 | 4.69 | 3.64 | 5.69 |

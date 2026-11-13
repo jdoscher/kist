@@ -57,7 +57,7 @@ export const presentApi = {
 
   /** The PDF as a blob and its file name. */
   pdf: async (
-    body: { source: ShowSource; compare?: [string, string][]; pairs?: PairMode; show_id?: string },
+    body: { source: ShowSource; compare?: [string, string][]; pairs?: PairMode; show_id?: string; name?: string },
     pdf: PdfOptions,
     params?: string,
   ): Promise<{ blob: Blob; name: string }> => {

@@ -40,6 +40,17 @@ show only that share's items (originals only if you allow it), with no script,
 `noindex` and `Referrer-Policy: no-referrer`. Visitors' addresses aren't
 logged. Expired or revoked links answer 410.
 
+## Present
+
+A show runs in your browser from your Kist server. The phone remote talks to
+the same server only (a long-poll relay at `/present-relay/…`; nothing goes
+to an outside service), with a pairing token that works for one show, ends
+after `KIST_PRESENT_REMOTE_HOURS` (default 4), is revoked by Unpair or a
+restart, and sits in the QR code's `#fragment`, so it never reaches a server
+or proxy log. The server keeps only its SHA-256. "Keep this show offline"
+stores that show's images in the browser's own cache on that device (one
+show at a time, within the size you choose); the PDF is made on the server.
+
 ## Exports
 
 Export presets strip metadata by default and GPS always. Portable exports keep

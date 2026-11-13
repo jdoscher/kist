@@ -126,13 +126,15 @@ def _image(item, box: tuple[int, int]) -> Image.Image | None:
 def _fit(draw: ImageDraw.ImageDraw, text: str, font, width: int) -> str:
     if draw.textlength(text, font=font) <= width:
         return text
-    while text and draw.textlength(text + "…", font=font) > width:
+    # "..." not "…": the built-in font has no ellipsis glyph
+    while text and draw.textlength(text + "...", font=font) > width:
         text = text[:-1]
-    return text + "…"
+    return text + "..."
 
 
 def _caption_lines(it: dict, opts: dict) -> list[str]:
-    head = " — ".join(x for x in (it.get("title"), it.get("credit")) if x)
+    # the built-in font has no em dash: a middle dot between the parts
+    head = " · ".join(x for x in (it.get("title"), it.get("credit")) if x)
     if it.get("license"):
         head = f"{head} · {it['license']}" if head else it["license"]
     lines = [head] if head else []

@@ -988,6 +988,23 @@ The aesthetic pass: one grey, one control language, one type system.
 - On the phone the item sheet, the folder drawer and the Move to… and Tags sheets glide in on the iPhone's own sheet curve (a little slower and softer than desktop menus), with the backdrop fading at the same pace. Reduce Motion turns it off.
 - **Remove a dead token from the list:** after you revoke a token, the notice offers **Remove from list**, and every revoked or expired token's card has the same button (`DELETE /api/tokens/{id}/entry`; a token that still works must be revoked first). Its changes keep its name in item history, and `tokens.json` follows, so `rebuild-index` doesn't bring it back.
 
+### Features from the art-team panel
+
+**Present mode (F2).** A folder, smart folder, board, selection or search as a full-screen show, from the top bar's Present button (the phone menu on a phone), the selection bar's More menu or a board's toolbar.
+
+- Images are never cropped (fit), on a grey (the gallery grey) or black surround. Present loads the original wherever the browser shows it with its own colour profile (JPEG, PNG, WebP, GIF, AVIF up to 60 MB), so P3 stays P3 and nothing is recompressed; HEIC, TIFF, PSD and RAW use the full-resolution display copy. The 1024 thumbnail shows at once and the full image replaces it in the same box; the next two slides and the one before are loaded ahead.
+- Captions show the title and the credit (with the licence) from provenance; file names stay off the screen unless you turn them on (C and F in the show). A board plays in board order, a selection in the order you picked, a search in its ranking.
+- Ken Burns is off by default and an option per show. It never moves drawings, documents, screenshots, PDFs, video or side-by-side slides (decided by tags, OCR text and, with utility collections, their Drawings/Documents/Screenshots).
+- Compare slides: two images side by side, from a pair you make (J joins a slide with the next, J again splits it), or every item with its stack partner or its previous version.
+- Keys: arrows, Space, Home/End, a number then Enter; P pick and X reject (again: clear), N a note (an annotation on the image, in its history), B blank, G grey/black, T pause the timer, ? for the list. The cursor and the controls hide after a moment. On a phone (landscape), tap the sides to move and the middle for the controls, or swipe.
+- Timed advance (5 s to 1 min a slide) and a gesture-drawing timer (30 s, 1, 2 or 5 min a pose, with a short grey pause between poses).
+- Presenter view (V): a second window with the current and next slide, the notes (the item's notes, then its caption), the elapsed time, the clock and the slide timer, kept in step over `BroadcastChannel`.
+- Phone remote (R): pair by QR code. The phone opens `/present/remote/<id>` with a pairing token in the link's fragment; it can move the slides, pick, reject and blank the screen, and sees the slide's title, credit and notes. It reaches Kist through a small long-poll relay on the app (nothing outbound, works on the LAN or through your Kist address); the token works for one show, expires after `KIST_PRESENT_REMOTE_HOURS` (default 4) and stops at Unpair. Picks made on the phone are applied by the show window as ordinary edits.
+- Offline: "Keep this show offline" stores the show's images in the service worker's own cache (one show at a time, up to 250 MB, 1 GB or 4 GB), so a loaded show keeps working without a connection.
+- PDF: a landscape page per slide (A4, A3, Letter or 11×17) with captions, credits and optionally the notes, or the contact sheet; images with an ICC profile are converted to sRGB.
+- Saved shows live in `library/.kist/shows.json` (`kist verify` checks it; a show of a search keeps the items it found). Open one by link: `/?present=<id>`. MCP: `list_shows`, `create_show`.
+- New settings: `KIST_PRESENT_REMOTE_HOURS` (4), `KIST_PRESENT_MAX_SLIDES` (500). New endpoints: `POST /api/present/slides`, `POST /api/present/pdf`, `/api/shows` (CRUD, `/slides`, `/pdf`), `/api/present/remote` (pair, poll, state, unpair) and the phone's `/present-relay/<id>/state|cmd|thumb/<item>`. A folder-limited read token can present and print what it sees and nothing else; read tokens can't save shows or pair a phone.
+
 ## [1.5.0] - 2026-11-09
 
 A hardening release. Kist was reviewed for security, data integrity,

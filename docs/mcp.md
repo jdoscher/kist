@@ -46,6 +46,7 @@ language model of its own.
 | `suggest_tags`, `tag_cleanup`, `merge_tags` | tag suggestions with reasons; cleanup as one undoable batch (`dry_run` first) |
 | `duplicate_groups`, `resolve_duplicates`, `suggest_stacks`, `stack_items` | tidy duplicates and stacks |
 | `list_boards`, `get_board`, `create_board`, `add_to_board`, `annotate` | moodboards and pinned notes |
+| `list_shows`, `create_show` | saved Present shows: a folder, smart folder, board or chosen items as a full-screen show, with compare pairs; open one at its `web_url` |
 | `view_video`, `save_frame`, `make_clip` | watch a video as a contact sheet, keep a frame, cut a clip |
 | `export_collection`, `export_status`, `get_page_snapshot` | portable exports, the saved text of a source page |
 | `recent_batches`, `undo_batch` | what changed lately, by whom, and undo it |

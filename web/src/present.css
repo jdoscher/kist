@@ -642,3 +642,7 @@
     max-width: 30vw;
   }
 }
+.present-pair .hint {
+  margin: 0;
+  padding: 0;
+}
