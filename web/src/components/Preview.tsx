@@ -9,6 +9,8 @@ import { useFocusInOut, useFocusTrap, useInertBackground } from '../useInert'
 import { useLayer, useShortcut } from '../useShortcuts'
 import { tileDomId } from './Grid'
 import { MoreLikeThisButton } from './ItemAI'
+import { CutoutButton } from './cutouts/Cutouts' // F7
+import { cutoutPreviewUrl, isCutout } from '../cutouts' // F7: cut-outs show transparent
 import { PhoneEditBar } from './PhoneEdit'
 import { hasMediaView, MediaView } from './m45/lazy'
 import { useViewAidKeys, useViewAids, ViewAidsBadge, ViewAidsFrame, ViewAidsMenu } from './viewaids/ViewAids'
@@ -22,10 +24,10 @@ const Annotated = lazy(() => loadAnnotations().then((m) => ({ default: m.Annotat
 /** Show the 1024 thumb at once, then swap in the sharper copy the screen
  * actually needs (preview.ts: usually the 2048 WebP, not the original). */
 function ProgressiveImage({ item, mobile }: { item: Item; mobile: boolean }) {
-  const [src, setSrc] = useState(thumbUrl(item, 1024) ?? '')
+  const [src, setSrc] = useState(isCutout(item) ? cutoutPreviewUrl(item) : (thumbUrl(item, 1024) ?? ''))
 
   useEffect(() => {
-    const fullUrl = fullPreviewUrl(item, ...previewBoxPx(mobile))
+    const fullUrl = isCutout(item) ? cutoutPreviewUrl(item, 2048) : fullPreviewUrl(item, ...previewBoxPx(mobile))
     if (!fullUrl) return
     const full = new Image()
     full.onload = () => setSrc(full.src)
@@ -214,6 +216,7 @@ export function Preview() {
           {meta && <span className="meta">{meta}</span>}
           <span className="preview-actions">
             <MoreLikeThisButton item={item} className="preview-more" />
+            <CutoutButton item={item} className="preview-cutout" />
             <a href={fileUrl(item)} target="_blank" rel="noreferrer">
               Open original <ExternalLink size={14} aria-hidden="true" />
               <span className="sr-only"> (new tab)</span>

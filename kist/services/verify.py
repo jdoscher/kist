@@ -258,6 +258,9 @@ def run(session: Session) -> Report:
     from . import present  # 2.0 F2: saved shows (library/.kist/shows.json)
 
     report.problems.extend(present.check_file(session))
+    from . import cutouts as cutouts_svc  # F7
+
+    report.problems.extend(cutouts_svc.check(session))
     for key in meta_svc.pending():
         report.problems.append(f"{key}: an earlier write to disk failed")
     return report

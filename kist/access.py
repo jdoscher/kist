@@ -161,6 +161,8 @@ RESTRICTED_PATHS = [
         r"^/api/present/(slides|pdf)$",
         r"^/api/shows$",
         r"^/api/shows/[^/]+(/(slides|pdf))?$",
+        # F7: a board's transparent copy of a cut-out (get_item checks the reader)
+        rf"^{_ITEM}/cutout-preview$",
     )
 ]
 HELPER_PREFIX = "/api/ai/jobs"

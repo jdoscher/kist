@@ -7,6 +7,7 @@ import { ShellStatus, useOfflineText } from './components/AppShell'
 import { DialogProvider } from './components/Dialog'
 import { Grid } from './components/Grid'
 import { JobsPanel } from './components/JobsPanel'
+import { CutoutHost } from './components/cutouts/Cutouts' // F7
 import { NoticesProvider } from './components/Notices'
 import { Preview } from './components/Preview'
 import { RecentChanges } from './components/RecentChanges'
@@ -313,6 +314,7 @@ export default function App() {
                 <Screens mobile={mobile} />
                 <Preview />
                 <JobsPanel />
+                <CutoutHost />
                 <RecentChanges />
                 <UndoShortcut />
                 {!authed && <TokenGate onDone={recheck} overlay />}

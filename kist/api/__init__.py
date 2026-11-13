@@ -22,6 +22,7 @@ from . import buckets as buckets_routes  # M6
 from . import credits as credits_routes  # F4
 from . import kinds as kinds_routes  # F1
 from . import colourbooks as colourbooks_routes  # F5
+from . import cutouts as cutouts_routes  # F7
 from . import media as media_routes
 from . import projects as projects_routes  # F6
 from . import present as present_routes  # 2.0 F2
@@ -51,3 +52,4 @@ api_router.include_router(credits_routes.router)  # F4 credits & rights
 api_router.include_router(kinds_routes.router)  # F1 utility collections
 api_router.include_router(colourbooks_routes.router)  # F5 colour books
 api_router.include_router(present_routes.router)  # 2.0 F2: Present
+api_router.include_router(cutouts_routes.router)  # F7 cutouts

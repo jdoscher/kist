@@ -8,6 +8,7 @@ import { usePresence } from '../motion'
 import { useDraftField, useItemWrite, useTextSave } from '../useWrite'
 import { ItemHistory } from './ItemHistory'
 import { ItemLinks } from './ItemLinks'
+import { ItemCutouts } from './cutouts/Cutouts' // F7
 import { ItemMeta } from './ItemMeta'
 import { ItemSections, OnThisDay } from './m45/lazy'
 import { ItemFeedback } from './proofing/lazy'
@@ -231,6 +232,7 @@ function SingleItem({ item }: { item: Item }) {
       <ItemFaces item={item} editable />
       <StackInfo item={item} editable />
       <ItemLinks item={item} editable />
+      <ItemCutouts item={item} />
 
       <ItemVersions item={item} />
       <ItemBoards item={item} />

@@ -1,0 +1,155 @@
+/* F7 cutouts (components/cutouts/): the dialog, the info panel section,
+   the preview's and the phone sheet's button, and cut-outs on boards.
+   Class prefix: cutout- (and is-cutout on a board node). */
+
+/* ---------- the dialog ---------- */
+.cutout-dialog {
+  width: min(460px, calc(100vw - 32px));
+}
+.cutout-models {
+  border: 0;
+  margin: 0 0 12px;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.cutout-models legend {
+  margin-bottom: 6px;
+  padding: 0;
+}
+.cutout-model {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--ctl-radius);
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+.cutout-model:hover {
+  background: var(--bg-hover);
+}
+/* selected: a neutral fill and a 1 px outline (no brass bar) */
+.cutout-model.is-on {
+  background: var(--accent-soft);
+  border-color: var(--selected-line);
+}
+.cutout-model input {
+  margin-top: 3px;
+  accent-color: var(--text);
+}
+.cutout-model-name {
+  display: block;
+  color: var(--text);
+}
+.cutout-model-note {
+  display: block;
+  color: var(--text-dim);
+  font-size: var(--fs-2);
+}
+.cutout-feather {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cutout-feather input[type='range'] {
+  flex: 1;
+  accent-color: var(--text);
+}
+.cutout-feather output {
+  min-width: 48px;
+  text-align: right;
+  color: var(--text-dim);
+}
+.cutout-download {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-radius: var(--ctl-radius);
+  background: var(--bg-hover);
+  color: var(--text);
+  font-size: var(--fs-2);
+}
+
+/* ---------- the info panel ---------- */
+.cutout-from {
+  margin: 0;
+  color: var(--text);
+}
+.cutout-how {
+  color: var(--text-dim);
+}
+.cutout-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+/* a cut-out on a checkerboard, so its transparency reads as such */
+.cutout-thumb {
+  width: 56px;
+  height: 56px;
+  min-height: 0;
+  padding: 0;
+  border-radius: var(--ctl-radius);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background-color: var(--bg-hover);
+  background-image: conic-gradient(var(--bg-raised) 25%, transparent 0 50%, var(--bg-raised) 0 75%, transparent 0);
+  background-size: 12px 12px;
+}
+.cutout-thumb img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+/* ---------- the preview's caption row: a plain text action like its neighbours ---------- */
+.preview-overlay figcaption .preview-cutout {
+  color: var(--text);
+  background: none;
+  border: none;
+  box-shadow: none;
+  min-height: 0;
+  height: auto;
+  padding: 0;
+  font-size: var(--fs-2);
+  font-weight: 400;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in srgb, var(--text) 45%, transparent);
+  gap: 4px;
+}
+.preview-overlay figcaption .preview-cutout:hover {
+  background: none;
+  text-decoration-color: currentColor;
+}
+
+/* ---------- the phone item sheet ---------- */
+.mobile .sheet-cutout {
+  width: 100%;
+  justify-content: center;
+  min-height: 44px;
+  margin: 4px 0 12px;
+}
+
+/* ---------- boards: a cut-out has no card, no corner and no shadow ---------- */
+.bnode.t-item.is-cutout {
+  box-shadow: none;
+  border-radius: 0;
+  background: transparent;
+}
+.board-viewport.zoom-far .bnode.t-item.is-cutout {
+  box-shadow: none;
+}
+.bnode.t-item.is-cutout .bnode-img {
+  border-radius: 0;
+  background: transparent;
+}
+/* native controls stay neutral (brand.md: brass only for the primary button) */
+.cutout-dialog input[type='checkbox'] {
+  accent-color: var(--text);
+}

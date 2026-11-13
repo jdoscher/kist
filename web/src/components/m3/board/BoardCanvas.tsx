@@ -6,6 +6,7 @@
 import { Link2, ImageOff } from 'lucide-react'
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { thumbUrl, type Item } from '../../../api'
+import { cutoutPreviewUrl, isCutout } from '../../../cutouts' // F7
 import {
   byZ,
   canvasCss,
@@ -434,7 +435,7 @@ function NodeView({ n, ed, selected }: { n: BoardNode; ed: Editor; selected: boo
 
   return (
     <div
-      className={`bnode t-${n.type}${selected ? ' selected' : ''}${n.type === 'shape' ? ` shape-${s.shape ?? 'rect'}` : ''}${editing ? ' bnode-editing' : ''}`}
+      className={`bnode t-${n.type}${n.type === 'item' && n.item_id && ed.items.get(n.item_id) && isCutout(ed.items.get(n.item_id)!) ? ' is-cutout' : ''}${selected ? ' selected' : ''}${n.type === 'shape' ? ` shape-${s.shape ?? 'rect'}` : ''}${editing ? ' bnode-editing' : ''}`}
       style={{
         ...style,
         background: n.type === 'note' || n.type === 'shape' ? (s.bg as string) : n.type === 'group' ? `${(s.bg as string) ?? '#7f7f7f'}22` : undefined,
@@ -476,7 +477,7 @@ function NodeView({ n, ed, selected }: { n: BoardNode; ed: Editor; selected: boo
 function ItemImage({ item, n, zoom }: { item: Item; n: BoardNode; zoom: number }) {
   const shown = Math.max(n.w, n.h) * zoom * (window.devicePixelRatio || 1) / Math.min(n.crop?.w ?? 1, n.crop?.h ?? 1)
   const size = shown > 600 ? 1024 : shown > 280 ? 512 : 256
-  const src = thumbUrl(item, size as 256 | 512 | 1024) ?? `/api/items/${item.id}/file`
+  const src = isCutout(item) ? cutoutPreviewUrl(item, shown > 1200 ? 2048 : 1024) : (thumbUrl(item, size as 256 | 512 | 1024) ?? `/api/items/${item.id}/file`)
   return (
     <span className="bnode-img">
       <img src={src} alt={item.filename} draggable={false} style={{ position: 'absolute', ...cropStyle(n.crop) }} loading="lazy" />

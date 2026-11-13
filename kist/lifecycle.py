@@ -95,11 +95,13 @@ class JobKind(StrEnum):
     CLIP = "clip"  # cut a clip / GIF from a video or audio item (services/media.py)
     PROXY = "proxy"  # web-safe copy of a video or audio file browsers can't play
     KINDS = "kinds"  # F1: sort items into utility collections (services/kinds.py)
+    CUTOUT = "cutout"  # F7: the subject as a transparent PNG (services/cutouts.py)
 
 
 # the heavy kinds: they wait while any light job (ingest, previews) is
 # pending, and backfilled ones wait for KIST_AI_WINDOW
-AI_KINDS = (JobKind.EMBED, JobKind.OCR, JobKind.CAPTION, JobKind.FACES)
+AI_KINDS = (JobKind.EMBED, JobKind.OCR, JobKind.CAPTION, JobKind.FACES,
+            JobKind.CUTOUT)  # F7: cutouts run on the AI lane (the ml service)
 # what `kist ai-backfill` takes when no kind is named: captions are opt-in
 # (they are slow, or leave the house); faces are skipped unless KIST_FACES
 DEFAULT_AI_KINDS = (JobKind.EMBED, JobKind.OCR, JobKind.FACES)

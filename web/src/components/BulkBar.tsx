@@ -16,6 +16,7 @@ import { useBulkM45More } from './m45/BulkM45'
 import { useBulkCreditsMore } from './credits/Credits' // F4
 import { useBulkProjectFields } from './projects/BulkFields'
 import { usePresentBulkItem } from './present/PresentHost'
+import { useBulkCutoutMore } from './cutouts/Cutouts' // F7
 
 /** One entry in the bulk bar's More menu. */
 export interface BulkMenuItem {
@@ -251,6 +252,7 @@ export function BulkBar() {
   const creditItems = useBulkCreditsMore(ids, busy) // F4
   const projectFields = useBulkProjectFields(ids, busy) // F6
   const presentItem = usePresentBulkItem(ids, busy)
+  const cutoutItems = useBulkCutoutMore(ids, busy) // F7
 
   // one item selected: the info panel has every action; the bar is for
   // two or more (B5). Delete still trashes a single selection (above).
@@ -275,6 +277,7 @@ export function BulkBar() {
     ...creditItems,
     ...(caps.restricted ? [] : projectFields.items),
     presentItem,
+    ...cutoutItems,
   ]
 
   // one 40 px row docked under the grid (B5): count and clear, then Tag,

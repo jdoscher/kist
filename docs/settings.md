@@ -60,6 +60,10 @@ Only `KIST_TOKEN` is required.
 | `TZ` | `UTC` | The worker's time zone, which `KIST_AI_WINDOW` is in |
 | `KIST_FACES` | `0` | Faces and people, opt-in. Set it for the app, worker **and** ml service: the worker then queues a `faces` job per image, and only then does the ml service download (~39 MB) and load the face models. See [Organising](https://github.com/jdoscher/kist#organising-vocabulary-duplicates-stacks-collections-people) |
 | `KIST_FACE_MODELS_URL` | — | A mirror for the two face model files (they're checked by sha256 either way) |
+| `KIST_CUTOUTS` | `1` | Subject cut-outs (app, worker and ml service). The ml service downloads the model the first time someone asks for a cut-out (ISNet 179 MB; BiRefNet-lite 224 MB for "Fine edges"); `0` hides the action and refuses the endpoints |
+| `KIST_CUTOUT_MODEL` | — | The model a cut-out uses when the request names none: `isnet-general-use` (fast, the ml service's default) or `birefnet-lite` (finer edges, about six times slower) |
+| `KIST_CUTOUT_MAX_SIDE` | `4096` | A cut-out's long side at most this many pixels (the original's size when smaller) |
+| `KIST_CUTOUT_MODELS_URL` | — | ml service: a mirror for the cut-out model files (checked by sha256 either way) |
 | `KIST_COLLECTIONS_INTERVAL_HOURS` | `24` | How often the worker recomputes suggested collections; `0` = only on request (`?refresh=1`) |
 | `KIST_KINDS` | `true` | Kinds (utility collections: Screenshots, Drawings …): sorted locally from embeddings, OCR and file facts. The packs, strictness and sidebar threshold are set in Settings → Kinds and kept in `library/.kist/kinds.json`; `false` switches the whole feature off |
 | `KIST_EXPORT_RETENTION_DAYS` | `7` | Finished portable exports (`library/exports/`) are deleted after this many days; `0` keeps them |

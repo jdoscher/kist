@@ -8,6 +8,10 @@
     POST /faces         body: image bytes      -> {model, width, height, faces:
                                                    [{box, landmarks, score, embedding}]}
                                                    (404 unless KIST_FACES=1)
+    POST /cutout        body: image bytes      -> image/png mask (F7 cutouts,
+                                                   kist/ml/cutout.py; 404 with
+                                                   KIST_CUTOUTS=0, 503 while the
+                                                   model downloads)
     GET  /health                                -> {status, model, dim, device, loaded}
 
 Faces (YuNet + SFace, kist/ml/faces.py) are opt-in: with KIST_FACES unset
@@ -27,9 +31,11 @@ import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import Response
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
+from . import cutout as cutout_mod
 from .engine import ClipEngine, EngineConfig, OcrEngine
 from .faces import FaceEngine
 from .models import ModelError
@@ -45,6 +51,7 @@ class State:
     clip: ClipEngine
     ocr: OcrEngine
     faces: FaceEngine | None = None
+    cutout: "cutout_mod.CutoutEngine | None" = None
     gate: threading.BoundedSemaphore
     stop = threading.Event()
 
@@ -57,6 +64,8 @@ def _janitor() -> None:
         dropped = state.clip.unload_idle() + state.ocr.unload_idle()
         if state.faces is not None:
             dropped += state.faces.unload_idle()
+        if state.cutout is not None:
+            dropped += state.cutout.unload_idle()
         if dropped:
             log.info("unloaded idle: %s", ", ".join(dropped))
 
@@ -85,6 +94,12 @@ async def lifespan(app: FastAPI):
     state.clip = ClipEngine(state.cfg)
     state.ocr = OcrEngine(state.cfg)
     state.faces = FaceEngine(state.cfg) if faces_enabled() else None
+    state.cutout = None
+    if cutout_mod.enabled():
+        try:
+            state.cutout = cutout_mod.CutoutEngine(state.cfg)
+        except ModelError:
+            log.exception("cutouts are off: KIST_CUTOUT_MODEL names no known model")
     state.gate = threading.BoundedSemaphore(int(os.environ.get("KIST_ML_CONCURRENCY", "1")))
     state.stop.clear()
     threading.Thread(target=_janitor, name="ml-janitor", daemon=True).start()
@@ -164,6 +179,8 @@ def health() -> dict:
         "ocr_model": state.ocr.model,
         "faces": state.faces is not None,
         "faces_model": state.faces.model if state.faces is not None else None,
+        # F7: cutouts (None when KIST_CUTOUTS=0)
+        "cutout": state.cutout.status() if state.cutout is not None else None,
     }
 
 
@@ -223,3 +240,31 @@ async def faces(request: Request) -> dict:
     data = await _body(request)
     out, ms = await run_in_threadpool(_run, state.faces.faces, data)
     return {**out, "ms": round(ms, 1)}
+
+
+def _cutout(data: bytes, model: str | None) -> tuple[bytes, float, str]:
+    engine = state.cutout
+    try:
+        m = engine.get(model)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    try:
+        m.ensure()  # outside the gate: a download never blocks embedding
+    except cutout_mod.Downloading as exc:
+        raise HTTPException(503, str(exc), headers={"Retry-After": "30"}) from exc
+    prepared = _call(engine.prepare, data, m.spec.name)  # outside the gate
+    png, ms = _run(engine.mask_prepared, prepared)
+    return png, ms, m.spec.name
+
+
+@app.post("/cutout")
+async def cutout(request: Request, model: str | None = None) -> Response:
+    """F7: the subject's mask (greyscale PNG, the size of the image sent).
+    ?model= picks one of kist/ml/models.CUTOUT_MODELS (default
+    KIST_CUTOUT_MODEL)."""
+    if state.cutout is None:
+        raise HTTPException(404, "cutouts are off on this ml service (KIST_CUTOUTS=0)")
+    data = await _body(request)
+    png, ms, name = await run_in_threadpool(_cutout, data, model)
+    return Response(png, media_type="image/png",
+                    headers={"X-Kist-Model": name, "X-Kist-Ms": f"{ms:.1f}"})

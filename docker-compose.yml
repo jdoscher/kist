@@ -90,6 +90,9 @@ services:
       KIST_CAPTION_TIMEOUT_SECONDS: ${KIST_CAPTION_TIMEOUT_SECONDS:-180}
       # faces and people (opt-in; also set for the worker and ml service)
       KIST_FACES: ${KIST_FACES:-0}
+      KIST_CUTOUTS: ${KIST_CUTOUTS:-1}  # F7
+      KIST_CUTOUT_MODEL: ${KIST_CUTOUT_MODEL:-}
+      KIST_CUTOUT_MAX_SIDE: ${KIST_CUTOUT_MAX_SIDE:-4096}
       # M4: sharing, exports, snapshots, XMP (the worker has the same)
       KIST_EXPORT_RETENTION_DAYS: ${KIST_EXPORT_RETENTION_DAYS:-7}
       KIST_SNAPSHOTS: ${KIST_SNAPSHOTS:-false}
@@ -176,6 +179,9 @@ services:
       KIST_CAPTION_PROMPT: ${KIST_CAPTION_PROMPT:-}
       KIST_CAPTION_TIMEOUT_SECONDS: ${KIST_CAPTION_TIMEOUT_SECONDS:-180}
       KIST_FACES: ${KIST_FACES:-0}
+      KIST_CUTOUTS: ${KIST_CUTOUTS:-1}  # F7
+      KIST_CUTOUT_MODEL: ${KIST_CUTOUT_MODEL:-}
+      KIST_CUTOUT_MAX_SIDE: ${KIST_CUTOUT_MAX_SIDE:-4096}
       KIST_COLLECTIONS_INTERVAL_HOURS: ${KIST_COLLECTIONS_INTERVAL_HOURS:-24}
       # M4: exports, imports, link-rot watch (Wayback is an outside service:
       # off unless you set it), XMP sidecars, server-side page snapshots
@@ -260,6 +266,10 @@ services:
       # faces (opt-in): only then are YuNet + SFace downloaded and loaded
       KIST_FACES: ${KIST_FACES:-0}
       KIST_FACE_MODELS_URL: ${KIST_FACE_MODELS_URL:-}
+      # F7 cut-outs: the model downloads on the first cut-out someone asks for
+      KIST_CUTOUTS: ${KIST_CUTOUTS:-1}
+      KIST_CUTOUT_MODEL: ${KIST_CUTOUT_MODEL:-}
+      KIST_CUTOUT_MODELS_URL: ${KIST_CUTOUT_MODELS_URL:-}
       KIST_LOG_LEVEL: ${KIST_LOG_LEVEL:-INFO}
     volumes:
       - ml-models:/models

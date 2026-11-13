@@ -44,6 +44,7 @@ import {
 import { useAppState } from '../../../state'
 import type { Editor } from './BoardEditor'
 import { CropDialog } from './CropDialog'
+import { BoardCutoutButton } from '../../cutouts/Cutouts' // F7
 
 const ALIGN: { mode: AlignMode; label: string; Icon: typeof AlignStartVertical }[] = [
   { mode: 'left', label: 'Align left edges', Icon: AlignStartVertical },
@@ -265,6 +266,7 @@ export function BoardInspector({ ed }: { ed: Editor }) {
                 </button>
               )}
               <button onClick={() => setPreviewId(one.item_id as string)}>Open item</button>
+              <BoardCutoutButton boardId={ed.id} nodeId={one.id} item={ed.items.get(one.item_id)} />
             </div>
           )}
         </>

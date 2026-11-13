@@ -51,7 +51,10 @@ def preview_for(item_id: str, longest: float) -> Path | None:
     """The smallest preview file of the item that is at least `longest`
     pixels on its long side (else the largest there is)."""
     d = get_settings().items_dir / item_id
-    have = [(d / name, side) for name, side in PREVIEWS if (d / name).is_file()]
+    # F7: a cut-out's transparent copies (services/cutouts.py) before the
+    # flattened previews, so exported boards keep it without a background
+    alpha = [(d / f"alpha_{s}.webp", s) for s in (1024, 2048) if (d / f"alpha_{s}.webp").is_file()]
+    have = alpha or [(d / name, side) for name, side in PREVIEWS if (d / name).is_file()]
     if not have:
         return None
     for path, side in have:

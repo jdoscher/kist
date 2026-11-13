@@ -136,6 +136,85 @@ FACE_MODELS: dict[str, FileSpec] = {
 }
 
 
+@dataclass(frozen=True)
+class CutoutSpec:
+    """A background-removal model (F7 cutouts): one ONNX file pinned by
+    revision and sha256, and how to feed it."""
+
+    name: str
+    url: str
+    sha256: str
+    size: int
+    license: str
+    side: int  # the square input it takes (pixels)
+    # "isnet": x/max - 0.5, output already a probability, min-max stretched
+    # "birefnet": x/255, ImageNet mean/std, output logits (sigmoid)
+    kind: str
+
+
+# Cutouts (KIST_CUTOUTS, on by default; downloaded on the first cut-out a
+# user asks for, each model on its own first use). Inference at 1024 px on
+# 4 threads, measured 2026-11-12: ISNet 3.3-5.2 s on an Intel N100, 0.7-1.3 s
+# on an Apple M6; BiRefNet-lite 23-29 s on the N100, 4-7 s on the M6.
+# ISNet is the default ("fast"); BiRefNet-lite keeps thin parts (straps,
+# antennas) and white-on-white subjects better and is the "fine" choice
+# per cut-out. KIST_CUTOUT_MODEL changes the default.
+CUTOUT_MODELS: dict[str, CutoutSpec] = {
+    # DIS / IS-Net "general use" weights (github.com/xuebinqin/DIS,
+    # Apache-2.0), the ONNX export rembg publishes (byte-identical to
+    # github.com/danielgatis/rembg/releases/download/v0.0.0/isnet-general-use.onnx)
+    "isnet-general-use": CutoutSpec(
+        name="isnet-general-use",
+        url="https://huggingface.co/jellybox/isnet-general-use/resolve/"
+            "bc3706ce4ee38a3db2c3c58082a92582fcdfcfdc/isnet-general-use_1024.onnx",
+        sha256="60920e99c45464f2ba57bee2ad08c919a52bbf852739e96947fbb4358c0d964a",
+        size=178648008,
+        license="Apache-2.0",
+        side=1024,
+        kind="isnet",
+    ),
+    # BiRefNet lite (github.com/ZhengPeng7/BiRefNet, MIT), onnx-community's export
+    "birefnet-lite": CutoutSpec(
+        name="birefnet-lite",
+        url="https://huggingface.co/onnx-community/BiRefNet_lite-ONNX/resolve/"
+            "de15b22ba131738a16dff04aab8bdf8dc32e3ac1/onnx/model.onnx",
+        sha256="5600024376f572a557870a5eb0afb1e5961636bef4e1e22132025467d0f03333",
+        size=224005088,
+        license="MIT",
+        side=1024,
+        kind="birefnet",
+    ),
+}
+DEFAULT_CUTOUT_MODEL = "isnet-general-use"
+
+
+def cutout_path(spec: CutoutSpec, cache_dir: Path) -> Path:
+    return cache_dir / "cutout" / spec.name / spec.sha256[:12] / "model.onnx"
+
+
+def cutout_ready(spec: CutoutSpec, cache_dir: Path) -> bool:
+    """Downloaded and checked already (no hashing here)."""
+    return _is_verified(cutout_path(spec, cache_dir), spec.sha256, spec.size)
+
+
+def ensure_cutout(spec: CutoutSpec, cache_dir: Path, base_url: str | None = None,
+                  progress=None) -> Path:
+    """Download (if needed) and verify a cutout model; returns its path.
+    KIST_CUTOUT_MODELS_URL replaces the URL up to the file name (a mirror)."""
+    dest = cutout_path(spec, cache_dir)
+    if _is_verified(dest, spec.sha256, spec.size):
+        return dest
+    if dest.is_file() and dest.stat().st_size == spec.size and sha256_of(dest) == spec.sha256:
+        _verified_marker(dest).write_text(spec.sha256)
+        return dest
+    url = spec.url
+    mirror = base_url or os.environ.get("KIST_CUTOUT_MODELS_URL", "")
+    if mirror:
+        url = mirror.rstrip("/") + "/" + spec.url.rsplit("/", 1)[-1]
+    _download(url, dest, spec.sha256, spec.size, progress=progress)
+    return dest
+
+
 class ModelError(RuntimeError):
     pass
 
@@ -204,7 +283,7 @@ def ensure_file(spec: FileSpec, cache_dir: Path, base_url: str | None = None) ->
     return dest
 
 
-def _download(url: str, dest: Path, sha: str, size: int) -> None:
+def _download(url: str, dest: Path, sha: str, size: int, progress=None) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
     log.info("downloading %s (%.0f MB)", url, size / 1e6)
     fd, tmp = tempfile.mkstemp(dir=dest.parent, prefix=f".{dest.name}.", suffix=".part")
@@ -217,6 +296,8 @@ def _download(url: str, dest: Path, sha: str, size: int) -> None:
                 h.update(chunk)
                 out.write(chunk)
                 got += len(chunk)
+                if progress is not None:
+                    progress(got)
         if got != size or h.hexdigest() != sha:
             raise ModelError(
                 f"{url}: got {got} bytes with sha256 {h.hexdigest()}, expected {size} "

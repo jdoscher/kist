@@ -11,6 +11,7 @@ import { ItemSections } from './m45/lazy'
 import { ItemProjectFields } from './projects/ItemProjectFields'
 import { ItemFeedback } from './proofing/lazy'
 import { SheetVersions } from './m3/ItemCreative'
+import { CutoutButton } from './cutouts/Cutouts' // F7
 import { ItemStatus } from './ItemStatus'
 import { PhoneItemEdit, PhoneStars } from './PhoneEdit'
 import { ItemKinds } from './kinds/KindsUI'
@@ -188,6 +189,7 @@ export function DetailSheet() {
       <div className="sheet-body">
         {canEdit && <PhoneItemEdit key={item.id} item={item} />}
         <ItemKinds item={item} />
+        <CutoutButton item={item} className="sheet-cutout" label="Cut out subject" />
         <ReadOnlyItem item={item} editing={canEdit} afterStack={<SheetVersions item={item} />} />
       </div>
     </aside>
