@@ -172,6 +172,9 @@ item_out = ItemOut.for_agent
     "annotation text, the text of a saved page snapshot and the place name. "
     "Provenance: ai_generated true|false|unknown, license (exact, or 'none'), "
     "source_status ok|gone|moved|error|unchecked (the link-rot watch). "
+    "Credits (F4): rights_status ref_only|comp|licensed|cleared|none|uncleared "
+    "(comma list ok), needs_credit true (no credit or creator recorded), "
+    "print_min / print_max a size at 300 dpi ('8in', '20cm', 'A4'). "
     "Photos and media: taken_after/taken_before (ISO dates), camera and lens "
     "(substrings, e.g. 'X100'), has_gps, place ('Kyoto'), vertical, "
     "has_audio, duration_min/duration_max (seconds). Every filter applies to "
@@ -216,8 +219,14 @@ def search_items(
     has_audio: bool | None = None,
     duration_min: float | None = None,
     duration_max: float | None = None,
+    rights_status: str | None = None,
+    needs_credit: bool | None = None,
+    print_min: str | None = None,
+    print_max: str | None = None,
 ) -> dict[str, Any]:
     limit = max(1, min(limit, 100))
+    credits_spec = _credits_filters(rights_status=rights_status, needs_credit=needs_credit,
+                                    print_min=print_min, print_max=print_max)  # F4
     extra = _m45_filters(
         ai_generated=ai_generated, license=license, source_status=source_status,
         taken_after=taken_after, taken_before=taken_before, camera=camera, lens=lens,
@@ -234,9 +243,14 @@ def search_items(
             semantic=semantic, similar=similar_to, color=color, color_tol=color_tol,
             text=text, has_text=has_text,
             stacks="collapse" if collapse_stacks else None, person=person,
-            flag=flag, label=label, **extra,
+            flag=flag, label=label, credits=credits_spec, **extra,
         )
         return _page(result)
+
+
+def _credits_filters(**kw) -> dict[str, Any] | None:
+    """F4: search()'s credits= kwarg (services/credits.filters)."""
+    return {k: v for k, v in kw.items() if v is not None and v != ""} or None
 
 
 def _m45_filters(*, ai_generated=None, license=None, source_status=None, taken_after=None,
@@ -1149,6 +1163,99 @@ def item_buckets(
             flag=flag, label=label, **extra,
         ), session)
         return buckets.buckets(session, filters, sort=sort, order=order)
+
+
+# ---------- F4: credits and rights, print check ----------
+
+
+@tool(
+    "Set credits and rights on one or many items in one undoable batch: any of "
+    "creator, credit, license, rights_url, rights_status (ref_only, comp, "
+    "licensed, cleared), credit_exempt (true = needs no credit, e.g. own "
+    "work). Only the fields you pass change; an empty string clears one. "
+    "Returns {updated, failed, batch_id}.",
+    needs=Action.EDIT,
+)
+def set_credits(
+    item_ids: list[str],
+    creator: str | None = None,
+    credit: str | None = None,
+    license: str | None = None,
+    rights_url: str | None = None,
+    rights_status: str | None = None,
+    credit_exempt: bool | None = None,
+) -> dict[str, Any]:
+    given = {k: v for k, v in {
+        "creator": creator, "credit": credit, "license": license, "rights_url": rights_url,
+        "rights_status": rights_status, "credit_exempt": credit_exempt,
+    }.items() if v is not None}
+    if not given or not item_ids:
+        raise ToolError("pass item_ids and at least one field to set")
+    if len(item_ids) > 2000:
+        raise ToolError("at most 2000 items at once")
+    from .services import provenance as provenance_svc
+
+    patch = {k: (None if v == "" else v) for k, v in given.items()}
+    provenance_svc.clean(patch, partial=True)
+    ok, failed = 0, []
+    with SessionLocal() as session:
+        for item_id in dict.fromkeys(item_ids):
+            try:
+                items_svc.update_item(session, item_id, fields={"provenance": patch})
+                ok += 1
+            except items_svc.NotFound:
+                session.rollback()
+                failed.append({"id": item_id, "error": "not found"})
+    return {"updated": ok, "failed": failed, "batch_id": events_svc.context().batch_id}
+
+
+@tool(
+    "Credits for one item: the credit line exports print, Present's caption, "
+    "and what auto-fill would add from the item's own metadata and stored "
+    "page snapshot (read-only; never fetches anything). With apply=true the "
+    "suggestions fill the empty fields (an undoable edit).",
+    restricted_ok=True,
+)
+def item_credits(item_id: str, apply: bool = False) -> dict[str, Any]:
+    from .services import credits as credits_svc
+
+    if apply:
+        check_access(Action.EDIT, restricted_ok=False)
+    with SessionLocal() as session:
+        item = items_svc.get_item(session, item_id)
+        out = {**credits_svc.item_credit(item), "text": credits_svc.output_text(item),
+               "caption": credits_svc.present_caption(item),
+               "suggestions": credits_svc.suggestions(item)}
+        if apply:
+            out["filled"] = credits_svc.autofill(session, item_id, keep_modified=False)
+        return out
+
+
+@tool(
+    "Before sharing or exporting: which items aren't licensed or cleared. "
+    "target is items (with item_ids), folder, smart, board (with target_id) "
+    "or all. Returns {total, uncleared, by_status, items[...]}; tell the user, "
+    "it never blocks anything.",
+)
+def credits_clearance(target: str = "items", target_id: str | None = None,
+                      item_ids: list[str] | None = None) -> dict[str, Any]:
+    from .services import credits as credits_svc
+
+    with SessionLocal() as session:
+        return credits_svc.clearance_for_target(session, target, target_id, item_ids)
+
+
+@tool(
+    "Print check for an image: print size at 300 and 150 dpi (inches and cm), "
+    "the paper sizes it fills, the dpi written in the file, the colour "
+    "profile (ICC) name and colour space, and low_res (under 5 in at 300 dpi).",
+    restricted_ok=True,
+)
+def print_check(item_id: str) -> dict[str, Any]:
+    from .services import credits as credits_svc
+
+    with SessionLocal() as session:
+        return credits_svc.print_info(items_svc.get_item(session, item_id))
 
 
 # Mounted by kist.app at /mcp; streamable_http_path="/" so the endpoint is

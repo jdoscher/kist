@@ -111,11 +111,14 @@ def item_credit(item) -> dict:
     }
 
 
-def output_text(item, *, with_license: bool = True) -> str | None:
-    """One printable credit for exports: 'Jane Doe / Magnum · CC BY 4.0', or
-    'via example.com' when nothing better is known."""
+def output_text(item, *, with_license: bool = True, with_source: bool = False) -> str | None:
+    """One printable credit for outputs: 'Jane Doe / Magnum · CC BY 4.0'.
+    with_source adds 'via example.com' when no credit is known; only for
+    exports that carry the page URL anyway (BagIt): share pages, boards and
+    slides never reveal where an item was saved from."""
     c = item_credit(item)
-    parts = [c["line"]] if c["line"] else ([f"via {c['source']}"] if c["source"] else [])
+    parts = [c["line"]] if c["line"] else (
+        [f"via {c['source']}"] if c["source"] and with_source else [])
     if with_license and c["license"] and parts:
         parts.append(c["license"])
     return " · ".join(parts) if parts else None

@@ -371,7 +371,7 @@ def _build(session: Session, record: dict, dest: Path, job_id: int | None) -> tu
                 "height": item.height or "", "sha256": item.sha256,
                 # F4: rights status and the printed credit
                 "rights_status": prov.get("rights_status", ""),
-                "credit_line": credits_svc.output_text(item) or "",
+                "credit_line": credits_svc.output_text(item, with_source=True) or "",
             }
             rows.append(row)
             cards.append(_card(row, thumb_rel, kind_for(item.mime, item.ext)))

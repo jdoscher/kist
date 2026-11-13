@@ -482,6 +482,7 @@ def test_contact_sheet_and_bagit_carry_credits(client, upload):
     text = zf.read("CREDITS.txt").decode()
     assert "Ann Lee / Lee Studio" in text and "[Cleared]" in text
     assert "No credit recorded" in text and rows[b["id"]]["path"] in text
+    assert rows[b["id"]]["credit_line"] == ""  # no page: nothing to say
     assert "CREDITS.txt" in zf.read("tagmanifest-sha256.txt").decode()
 
 
@@ -497,6 +498,10 @@ def test_share_page_shows_credits(client, upload):
     page = anon.get(f"/s/{res.json()['slug']}")
     assert page.status_code == 200
     assert '<span class="credit">Ann Lee / Lee Studio · CC BY 4.0</span>' in page.text
+    # an item without a credit never shows where it was saved from
+    b = upload("b.png", source_url="https://private.example/x")["item"]
+    client.patch(f"/api/items/{b['id']}", json={"folder_ids": [folder["id"]]})
+    assert "private.example" not in anon.get(f"/s/{res.json()['slug']}").text
 
 
 def test_present_caption_hook(client, upload):
@@ -506,3 +511,41 @@ def test_present_caption_hook(client, upload):
                               "credit": "Ann Lee / Lee Studio · CC BY 4.0",
                               "rights_status": None}
     assert client.get(f"/api/items/{a['id']}").json()["credit_line"] == "Ann Lee / Lee Studio"
+
+
+# ---------- MCP ----------
+
+
+def test_mcp_credit_tools(client, upload):
+    from test_tokens import as_token, make_token, mcp_call, mcp_result
+
+    def data(result):
+        return json.loads(result["content"][0]["text"])
+
+    a = upload("a.png", data=png_bytes(size=(3600, 2400)))["item"]
+    b = upload("b.png")["item"]
+    out = data(mcp_result(client, "set_credits", {
+        "item_ids": [a["id"], b["id"]], "credit": "Agency", "rights_status": "comp"}))
+    assert out["updated"] == 2 and out["failed"] == []
+    found = data(mcp_result(client, "search_items", {"rights_status": "comp",
+                                                     "print_min": "10in"}))
+    assert [i["id"] for i in found["items"]] == [a["id"]]
+    assert found["items"][0]["credit_line"] == "Agency"
+    clr = data(mcp_result(client, "credits_clearance", {"item_ids": [a["id"], b["id"]]}))
+    assert clr["uncleared"] == 2
+    pc = data(mcp_result(client, "print_check", {"item_id": a["id"]}))
+    assert pc["sizes"]["300"]["width"]["in"] == 12.0
+    info = data(mcp_result(client, "item_credits", {"item_id": a["id"]}))
+    assert info["line"] == "Agency"
+    bad = mcp_call(client, "set_credits", {"item_ids": [a["id"]], "rights_status": "x"})
+    assert bad.json()["result"]["isError"] is True
+    # an agent can set credits (an edit); a reader can't, nor apply auto-fill
+    reader = as_token(client, make_token(client, "r", ["read"])["token"])
+    assert mcp_call(reader, "set_credits", {"item_ids": [a["id"]], "credit": "x"}
+                    ).json()["result"]["isError"] is True
+    assert mcp_call(reader, "item_credits", {"item_id": a["id"], "apply": True}
+                    ).json()["result"]["isError"] is True
+    agent = as_token(client, make_token(client, "ag", ["agent"])["token"])
+    assert mcp_call(agent, "set_credits", {"item_ids": [a["id"]], "credit": ""}
+                    ).json()["result"].get("isError") in (None, False)
+    assert "credit" not in client.get(f"/api/items/{a['id']}").json()["provenance"]
