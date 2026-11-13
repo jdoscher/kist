@@ -199,6 +199,9 @@ export const emptyQuery: Query = {
   image: null,
   flag: null,
   label: null,
+  // F6 (projectFilters.ts): set to null so a fresh view clears them
+  project: null,
+  custom_fields: null,
 }
 
 export interface SmartFolder {

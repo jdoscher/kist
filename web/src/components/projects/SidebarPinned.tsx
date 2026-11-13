@@ -20,6 +20,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { emptyQuery, type Query } from '../../api'
 import { useCaps, useFolderNames, useSmartFolders } from '../../data'
 import { isPinned, movePin, pinForPlace, projectsApi, searchPinUrl, type Pin, type PinKind } from '../../projects'
+import { clearedM45 } from '../../m45/filters'
 import { hasNarrowing } from '../../query'
 import { useAppState } from '../../state'
 import { fromUrl, toUrl } from '../../url'
@@ -51,10 +52,19 @@ const KIND_WORD: Record<PinKind, string> = {
   search: 'saved search',
 }
 
+function sortedUrl(url: string): string {
+  const [path, qs] = url.split('?')
+  const s = new URLSearchParams(qs ?? '')
+  s.sort()
+  return `${path}?${s}`
+}
+
 /** Open what a pin points at. */
 function usePinActions() {
   const { query, setQuery, applySmartFolder, openScreen, smartId, screen } = useAppState()
-  const here = toUrl({ query, smartId, item: null, full: false })
+  const here = sortedUrl(toUrl({ query, smartId, item: null, full: false }))
+  // a pin opens a fresh view: no filters left over from the last one
+  const fresh = { ...emptyQuery, ...clearedM45(), order: query.order }
   const open = (p: Pin) => {
     switch (p.kind) {
       case 'project':
@@ -62,17 +72,17 @@ function usePinActions() {
       case 'board':
         return openScreen({ kind: 'board', id: p.ref })
       case 'folder':
-        return setQuery({ ...emptyQuery, folder: p.ref, order: query.order })
+        return setQuery({ ...fresh, folder: p.ref })
       case 'smart':
         return applySmartFolder(p.ref, (p.query as Partial<Query>) ?? {})
       case 'person':
-        return setQuery({ ...emptyQuery, person: p.ref, order: query.order })
+        return setQuery({ ...fresh, person: p.ref })
       case 'tag':
-        return setQuery({ ...emptyQuery, tags: [p.ref], order: query.order })
+        return setQuery({ ...fresh, tags: [p.ref] })
       case 'search': {
         const url = searchPinUrl(String(p.query ?? ''))
         const [path, qs] = url.split('?')
-        return setQuery({ ...fromUrl(path, qs ? `?${qs}` : '').query })
+        return setQuery({ ...emptyQuery, ...clearedM45(), ...fromUrl(path, qs ? `?${qs}` : '').query })
       }
     }
   }
@@ -87,7 +97,7 @@ function usePinActions() {
     if (p.kind === 'search') {
       const url = searchPinUrl(String(p.query ?? ''))
       const [path, qs] = url.split('?')
-      return toUrl({ ...fromUrl(path, qs ? `?${qs}` : ''), item: null, full: false }) === here
+      return sortedUrl(toUrl({ ...fromUrl(path, qs ? `?${qs}` : ''), item: null, full: false })) === here
     }
     return false
   }
@@ -100,8 +110,14 @@ export function SidebarPinned() {
   const { open, active } = usePinActions()
   const qc = useQueryClient()
   const w = useWrite()
-  const [drag, setDrag] = useState<number | null>(null)
+  const [drag, setDragState] = useState<number | null>(null)
   const [over, setOver] = useState<number | null>(null)
+  // the dragged row, readable before React re-renders (dragover can come first)
+  const dragRef = useRef<number | null>(null)
+  const setDrag = (i: number | null) => {
+    dragRef.current = i
+    setDragState(i)
+  }
   const list = pins.data ?? []
   if (pins.isError || (!list.length && !caps.canEdit)) return null
 
@@ -143,14 +159,15 @@ export function SidebarPinned() {
                 e.dataTransfer.setData('application/x-kist-pin', String(i))
               }}
               onDragOver={(e) => {
-                if (drag === null) return
+                if (dragRef.current === null) return
                 e.preventDefault()
                 setOver(i)
               }}
               onDragLeave={() => setOver((o) => (o === i ? null : o))}
               onDrop={(e) => {
                 e.preventDefault()
-                if (drag !== null && drag !== i) save(movePin(list, drag, i))
+                const from = dragRef.current
+                if (from !== null && from !== i) save(movePin(list, from, i))
                 setDrag(null)
                 setOver(null)
               }}
@@ -321,15 +338,16 @@ function PinMenu({ pins }: { pins: Pin[] }) {
 }
 
 /** A pin/unpin button for a sidebar row's actions (folders, smart folders). */
-export function PinToggle({ kind, refId, name }: { kind: PinKind; refId: string; name: string }) {
+export function PinToggle({ kind, refId, name, labelled = false }: { kind: PinKind; refId: string; name: string; labelled?: boolean }) {
   const pins = usePins()
   const qc = useQueryClient()
   const w = useWrite()
   const on = isPinned(pins.data, kind, refId)
   return (
     <button
+      className={labelled ? `btn-icon${on ? ' on' : ''}` : undefined}
       title={on ? 'Unpin' : 'Pin to the top of the sidebar'}
-      aria-label={on ? `Unpin ${name}` : `Pin ${name}`}
+      aria-label={labelled ? undefined : on ? `Unpin ${name}` : `Pin ${name}`}
       aria-pressed={on}
       onClick={() =>
         void w.run(`pin:${kind}:${refId}`, () => (on ? projectsApi.unpin(kind, refId) : projectsApi.pin({ kind, ref: refId })), {
@@ -338,7 +356,8 @@ export function PinToggle({ kind, refId, name }: { kind: PinKind; refId: string;
         })
       }
     >
-      {on ? <PinOff size={14} aria-hidden="true" /> : <PinIcon size={14} aria-hidden="true" />}
+      {labelled ? <PinIcon size={14} aria-hidden="true" /> : on ? <PinOff size={14} aria-hidden="true" /> : <PinIcon size={14} aria-hidden="true" />}
+      {labelled && (on ? 'Pinned' : 'Pin')}
     </button>
   )
 }

@@ -17,6 +17,7 @@ import {
   type FieldValue,
   type ItemProjectFields,
 } from '../../projects'
+import { clearedM45 } from '../../m45/filters'
 import { useAppState } from '../../state'
 import { useWrite } from '../../useWrite'
 
@@ -97,7 +98,8 @@ function FieldRow({ item, field, value, canEdit }: { item: Item; field: FieldDef
       },
     })
   }
-  const filter = () => setQuery({ ...emptyQuery, custom_fields: { [field.key]: filterForValue(field, value) } })
+  // every item with this value, library-wide (Back returns here)
+  const filter = () => setQuery({ ...emptyQuery, ...clearedM45(), custom_fields: { [field.key]: filterForValue(field, value) } })
 
   const shown = fieldValueText(value)
   let control

@@ -12,12 +12,15 @@ import { describeError } from '../../writes'
 import type { BulkMenuItem } from '../BulkBar'
 import { Modal } from '../Dialog'
 import { useNotices } from '../Notices'
+import { useAppState } from '../../state'
 import { useProjects } from './hooks'
 
 function BulkFieldsDialog({ ids, onClose }: { ids: string[]; onClose: () => void }) {
   const projects = useProjects('all')
   const withFields = (projects.data ?? []).filter((p) => p.fields.length > 0)
-  const [projectId, setProjectId] = useState('')
+  const { query } = useAppState()
+  // the grid's project filter picks the project
+  const [projectId, setProjectId] = useState(query.project ?? '')
   const project: ProjectSummary | undefined = withFields.find((p) => p.id === projectId) ?? (withFields.length === 1 ? withFields[0] : undefined)
   const [text, setText] = useState<Record<string, string>>({})
   const [clear, setClear] = useState<Record<string, boolean>>({})

@@ -329,7 +329,7 @@ export function ProjectPage({ id }: { id: string }) {
           {sub && <span className="pj-sub">{sub}</span>}
         </div>
         <span className="grow" />
-        {caps.canEdit && !archived && <PinToggle kind="project" refId={p.id} name={p.name} />}
+        {caps.canEdit && !archived && <PinToggle kind="project" refId={p.id} name={p.name} labelled />}
         <button className="btn-icon" onClick={showItems} title="The items in this project's folders, in the grid">
           <LayoutGrid size={14} aria-hidden="true" /> Items
         </button>

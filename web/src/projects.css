@@ -305,7 +305,7 @@
 }
 .pj-field {
   display: grid;
-  grid-template-columns: minmax(120px, 1fr) minmax(100px, 1.4fr) auto auto;
+  grid-template-columns: minmax(120px, 180px) minmax(0, 1fr) 190px 200px;
   align-items: center;
   gap: 12px;
   padding: 4px 8px;
@@ -330,6 +330,7 @@
 }
 .pj-field-actions {
   display: inline-flex;
+  justify-content: flex-end;
   gap: 2px;
 }
 .pj-field-form {
@@ -345,6 +346,17 @@
 }
 .pj-field-form select {
   width: auto;
+}
+.pj-dialog {
+  width: min(480px, calc(100vw - 32px));
+}
+.pj-dialog .hint {
+  white-space: normal;
+  margin: 0;
+}
+.pj-dialog .dialog-form > select,
+.pj-dialog .dialog-form > input {
+  width: 100%;
 }
 .pj-dialog-row {
   display: grid;
@@ -377,7 +389,7 @@
 }
 .pj-item-row {
   display: grid;
-  grid-template-columns: minmax(72px, 38%) 1fr;
+  grid-template-columns: minmax(64px, 32%) 1fr;
   align-items: center;
   gap: 8px;
 }
@@ -387,10 +399,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.pj-item-row dt label {
+.pj-item-fields .pj-item-row dt label {
   font: inherit;
   color: inherit;
   margin: 0;
+  padding: 0;
+  text-transform: none;
+  letter-spacing: normal;
 }
 .pj-item-row dd {
   margin: 0;
@@ -464,7 +479,18 @@
   padding: 12px;
 }
 .mobile .pj-field {
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: 'name actions' 'type actions';
+  row-gap: 0;
+}
+.mobile .pj-field-name {
+  grid-area: name;
+}
+.mobile .pj-field-type {
+  grid-area: type;
+}
+.mobile .pj-field-actions {
+  grid-area: actions;
 }
 .mobile .pj-field-key {
   display: none;
