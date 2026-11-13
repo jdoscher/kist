@@ -940,18 +940,30 @@ def overview(session: Session) -> dict:
     model = ai.active_model()
     clfs = classifiers(model)
     base = search.build_filters(session=session)
+    on_ids = [k.id for k in catalog.KINDS if is_enabled(k.id, s)] if get_settings().kinds else []
+
+    def grouped(cond) -> dict[str, int]:
+        if not on_ids:
+            return {}
+        return dict(session.execute(
+            sa.select(ItemKind.kind, sa.func.count()).join(Item, Item.id == ItemKind.item_id)
+            .where(*base, ItemKind.kind.in_(on_ids), cond).group_by(ItemKind.kind)).all())
+
+    # one grouped count each; kinds with a parent or children follow the
+    # parent's verdicts (member_condition), so those are counted on their own
+    counts = grouped(ItemKind.member)
+    confirmed_n = grouped(ItemKind.verdict.is_(True))
+    rejected_n = grouped(ItemKind.verdict.is_(False))
+    for kid in on_ids:
+        k = catalog.BY_ID[kid]
+        if k.parent or catalog.children(kid):
+            counts[kid] = session.execute(sa.select(sa.func.count()).select_from(Item)
+                                          .where(*base, member_condition(kid))).scalar_one()
     kinds_out = []
     for k in catalog.KINDS:
-        on = is_enabled(k.id, s) and get_settings().kinds
-        count = confirmed = rejected = 0
-        if on:
-            count = session.execute(sa.select(sa.func.count()).select_from(Item)
-                                    .where(*base, member_condition(k.id))).scalar_one()
-            confirmed = session.execute(sa.select(sa.func.count()).select_from(Item).where(
-                *base, sa.exists().where(ItemKind.item_id == Item.id, ItemKind.kind == k.id,
-                                         ItemKind.verdict.is_(True)))).scalar_one()
-            rejected = session.execute(sa.select(sa.func.count()).select_from(Item).where(
-                *base, _rejected(k.id))).scalar_one()
+        on = k.id in on_ids
+        count, confirmed, rejected = (counts.get(k.id, 0), confirmed_n.get(k.id, 0),
+                                      rejected_n.get(k.id, 0)) if on else (0, 0, 0)
         clf = clfs.get(k.id)
         kinds_out.append({
             "id": k.id, "name": k.name, "packs": list(k.packs), "parent": k.parent,
