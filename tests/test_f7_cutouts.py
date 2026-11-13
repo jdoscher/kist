@@ -426,3 +426,22 @@ def test_compose_feather_and_existing_transparency():
     assert box[0] < 20 and box[2] > 80
     with pytest.raises(cutouts.NoSubject):
         cutouts.compose(Image.new("RGB", (40, 40)), Image.new("L", (40, 40), 0))
+
+
+def test_board_export_draws_a_cutout_without_its_background(client, upload, ml):
+    _folder, item = setup_item(client, upload)
+    client.post(f"/api/items/{item['id']}/cutout", json={})
+    assert drain() == ["done"]
+    new_id = cutout_jobs()[-1].payload["result_item_id"]
+    res = client.post("/api/boards", json={"name": "Export", "item_ids": [new_id],
+                                           "canvas": {"bg": "#ff00ff", "grid": 0}})
+    board = res.json()
+    png = client.get(f"/api/boards/{board['id']}/export?format=png")
+    assert png.status_code == 200, png.text
+    im = Image.open(io.BytesIO(png.content)).convert("RGB")
+    a = np.asarray(im).astype(int)
+    magenta = (np.abs(a - [255, 0, 255]).sum(axis=2) < 30).mean()
+    subject = (np.abs(a - [40, 90, 170]).sum(axis=2) < 30).mean()
+    flattened = (np.abs(a - [24, 24, 27]).sum(axis=2) < 12).mean()
+    # the cut-out's transparent margin shows the board; no dark preview card
+    assert magenta > 0.05 and subject > 0.3 and flattened == 0
