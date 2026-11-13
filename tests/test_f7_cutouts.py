@@ -192,6 +192,7 @@ def test_shadow_and_model_choice(client, upload, ml):
     new_id = cutout_jobs()[-1].payload["result_item_id"]
     new = client.get(f"/api/items/{new_id}").json()
     assert new["media"]["cutout"]["shadow"] is True
+    assert new["media"]["cutout"]["shadow_found"] is True
     assert new["media"]["cutout"]["model"] == "birefnet-lite"
     im = Image.open(io.BytesIO(client.get(f"/api/items/{new_id}/file").content))
     # the grey strip under the square is kept as a soft black shadow
@@ -419,7 +420,7 @@ def test_compose_feather_and_existing_transparency():
     im.putalpha(Image.new("L", (100, 100), 128))
     mask = Image.new("L", (50, 50), 0)
     mask.paste(255, (10, 10, 40, 40))
-    out, box = cutouts.compose(im, mask, feather=2)
+    out, box, _kept = cutouts.compose(im, mask, feather=2)
     a = np.asarray(out.getchannel("A"))
     # the original's half transparency is kept inside the subject
     assert 120 <= a[a.shape[0] // 2, a.shape[1] // 2] <= 130
@@ -445,3 +446,20 @@ def test_board_export_draws_a_cutout_without_its_background(client, upload, ml):
     flattened = (np.abs(a - [24, 24, 27]).sum(axis=2) < 12).mean()
     # the cut-out's transparent margin shows the board; no dark preview card
     assert magenta > 0.05 and subject > 0.3 and flattened == 0
+
+
+def test_keep_shadow_finds_none_on_a_busy_background():
+    rng = np.random.default_rng(1)
+    noise = rng.integers(60, 230, (300, 400, 3), dtype=np.uint8)
+    im = Image.fromarray(noise, "RGB")
+    im.paste((40, 90, 170), (120, 80, 280, 220))
+    mask = Image.new("L", (400, 300), 0)
+    mask.paste(255, (120, 80, 280, 220))
+    out, _box, kept = cutouts.compose(im, mask, shadow=True)
+    assert kept is False
+    a = np.asarray(out.getchannel("A"))
+    assert int(a[0, 0]) == 0  # nothing of the carpet comes along
+    # on a plain light background with a darker strip under it, it does
+    plain = Image.open(io.BytesIO(photo_png()))
+    _out, _box, kept = cutouts.compose(plain, mask, shadow=True)
+    assert kept is True

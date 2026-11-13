@@ -18,8 +18,8 @@ folders and provenance (minus the C2PA flag: the new file carries no
 manifest) and a derived_from link to it. What made it is stored in its
 meta.json, under media.cutout:
 
-    {source_item, model, feather, shadow, box: [x0, y0, x1, y1] (source px),
-     size: [w, h], ms, made_at}
+    {source_item, model, feather, shadow, shadow_found,
+     box: [x0, y0, x1, y1] (source px), size: [w, h], ms, total_ms, made_at}
 
 so `kist rebuild-index` restores it with the item (and the link from both
 items' meta.json). `kist verify` checks the link is still there.
@@ -319,8 +319,8 @@ def _ml_copy(im) -> bytes:
 
 
 def compose(im, mask, *, feather: float = 0.0, shadow: bool = False):
-    """The RGBA cut-out (full size) and its trim box: `mask` is the model's
-    greyscale mask at any size."""
+    """(RGBA cut-out, its trim box in the source's pixels, whether a shadow
+    was kept): `mask` is the model's greyscale mask at any size."""
     import numpy as np
     from PIL import Image, ImageFilter
 
@@ -336,8 +336,10 @@ def compose(im, mask, *, feather: float = 0.0, shadow: bool = False):
         a = a * (np.asarray(im.getchannel("A"), dtype=np.float32) / 255.0)
     if float((a > 0.5).mean()) < MIN_SUBJECT:
         raise NoSubject("the model found no subject to cut out in this image")
+    kept = False
     if shadow:
         s = shadow_alpha(rgb, a)
+        kept = bool((s > 0.05).any())
         out_a = a + s * (1.0 - a)
         # the subject over a black shadow layer
         rgb = rgb * (a / np.maximum(out_a, 1e-6))[..., None]
@@ -348,36 +350,66 @@ def compose(im, mask, *, feather: float = 0.0, shadow: bool = False):
     pad = round(MARGIN * max(xs.max() - xs.min(), ys.max() - ys.min()))
     box = (max(0, int(xs.min()) - pad), max(0, int(ys.min()) - pad),
            min(w, int(xs.max()) + 1 + pad), min(h, int(ys.max()) + 1 + pad))
-    return Image.fromarray(out, "RGBA").crop(box), box
+    return Image.fromarray(out, "RGBA").crop(box), box, kept
+
+
+SHADOW_WORK_SIDE = 512  # the shadow is soft: it is found at this size
+# a background busier than this (fine detail against its own mean
+# brightness: patterned carpet, foliage) has no shadow worth keeping; plain
+# studio paper and table tops measure under 0.02
+SHADOW_MAX_TEXTURE = 0.05
+
+
+def _blur(arr, radius: float):
+    """A float array in 0..1 through Pillow's Gaussian blur (8-bit is
+    plenty for masks and soft light)."""
+    import numpy as np
+    from PIL import Image, ImageFilter
+
+    im = Image.fromarray(np.clip(arr * 255.0 + 0.5, 0, 255).astype(np.uint8), "L")
+    return np.asarray(im.filter(ImageFilter.GaussianBlur(radius)), np.float32) / 255.0
 
 
 def shadow_alpha(rgb, a):
     """Where the subject's shadow is, as an alpha for a black layer: pixels
-    outside the subject, near it, and darker than the background around."""
+    outside the subject, near it, and darker than the background around
+    them (each spot against its own neighbourhood, so a vignette or a
+    gradient isn't a shadow). A busy background gives none."""
     import numpy as np
-    from PIL import Image, ImageFilter
+    from PIL import Image
 
     h, w = a.shape
-    lum = rgb @ np.array([0.2126, 0.7152, 0.0722], np.float32)
-    bg = a < 0.1
+    scale = min(1.0, SHADOW_WORK_SIDE / max(w, h))
+    sw, sh = max(1, round(w * scale)), max(1, round(h * scale))
+    lum = (rgb @ np.array([0.2126, 0.7152, 0.0722], np.float32)) / 255.0
+    lum_s = np.asarray(Image.fromarray(np.clip(lum * 255, 0, 255).astype(np.uint8), "L")
+                       .resize((sw, sh), Image.Resampling.BOX), np.float32) / 255.0
+    a_s = np.asarray(Image.fromarray(np.clip(a * 255, 0, 255).astype(np.uint8), "L")
+                     .resize((sw, sh), Image.Resampling.BOX), np.float32) / 255.0
+    bg = (a_s < 0.1).astype(np.float32)
     if bg.mean() < 0.02:
         return np.zeros_like(a)
-    bg_lum = float(np.median(lum[bg]))
-    if bg_lum < 24:  # a dark background has no visible shadow to keep
+    side = max(sw, sh)
+    # the background's own light, from background pixels only
+    wide = side * 0.1
+    bg_local = _blur(lum_s * bg, wide) / np.maximum(_blur(bg, wide), 1e-3)
+    if float(np.median(bg_local[bg > 0])) < 0.1:
+        return np.zeros_like(a)  # a dark background has no visible shadow to keep
+    # texture: fine detail left after a small blur, on clearly-background pixels
+    fine = lum_s - _blur(lum_s, max(1.0, side * 0.01))
+    far = (_blur(a_s, side * 0.02) < 0.02) & (bg > 0)
+    if far.sum() > 50 and float(np.std(fine[far])) / max(float(np.mean(lum_s[far])), 0.05) \
+            > SHADOW_MAX_TEXTURE:
         return np.zeros_like(a)
-    dark = np.clip((bg_lum - lum) / bg_lum, 0.0, 1.0)
-    dark = np.clip((dark - 0.06) / 0.6, 0.0, 1.0)  # paper texture and noise stay out
-    # near the subject: a blurred copy of its mask, reaching ~8% of the long side
-    radius = max(2.0, 0.08 * max(w, h))
-    scale = min(1.0, 512 / max(w, h))  # blur small, then scale back up
-    small = Image.fromarray((a * 255).astype(np.uint8), "L")
-    if scale < 1.0:
-        small = small.resize((max(1, round(w * scale)), max(1, round(h * scale))),
-                             Image.Resampling.BILINEAR)
-    near = small.filter(ImageFilter.GaussianBlur(radius * scale / 2))
-    near = np.asarray(near.resize((w, h), Image.Resampling.BILINEAR), np.float32) / 255.0
-    near = np.clip(near * 4.0, 0.0, 1.0)
-    return (dark * near * (1.0 - a) * 0.9).astype(np.float32)
+    dark = np.clip((bg_local - _blur(lum_s, max(1.0, side * 0.004))) / np.maximum(bg_local, 0.05),
+                   0.0, 1.0)
+    dark = np.clip((dark - 0.06) / 0.6, 0.0, 1.0)  # paper grain and noise stay out
+    # near the subject: its mask spread to ~8% of the long side
+    near = np.clip(_blur(a_s, side * 0.04) * 4.0, 0.0, 1.0)
+    small = dark * near * (1.0 - a_s) * 0.9
+    full = np.asarray(Image.fromarray(np.clip(small * 255, 0, 255).astype(np.uint8), "L")
+                      .resize((w, h), Image.Resampling.BILINEAR), np.float32) / 255.0
+    return (full * (1.0 - a)).astype(np.float32)
 
 
 def write_alpha_previews(item_dir: Path, png: Path | None = None) -> list[Path]:
@@ -456,7 +488,7 @@ def run_job(session: Session, job: Job) -> None:
     t0 = time.perf_counter()
     im, icc = source_image(item)
     mask_png, model, ms = _ml_mask(_ml_copy(im), p.get("model"))
-    cut, box = compose(im, Image.open(io.BytesIO(mask_png)),
+    cut, box, kept = compose(im, Image.open(io.BytesIO(mask_png)),
                        feather=float(p.get("feather") or 0), shadow=bool(p.get("shadow")))
     settings = get_settings()
     settings.staging_dir.mkdir(parents=True, exist_ok=True)
@@ -476,7 +508,9 @@ def run_job(session: Session, job: Job) -> None:
             if result.created:
                 info = {"source_item": item.id, "model": model,
                         "feather": float(p.get("feather") or 0), "shadow": bool(p.get("shadow")),
-                        "box": list(box), "size": list(cut.size), "ms": round(ms, 1),
+                        # "keep shadow" on a busy background finds none
+                        "shadow_found": kept, "box": list(box), "size": list(cut.size),
+                        "ms": round(ms, 1),
                         "total_ms": round((time.perf_counter() - t0) * 1000, 1),
                         "made_at": datetime.now(UTC).isoformat()}
                 media.update_media(session, new.id, {"source_item": item.id, "cutout": info})
