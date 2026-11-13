@@ -313,7 +313,11 @@ class SmartFolderQuery(BaseModel):
     created_before: datetime | None = None
     # M2 search: a smart folder can be "meaning", colour or text-in-image
     semantic: str | None = Field(default=None, max_length=1000)
-    color: str | None = Field(default=None, pattern=r"^#?([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$")
+    # a hex, or a colour book code book:<book>/<code> (F5)
+    color: str | None = Field(
+        default=None,
+        pattern=r"^(#?([0-9a-fA-F]{6}|[0-9a-fA-F]{3})|book:[^/]{1,60}/.{1,120})$",
+    )
     color_tol: int | None = Field(default=None, ge=0, le=100)
     text: str | None = Field(default=None, max_length=500)
     has_text: bool | None = None

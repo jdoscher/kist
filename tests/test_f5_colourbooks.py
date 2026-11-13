@@ -244,6 +244,11 @@ def test_search_by_code_uses_the_colour_search(client, upload):
     assert client.get("/api/items", params={"color": "book:ral/RAL 9999"}).status_code == 422
     assert client.get("/api/items", params={"color": "book:nope/RAL 3001"}).status_code == 422
     assert client.get("/api/items", params={"color": "not a colour"}).status_code == 422
+    # a smart folder keeps a code search
+    sf = client.post("/api/smart-folders", json={"name": "Signal red",
+                                                 "query": {"color": "book:ral/RAL 3001"}})
+    assert sf.status_code == 201, sf.text
+    assert sf.json()["query"]["color"] == "book:ral/RAL 3001"
     # a disabled book still answers an explicit book: reference, not a bare code
     client.patch("/api/colourbooks/ral", json={"enabled": False})
     assert client.get("/api/items", params={"color": "book:ral/RAL 3001"}).json()["items"]
