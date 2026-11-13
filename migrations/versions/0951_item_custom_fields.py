@@ -7,7 +7,7 @@ same block, so rebuild-index restores it. The GIN index serves
 field.<name>= filters (containment for exact choice matches, key presence).
 
 Revision ID: 0951
-Revises: 0803
+Revises: 0921
 Create Date: 2026-11-12
 
 """
@@ -15,7 +15,7 @@ Create Date: 2026-11-12
 from alembic import op
 
 revision = "0951"
-down_revision = "0803"
+down_revision = "0921"
 branch_labels = None
 depends_on = None
 

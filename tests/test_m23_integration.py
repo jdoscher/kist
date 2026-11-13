@@ -419,7 +419,7 @@ def test_migrations_are_one_line():
     from alembic.script import ScriptDirectory
 
     script = ScriptDirectory.from_config(Config("alembic.ini"))
-    assert script.get_heads() == ["0901"]  # F1 kinds (the integrator re-chains)
+    assert script.get_heads() == ["0951"]  # F1 0901 -> F3 0921 -> F6 0951
     chain = [r.revision for r in script.walk_revisions("base", "heads")]
-    assert chain[:13] == ["0901", "0803", "0802", "0801", "0701", "0603", "0602", "0601", "0501",
-                          "0401", "0301", "0201", "0101"]
+    assert chain[:15] == ["0951", "0921", "0901", "0803", "0802", "0801", "0701", "0603", "0602",
+                          "0601", "0501", "0401", "0301", "0201", "0101"]

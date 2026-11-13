@@ -4,7 +4,7 @@ the item version the guest saw. library/.kist/shares/<id>/feedback.json is
 the durable copy (services/proofing.py).
 
 Revision ID: 0921
-Revises: 0803
+Revises: 0901
 Create Date: 2026-11-12
 
 """
@@ -14,7 +14,7 @@ from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB
 
 revision = "0921"
-down_revision = "0803"
+down_revision = "0901"
 branch_labels = None
 depends_on = None
 
