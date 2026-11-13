@@ -902,6 +902,7 @@ claude mcp add --transport http kist http://<host>:8080/mcp \
 | `duplicate_groups`, `resolve_duplicates` | duplicate groups with a suggested keeper; keep one, merge the rest into it and trash them |
 | `suggest_stacks`, `stack_items` | RAW+JPEG, burst and version stacks to propose, and stacking (or `unstack`) |
 | `suggested_collections`, `list_people` | "you seem to collect…" clusters; people found by faces (when on) |
+| `list_projects`, `get_project`, `set_field_values` | projects (client, job number, phase; their folders, smart folders, boards, share links and custom fields), a project's recent items, and setting custom field values on items (one undoable batch). `search_items(project=, fields={key: expr})` filters by them |
 | `list_boards`, `get_board` | boards (moodboards) and their nodes |
 | `create_board(name, item_ids, layout)`, `add_to_board(id, item_ids, layout, notes)` | lay items out as a `grid` or `masonry` board, add more items and notes |
 | `annotate(item_id, text, box?, point?, time?)`, `list_annotations` | pin a note to an area (`box=[x, y, w, h]`, fractions 0–1), a spot or a video time (`time=[start, end]` seconds) |

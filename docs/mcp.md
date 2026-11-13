@@ -48,6 +48,7 @@ language model of its own.
 | `list_boards`, `get_board`, `create_board`, `add_to_board`, `annotate` | moodboards and pinned notes |
 | `view_video`, `save_frame`, `make_clip` | watch a video as a contact sheet, keep a frame, cut a clip |
 | `export_collection`, `export_status`, `get_page_snapshot` | portable exports, the saved text of a source page |
+| `list_projects`, `get_project`, `set_field_values` | projects and their custom fields; set field values on items; `search_items(project=…, fields={...})` |
 | `recent_batches`, `undo_batch` | what changed lately, by whom, and undo it |
 | `trash_item`, `restore_item` | into and out of the trash (emptying it is a human action in the web app) |
 
