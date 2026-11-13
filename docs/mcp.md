@@ -42,6 +42,7 @@ language model of its own.
 | `view_item`, `get_item`, `item_palette` | see the image, read its metadata, its colours |
 | `add_item` | from a URL, or a file under `library/import/` or `library/inbox/` |
 | `update_item`, `set_tags`, `set_folders`, `set_provenance` | organise: caption, flag, label, rating, protect, folders, credit and licence |
+| `set_credits`, `item_credits`, `credits_clearance`, `print_check` | credits and rights in bulk, auto-fill from the item's own files, what isn't cleared before a share, print size and colour profile |
 | `list_folders`, `create_folder`, `list_tags`, `list_smart_folders`, `get_vocabulary` | browse; read the vocabulary before tagging |
 | `suggest_tags`, `tag_cleanup`, `merge_tags` | tag suggestions with reasons; cleanup as one undoable batch (`dry_run` first) |
 | `duplicate_groups`, `resolve_duplicates`, `suggest_stacks`, `stack_items` | tidy duplicates and stacks |

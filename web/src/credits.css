@@ -28,6 +28,9 @@
 .cr-warning-body p {
   margin: 0;
 }
+.cr-warning-body > button {
+  justify-self: start;
+}
 .cr-warning-list {
   margin: 0;
   padding-left: 18px;
