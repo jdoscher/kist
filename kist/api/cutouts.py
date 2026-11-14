@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 
 from .. import access
 from ..db import get_session
@@ -22,6 +23,7 @@ from ..schemas import ItemOut, JobOut
 from ..services import cutouts
 from ..services import items as items_svc
 from ..services import jobs as jobs_svc
+from . import thumbfiles
 
 router = APIRouter(tags=["cutouts"])
 
@@ -72,19 +74,34 @@ def list_cutouts(item_id: str, session: Annotated[Session, Depends(get_session)]
 
 
 @router.get("/items/{item_id}/cutout-preview")
-def cutout_preview(item_id: str, session: Annotated[Session, Depends(get_session)],
-                   size: int = 1024, v: int | None = None):
+async def cutout_preview(item_id: str, size: int = 1024, v: int | None = None):
     """A transparent WebP of a cut-out (or any image with transparency), for
-    boards; the grid's previews are flattened."""
-    item = items_svc.get_item(session, item_id)
-    path = cutouts.alpha_preview(item, size)
-    if path is None:
-        raise HTTPException(404, "this item has no transparency")
-    from .items import CACHE_FOREVER, CACHE_REVALIDATE
+    boards and the grid's cut-out tiles (the other previews are flattened).
 
-    exact = v is not None and v == (item.preview_rev or 0)
+    Like /thumb (api/thumbfiles.py): when the requested copy exists and the
+    caller sees every item, it is sent without a database round trip;
+    otherwise the item is loaded (and the copy made if it's missing)."""
+    directory = thumbfiles.item_dir(item_id)
+    if access.restricted() is None:
+        name = cutouts.ALPHA_FILE.format(size=1024 if size <= 1024 else 2048)
+        if thumbfiles.regular_file(directory / name) is not None:
+            return await thumbfiles.send_file(directory, [name], v)
+    return await run_in_threadpool(_cutout_preview_db, item_id, size, v)
+
+
+def _cutout_preview_db(item_id: str, size: int, v: int | None):
+    from ..db import SessionLocal
+
+    with SessionLocal() as session:
+        item = items_svc.get_item(session, item_id)
+        path = cutouts.alpha_preview(item, size)
+        if path is None:
+            raise HTTPException(404, "this item has no transparency")
+        rev = item.preview_rev or 0
+    exact = v is not None and v == rev
     return FileResponse(path, media_type="image/webp",
-                        headers={"Cache-Control": CACHE_FOREVER if exact else CACHE_REVALIDATE})
+                        headers={"Cache-Control": thumbfiles.CACHE_FOREVER if exact
+                                 else thumbfiles.CACHE_REVALIDATE})
 
 
 @router.post("/boards/{board_id}/nodes/{node_id}/cutout", status_code=202)

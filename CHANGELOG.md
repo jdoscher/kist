@@ -1085,6 +1085,57 @@ The aesthetic pass: one grey, one control language, one type system.
   idle).
 - **Cut-outs and memory:** a "Fine edges" cut-out needs about 8 GB for the ml service (`KIST_ML_MEM_LIMIT=8g`); below that it's shown but not offered, with the reason, instead of crashing the service. It's unloaded after each cut-out and its memory goes back to the system. The ml service's default memory limit is now 4 GB. A cut-out that brings the service down is tried three times, then fails with a plain reason instead of waiting for ever. Progress bars are neutral grey.
 
+### Performance at 17k+ items
+
+- **Thumbnails come straight from disk.** Every grid tile used to cost a
+  database round trip before its file was sent. Now the thumbnail and
+  cut-out preview routes find the file from the item id alone (the id's
+  format is checked first, so nothing else reaches the file system) and
+  read it in one go; only a folder-limited read token still has each item
+  checked against its folders (trashed items and other folders stay 404).
+  On a 20,000-item library with real thumbnails, 300 thumbnails from 30
+  connections: **455–487 → 2,220–2,290 thumbnails/s, median 59–62 → 12.5 ms,
+  p95 106–123 → 15–16 ms**. A versioned thumbnail URL (`?v=`) is now cached
+  for good whenever the exact size exists, without checking the version
+  against the database (a stand-in size is still revalidated).
+- **Named tokens no longer cost a database query per request.** The
+  principal a `kist_` token stands for is kept in memory for 5 seconds;
+  creating, revoking or removing a token and any folder change clear it at
+  once. With a named read token the same test went from 391–405 to
+  2,210–2,300 thumbnails/s (without the cache: about 1,050). The owner
+  token is now checked without a thread hop.
+- Database connections: measured, left as they were. Under 30 concurrent
+  item, history and list requests, a pool of 15 or 30 connections or
+  turning off the pre-ping changed nothing beyond noise; the app process,
+  not the pool, is what those requests wait for.
+- New bench tools: `scripts/bench/thumbs.py` (thumbnail p50/p95/throughput
+  per size; refuses kist.example.com unless `--read-only-prod`, GETs only) and
+  `scripts/bench/thumb_pool.py` (gives a make_library library real
+  thumbnails); see `scripts/bench/README.md`.
+- **Lighter thumbnails.** Grid thumbnails are now WebP quality 80 (was 86):
+  on 40 of the owner's own originals (iPhone photos, photos, screenshots,
+  product shots on white, illustrations, wallpapers) thumb_512 went from
+  54.1 to 43.3 KB (−20 %) and thumb_1024 from 89.9 to 69.5 KB (−23 %), at
+  SSIM 0.977 against 0.984. Quality 76 and 72 softened suede, stone and
+  foliage visibly; a slower WebP "effort" gave no better quality per byte;
+  AVIF was 40 % smaller still but about 5× slower to make on an N100 and
+  slower for phones to decode, so it isn't used. No new thumbnail size
+  either: thumb_512 (short side 512) and thumb_1024 (long side 1024) are
+  only 1.33× apart for a 3:2 photo, so an in-between size would save
+  little and need a full backfill.
+- **Upgrade:** `kist regen-previews --thumbs-only` re-encodes the existing
+  thumbnails from the originals (iPhone HEICs from their full-size copy;
+  PDFs, videos and other kinds through their normal preview steps), so
+  nothing is compressed twice. It prints a progress line with a time
+  estimate every 200 items (`--progress-every N`), never moves an item's
+  "modified" date, gives each item a new preview version so browsers fetch
+  the new files, and remembers per item that it's done (a `thumbs.v` file
+  beside the thumbnails, kept by `rebuild-index`), so it's safe to stop and
+  run again; one unreadable file fails only itself. Expect roughly 2–3
+  hours per 17,000 items on an N100 (an estimate: 0.2–0.35 s per item to
+  encode, measured on dev0, plus the meta.json write every backfill pays).
+  New uploads get the new encode right away.
+
 ## [1.5.0] - 2026-11-09
 
 A hardening release. Kist was reviewed for security, data integrity,

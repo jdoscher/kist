@@ -133,12 +133,44 @@ def heif_poster(path: Path, out_png: Path) -> None:
 GRID_SHORT_SIDE = 512
 GRID_MAX_LONG_SIDE = 2048
 
+# The thumbnails' encode (thumb_256/512/1024). Version 1 (Kist up to the
+# 2.0 perf work) was WebP Q86. Version 2, WebP Q80, measured 2026-11-14 on
+# 40 of Jay's originals (scripts/bench/thumb_encode.py): thumb_512 -20 %,
+# thumb_1024 -22 % bytes, SSIM 0.984 -> 0.977. Q76/Q72 softened texture
+# visibly; effort 6 gave no better quality per byte and is 50 % slower;
+# AVIF Q60 was 40 % smaller at the same SSIM but 5x slower to encode on
+# the N100, slower to decode on phones, and the rest of Kist reads WebP.
+# Each item directory records the version its thumbnails were made with
+# in ENCODER_FILE, so `kist regen-previews --thumbs-only` re-encodes only
+# older ones (a re-run skips what's done). The marker sits beside the
+# files, so rebuild-index keeps it.
+THUMB_ENCODER = 2
+THUMB_WEBP = {"Q": 80, "smart_subsample": True}
+ENCODER_FILE = "thumbs.v"
+
+
+def encoder_version(item_dir: Path) -> int:
+    """The encoder version of an item's thumbnails (1: before the marker)."""
+    try:
+        return int((item_dir / ENCODER_FILE).read_text().strip() or 1)
+    except (OSError, ValueError):
+        return 1
+
+
+def mark_encoder(item_dir: Path) -> None:
+    (item_dir / ENCODER_FILE).write_text(f"{THUMB_ENCODER}\n")
+
 
 def _save_webp(thumb, path: Path) -> None:
+    """Write a thumbnail: to a temporary name, then renamed over the old one,
+    so a request never gets a half-written file (thumbnails are served
+    straight from disk, api/thumbfiles.py)."""
     if thumb.hasalpha():
         thumb = thumb.flatten(background=[24, 24, 27])
     # smart_subsample keeps colored edges crisp (plain 4:2:0 smears them)
-    thumb.webpsave(str(path), Q=86, smart_subsample=True)
+    tmp = path.with_name(f".{path.name}.tmp")
+    thumb.webpsave(str(tmp), **THUMB_WEBP)
+    tmp.replace(path)
 
 
 DISPLAY_MAX = 4096
@@ -174,8 +206,12 @@ def make_display_copy(source: Path, item_dir: Path) -> None:
     img.webpsave(str(item_dir / "display.webp"), Q=88, smart_subsample=True)
 
 
-def make_thumbs_from(source: Path, item_dir: Path) -> tuple[int | None, int | None]:
+def make_thumbs_from(
+    source: Path, item_dir: Path, *, mark: bool = True
+) -> tuple[int | None, int | None]:
     """Generate thumbnails from a raster-able source. Returns (width, height).
+    With mark, records the encoder version (thumbs.v); the backfill marks
+    an item itself, once its preview_rev has moved on.
 
     thumb_256 / thumb_1024: longest side fits the size (previews, MCP).
     thumb_512: SHORT side is 512 — grid tiles are cover-cropped (square, or
@@ -197,6 +233,8 @@ def make_thumbs_from(source: Path, item_dir: Path) -> tuple[int | None, int | No
     box_h = max(1, round(height * scale))
     grid = pyvips.Image.thumbnail(str(source), box_w, height=box_h, size="down")
     _save_webp(grid, item_dir / f"thumb_{GRID_SHORT_SIDE}.webp")
+    if mark:
+        mark_encoder(item_dir)
     return width, height
 
 
@@ -363,6 +401,7 @@ PREVIEW_FILES = (
     "thumb_256.webp", "thumb_512.webp", "thumb_1024.webp", "display.webp", SCREEN_FILE,
     # Milestone 5 (services/media.py)
     "scrub.webp", "scrub.json", "waveform.json", "preview_icon",
+    ENCODER_FILE,  # perf P3
 )
 
 

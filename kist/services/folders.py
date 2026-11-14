@@ -6,6 +6,7 @@ from ..ids import new_ulid
 from ..models import Folder, Item, ItemFolder
 from . import events, validation
 from . import meta as meta_svc
+from . import tokens as tokens_svc
 
 # every change to the folder tree's shape takes this lock, so two moves
 # can't each pass the loop check against the other's old state
@@ -135,6 +136,7 @@ def create_folder(
     folder = Folder(id=new_ulid(), name=name, parent_id=parent_id, description=description)
     session.add(folder)
     session.commit()
+    tokens_svc.forget_cached()  # a folder-limited reader's visible folders
     snapshot(session)
     return folder
 
@@ -173,6 +175,7 @@ def update_folder(session: Session, folder_id: str, fields: dict) -> Folder:
     # members' meta.json carries folder paths: rewrite them on rename/move
     affected = _member_item_ids(session, _subtree_ids(session, folder_id)) if reshaped else []
     session.commit()
+    tokens_svc.forget_cached()  # a folder-limited reader's visible folders
     snapshot(session)
     _sync_items(session, affected)
     return folder
@@ -195,5 +198,6 @@ def delete_folder(session: Session, folder_id: str) -> None:
             events.record_changes(session, item_id, before, after)
     session.delete(folder)
     session.commit()
+    tokens_svc.forget_cached()  # a folder-limited reader's visible folders
     snapshot(session)
     _sync_items(session, affected)

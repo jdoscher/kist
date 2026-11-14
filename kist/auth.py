@@ -51,6 +51,18 @@ def resolve(token: str) -> access.Principal | None:
         return tokens_svc.authenticate(session, token)
 
 
+def resolve_cached(token: str) -> access.Principal | None:
+    """resolve() without I/O: the owner, or a named token's principal from
+    tokens_svc's short in-process cache. None means "call resolve()"."""
+    if token_matches(token, get_settings().token):
+        return access.OWNER
+    if not token.startswith("kist_") or len(token) > 200:
+        return None
+    from .services import tokens as tokens_svc
+
+    return tokens_svc.cached_principal(token)
+
+
 def require_scope(scope: str):
     """FastAPI dependency: the request's token must carry `scope` (admin
     covers every scope). BearerTokenMiddleware has already mapped the path to
@@ -116,12 +128,17 @@ class BearerTokenMiddleware:
 
         principal = None
         if token:
-            try:
-                principal = await run_in_threadpool(resolve, token)
-            except Exception:
-                log.exception("token lookup failed")
-                await _json(503, "Kist can't check that token right now")(scope, receive, send)
-                return
+            # the owner token and a recently checked named token need no
+            # I/O: answer them here, without a thread hop per request
+            principal = resolve_cached(token)
+            if principal is None:
+                try:
+                    principal = await run_in_threadpool(resolve, token)
+                except Exception:
+                    log.exception("token lookup failed")
+                    await _json(503, "Kist can't check that token right now")(
+                        scope, receive, send)
+                    return
         if principal is None:
             await _json(401, "invalid or missing token")(scope, receive, send)
             return

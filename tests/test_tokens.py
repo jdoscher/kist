@@ -104,6 +104,11 @@ def test_expired_tokens_are_refused(client):
     with SessionLocal() as s:
         s.execute(sa.update(ApiToken).values(expires_at=datetime.now(UTC) - timedelta(seconds=1)))
         s.commit()
+    # a database edit behind the app's back (no API changes expiry): the
+    # app's token cache would see it within CACHE_SECONDS; check it now
+    from kist.services import tokens as tokens_svc
+
+    tokens_svc.forget_cached()
     assert c.get("/api/items").status_code == 401
     assert c.post("/mcp", json={}, headers=MCP_HEADERS).status_code == 401
 
