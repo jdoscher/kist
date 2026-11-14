@@ -1085,6 +1085,34 @@ The aesthetic pass: one grey, one control language, one type system.
   idle).
 - **Cut-outs and memory:** a "Fine edges" cut-out needs about 8 GB for the ml service (`KIST_ML_MEM_LIMIT=8g`); below that it's shown but not offered, with the reason, instead of crashing the service. It's unloaded after each cut-out and its memory goes back to the system. The ml service's default memory limit is now 4 GB. A cut-out that brings the service down is tried three times, then fails with a plain reason instead of waiting for ever. Progress bars are neutral grey.
 
+### Performance at 17k+ items
+
+- **Thumbnails come straight from disk.** Every grid tile used to cost a
+  database round trip before its file was sent. Now the thumbnail and
+  cut-out preview routes find the file from the item id alone (the id's
+  format is checked first, so nothing else reaches the file system) and
+  read it in one go; only a folder-limited read token still has each item
+  checked against its folders (trashed items and other folders stay 404).
+  On a 20,000-item library with real thumbnails, 300 thumbnails from 30
+  connections: **455–487 → 2,220–2,290 thumbnails/s, median 59–62 → 12.5 ms,
+  p95 106–123 → 15–16 ms**. A versioned thumbnail URL (`?v=`) is now cached
+  for good whenever the exact size exists, without checking the version
+  against the database (a stand-in size is still revalidated).
+- **Named tokens no longer cost a database query per request.** The
+  principal a `kist_` token stands for is kept in memory for 5 seconds;
+  creating, revoking or removing a token and any folder change clear it at
+  once. With a named read token the same test went from 391–405 to
+  2,210–2,300 thumbnails/s (without the cache: about 1,050). The owner
+  token is now checked without a thread hop.
+- Database connections: measured, left as they were. Under 30 concurrent
+  item, history and list requests, a pool of 15 or 30 connections or
+  turning off the pre-ping changed nothing beyond noise; the app process,
+  not the pool, is what those requests wait for.
+- New bench tools: `scripts/bench/thumbs.py` (thumbnail p50/p95/throughput
+  per size; refuses kist.example.com unless `--read-only-prod`, GETs only) and
+  `scripts/bench/thumb_pool.py` (gives a make_library library real
+  thumbnails); see `scripts/bench/README.md`.
+
 ## [1.5.0] - 2026-11-09
 
 A hardening release. Kist was reviewed for security, data integrity,

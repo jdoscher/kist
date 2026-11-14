@@ -27,6 +27,7 @@ from ..schemas import JobOut
 from ..services import ai
 from ..services import jobs as jobs_svc
 from . import items as items_api
+from . import thumbfiles
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
@@ -87,7 +88,9 @@ def job_image(
     """The thumbnail a claimed job runs on (512 px for embed, the 2048 px
     screen copy for OCR). Only the helper holding the job may fetch it."""
     item_id, size = ai.helper_job_image(session, job_id, _helper_name(request, x_kist_helper))
-    return items_api.get_thumb(item_id, session, size=size)
+    items_api.items_svc.get_item(session, item_id)
+    _, names = thumbfiles.thumb_candidates(size)
+    return thumbfiles.file_response(thumbfiles.item_dir(item_id), names, None)
 
 
 @router.post("/jobs/{job_id}/result", response_model=JobOut,

@@ -45,3 +45,23 @@ searches (`--semantic "words"` adds a meaning search when the ml service
 runs), stats, tags list, sidebar folders and smart folders, timeline and map
 clusters. Like the web grid it sends `stacks=collapse` (`--no-stacks` to
 leave it out); `--only buckets` runs a subset.
+
+## Thumbnails (perf P1)
+
+make_library's thumbnails are one 64 px WebP. For realistic bytes, link a
+pool of real thumbnails into every item directory first (`--set-dims` also
+gives the synthetic items the pool entries' shapes):
+
+```bash
+python scripts/bench/thumb_pool.py --library /tmp/kist-bench-lib \
+    --pool ~/kist-perf-data/thumbpool --set-dims
+python scripts/bench/thumbs.py --url http://localhost:8080 --token "$KIST_TOKEN" \
+    --concurrency 30 --n 300 --out thumbs-20k
+```
+
+`thumbs.py` lists items like the grid and fetches `--n` thumbnails per size
+from `--concurrency` keep-alive connections: p50/p95/max, wall time,
+requests/s, MB/s, average size. It refuses kist.example.com unless
+`--read-only-prod` (GETs only, capped at 300 requests from 30 connections).
+Run it once with the owner token and once with a named token to see what
+the token check costs.

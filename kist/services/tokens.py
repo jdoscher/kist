@@ -10,6 +10,7 @@ import hashlib
 import json
 import logging
 import secrets
+import time
 from datetime import UTC, datetime, timedelta
 
 import sqlalchemy as sa
@@ -128,6 +129,7 @@ def create(
     )
     session.add(token)
     session.commit()
+    forget_cached()
     sync_file(session)
     return token, plaintext
 
@@ -143,6 +145,7 @@ def revoke(session: Session, token_id: str) -> ApiToken:
     if token.revoked_at is None:
         token.revoked_at = datetime.now(UTC)
         session.commit()
+        forget_cached()
         sync_file(session)
     return token
 
@@ -158,6 +161,7 @@ def remove(session: Session, token_id: str) -> None:
         raise StillActive(token.name)
     session.delete(token)
     session.commit()
+    forget_cached()
     sync_file(session)
 
 
@@ -173,9 +177,61 @@ def visible_folders(session: Session, folder_ids: list[str]) -> frozenset[str]:
     return frozenset(session.execute(sa.select(tree.c.id)).scalars())
 
 
+# ---------- the in-process principal cache ----------
+# A named token used to cost a database query on every request, so a grid
+# of thumbnails paid one per image: 1,050 thumbnails/s with a named read
+# token against 2,250 with the owner token (20k items, 30 connections,
+# scripts/bench/thumbs.py, 2026-11-14); cached, both run at 2,250. The
+# principal a token stands for is kept for CACHE_SECONDS, keyed by the
+# token's SHA-256 (never the plaintext). Creating, revoking or removing a
+# token, restoring tokens.json and every folder create/move/delete
+# (visible_folders of a folder-limited reader) clear the cache at once in
+# this process. Kist serves HTTP from one process (the worker serves none),
+# so that is every request; another process that authenticated a token
+# would see a change within CACHE_SECONDS. Only successful lookups are
+# kept: a token made a moment ago works right away, and a wrong one is
+# looked up every time. An entry never outlives the token's expires_at.
+CACHE_SECONDS = 5.0
+CACHE_MAX = 256
+_cache: dict[str, tuple[float, Principal]] = {}
+
+
+def forget_cached() -> None:
+    """Drop every cached principal (tokens or folders changed)."""
+    _cache.clear()
+
+
+def cached_principal(plaintext: str) -> Principal | None:
+    """The cached principal for a named token, or None (look it up)."""
+    key = digest(plaintext)
+    hit = _cache.get(key)
+    if hit is None:
+        return None
+    until, principal = hit
+    if time.monotonic() >= until or (
+        principal.expires_at is not None and principal.expires_at <= datetime.now(UTC)
+    ):
+        _cache.pop(key, None)
+        return None
+    return principal
+
+
+def _remember(plaintext: str, principal: Principal) -> None:
+    if len(_cache) >= CACHE_MAX:
+        _cache.clear()
+    _cache[digest(plaintext)] = (time.monotonic() + CACHE_SECONDS, principal)
+
+
 def authenticate(session: Session, plaintext: str) -> Principal | None:
     """The principal for a named token, or None if it is unknown, revoked
-    or expired."""
+    or expired. Successful answers are cached briefly (see above)."""
+    principal = _authenticate(session, plaintext)
+    if principal is not None:
+        _remember(plaintext, principal)
+    return principal
+
+
+def _authenticate(session: Session, plaintext: str) -> Principal | None:
     token = session.execute(
         sa.select(ApiToken).where(ApiToken.token_sha256 == digest(plaintext))
     ).scalar_one_or_none()
@@ -274,6 +330,7 @@ def restore(session: Session) -> tuple[int, str | None]:
             )
             restored += 1
         session.commit()
+        forget_cached()
         return restored, None
     except (OSError, ValueError, KeyError, TypeError) as exc:
         session.rollback()

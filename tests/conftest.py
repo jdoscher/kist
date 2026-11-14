@@ -51,6 +51,9 @@ def clean(database):
 
     with engine.begin() as conn:
         conn.execute(sa.text(f"TRUNCATE {TABLES} RESTART IDENTITY CASCADE"))
+    from kist.services import tokens as tokens_svc
+
+    tokens_svc.forget_cached()  # (tokens were just truncated behind its back)
     for child in LIBRARY.iterdir():
         if child.is_dir():
             shutil.rmtree(child)

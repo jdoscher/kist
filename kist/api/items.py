@@ -33,12 +33,14 @@ from ..schemas import (
     TagsPut,
     UrlAdd,
 )
-from ..services import captions, colour, ingest, search, thumbs, validation
+from ..services import captions, colour, ingest, search, validation
 from ..services import events as events_svc
 from ..services import items as items_svc
 from ..services import jobs as jobs_svc
 from ..services import links as links_svc
 from ..services import provenance as provenance_svc
+from . import thumbfiles
+from .thumbfiles import CACHE_FOREVER, CACHE_REVALIDATE  # noqa: F401 (other routes)
 
 # Errors: items_svc.NotFound -> 404, validation.ValidationError -> 422,
 # TransitionError -> 409, items_svc.Conflict -> 409 with the current item,
@@ -490,42 +492,19 @@ def get_file(item_id: str, session: Annotated[Session, Depends(get_session)]):
     )
 
 
-# Previews change only when preview_rev does, and every URL the UI builds
-# carries ?v=<preview_rev>, so a versioned request can be cached for good.
-# Originals never change at all. Both are private: they sit behind the token.
-CACHE_FOREVER = "private, max-age=31536000, immutable"
-CACHE_REVALIDATE = "private, no-cache"
-
-
 @router.get("/{item_id}/thumb")
-def get_thumb(
-    item_id: str,
-    session: Annotated[Session, Depends(get_session)],
-    size: int = 256,
-    v: int | None = None,
-):
+async def get_thumb(item_id: str, size: int = 256, v: int | None = None):
     """size 256 | 512 | 1024 thumbnails; 2048 is the full-screen copy and
     4096 the full-resolution HEIC copy. A missing copy falls back to the next
-    smaller one, and that answer is never cached for good."""
-    item = items_svc.get_item(session, item_id)
-    item_dir = get_settings().items_dir / item.id
-    if size > 2048:
-        wanted = ["display.webp", thumbs.SCREEN_FILE, "thumb_1024.webp"]
-    elif size > 1024:
-        wanted = [thumbs.SCREEN_FILE, "display.webp", "thumb_1024.webp"]
-    else:
-        size = 256 if size <= 256 else 512 if size <= 512 else 1024
-        wanted = [f"thumb_{size}.webp"] + (["thumb_1024.webp"] if size == 512 else [])
-    for n, name in enumerate(wanted):
-        path = item_dir / name
-        if path.is_file():
-            exact = n == 0 and v is not None and v == (item.preview_rev or 0)
-            return FileResponse(
-                path,
-                media_type="image/webp",
-                headers={"Cache-Control": CACHE_FOREVER if exact else CACHE_REVALIDATE},
-            )
-    raise HTTPException(404, "no thumbnail for this item")
+    smaller one, and that answer is never cached for good.
+
+    No database round trip unless the caller is a folder-limited reader
+    (api/thumbfiles.py): async, the stat runs on the event loop and the
+    read is one worker-thread hop."""
+    directory = thumbfiles.item_dir(item_id)
+    await thumbfiles.check_visible(item_id)
+    _, names = thumbfiles.thumb_candidates(size)
+    return await thumbfiles.send_file(directory, names, v)
 
 
 @router.get("/{item_id}/history", response_model=list[EventOut])

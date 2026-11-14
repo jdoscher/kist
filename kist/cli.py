@@ -316,6 +316,7 @@ def rebuild_index(wipe: bool) -> int:
                 # tokens come back from tokens.json just below
                 session.execute(sa.delete(ApiToken))
             session.commit()
+            tokens_svc.forget_cached()
 
         from .services import shares as shares_svc
 

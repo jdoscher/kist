@@ -26,9 +26,9 @@ def test_thumbnails_cache_forever_only_when_versioned(client, upload):
     assert item["thumb_url"].endswith(f"?v={v}")
     url = f"/api/items/{item['id']}/thumb"
     assert client.get(f"{url}?size=512&v={v}").headers["cache-control"] == FOREVER
-    # no version, or an old one: the browser has to check back
+    # no version: the browser has to check back
     assert client.get(f"{url}?size=512").headers["cache-control"] == "private, no-cache"
-    assert client.get(f"{url}?size=512&v={v + 1}").headers["cache-control"] == "private, no-cache"
+    # (P1: any v is cached once the exact file exists; tests/test_perf_p1.py)
     screen = client.get(f"{url}?size=2048&v={v}")
     assert screen.status_code == 200 and screen.headers["cache-control"] == FOREVER
     from PIL import Image
