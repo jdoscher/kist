@@ -1028,6 +1028,8 @@ GET    /api/items                q, tags (csv, all; a tag also matches through a
                                  stack's best-ranked member), person (a person id),
                                  flag (pick | reject | none), label (a colour | none),
                                  view (unfiled: no folder and no tags),
+                                 fields=grid (slim items with only what the web grid
+                                 needs; GET /api/items/{id} has the rest),
                                  folder (id, subfolders included; or "none"), type, rating, order,
                                  state (active | trashed; deleted=true still works),
                                  preview_status, fixity (failed), created_after,

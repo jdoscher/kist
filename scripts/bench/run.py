@@ -21,6 +21,8 @@ What it times (each case: one warm-up, then --runs timed requests):
   adds a meaning search when the ml service runs)
 - tags list, sidebar folders + smart folders, timeline (month, day), map
   clusters (world and one city)
+- --grid: every list case again with fields=grid, the slim list the web grid
+  asks for since the 2.0 performance work (cases named "... [grid]")
 Only the standard library is used.
 """
 
@@ -209,6 +211,9 @@ def main(argv=None) -> int:
     p.add_argument("--no-stacks", action="store_true",
                    help="don't send stacks=collapse (the web grid sends it outside the trash)")
     p.add_argument("--only", default=None, help="only cases whose name contains this")
+    p.add_argument("--grid", action="store_true",
+                   help="also time every /api/items list case with fields=grid "
+                        "(the web grid's slim list)")
     p.add_argument("--out", default="bench", help="writes <out>.json and <out>.md")
     p.add_argument("--timeout", type=float, default=120)
     p.add_argument("--any-library", action="store_true",
@@ -240,6 +245,11 @@ def main(argv=None) -> int:
                             else [*params, ("stacks", "collapse")])
                   if path.startswith("/api/items") else params)
                  for n, path, params in cases]
+
+    if args.grid:  # the web grid's slim list (P4): same pages, fewer fields
+        cases += [(f"{n} [grid]", path, dict(params, fields="grid"))
+                  for n, path, params in list(cases)
+                  if path == "/api/items" and isinstance(params, dict) and "ids" not in params]
 
     results = []
     for name, path, params in cases:

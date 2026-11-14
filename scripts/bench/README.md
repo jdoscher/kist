@@ -44,4 +44,5 @@ filters, keyword, text-in-image, colour and more-like-this (pgvector)
 searches (`--semantic "words"` adds a meaning search when the ml service
 runs), stats, tags list, sidebar folders and smart folders, timeline and map
 clusters. Like the web grid it sends `stacks=collapse` (`--no-stacks` to
-leave it out); `--only buckets` runs a subset.
+leave it out); `--only buckets` runs a subset; `--grid` times every list case
+again with `fields=grid` (the web grid's slim list, cases named `[grid]`).

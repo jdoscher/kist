@@ -90,6 +90,52 @@ export interface Item {
   place?: string | null
 }
 
+/**
+ * A list item as the grid gets it (GET /api/items?fields=grid; Kist 2.0
+ * performance work P4, kist/schemas.py GridItemOut): what tiles, selection,
+ * bulk actions, keyboard navigation, stacks and the scrubber read. The rest
+ * of an item (notes, caption, source, provenance, media blocks, custom
+ * fields ...) comes from GET /api/items/{id}: useItem() in data.ts fetches it
+ * for the info panel, the phone sheet and the full-screen preview. A full
+ * Item is a GridItem too (edits patch full items into the lists).
+ *
+ * Narrowed on the way: `dominant_colors` holds the first colour only,
+ * `provenance` only the AI-made keys (when it is AI-made) and `media` only
+ * the `scrub` and `cutout` blocks.
+ */
+export type GridItem = Pick<
+  Item,
+  | 'id'
+  | 'filename'
+  | 'ext'
+  | 'mime'
+  | 'kind'
+  | 'size_bytes'
+  | 'width'
+  | 'height'
+  | 'duration_s'
+  | 'dominant_colors'
+  | 'thumbhash'
+  | 'folder_ids'
+  | 'tags'
+  | 'rating'
+  | 'protected'
+  | 'flag'
+  | 'label'
+  | 'state'
+  | 'preview_status'
+  | 'preview_rev'
+  | 'has_thumb'
+  | 'created_at'
+  | 'modified_at'
+  | 'taken_at'
+  | 'match'
+  | 'stack_id'
+  | 'stack_count'
+  | 'provenance'
+  | 'media'
+>
+
 /** Why an item is in a ranked (or keyword) search. The snippet marks the
  * matched words <<like this>>. */
 export interface Match {
@@ -98,8 +144,8 @@ export interface Match {
   snippet?: string | null
 }
 
-export interface ItemPage {
-  items: Item[]
+export interface ItemPage<T extends GridItem = Item> {
+  items: T[]
   next_cursor: string | null
   total: number | null
   /** the client fell back to words only (the AI service didn't answer) */
@@ -512,17 +558,25 @@ function itemsUrl(query: Query, cursor?: string, limit = 120): string {
   return `/api/items?${itemsParams(query, cursor, limit)}`
 }
 
+/** The grid's list pages: the same page with slim items (P4). */
+function gridUrl(query: Query, cursor?: string, limit = 120): string {
+  const p = itemsParams(query, cursor, limit)
+  p.set('fields', 'grid')
+  return `/api/items?${p}`
+}
+
 export const api = {
   health: () => request<{ status: string }>('/api/health'),
   version: () => request<{ version: string; commit: string }>('/api/version'),
-  listItems: async (query: Query, cursor?: string): Promise<ItemPage> => {
+  /** The grid's list: slim items (GridItem, fields=grid). */
+  listItems: async (query: Query, cursor?: string): Promise<ItemPage<GridItem>> => {
     if (query.image) return searchByImage(query, cursor)
     try {
-      return await request<ItemPage>(itemsUrl(query, cursor))
+      return await request<ItemPage<GridItem>>(gridUrl(query, cursor))
     } catch (e) {
       // words + meaning while the AI service is down: the words alone
       if (e instanceof ApiError && e.status === 503 && query.semantic && query.q) {
-        const page = await request<ItemPage>(itemsUrl({ ...query, semantic: '' }, cursor))
+        const page = await request<ItemPage<GridItem>>(gridUrl({ ...query, semantic: '' }, cursor))
         return { ...page, degraded: 'meaning' }
       }
       throw e
@@ -538,8 +592,8 @@ export const api = {
   },
   /** One page of the list from a cursor (a bucket's, for a scrubber jump),
    * with its own page size (the server allows up to 500). */
-  listItemsFrom: (query: Query, cursor: string, limit = 120): Promise<ItemPage> =>
-    request<ItemPage>(itemsUrl(query, cursor || undefined, Math.min(500, Math.max(1, limit)))),
+  listItemsFrom: (query: Query, cursor: string, limit = 120): Promise<ItemPage<GridItem>> =>
+    request<ItemPage<GridItem>>(gridUrl(query, cursor || undefined, Math.min(500, Math.max(1, limit)))),
   getItem: (id: string) => request<Item>(`/api/items/${id}`),
   /** base_modified_at: the item's modified_at as last seen; the server
    * answers 409 (conflictItem) if someone else changed it since */
@@ -622,13 +676,14 @@ export const api = {
 }
 
 /** POST /api/search/image with the image kept for this tab (imageSearch.ts). */
-async function searchByImage(query: Query, cursor?: string): Promise<ItemPage> {
+async function searchByImage(query: Query, cursor?: string): Promise<ItemPage<GridItem>> {
   const blob = query.image ? imageFor(query.image) : undefined
   if (!blob) throw new ApiError(410, 'The image you searched with isn’t kept after a reload: drop or paste it again')
   const form = new FormData()
   form.append('file', blob, 'search-image')
   const p = itemsParams({ ...query, image: null }, cursor)
-  return request<ItemPage>(`/api/search/image?${p}`, { method: 'POST', body: form }, 60_000)
+  p.set('fields', 'grid')
+  return request<ItemPage<GridItem>>(`/api/search/image?${p}`, { method: 'POST', body: form }, 60_000)
 }
 
 export function uploadFile(
@@ -673,7 +728,7 @@ export function uploadFile(
   })
 }
 
-export function thumbUrl(item: Item, size: 256 | 512 | 1024 = 256): string | null {
+export function thumbUrl(item: Pick<Item, 'id' | 'has_thumb' | 'preview_rev'>, size: 256 | 512 | 1024 = 256): string | null {
   if (!item.has_thumb) return null
   // versioned, so the server lets the browser keep it for good
   return `/api/items/${item.id}/thumb?size=${size}&v=${item.preview_rev}`

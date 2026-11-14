@@ -1,7 +1,7 @@
 import { ExternalLink, Lock, LockOpen, Maximize2, Star, X } from 'lucide-react'
 import { useId, useMemo, useState } from 'react'
 import { api, fileUrl, thumbUrl, type Item } from '../api'
-import { useCaps, useCurrentItems, useFolderNames, useFolders, useItem, useStats, useVersion } from '../data'
+import { useCaps, useCurrentItems, useFolderNames, useFolders, useShownItem, useStats, useVersion } from '../data'
 import { fmtBytes } from '../format'
 import { useAppState } from '../state'
 import { usePresence } from '../motion'
@@ -315,7 +315,7 @@ export function DetailPanel() {
   const selected = useMemo(() => items.filter((i) => selection.has(i.id)), [items, selection])
   // one item that isn't in the loaded grid (opened from a link): fetch it
   const onlyId = selection.size === 1 ? [...selection][0] : null
-  const single = useItem(onlyId, items)
+  const single = useShownItem(onlyId, items)
   const caps = useCaps()
 
   // gallery density tucks the panel away unless Panels is on; closing

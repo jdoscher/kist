@@ -152,6 +152,104 @@ class ItemOut(BaseModel):
         return out
 
 
+# GET /api/items?fields=grid (Kist 2.0 performance work, P4): what the web
+# grid, selection, bulk actions, keyboard navigation, stacks and tile
+# badges read from a list item, and nothing else. Everything else (notes,
+# caption, provenance, media blocks, custom fields, source_* ...) comes from
+# GET /api/items/{id} when an item is opened or selected. web/src/api.ts
+# types the same shape (GridItem); keep the two in step.
+GRID_MEDIA_KEYS = ("scrub", "cutout")  # video scrub-on-hover, cut-out tiles
+GRID_PROVENANCE_KEYS = ("ai_generated", "ai_generator", "c2pa", "digital_source_type")  # AI badge
+
+
+class GridItemOut(BaseModel):
+    id: str
+    filename: str
+    ext: str
+    mime: str
+    kind: str
+    size_bytes: int
+    width: int | None
+    height: int | None
+    duration_s: float | None
+    # the first (dominant) colour only: the placeholder without a ThumbHash
+    # and the colour-search badge
+    dominant_colors: list[dict[str, Any]] | None
+    thumbhash: str | None = None
+    folder_ids: list[str]
+    tags: list[str]
+    rating: int
+    protected: bool = False
+    flag: str | None = None
+    label: str | None = None
+    state: str
+    preview_status: str
+    preview_rev: int
+    has_thumb: bool
+    created_at: datetime
+    modified_at: datetime
+    taken_at: datetime | None = None
+    match: MatchOut | None = None
+    stack_id: str | None = None
+    stack_count: int | None = None
+    # only the AI-made keys, and only when it is AI-made
+    provenance: dict[str, Any] = {}
+    # only the scrub sprite and cut-out blocks
+    media: dict[str, Any] | None = None
+
+    @classmethod
+    def from_item(cls, item: Item, match: dict | None = None) -> "GridItemOut":
+        from .services.stacks import count_for
+
+        status = item.preview_status or PreviewStatus.PENDING
+        has_thumb = status == PreviewStatus.READY or (
+            status == PreviewStatus.PENDING and item.width is not None
+        )
+        prov = item.provenance or {}
+        media = item.media or {}
+        colours = item.dominant_colors
+        return cls(
+            id=item.id,
+            filename=item.filename,
+            ext=item.ext,
+            mime=item.mime,
+            kind=kind_for(item.mime, item.ext),
+            size_bytes=item.size_bytes,
+            width=item.width,
+            height=item.height,
+            duration_s=item.duration_s,
+            dominant_colors=colours[:1] if colours else colours,
+            thumbhash=item.thumbhash or None,
+            folder_ids=sorted(access.visible_folder_filter(f.id for f in item.folders)),
+            tags=sorted(t.name for t in item.tags),
+            rating=item.rating,
+            protected=bool(item.protected),
+            flag=item.flag,
+            label=item.label,
+            state=item_state(item).value,
+            preview_status=str(status),
+            preview_rev=item.preview_rev or 0,
+            has_thumb=has_thumb,
+            created_at=item.created_at,
+            modified_at=item.modified_at,
+            taken_at=item.taken_at,
+            match=MatchOut(**match) if match else None,
+            stack_id=item.stack_id,
+            stack_count=count_for(item),
+            provenance=(
+                {k: prov[k] for k in GRID_PROVENANCE_KEYS if prov.get(k) is not None}
+                if prov.get("ai_generated") is True else {}
+            ),
+            media={k: media[k] for k in GRID_MEDIA_KEYS if k in media} or None,
+        )
+
+
+class GridItemPage(BaseModel):
+    items: list[GridItemOut]
+    next_cursor: str | None
+    total: int | None = None
+
+
 def _m4_fields(item: Item) -> dict[str, Any]:
     from .services.provenance import out as provenance_out
 

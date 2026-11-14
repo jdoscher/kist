@@ -5,7 +5,7 @@ import { AiBadge } from './credits/Credits' // F4
 import { creditsTileLabel } from '../credits'
 import { Check, File, FileText, Film, Hourglass, Image as ImageIcon, Lock, Star, TriangleAlert, type LucideIcon } from 'lucide-react'
 import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { emptyQuery, thumbUrl, type Item } from '../api'
+import { emptyQuery, thumbUrl, type GridItem } from '../api'
 import { fmtDuration, tileLabel } from '../format'
 import {
   feedRows,
@@ -111,19 +111,19 @@ const Tile = memo(function Tile({
   /** a closed stack's entry: drawn with a second sheet behind it (B16) */
   stacked?: boolean
   matchBadge?: boolean
-  onStackClick?: (item: Item) => void
-  onContextMenu?: (item: Item, e: React.MouseEvent) => void
-  item: Item
+  onStackClick?: (item: GridItem) => void
+  onContextMenu?: (item: GridItem, e: React.MouseEvent) => void
+  item: GridItem
   width: number
   height: number
   selected: boolean
   tabbable: boolean
   index: number
   total: number
-  onPointerDown: (item: Item, e: React.MouseEvent) => void
-  onDoubleClick: (item: Item) => void
-  onDragStart: (item: Item, e: React.DragEvent) => void
-  onFocus: (item: Item) => void
+  onPointerDown: (item: GridItem, e: React.MouseEvent) => void
+  onDoubleClick: (item: GridItem) => void
+  onDragStart: (item: GridItem, e: React.DragEvent) => void
+  onFocus: (item: GridItem) => void
   draggable: boolean
 }) {
   // tiles are cover-cropped, so pick the thumb that covers the tile at the
@@ -277,9 +277,9 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
     }
     return out
   }, [items, expanded])
-  const [ctxMenu, setCtxMenu] = useState<{ item: Item; x: number; y: number } | null>(null)
+  const [ctxMenu, setCtxMenu] = useState<{ item: GridItem; x: number; y: number } | null>(null)
   const onTileContextMenu = useCallback(
-    (item: Item, e: React.MouseEvent) => {
+    (item: GridItem, e: React.MouseEvent) => {
       e.preventDefault()
       if (!selection.has(item.id)) selectOnly(item.id)
       const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
@@ -544,7 +544,7 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
   }, [flatIds, focusedId])
 
   const handlePointerDown = useCallback(
-    (item: Item, e: React.MouseEvent) => {
+    (item: GridItem, e: React.MouseEvent) => {
       if (e.button !== 0) return
       setFocusedId(item.id)
       if (e.shiftKey) rangeSelect(item.id, flatIds)
@@ -555,7 +555,7 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
   )
 
   const handleDragStart = useCallback(
-    (item: Item, e: React.DragEvent) => {
+    (item: GridItem, e: React.DragEvent) => {
       const ids = selection.has(item.id) ? [...selection] : [item.id]
       e.dataTransfer.setData('application/x-kist-items', JSON.stringify(ids))
       e.dataTransfer.effectAllowed = 'move'
@@ -563,8 +563,8 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
     [selection],
   )
 
-  const openPreview = useCallback((item: Item) => setPreviewId(item.id), [setPreviewId])
-  const onTileFocus = useCallback((item: Item) => setFocusedId(item.id), [])
+  const openPreview = useCallback((item: GridItem) => setPreviewId(item.id), [setPreviewId])
+  const onTileFocus = useCallback((item: GridItem) => setFocusedId(item.id), [])
 
   /**
    * The grid's keys (a multi-select listbox): arrows move and select,

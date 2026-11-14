@@ -399,7 +399,7 @@ export function PrintCheck({ item }: { item: Item }) {
 // ---------- grid, sidebar, filters, settings ----------
 
 /** Bottom-left on a tile: AI-made, from metadata or the user's say-so. */
-export function AiBadge({ item }: { item: Item }) {
+export function AiBadge({ item }: { item: Pick<Item, 'provenance'> }) {
   if (!isAiMade(item.provenance)) return null
   return (
     <span className="badge cr-ai" aria-hidden="true" title={`AI-made: ${aiReason(item.provenance) ?? ''}`}>

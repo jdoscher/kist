@@ -4,8 +4,8 @@
 
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'react'
-import { api, emptyQuery, type Item, type Query } from './api'
-import { flattenUnique, needsRefetch, patchPages, type ItemsPages } from './cache'
+import { api, emptyQuery, type GridItem, type Item, type Query } from './api'
+import { flattenUnique, listIsNewer, needsRefetch, patchPages, type ItemsPages } from './cache'
 import { useNotices } from './components/Notices'
 import { isUnfiledView, stillMatches } from './query'
 import { markOnce, onceSeen } from './settings'
@@ -28,7 +28,7 @@ export function useItems(query: Query) {
   })
 }
 
-export function flattenItems(pages: { items: Item[] }[] | undefined): Item[] {
+export function flattenItems(pages: { items: GridItem[] }[] | undefined): GridItem[] {
   return flattenUnique(pages)
 }
 
@@ -171,25 +171,68 @@ export function useRefresh() {
  * can point at an item far down the list, or in another view). While its
  * preview is being made it is re-checked every few seconds (the one poll for
  * pending previews), and the answer is applied to every list. */
-export function useItem(id: string | null, loaded: Item[]): Item | undefined {
+/**
+ * The full item for an id (GET /api/items/{id}, cached as ['item', id]).
+ * Lists hold slim items (GridItem, fields=grid; P4), so the info panel, the
+ * phone sheet and the full-screen preview get the whole item here; it is
+ * undefined until it has arrived. Edits keep the cache current
+ * (useApplyItems writes every answer into ['item', id]); when the list
+ * knows a newer version than the cached copy (an edit from elsewhere, a
+ * preview that finished) it is fetched again. While its preview is pending
+ * it is polled, and the lists get the finished item.
+ */
+export function useItem(id: string | null, loaded: GridItem[]): Item | undefined {
   const found = id ? loaded.find((i) => i.id === id) : undefined
   const apply = useApplyItems()
   const fetched = useQuery({
     queryKey: ['item', id],
     queryFn: () => api.getItem(id as string),
-    enabled: !!id && (!found || found.preview_status === 'pending'),
+    enabled: !!id,
     retry: false,
+    // selecting the same item again within a minute uses the copy edits kept current
+    staleTime: 60_000,
     refetchInterval: (q) =>
       (q.state.data ?? found)?.preview_status === 'pending' ? PENDING_POLL_MS : false,
   })
-  const fresh = fetched.data
-  const settled = !!found && found.preview_status === 'pending' && !!fresh && fresh.id === found.id && fresh.preview_status !== 'pending'
+  const fresh = fetched.data && fetched.data.id === id ? fetched.data : undefined
+  const behind = !!found && !!fresh && listIsNewer(found, fresh)
+  const { refetch, isFetching } = fetched
+  useEffect(() => {
+    if (behind && !isFetching) void refetch()
+  }, [behind]) // eslint-disable-line react-hooks/exhaustive-deps
+  const settled = !!found && found.preview_status === 'pending' && !!fresh && fresh.preview_status !== 'pending'
   useEffect(() => {
     if (settled && fresh) apply([fresh])
   }, [settled, fresh, apply])
   if (!id) return undefined
-  return found ?? fresh
+  return fresh
 }
+
+/**
+ * useItem for a view that stays open while its id changes (info panel,
+ * phone sheet, full-screen preview): until the new item's full copy has
+ * arrived (a few ms; usually already cached) the previous one stays, so the
+ * view doesn't blink out and back in.
+ */
+export function useShownItem(id: string | null, loaded: GridItem[]): Item | undefined {
+  const full = useItem(id, loaded)
+  const last = useRef<Item | undefined>(undefined)
+  if (!id) last.current = undefined
+  else if (full) last.current = full
+  return id ? (full ?? last.current) : undefined
+}
+
+/** Fetch these items' full copies ahead (the preview's neighbours), so
+ * stepping to them shows at once. */
+export function usePrefetchItems(ids: (string | undefined)[]) {
+  const qc = useQueryClient()
+  const key = ids.filter(Boolean).join(',')
+  useEffect(() => {
+    for (const id of key ? key.split(',') : [])
+      void qc.prefetchQuery({ queryKey: ['item', id], queryFn: () => api.getItem(id), staleTime: 60_000, retry: false })
+  }, [qc, key])
+}
+
 
 export function useJobs(enabled: boolean) {
   return useQuery({

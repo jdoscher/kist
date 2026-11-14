@@ -19,7 +19,7 @@ from starlette.datastructures import UploadFile
 from ..db import get_session
 from ..schemas import SearchPage
 from ..services import ai, search
-from .items import page_out, search_filters
+from .items import Fields, grid_page_response, page_out, search_filters
 
 router = APIRouter(prefix="/search", tags=["search"])
 
@@ -31,6 +31,7 @@ async def search_by_image(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     filters: Annotated[dict, Depends(search_filters)],
+    fields: Fields = None,  # grid: slim items, as GET /api/items?fields=grid
 ):
     declared = request.headers.get("content-length", "")
     if declared.isdigit() and int(declared) > MAX_IMAGE_BYTES + 64 * 1024:
@@ -53,5 +54,7 @@ async def search_by_image(
     result = await run_in_threadpool(
         lambda: search.search(session, image_vector=vec, **filters)
     )
+    if fields == "grid":
+        return grid_page_response(result)
     page = page_out(result)
     return SearchPage(items=page.items, next_cursor=page.next_cursor, total=page.total)

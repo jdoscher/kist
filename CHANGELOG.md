@@ -1100,6 +1100,19 @@ The aesthetic pass: one grey, one control language, one type system.
   became 104 and 5 MB, and the screen you stop on is complete after 0.8 s
   instead of 3.7 s. Keyboard, selection, layouts and reduced motion work
   as before.
+- **A lighter grid list.** The grid now asks for only what its tiles,
+  selection, stacks and badges show (`GET /api/items?fields=grid`, also on
+  search by image); notes, captions, sources, credits, camera data and the
+  rest come with the item when you select or open it (the full-screen
+  preview fetches its neighbours ahead). Pages, order, totals and cursors
+  are the same as before. A page of the real library goes from about
+  1.6 KB to 0.7 KB per item (59 % less); on a synthetic 20,000-item library
+  a 120-item page goes from 26 KB to 13 KB as sent (gzipped). List times
+  drop a little (first page 46 → 36 ms at 20,000 items, a scrubber jump's
+  300-item page 104 → 90 ms at 250,000), and a date-scrubber jump is
+  complete after about 0.54 s instead of 0.65 s. Without `fields` the API,
+  MCP and extension answers are unchanged; edits still check
+  `base_modified_at` against the item you opened.
 
 ## [1.5.0] - 2026-11-09
 
