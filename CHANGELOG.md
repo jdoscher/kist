@@ -1085,6 +1085,22 @@ The aesthetic pass: one grey, one control language, one type system.
   idle).
 - **Cut-outs and memory:** a "Fine edges" cut-out needs about 8 GB for the ml service (`KIST_ML_MEM_LIMIT=8g`); below that it's shown but not offered, with the reason, instead of crashing the service. It's unloaded after each cut-out and its memory goes back to the system. The ml service's default memory limit is now 4 GB. A cut-out that brings the service down is tried three times, then fails with a plain reason instead of waiting for ever. Progress bars are neutral grey.
 
+### Performance at 17k+ items
+
+- **The grid stops downloading what flies past.** While you scroll fast
+  (above about two screens a second) tiles show their blurred placeholder
+  and ask for nothing; when you slow down or stop (after ~0.12 s) the tiles
+  on screen load first, the rows just off screen after them. A thumbnail
+  still loading when its tile scrolls away is cancelled instead of
+  finishing in the background, and a date-scrubber jump loads where it
+  lands, not the months it passed. Measured on a 20,000-item library over
+  3 s of fast scrolling: on a desktop window 488 thumbnail requests and
+  31 MB became 227 and 11 MB (frame-by-frame scrolling at the same speed:
+  455 and 31 MB became 81 and 5 MB); on a phone 483 requests and 32 MB
+  became 104 and 5 MB, and the screen you stop on is complete after 0.8 s
+  instead of 3.7 s. Keyboard, selection, layouts and reduced motion work
+  as before.
+
 ## [1.5.0] - 2026-11-09
 
 A hardening release. Kist was reviewed for security, data integrity,
