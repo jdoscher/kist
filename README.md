@@ -786,7 +786,10 @@ parent loop is restored at the top level, and each of these is printed with
   It also adds the 2048 px full-screen copy to older images that lack one,
   without touching their other previews. `--thumbhash-only` just adds missing
   ThumbHash placeholders (the worker also does this in the background);
-  `--colors-only` just recomputes palettes (after upgrading to 2.0).
+  `--colors-only` just recomputes palettes (after upgrading to 2.0);
+  `--thumbs-only` re-encodes thumbnails made with an older encoder (2.0 makes
+  them about 20 % lighter), prints a progress line every 200 items
+  (`--progress-every N`) and skips what's done, so it's safe to stop and re-run.
 - `kist backup`: dumps the database to `library/.kist/db.sql.gz`, then runs
   `restic backup` of the library to `KIST_BACKUP_REPO` (creating the
   repository on first use) and records the result in `library/.kist/backup.json`.

@@ -43,6 +43,7 @@ In this order:
       echo "== geo-download"; kist geo-download;
       echo "== media-backfill"; kist media-backfill;
       echo "== colors"; kist regen-previews --colors-only;
+      echo "== thumbnails"; kist regen-previews --thumbs-only;
       echo "== ai-backfill"; kist ai-backfill;
       echo "== verify"; kist verify;
       echo "== ALL DONE") > /library/upgrade.log 2>&1'
@@ -56,6 +57,9 @@ In this order:
     100,000 items (set `KIST_AI_WINDOW=01:00-06:00` to keep that at night).
     Watch progress with
     `docker compose exec worker sh -c 'find /library/items -name meta.json -mmin -2 | wc -l'`.
+    `regen-previews --thumbs-only` is the exception: it prints a progress line
+    with a time estimate every 200 items (`grep thumbnails: library/upgrade.log
+    | tail -n 1`); expect roughly 2–3 hours per 17,000 items on an N100.
 
 6. **New files to back up** with the library: `items/*/ai/`, `boards/`,
    `vocabulary.json`, `.kist/` (tokens, people, templates, shares, export

@@ -15,6 +15,18 @@ def main(argv: list[str]) -> int:
         original, item_dir, ext = argv[1:]
         thumbs.screen_copy_from(Path(original), Path(item_dir), ext)
         return 0
+    if argv and argv[0] == "--thumbs-batch":
+        # perf P3 backfill (services/thumb_backfill.py): one JSON line
+        # [source, item_dir] per item on stdin, one {"i", "error"} line out
+        for i, line in enumerate(sys.stdin.read().splitlines()):
+            source, item_dir = json.loads(line)
+            try:
+                thumbs.make_thumbs_from(Path(source), Path(item_dir), mark=False)
+                error = None
+            except Exception as exc:
+                error = str(exc)[-500:] or type(exc).__name__
+            print(json.dumps({"i": i, "error": error}), flush=True)
+        return 0
     original, item_dir, mime, ext = argv[:4]
     options = json.loads(argv[4]) if len(argv) > 4 else None
     probe = thumbs.generate_previews(Path(original), Path(item_dir), mime, ext, options)

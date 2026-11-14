@@ -1112,6 +1112,29 @@ The aesthetic pass: one grey, one control language, one type system.
   per size; refuses kist.example.com unless `--read-only-prod`, GETs only) and
   `scripts/bench/thumb_pool.py` (gives a make_library library real
   thumbnails); see `scripts/bench/README.md`.
+- **Lighter thumbnails.** Grid thumbnails are now WebP quality 80 (was 86):
+  on 40 of the owner's own originals (iPhone photos, photos, screenshots,
+  product shots on white, illustrations, wallpapers) thumb_512 went from
+  54.1 to 43.3 KB (−20 %) and thumb_1024 from 89.9 to 69.5 KB (−23 %), at
+  SSIM 0.977 against 0.984. Quality 76 and 72 softened suede, stone and
+  foliage visibly; a slower WebP "effort" gave no better quality per byte;
+  AVIF was 40 % smaller still but about 5× slower to make on an N100 and
+  slower for phones to decode, so it isn't used. No new thumbnail size
+  either: thumb_512 (short side 512) and thumb_1024 (long side 1024) are
+  only 1.33× apart for a 3:2 photo, so an in-between size would save
+  little and need a full backfill.
+- **Upgrade:** `kist regen-previews --thumbs-only` re-encodes the existing
+  thumbnails from the originals (iPhone HEICs from their full-size copy;
+  PDFs, videos and other kinds through their normal preview steps), so
+  nothing is compressed twice. It prints a progress line with a time
+  estimate every 200 items (`--progress-every N`), never moves an item's
+  "modified" date, gives each item a new preview version so browsers fetch
+  the new files, and remembers per item that it's done (a `thumbs.v` file
+  beside the thumbnails, kept by `rebuild-index`), so it's safe to stop and
+  run again; one unreadable file fails only itself. Expect roughly 2–3
+  hours per 17,000 items on an N100 (an estimate: 0.2–0.35 s per item to
+  encode, measured on dev0, plus the meta.json write every backfill pays).
+  New uploads get the new encode right away.
 
 ## [1.5.0] - 2026-11-09
 

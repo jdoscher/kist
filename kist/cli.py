@@ -5,7 +5,9 @@
                                    Postgres; safe while Kist is running
     kist regen-previews [--all]   (re)generate thumbnails; default only
                                    items that have none. --thumbhash-only
-                                   just adds missing ThumbHash placeholders
+                                   just adds missing ThumbHash placeholders;
+                                   --thumbs-only re-encodes thumbnails made
+                                   with an older encoder (progress as it goes)
     kist verify                   compare Postgres with the library on disk
                                    and report drift (changes nothing)
     kist reclassify [--dry-run]   give items Kist can't preview (e.g. a web
@@ -665,6 +667,28 @@ def regen_colors() -> int:
     return 0 if not failed else 2
 
 
+def regen_thumbs(every: int = 200) -> int:
+    """Re-encode thumbnails made with an older encoder (perf P3), printing a
+    progress line every `every` items. Skips items already done, so it is
+    safe to stop and run again."""
+    from .services import thumb_backfill, thumbs
+
+    def say(line: str) -> None:
+        print(line, flush=True)
+
+    def warn(line: str) -> None:
+        print(line, file=sys.stderr, flush=True)
+
+    with SessionLocal() as session:
+        say(f"re-encoding thumbnails older than encoder {thumbs.THUMB_ENCODER} "
+            f"(WebP Q{thumbs.THUMB_WEBP['Q']}); a progress line every {every} items")
+        t = thumb_backfill.run(session, every=every, say=say, warn=warn)
+    sources = ", ".join(f"{n} from {k}" for k, n in sorted(t.by_source.items())) or "none"
+    say(t.line())
+    say(f"thumbnails: done ({sources})")
+    return 0 if t.failed == 0 else 2
+
+
 def regen_previews(do_all: bool, thumbhash_only: bool = False,
                    colors_only: bool = False) -> int:
     from .services import previews
@@ -1034,6 +1058,14 @@ def main() -> None:
         "--colors-only", action="store_true",
         help="only recompute dominant colours (palettes) from existing previews",
     )
+    p_regen.add_argument(
+        "--thumbs-only", action="store_true",
+        help="only re-encode thumbnails made with an older encoder (safe to re-run)",
+    )
+    p_regen.add_argument(
+        "--progress-every", type=int, default=200, metavar="N",
+        help="--thumbs-only: print a progress line every N items (default 200)",
+    )
     sub.add_parser("verify", help="report drift between Postgres and the library on disk")
     p_reclass = sub.add_parser(
         "reclassify", help="mark items Kist can't preview (e.g. HTML named .pdf) as such"
@@ -1089,6 +1121,8 @@ def main() -> None:
     if args.cmd == "rewrite-meta":
         sys.exit(rewrite_meta())
     if args.cmd == "regen-previews":
+        if args.thumbs_only:
+            sys.exit(regen_thumbs(args.progress_every))
         sys.exit(regen_previews(args.all, args.thumbhash_only, args.colors_only))
     if args.cmd == "verify":
         sys.exit(verify())
