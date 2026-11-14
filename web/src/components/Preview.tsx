@@ -3,7 +3,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { fileUrl, thumbUrl, type Item } from '../api'
 import { swipeDirection } from '../mobile'
 import { fullPreviewUrl, pdfFrameProps, previewBoxPx, previewMeta, splitName } from '../preview'
-import { useCaps, useCurrentItems, useItem } from '../data'
+import { useCaps, useCurrentItems, usePrefetchItems, useShownItem } from '../data'
 import { useAppState } from '../state'
 import { useFocusInOut, useFocusTrap, useInertBackground } from '../useInert'
 import { useLayer, useShortcut } from '../useShortcuts'
@@ -52,9 +52,12 @@ export function Preview() {
   const phoneEdit = mobile && canEdit
   const { result, items } = useCurrentItems()
   const idx = useMemo(() => items.findIndex((i) => i.id === previewId), [items, previewId])
-  // an item opened from a link may not be in the loaded grid: show it alone
-  const linked = useItem(previewId, items)
-  const item = idx >= 0 ? items[idx] : (linked ?? null)
+  // the full item (the list's are slim, P4); one opened from a link may not
+  // be in the loaded grid at all: it shows alone. While the next item's full
+  // copy arrives (neighbours are prefetched) the current one stays, so the
+  // dialog never closes in between
+  const item = useShownItem(previewId, items) ?? null
+  usePrefetchItems(idx >= 0 ? [items[idx + 1]?.id, items[idx - 1]?.id] : [])
 
   const go = useCallback(
     (delta: number) => {

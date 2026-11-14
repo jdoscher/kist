@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.responses import FileResponse, PlainTextResponse, Response
 from pydantic import BaseModel
 from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.orm import Session
@@ -21,6 +21,8 @@ from ..schemas import (
     CaptionJob,
     EventOut,
     FoldersPut,
+    GridItemOut,
+    GridItemPage,
     ItemCreateResponse,
     ItemLite,
     ItemOut,
@@ -160,6 +162,24 @@ def page_out(result: search.SearchResult) -> ItemPage:
     )
 
 
+# fields=grid: the slim list the web grid asks for (schemas.GridItemOut).
+# Not `view=grid`: `view` already filters (view=unfiled).
+Fields = Annotated[Literal["grid"] | None, Query(description=(
+    "grid: only what the web grid needs per item (schemas.GridItemOut); "
+    "fetch GET /api/items/{id} for the rest"))]
+
+
+def grid_page_response(result: search.SearchResult) -> Response:
+    """The slim page, serialised once by pydantic-core (no response_model
+    round trip: that re-validation cost more than building the page)."""
+    page = GridItemPage(
+        items=[GridItemOut.from_item(i, result.matches.get(i.id)) for i in result.items],
+        next_cursor=result.next_cursor,
+        total=result.total,
+    )
+    return Response(page.model_dump_json(), media_type="application/json")
+
+
 @router.get("", response_model=ItemPage)
 def list_items(
     session: Annotated[Session, Depends(get_session)],
@@ -170,13 +190,19 @@ def list_items(
     similar: Annotated[str | None, Query(max_length=26)] = None,
     # compare: these items, in this order; every other parameter is ignored
     ids: Annotated[str | None, Query(max_length=3000)] = None,
+    fields: Fields = None,
 ):
     """Search. q, tags, folder, type and the rest filter; semantic, similar,
     color and text rank (services/ranking.py), and each ranked item carries
-    `match` {kind, score, snippet?}. ids=a,b,c fetches those items instead."""
+    `match` {kind, score, snippet?}. ids=a,b,c fetches those items instead.
+    fields=grid answers the same page (ids, order, total, cursors) with slim
+    items (schemas.GridItemOut, ~0.65 KB instead of ~1.6 KB each)."""
     if ids is not None:
         return _items_by_ids(session, ids)
-    return page_out(search.search(session, semantic=semantic, similar=similar, **filters))
+    result = search.search(session, semantic=semantic, similar=similar, **filters)
+    if fields == "grid":
+        return grid_page_response(result)
+    return page_out(result)
 
 
 def _items_by_ids(session: Session, raw: str) -> ItemPage:

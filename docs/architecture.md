@@ -764,6 +764,21 @@ instead.
 - A virtualized grid (TanStack Virtual) whose column count follows the
   window width. Each tile picks `thumb_512` or `thumb_1024` from its physical
   pixel size.
+- Tiles load their thumbnails by scroll speed (`web/src/scrollLoad.ts`):
+  above ~2 screens a second they show the ThumbHash and ask for nothing;
+  once scrolling slows or stops for 120 ms the on-screen tiles load first
+  (`fetchpriority=high`, overscan rows low). A tile that unmounts before its
+  thumbnail arrived removes its `src`, which cancels the request.
+- The grid's list is slim: `GET /api/items?fields=grid` (and
+  `POST /api/search/image?fields=grid`) returns the same pages with only the
+  fields tiles, selection, bulk actions, stacks and badges read
+  (`schemas.GridItemOut`, typed as `GridItem` in `web/src/api.ts`, ~0.65 KB
+  instead of ~1.6 KB per item). The info panel, phone sheet and full-screen
+  preview fetch the full item (`useItem`/`useShownItem` in `web/src/data.ts`,
+  cached as `['item', id]`, refetched when the list shows a newer
+  `modified_at` or `preview_rev`; the preview prefetches its neighbours).
+  Edits answer with full items, which are patched into the lists as they
+  were before. `fields`, not `view`, because `view=unfiled` already filters.
 - The info panel stays mounted while open, so selecting an item never
   reflows the grid.
 - The preview shows `thumb_1024` immediately, then swaps in what the screen

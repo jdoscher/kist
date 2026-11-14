@@ -2,7 +2,7 @@
 // (kist/services/cutouts.py). Requests, the choices the dialog offers, and
 // the words it shows; no React here (tests/cutouts.test.ts).
 
-import { json, request, withBatch, type Item, type Job } from './api.ts'
+import { json, request, withBatch, type GridItem, type Item, type Job } from './api.ts'
 
 export type CutoutModelState = 'missing' | 'downloading' | 'ready' | 'unknown'
 
@@ -140,7 +140,7 @@ export function isFinished(job: Pick<CutoutJob, 'status'> | undefined): boolean 
 // ---------- who asked for the dialog (a tiny store; CutoutHost shows it) ----------
 
 export interface CutoutRequest {
-  items: Item[]
+  items: GridItem[]
   /** a board's "Cut out" on a placed image */
   board?: { boardId: string; nodeId: string }
 }

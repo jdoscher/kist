@@ -6,7 +6,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Layers, Maximize2, Palette, Sparkles } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
-import type { Item, ItemPage, Query } from '../api'
+import type { GridItem, ItemPage, Query } from '../api'
 import { useCurrentItems } from '../data'
 import { org } from '../organiseApi'
 import { colourSearch, isRanked, matchLabel, moreLikeThis, parseSnippet, rankedErrorText, snippetText } from '../search'
@@ -58,7 +58,7 @@ export function Snippet({ text, className = '' }: { text: string | null | undefi
 
 /** On a tile: the match kind as a badge (see showMatchBadge) and, for text
  * hits, the snippet with the words marked. */
-export function TileMatch({ item, badge }: { item: Item; badge: boolean }) {
+export function TileMatch({ item, badge }: { item: GridItem; badge: boolean }) {
   const { query } = useAppState()
   const m = item.match
   if (!m) return null
@@ -96,7 +96,7 @@ export function useStackToggle() {
   const { notify } = useNotices()
   const expanded = useExpandedStacks()
   return useCallback(
-    async (item: Pick<Item, 'stack_id' | 'filename'>) => {
+    async (item: Pick<GridItem, 'stack_id' | 'filename'>) => {
       const sid = item.stack_id
       if (!sid) return
       if (expanded.has(sid)) {
@@ -115,7 +115,7 @@ export function useStackToggle() {
 }
 
 /** The count badge on a stack's entry (or a marker on an opened member). */
-export function StackBadge({ item, member }: { item: Item; member: boolean }) {
+export function StackBadge({ item, member }: { item: GridItem; member: boolean }) {
   const expanded = useExpandedStacks()
   const open = !!item.stack_id && expanded.has(item.stack_id)
   const b = stackBadge(item.stack_count, open)
@@ -135,7 +135,7 @@ export function StackBadge({ item, member }: { item: Item; member: boolean }) {
 }
 
 /** Extra words for a tile's accessible name. */
-export function tileExtra(item: Item, member: boolean, open: boolean, q?: Query): string {
+export function tileExtra(item: GridItem, member: boolean, open: boolean, q?: Query): string {
   const parts: string[] = []
   if (item.match) {
     parts.push(`matched by ${matchLabel(item.match.kind, q).toLowerCase()}`)
@@ -172,7 +172,7 @@ export function ItemContextMenu({
   y,
   onClose,
 }: {
-  item: Item
+  item: GridItem
   x: number
   y: number
   onClose: () => void

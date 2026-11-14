@@ -10,11 +10,12 @@
 // cursor would return it again (a duplicate tile) or skip it. That list is
 // refetched (needsRefetch); every other list is still patched in place.
 
-import type { Item, Query } from './api.ts'
+import type { GridItem, Item, Query } from './api.ts'
 import { folderSubtree, stillMatches } from './query.ts'
 
 export interface ItemsPage {
-  items: Item[]
+  /** slim list items (fields=grid), or full ones an edit patched in */
+  items: GridItem[]
   next_cursor: string | null
   total: number | null
 }
@@ -64,7 +65,7 @@ export function patchPages(
 }
 
 /** The item field each sort order (`order` minus its "-") sorts by. */
-const SORT_FIELD: Record<string, (i: Item) => unknown> = {
+const SORT_FIELD: Record<string, (i: GridItem) => unknown> = {
   rating: (i) => i.rating,
   filename: (i) => i.filename,
   modified: (i) => i.modified_at,
@@ -73,7 +74,7 @@ const SORT_FIELD: Record<string, (i: Item) => unknown> = {
 }
 
 /** Whether an edit changed the value `order` sorts by. */
-export function sortKeyChanged(order: string, before: Item, after: Item): boolean {
+export function sortKeyChanged(order: string, before: GridItem, after: GridItem): boolean {
   const field = SORT_FIELD[order.replace(/^-/, '')]
   return !!field && field(before) !== field(after)
 }
@@ -101,10 +102,10 @@ export function needsRefetch(
 
 /** The loaded pages as one list, each item once (a page fetched after an
  * item moved can repeat one already shown). */
-export function flattenUnique(pages: { items: Item[] }[] | undefined): Item[] {
+export function flattenUnique<T extends { id: string }>(pages: { items: T[] }[] | undefined): T[] {
   if (!pages) return []
   const seen = new Set<string>()
-  const out: Item[] = []
+  const out: T[] = []
   for (const p of pages) {
     for (const i of p.items) {
       if (seen.has(i.id)) continue
@@ -113,4 +114,13 @@ export function flattenUnique(pages: { items: Item[] }[] | undefined): Item[] {
     }
   }
   return out
+}
+
+/** Whether a list's (slim) copy of an item is newer than the full copy
+ * cached for the info panel and preview (data.ts useItem refetches then):
+ * a new preview, a preview that finished, or a later edit. */
+export function listIsNewer(list: GridItem, full: Item): boolean {
+  if (list.preview_rev > full.preview_rev) return true
+  if (list.preview_status !== full.preview_status && full.preview_status === 'pending') return true
+  return Date.parse(list.modified_at) > Date.parse(full.modified_at)
 }

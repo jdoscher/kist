@@ -10,7 +10,7 @@ import { scrubFrameIndex, scrubFrameStyle, scrubOf } from '../../m45/media'
 
 const canHover = () => typeof window !== 'undefined' && !!window.matchMedia?.('(hover: hover) and (pointer: fine)').matches
 
-export const ScrubHover = memo(function ScrubHover({ item, width, height }: { item: Item; width: number; height: number }) {
+export const ScrubHover = memo(function ScrubHover({ item, width, height }: { item: Pick<Item, 'id' | 'media' | 'preview_rev'>; width: number; height: number }) {
   const info = scrubOf(item.media)
   const [frame, setFrame] = useState<number | null>(null)
   if (!info || !canHover()) return null

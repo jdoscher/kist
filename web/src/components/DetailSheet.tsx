@@ -1,7 +1,7 @@
 import { ExternalLink, Lock, Maximize2, Star, X } from 'lucide-react'
 import { useRef, useState, type ReactNode } from 'react'
 import { emptyQuery, fileUrl, thumbUrl, type Item } from '../api'
-import { useCaps, useCurrentItems, useFolderNames, useItem } from '../data'
+import { useCaps, useCurrentItems, useFolderNames, useShownItem } from '../data'
 import { swipeDirection } from '../mobile'
 import { useAppState } from '../state'
 import { ItemHistory } from './ItemHistory'
@@ -125,7 +125,7 @@ export function DetailSheet() {
   const [drag, setDrag] = useState(0)
   const { canEdit } = useCaps()
 
-  const item = useItem(selection.size === 1 ? [...selection][0] : null, items)
+  const item = useShownItem(selection.size === 1 ? [...selection][0] : null, items)
   if (!item) return null
   const thumb = thumbUrl(item, 512)
 

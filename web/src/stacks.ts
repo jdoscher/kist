@@ -5,17 +5,17 @@
 // Which stacks are open is kept for this tab (a small store the grid,
 // preview and info panel all read through useCurrentItems).
 
-import type { Item } from './api.ts'
+import type { GridItem } from './api.ts'
 
 /** The open stacks: stack id -> its members (from GET /api/stacks/{id}). */
-export type Expanded = ReadonlyMap<string, Item[]>
+export type Expanded = ReadonlyMap<string, GridItem[]>
 
 /** The list with every open stack's other members after its entry. Members
  * already in the list elsewhere aren't repeated. */
-export function expandStacks(items: Item[], expanded: Expanded): Item[] {
+export function expandStacks(items: GridItem[], expanded: Expanded): GridItem[] {
   if (!expanded.size) return items
   const shown = new Set(items.map((i) => i.id))
-  const out: Item[] = []
+  const out: GridItem[] = []
   for (const it of items) {
     out.push(it)
     const members = it.stack_id ? expanded.get(it.stack_id) : undefined
@@ -30,7 +30,7 @@ export function expandStacks(items: Item[], expanded: Expanded): Item[] {
 }
 
 /** Ids shown only because their stack is open (not entries of the list). */
-export function expandedMemberIds(items: Item[], expanded: Expanded): Set<string> {
+export function expandedMemberIds(items: GridItem[], expanded: Expanded): Set<string> {
   const base = new Set(items.map((i) => i.id))
   const out = new Set<string>()
   for (const members of expanded.values()) for (const m of members) if (!base.has(m.id)) out.add(m.id)
@@ -38,13 +38,13 @@ export function expandedMemberIds(items: Item[], expanded: Expanded): Set<string
 }
 
 /** The stacks a selection touches (for Unstack). */
-export function stacksOf(items: Pick<Item, 'stack_id'>[]): string[] {
+export function stacksOf(items: Pick<GridItem, 'stack_id'>[]): string[] {
   return [...new Set(items.map((i) => i.stack_id).filter((s): s is string => !!s))]
 }
 
 /** Whether the selection can become one stack: two or more items, not all
  * already in the same stack. */
-export function canStack(items: Pick<Item, 'stack_id'>[]): boolean {
+export function canStack(items: Pick<GridItem, 'stack_id'>[]): boolean {
   if (items.length < 2) return false
   const s = stacksOf(items)
   return !(s.length === 1 && items.every((i) => i.stack_id === s[0]))
@@ -61,7 +61,7 @@ export function stackBadge(count: number | null | undefined, open: boolean): { t
 
 // ---------- the store ----------
 
-let state: Map<string, Item[]> = new Map()
+let state: Map<string, GridItem[]> = new Map()
 const listeners = new Set<() => void>()
 
 export function getExpanded(): Expanded {
@@ -73,12 +73,12 @@ export function subscribeExpanded(fn: () => void): () => void {
   return () => listeners.delete(fn)
 }
 
-function emit(next: Map<string, Item[]>) {
+function emit(next: Map<string, GridItem[]>) {
   state = next
   for (const fn of listeners) fn()
 }
 
-export function openStack(stackId: string, members: Item[]) {
+export function openStack(stackId: string, members: GridItem[]) {
   const next = new Map(state)
   next.set(stackId, members)
   emit(next)

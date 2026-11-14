@@ -5,7 +5,7 @@ import { AiBadge } from './credits/Credits' // F4
 import { creditsTileLabel } from '../credits'
 import { Check, File, FileText, Film, Hourglass, Image as ImageIcon, Lock, Star, TriangleAlert, type LucideIcon } from 'lucide-react'
 import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { emptyQuery, thumbUrl, type Item } from '../api'
+import { emptyQuery, thumbUrl, type GridItem } from '../api'
 import { fmtDuration, tileLabel } from '../format'
 import {
   feedRows,
@@ -42,6 +42,8 @@ import { ViewControls } from './TopBar'
 import { usePinchColumns, useWheelSize } from '../useGridZoom'
 import { useScrubWindow, type Anchor } from '../useScrubWindow'
 import { anchoredScrollTop } from '../zoom'
+import { tileLoad, type TileLoad } from '../scrollLoad'
+import { useScrollLoad } from '../useScrollLoad'
 import '../m6grid.css'
 
 const KIND_ICONS: Record<string, LucideIcon> = {
@@ -58,6 +60,16 @@ function markLoaded(img: HTMLImageElement | null) {
   if (img && img.complete && img.naturalWidth > 0) img.classList.add('loaded')
 }
 const onImgLoad = (e: React.SyntheticEvent<HTMLImageElement>) => e.currentTarget.classList.add('loaded')
+/** P2: a thumbnail still loading when its tile leaves the rendered rows is
+ * cancelled (removing the src aborts the request; unmounting alone lets it
+ * finish), so it doesn't queue in front of the tiles you stopped on. */
+function thumbRef(img: HTMLImageElement | null) {
+  if (!img) return
+  markLoaded(img)
+  return () => {
+    if (!img.complete) img.removeAttribute('src')
+  }
+}
 /** A thumbnail that won't load stops the loading sheen (A7) and lets the
  * badges show over the placeholder. */
 const onImgError = (e: React.SyntheticEvent<HTMLImageElement>) => e.currentTarget.classList.add('failed')
@@ -87,7 +99,10 @@ const Tile = memo(function Tile({
   onContextMenu,
   left,
   top,
+  load = 'high',
 }: {
+  /** P2 (scrollLoad.ts): on screen, overscan, or hold during a fast scroll */
+  load?: TileLoad
   /** Columns layout: where the tile sits in its row (see layout.ts) */
   left?: number
   top?: number
@@ -96,19 +111,19 @@ const Tile = memo(function Tile({
   /** a closed stack's entry: drawn with a second sheet behind it (B16) */
   stacked?: boolean
   matchBadge?: boolean
-  onStackClick?: (item: Item) => void
-  onContextMenu?: (item: Item, e: React.MouseEvent) => void
-  item: Item
+  onStackClick?: (item: GridItem) => void
+  onContextMenu?: (item: GridItem, e: React.MouseEvent) => void
+  item: GridItem
   width: number
   height: number
   selected: boolean
   tabbable: boolean
   index: number
   total: number
-  onPointerDown: (item: Item, e: React.MouseEvent) => void
-  onDoubleClick: (item: Item) => void
-  onDragStart: (item: Item, e: React.DragEvent) => void
-  onFocus: (item: Item) => void
+  onPointerDown: (item: GridItem, e: React.MouseEvent) => void
+  onDoubleClick: (item: GridItem) => void
+  onDragStart: (item: GridItem, e: React.DragEvent) => void
+  onFocus: (item: GridItem) => void
   draggable: boolean
 }) {
   // tiles are cover-cropped, so pick the thumb that covers the tile at the
@@ -116,6 +131,10 @@ const Tile = memo(function Tile({
   const cutout = isCutout(item) && item.preview_status === 'ready' // F7: shown transparent, on a checkerboard
   const thumb = cutout ? cutoutPreviewUrl(item, 1024) : thumbUrl(item, pickThumbSize(item, width, height, window.devicePixelRatio || 1))
   const placeholder = useMemo(() => (thumb ? placeholderStyle(placeholderFor(item)) : {}), [thumb, item])
+  // a tile that started loading keeps its request; one mounted during a
+  // fast scroll shows its placeholder until scrolling slows or stops
+  const started = useRef(false)
+  if (load !== 'wait') started.current = true
   const KindIcon =
     item.preview_status === 'failed'
       ? TriangleAlert
@@ -154,12 +173,15 @@ const Tile = memo(function Tile({
     >
       {thumb ? (
         <img
-          src={thumb}
+          src={started.current ? thumb : undefined}
+          // lazy still: a tile mounted and unmounted within a frame (a
+          // scrubber landing being re-anchored) never starts a request
           loading="lazy"
+          fetchPriority={load === 'high' ? 'high' : 'low'}
           decoding="async"
           draggable={false}
           alt=""
-          ref={markLoaded}
+          ref={thumbRef}
           onLoad={onImgLoad}
           onError={onImgError}
         />
@@ -255,9 +277,9 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
     }
     return out
   }, [items, expanded])
-  const [ctxMenu, setCtxMenu] = useState<{ item: Item; x: number; y: number } | null>(null)
+  const [ctxMenu, setCtxMenu] = useState<{ item: GridItem; x: number; y: number } | null>(null)
   const onTileContextMenu = useCallback(
-    (item: Item, e: React.MouseEvent) => {
+    (item: GridItem, e: React.MouseEvent) => {
       e.preventDefault()
       if (!selection.has(item.id)) selectOnly(item.id)
       const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
@@ -433,6 +455,10 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
   useWheelSize(scrollEl, !mobile, sliderSize, setTileSize, captureAt)
 
   const virtualRows = virtualizer.getVirtualItems()
+  // P2: which tiles may load, and in what order (scrollLoad.ts)
+  const { fast, settle } = useScrollLoad(scrollEl)
+  const viewTop = virtualizer.scrollOffset ?? 0
+  const viewHeight = scrollEl?.clientHeight ?? 0
 
   useEffect(() => {
     // with the scrubber, its window decides what loads (useScrubWindow)
@@ -518,7 +544,7 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
   }, [flatIds, focusedId])
 
   const handlePointerDown = useCallback(
-    (item: Item, e: React.MouseEvent) => {
+    (item: GridItem, e: React.MouseEvent) => {
       if (e.button !== 0) return
       setFocusedId(item.id)
       if (e.shiftKey) rangeSelect(item.id, flatIds)
@@ -529,7 +555,7 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
   )
 
   const handleDragStart = useCallback(
-    (item: Item, e: React.DragEvent) => {
+    (item: GridItem, e: React.DragEvent) => {
       const ids = selection.has(item.id) ? [...selection] : [item.id]
       e.dataTransfer.setData('application/x-kist-items', JSON.stringify(ids))
       e.dataTransfer.effectAllowed = 'move'
@@ -537,8 +563,8 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
     [selection],
   )
 
-  const openPreview = useCallback((item: Item) => setPreviewId(item.id), [setPreviewId])
-  const onTileFocus = useCallback((item: Item) => setFocusedId(item.id), [])
+  const openPreview = useCallback((item: GridItem) => setPreviewId(item.id), [setPreviewId])
+  const onTileFocus = useCallback((item: GridItem) => setFocusedId(item.id), [])
 
   /**
    * The grid's keys (a multi-select listbox): arrows move and select,
@@ -754,6 +780,8 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
             >
               {rows[row.index]?.tiles.map((t) => {
                 const item = items[t.index]
+                const tileTop = row.start + (t.y ?? 0)
+                const tileHeight = t.height ?? rows[row.index].height
                 return (
                   <Tile
                     key={item.id}
@@ -764,6 +792,7 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
                     height={t.height ?? rows[row.index].height}
                     left={t.x}
                     top={t.y}
+                    load={viewHeight ? tileLoad(fast, tileTop, tileTop + tileHeight, viewTop, viewHeight) : 'high'}
                     selected={selection.has(item.id)}
                     tabbable={item.id === tabStop}
                     onPointerDown={handlePointerDown}
@@ -808,7 +837,11 @@ export function Grid({ mobile = false }: { mobile?: boolean }) {
           onScrub={(pos) => {
             if (scrollEl) scrollEl.scrollTop = scrub.offsetOf(pos)
           }}
-          onScrubEnd={scrub.goTo}
+          onScrubEnd={(pos) => {
+            // the screen it lands on loads now, not the months passed on the way
+            settle()
+            scrub.goTo(pos)
+          }}
           mobile={mobile}
           layoutKey={`${scrub.padStart}|${items.length}|${rows.length}`}
         />

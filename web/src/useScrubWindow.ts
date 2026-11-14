@@ -5,7 +5,7 @@
 
 import { useQuery, useQueryClient, type InfiniteData, type UseInfiniteQueryResult } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
-import { api, type Item, type ItemPage, type Query } from './api.ts'
+import { api, type GridItem, type ItemPage, type Query } from './api.ts'
 import type { Row } from './layout.ts'
 import {
   bucketAt,
@@ -46,12 +46,12 @@ export interface ScrubWindow {
   goTo: (pos: number) => void
 }
 
-type Pages = InfiniteData<ItemPage, string>
+type Pages = InfiniteData<ItemPage<GridItem>, string>
 
 export function useScrubWindow(opts: {
   query: Query
-  result: UseInfiniteQueryResult<InfiniteData<ItemPage, unknown>>
-  items: Item[]
+  result: UseInfiniteQueryResult<InfiniteData<ItemPage<GridItem>, unknown>>
+  items: GridItem[]
   rows: Row[]
   rowStartsLoaded: number[] // row tops from 0 (no padding)
   gap: number
@@ -156,7 +156,7 @@ export function useScrubWindow(opts: {
     const b = L.win - 1
     const cursor = b === 0 ? '' : L.model.buckets[b].cursor
     const have = new Set(L.items.map((i) => i.id))
-    const pages: ItemPage[] = []
+    const pages: ItemPage<GridItem>[] = []
     const params: string[] = []
     let cur = cursor
     const limit = Math.min(500, L.model.buckets[b].count + 1)

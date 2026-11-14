@@ -1135,6 +1135,32 @@ The aesthetic pass: one grey, one control language, one type system.
   hours per 17,000 items on an N100 (an estimate: 0.2–0.35 s per item to
   encode, measured on dev0, plus the meta.json write every backfill pays).
   New uploads get the new encode right away.
+- **The grid stops downloading what flies past.** While you scroll fast
+  (above about two screens a second) tiles show their blurred placeholder
+  and ask for nothing; when you slow down or stop (after ~0.12 s) the tiles
+  on screen load first, the rows just off screen after them. A thumbnail
+  still loading when its tile scrolls away is cancelled instead of
+  finishing in the background, and a date-scrubber jump loads where it
+  lands, not the months it passed. Measured on a 20,000-item library over
+  3 s of fast scrolling: on a desktop window 488 thumbnail requests and
+  31 MB became 227 and 11 MB (frame-by-frame scrolling at the same speed:
+  455 and 31 MB became 81 and 5 MB); on a phone 483 requests and 32 MB
+  became 104 and 5 MB, and the screen you stop on is complete after 0.8 s
+  instead of 3.7 s. Keyboard, selection, layouts and reduced motion work
+  as before.
+- **A lighter grid list.** The grid now asks for only what its tiles,
+  selection, stacks and badges show (`GET /api/items?fields=grid`, also on
+  search by image); notes, captions, sources, credits, camera data and the
+  rest come with the item when you select or open it (the full-screen
+  preview fetches its neighbours ahead). Pages, order, totals and cursors
+  are the same as before. A page of the real library goes from about
+  1.6 KB to 0.7 KB per item (59 % less); on a synthetic 20,000-item library
+  a 120-item page goes from 26 KB to 13 KB as sent (gzipped). List times
+  drop a little (first page 46 → 36 ms at 20,000 items, a scrubber jump's
+  300-item page 104 → 90 ms at 250,000), and a date-scrubber jump is
+  complete after about 0.54 s instead of 0.65 s. Without `fields` the API,
+  MCP and extension answers are unchanged; edits still check
+  `base_modified_at` against the item you opened.
 
 ## [1.5.0] - 2026-11-09
 
