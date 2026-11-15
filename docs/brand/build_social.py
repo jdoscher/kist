@@ -6,7 +6,8 @@
 1280 x 640, solid #131312 (GitHub: PNG under 1 MB, 1280 x 640; a solid
 background because some apps show transparency badly). Left: the dark
 lockup, the tagline and the proof line; right: a justified grid of
-public-domain / CC0 images from the demo library (docs/demo/library.json),
+public-domain works from the demo library (docs/demo/library.json: The Met
+Open Access, CC0),
 cached small in docs/brand/social-src/ so a rebuild needs no network. The
 words and the mark stay inside the centre 1100 x 540, which every platform
 shows uncropped.
@@ -22,7 +23,6 @@ import json
 import subprocess
 import sys
 import tempfile
-import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -38,27 +38,23 @@ TAGLINE = "Keep what catches your eye."
 PROOF = "Self-hosted. Plain files. Agent-ready."
 UA = "kist-brand-build/2.0 (https://github.com/jdoscher/kist)"
 
-# Collage: (demo library file, focal x 0..1) in reading order, three rows.
+# Collage: demo library names (library.json "name") in reading order, three rows.
 COLLAGE = [
-    ["Great Wave off Kanagawa2.jpg", "Hitachi HD61700 microprocessor top metal die shot.jpg"],
-    ["1930s Japan Travel Poster - 01.jpg", "Fallingwater 2007.jpg", "Designed by William Morris - Panel Entitled \"Peacock and Dragon\" - Google Art Project.jpg"],
-    ["1958 Porsche 356 1600 Super coupe (2010-07-05) 01.jpg", "A. Wood's Patent Drawing for an Easy Chair - DPLA - ec39e74083768ae8fb2c0f0a7a5e7b6f.jpg"],
+    ["Hokusai, The Great Wave", "Van Gogh, Wheat Field with Cypresses"],
+    ["Vermeer, Young Woman with a Water Pitcher", "Hokusai, Red Fuji", "Van Gogh, Irises"],
+    ["Bruegel, The Harvesters", "Hiroshige, Sudden Shower over Shin-Ōhashi"],
 ]
 
 
 def lib_files() -> dict[str, dict]:
     lib = json.loads((bb.ROOT / "docs/demo/library.json").read_text())
-    return {i["file"]: i for i in lib["items"]}
+    return {i["name"]: i for i in lib["items"]}
 
 
 def resolve(name: str, files: dict[str, dict]) -> str:
-    """Collage names may be prefixes (Commons names can be long)."""
-    if name in files:
-        return name
-    hits = [f for f in files if f.startswith(name.split(" - Google")[0].split(" - DPLA")[0])]
-    if not hits:
+    if name not in files:
         raise SystemExit(f"{name!r} is not in docs/demo/library.json")
-    return hits[0]
+    return name
 
 
 def slug(name: str) -> str:
@@ -74,7 +70,8 @@ def fetch() -> None:
     for row in COLLAGE:
         for name in row:
             f = resolve(name, files)
-            url = "https://commons.wikimedia.org/wiki/Special:FilePath/" + urllib.parse.quote(f) + "?width=800"
+            # the Met's web-large copy (about 1,000 px) is plenty for a 640 px tile
+            url = files[f]["image"].replace("/original/", "/web-large/")
             with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=60) as r:
                 data = r.read()
             with tempfile.NamedTemporaryFile(suffix=".img") as t:
@@ -84,10 +81,10 @@ def fetch() -> None:
                 im.thumbnail((640, 640))
                 im.save(SRC / slug(f), quality=80, optimize=True, progressive=True)
             i = files[f]
-            credits.append(f"- {slug(f)}: {f}, {i['license']}" + (f", {i['creator']}" if i.get("creator") else "") + f" ({i['page']})")
+            credits.append(f"- {slug(f)}: {i['creator']}, {i['title']}, {i['date']}. {i['credit']} ({i['page']})")
             print("fetched", slug(f))
     (SRC / "CREDITS.md").write_text(
-        "# Social card images\n\nFrom Wikimedia Commons, public domain or CC0 (see docs/demo/library.json).\n\n" + "\n".join(credits) + "\n"
+        "# Social card images\n\nThe Metropolitan Museum of Art, Open Access (CC0); see docs/demo/library.json.\n\n" + "\n".join(credits) + "\n"
     )
 
 

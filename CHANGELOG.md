@@ -1200,6 +1200,14 @@ The aesthetic pass: one grey, one control language, one type system.
   new colour block starts orange. Existing notes keep their colour.
 - The docs site and README badge follow (dark grey / near-white links).
 
+### Demo library
+
+- The screenshots, demo loop and social card now show 37 public-domain
+  paintings and prints from The Metropolitan Museum of Art's Open Access
+  collection (CC0), from Hokusai and Hiroshige to Van Gogh, Vermeer and
+  Bruegel. `docs/demo/met_library.py` rebuilds the list from the Met's API and
+  writes `docs/demo/CREDITS.md`, which credits every work.
+
 ## [1.5.0] - 2026-11-09
 
 A hardening release. Kist was reviewed for security, data integrity,

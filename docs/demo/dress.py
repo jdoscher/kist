@@ -4,11 +4,11 @@ Run after docs/demo/seed.py, on the same throwaway instance:
 
     KIST_URL=http://localhost:8082 KIST_TOKEN=... python docs/demo/dress.py
 
-It adds folders (Reference/..., Projects/...), ratings, a few extra tags, two
-stacks, a "Mid-century mood" board on a dark canvas and a "Five stars" smart
-folder, and spreads the items' added dates so the newest-first grid opens on
-the Great Wave, the Olivetti poster and a chip die. It also drops camera and
-archive keywords that some Commons files carry in their metadata. Standard
+It adds folders (Reference/..., Projects/...), ratings, a few extra tags, a stack
+(two impressions of Hokusai's Red Fuji), a "Water and weather" board and a
+"Five stars" smart folder, and spreads the items' added dates so the
+newest-first grid opens on the Great Wave, Van Gogh's Wheat Field with
+Cypresses and Vermeer's Young Woman with a Water Pitcher. Standard
 library only. Run it once: it creates new folders, stacks and a board each
 time.
 """
@@ -25,39 +25,38 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 
-# keywords embedded in some Commons files that aren't useful tags
-JUNK_TAGS = {"Sony-Alpha 6000 ILCE-6000", "Walimex 12mm F2.0", "GLAM on Tour Weimar", "1833", "Icones",
-             "Bauhausmuseum", "Pictorial works", "Weimar", "Botany", "France"}
+# keywords some files carry in their metadata that aren't useful tags
+JUNK_TAGS = {"Front", "Overall"}  # the Met's view labels
 # tag -> folder under Reference
-TAG_FOLDERS = {"Architecture": "Architecture", "Bauhaus": "Architecture", "Cars": "Design objects",
-               "Watches": "Design objects", "Cameras": "Design objects", "Furniture": "Design objects",
-               "Patent drawings": "Design objects", "Posters": "Print and poster", "Prints": "Print and poster",
-               "Typography": "Print and poster", "Textiles": "Print and poster", "Botanical": "Print and poster",
-               "Maps": "Print and poster", "Aircraft": "Flight and space", "Space": "Flight and space",
-               "Chip dies": "Hardware"}
-MID_CENTURY = ["Eames LCW chair", "Eames House, Case Study House 8", "Case Study House No. 10, construction",
-               "Porsche 356 Super coupe, 1958", "Leica M9", "Olivetti M1 poster, 1912"]
-COLOUR_STUDIES = ["Hokusai, The Great Wave", "William Morris, Peacock and Dragon",
-                  "Japan travel poster, 1930s (2)", "Redouté, Anemone (1827)"]
-RATINGS = {"Hokusai, The Great Wave": 5, "Hitachi HD61700 die": 5, "Fallingwater": 5, "Eames LCW chair": 4,
-           "William Morris, Peacock and Dragon": 5, "Porsche 356 Super coupe, 1958": 4,
-           "Japan travel poster, 1930s (1)": 4, "Bodoni, Manuale Tipografico": 4, "Intel 4004 chip layout, 1971": 5,
-           "Saturn V diagram": 3, "Chrysler Building, crown": 4, "Leica M9": 3, "Redouté, Anemone (1827)": 4,
-           "Olivetti M1 poster, 1912": 5, "Ordnance Survey, Barnsbury, 1870s": 3}
-FAVOURITES = ["Hokusai, The Great Wave", "Olivetti M1 poster, 1912", "Intel 4004 chip layout, 1971", "Fallingwater"]
-STACKS = [("Porsche 356 Super coupe, 1958", "Porsche 356 Super coupe, 1958, rear"),
-          ("Hitachi HD61700 die", "Hitachi HD61700 die, code ROM")]
-BOARD = ["Eames LCW chair", "Eames House, Case Study House 8", "Case Study House No. 10, construction",
-         "Porsche 356 Super coupe, 1958", "Leica M9", "Olivetti M1 poster, 1912", "Fallingwater",
-         "Schlemmer, Bauhaus poster", "Bauhaus Dessau, main building"]
+TAG_FOLDERS = {"Japanese prints": "Japanese prints", "Impressionism": "Impressionism and after",
+               "Post-Impressionism": "Impressionism and after", "Dutch Golden Age": "Old masters",
+               "Old masters": "Old masters", "Baroque": "Old masters", "Neoclassicism": "Old masters",
+               "Romanticism": "Old masters", "Realism": "Old masters", "American painting": "American painting",
+               "Portraits": "Portraits"}
+WATER = ["Hokusai, The Great Wave", "Hokusai, Storm below Mount Fuji", "Hiroshige, Sudden Shower over Shin-Ōhashi",
+         "Turner, Venice from the Salute", "Winslow Homer, The Gulf Stream", "Thomas Cole, The Oxbow"]
+COLOUR_STUDIES = ["Hokusai, The Great Wave", "Van Gogh, Irises", "Hokusai, Red Fuji", "Seurat, Circus Sideshow"]
+RATINGS = {"Hokusai, The Great Wave": 5, "Van Gogh, Wheat Field with Cypresses": 5, "Vermeer, Young Woman with a Water Pitcher": 5,
+           "Bruegel, The Harvesters": 5, "Hokusai, Red Fuji": 4, "Van Gogh, Irises": 5, "Sargent, Madame X": 4,
+           "El Greco, View of Toledo": 4, "Hiroshige, Sudden Shower over Shin-Ōhashi": 5, "Seurat, Circus Sideshow": 4,
+           "Rembrandt, Aristotle with a Bust of Homer": 4, "Thomas Cole, The Oxbow": 3, "Degas, The Dance Class": 4,
+           "Turner, Venice from the Salute": 3, "Cézanne, The Card Players": 3}
+FAVOURITES = ["Hokusai, The Great Wave", "Van Gogh, Wheat Field with Cypresses",
+              "Vermeer, Young Woman with a Water Pitcher", "Bruegel, The Harvesters"]
+# two impressions of the same print: one stack
+STACKS = [("Hokusai, Red Fuji", "Hokusai, Red Fuji (second impression)")]
+BOARD_NAME = "Water and weather"
+BOARD = ["Hokusai, The Great Wave", "Hokusai, Storm below Mount Fuji", "Hiroshige, Sudden Shower over Shin-Ōhashi",
+         "Hiroshige, Sudden Shower at Shōno", "Turner, Venice from the Salute", "Winslow Homer, The Gulf Stream",
+         "Thomas Cole, The Oxbow", "Manet, Boating", "El Greco, View of Toledo"]
 # newest first: the grid opens on these
-FIRST = ["Hokusai, The Great Wave", "Olivetti M1 poster, 1912", "Hitachi HD61700 die", "Fallingwater",
-         "Japan travel poster, 1930s (1)", "William Morris, Peacock and Dragon", "Porsche 356 Super coupe, 1958",
-         "Intel 4004 chip layout, 1971", "Redouté, Anemone (1827)", "Chrysler Building, crown", "Leica M9",
-         "Saturn V diagram", "Eames LCW chair", "Bodoni, Manuale Tipografico", "Japan travel poster, 1930s (2)",
-         "Saturn V 500F at the VAB", "Eames House, Case Study House 8", "Schlemmer, Bauhaus poster",
-         "Lockheed Constellation N422NA", "Hokusai, Fine Wind, Clear Morning"]
-
+FIRST = ["Hokusai, The Great Wave", "Van Gogh, Wheat Field with Cypresses", "Vermeer, Young Woman with a Water Pitcher",
+         "Bruegel, The Harvesters", "Hokusai, Red Fuji", "Sargent, Madame X", "Van Gogh, Irises",
+         "Hiroshige, Sudden Shower over Shin-Ōhashi", "El Greco, View of Toledo", "Seurat, Circus Sideshow",
+         "Rembrandt, Aristotle with a Bust of Homer", "Degas, The Dance Class", "Turner, Venice from the Salute",
+         "Goya, Manuel Osorio (the Red Boy)", "Hiroshige, Evening Snow at Kanbara", "Thomas Cole, The Oxbow",
+         "Cézanne, Still Life with Apples and Primroses", "Velázquez, Juan de Pareja", "Winslow Homer, The Gulf Stream",
+         "Hokusai, Storm below Mount Fuji"]
 
 def main() -> int:
     url = os.environ["KIST_URL"].rstrip("/")
@@ -83,8 +82,13 @@ def main() -> int:
         name = by_page.get((it.get("provenance") or {}).get("page_url") or it.get("source_url"))
         if name:
             ids[name] = it["id"]
+            # uploads lose the comma in "Artist, Title" (safe upload names); put the short name back
+            want = name + "." + it["filename"].rsplit(".", 1)[-1]
+            if it["filename"] != want:
+                api("PATCH", f"/api/items/{it['id']}", {"filename": want})
             if junk := [t for t in it["tags"] if t in JUNK_TAGS]:
                 api("PATCH", f"/api/items/{it['id']}/tags", {"add": [], "remove": junk})
+    api("DELETE", "/api/tags/unused")  # the junk keywords, now on nothing
     missing = [i["name"] for i in lib if i["name"] not in ids]
     if missing:
         sys.exit(f"not seeded yet (run seed.py first): {missing}")
@@ -96,12 +100,12 @@ def main() -> int:
     ref = folder("Reference", None, "Things to look at again")
     sub = {n: folder(n, ref) for n in sorted(set(TAG_FOLDERS.values()))}
     projects = folder("Projects")
-    mid, colour = folder("Mid-century picks", projects), folder("Colour studies", projects)
+    water, colour = folder("Water and weather", projects), folder("Colour studies", projects)
     for it in items:
         fs = sorted({sub[TAG_FOLDERS[t]] for t in it["tags"] if t in TAG_FOLDERS})
         name = by_page.get((it.get("provenance") or {}).get("page_url") or it.get("source_url"))
-        if name in MID_CENTURY:
-            fs.append(mid)
+        if name in WATER:
+            fs.append(water)
         if name in COLOUR_STUDIES:
             fs.append(colour)
         if fs:
@@ -112,7 +116,7 @@ def main() -> int:
         api("PATCH", f"/api/items/{ids[name]}/tags", {"add": ["Favourites"], "remove": []})
     for cover, other in STACKS:
         api("POST", "/api/stacks", {"item_ids": [ids[cover], ids[other]], "cover": ids[cover]})
-    api("POST", "/api/boards", {"name": "Mid-century mood", "layout": "masonry",
+    api("POST", "/api/boards", {"name": BOARD_NAME, "layout": "masonry",
                                         "item_ids": [ids[n] for n in BOARD]})
     # the board keeps the new default background: the theme's own canvas
     api("POST", "/api/smart-folders", {"name": "Five stars", "query": {"rating": 5}})

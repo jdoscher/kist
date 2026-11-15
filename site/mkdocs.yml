@@ -15,7 +15,7 @@ site_url: https://kist.pictures/
 repo_url: https://github.com/jdoscher/kist
 repo_name: jdoscher/kist
 edit_uri: edit/main/docs/
-copyright: Kist is MIT licensed. Demo images are public domain or CC0 (Wikimedia Commons).
+copyright: Kist is MIT licensed. Demo images courtesy of The Metropolitan Museum of Art, Open Access (CC0); see the demo credits.
 
 docs_dir: ../docs
 site_dir: _build

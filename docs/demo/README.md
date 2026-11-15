@@ -6,12 +6,13 @@ makes and records it.
 
 | file | what it does |
 |---|---|
-| `library.json` | 43 Wikimedia Commons files, public domain or CC0: chip dies, patent drawings, architecture, Bauhaus, Japanese prints and travel posters, botanical plates, William Morris textiles, cars, watches, aircraft, maps, Apollo/Saturn V, typography. Each has its file page, licence, creator and the tags it gets |
+| `library.json` | 37 public-domain paintings and prints from The Metropolitan Museum of Art's Open Access collection (CC0): Hokusai and Hiroshige, Van Gogh, Seurat, Cézanne, Degas, Vermeer, Rembrandt, Bruegel, El Greco, Velázquez, Goya, Turner, Sargent, the Hudson River School and more. Each has its Met object page, artist, date, credit line, image URL and the tags it gets |
+| `met_library.py` | rebuilds `library.json` (and `CREDITS.md`) from the Met's collection API, checking every work is Open Access |
 | `seed.py` | adds them to a Kist instance under short names (`--dry-run` lists them; standard library only) |
 | `dress.py` | makes the seeded library look lived-in: folders, ratings, stacks, a board, a smart folder |
 | `capture.py` | takes the screenshots in `docs/assets/screenshots/` (Playwright) |
 | `record.py` | records the silent demo loop: `docs/assets/demo/demo.gif`, plus a `demo.mp4` kept outside the repository for the GitHub release (Playwright + ffmpeg) |
-| `CREDITS.md` | every image the committed screenshots, loop and social card show, with creator, licence and Commons page |
+| `CREDITS.md` | every image the committed screenshots, loop and social card show, with artist, date, credit line and Met object page |
 
 ## Make a demo instance
 
@@ -30,11 +31,10 @@ python docs/demo/dress.py     # once; prints the item id for KIST_SHOT_ITEM
 
 Wait until the worker has made every preview and palette and the AI service
 has embedded and read every item (`/api/ai/status`: nothing pending) before
-taking pictures. Wikimedia refuses requests without a descriptive User-Agent
-(its [policy](https://meta.wikimedia.org/wiki/User-Agent_policy)): `seed.py`
-sends one with `KIST_SEED_CONTACT` and pauses 2 s between downloads, and
-`KIST_USER_AGENT` in `.env` does the same for Kist's own link-rot check of
-the Commons pages (without it every item soon shows its source as broken).
+taking pictures. `seed.py` names itself in its User-Agent (with
+`KIST_SEED_CONTACT`), downloads the Met's full-size images one at a time and
+pauses 2 s between them; set `KIST_USER_AGENT` in `.env` the same way for
+Kist's own requests.
 
 Then, from the repository root:
 
@@ -42,7 +42,7 @@ Then, from the repository root:
 export KIST_URL=http://localhost:8090 KIST_TOKEN=...
 KIST_SHOT_ITEM=<Great Wave item id> \
   uv run --no-project --with playwright --with pillow python docs/demo/capture.py
-KIST_DEMO_SWATCH=4 KIST_DEMO_BOARD="Mid-century mood" \
+KIST_DEMO_SWATCH=4 KIST_DEMO_BOARD="Water and weather" \
   uv run --no-project --with playwright python docs/demo/record.py   # needs ffmpeg
 ```
 
@@ -57,7 +57,10 @@ recording to some tags, for a library that holds anything else.
 
 ## Licences
 
-"Public domain" on Commons can mean public domain in the United States only;
-each entry's `page` has the details. Check again before a release. Credit is
-not required for these files, but [CREDITS.md](CREDITS.md) lists them and the
-docs site's footer credits Wikimedia Commons anyway.
+Every work is public domain, and The Met releases its Open Access images
+under [CC0](https://creativecommons.org/publicdomain/zero/1.0/)
+([policy](https://www.metmuseum.org/policies/image-resources)).
+`met_library.py` refuses any object the API doesn't mark `isPublicDomain`;
+re-run it before a release. Credit is not required, but the Met asks for
+one, so [CREDITS.md](CREDITS.md) lists every work and the README and the docs
+site's footer credit the Met. Don't imply the Met endorses Kist.

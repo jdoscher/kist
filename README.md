@@ -17,8 +17,10 @@ A self-hosted visual library for people and their AI agents.</p>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/grid-dark.webp">
-  <img src="docs/assets/screenshots/grid-light.webp" alt="Kist's grid: Hokusai's Great Wave, an Olivetti poster, chip dies, Fallingwater, a Porsche 356 and other public-domain images, with folders and boards on the left">
+  <img src="docs/assets/screenshots/grid-light.webp" alt="Kist's grid: Hokusai's Great Wave, Van Gogh's Wheat Field with Cypresses, Vermeer's Young Woman with a Water Pitcher, Bruegel's Harvesters, Hokusai's Red Fuji and other public-domain works from The Met, with folders and boards on the left">
 </picture>
+
+<sub>Demo images: The Metropolitan Museum of Art, Open Access (CC0). [Credits](docs/demo/CREDITS.md).</sub>
 
 Kist keeps the images, screenshots, PDFs, video and design files you collect
 in one fast grid on your own server. Every item is a plain folder on disk (the

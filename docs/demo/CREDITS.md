@@ -2,60 +2,56 @@
 
 Every image in Kist's committed screenshots (`docs/assets/screenshots/`), the
 demo loop (`docs/assets/demo/demo.gif`, and the `demo.mp4` attached to GitHub
-releases) and the social card (`docs/brand/social-preview.png`) comes from this
-list: the demo library in `library.json`, all from Wikimedia Commons, public
-domain or CC0 as stated on each file page (checked 2026-11-10 through the
-Commons API). No other images appear in them. The grid shots and the loop can
-show any item of the library; the card uses the seven marked *card*. Credit
-is not required for these files; it is given anyway.
+releases) and the social card (`docs/brand/social-preview.png`) comes from
+this list: the demo library in `library.json`. No other images appear in them.
 
-Kist shows each under its short name (`name` in `library.json`).
+All 37 works are in the public domain and come from **The Metropolitan
+Museum of Art's Open Access** programme, which releases images of public-domain
+works under [Creative Commons Zero (CC0)](https://creativecommons.org/publicdomain/zero/1.0/)
+([the Met's policy](https://www.metmuseum.org/policies/image-resources)).
+No attribution is required; the Met asks for a credit where possible, so it
+is given here: *Images courtesy of The Metropolitan Museum of Art, Open
+Access.* The Met does not endorse Kist.
 
-| Name in Kist | Commons file | Creator | Licence |
-|---|---|---|---|
-| Fujitsu MB87J4030 die | [Fujitsu MB87J4030 die shot - top metal.jpg](https://commons.wikimedia.org/wiki/File:Fujitsu_MB87J4030_die_shot_-_top_metal.jpg) | Martijn Boer | Public domain |
-| Hitachi HD61700 die (*card*) | [Hitachi HD61700 microprocessor top metal die shot.jpg](https://commons.wikimedia.org/wiki/File:Hitachi_HD61700_microprocessor_top_metal_die_shot.jpg) | Piotr433 | CC0 |
-| Hitachi HD61700 die, code ROM | [Hitachi HD61700 microprocessor top metal die shot - code ROM close-up.jpg](https://commons.wikimedia.org/wiki/File:Hitachi_HD61700_microprocessor_top_metal_die_shot_-_code_ROM_close-up.jpg) | Piotr433 | CC0 |
-| Intel 4004 chip layout, 1971 | [Chip layout from the development phase of the Intel 4004 from 1971, the first microprocessor of the world (cropped and edited image).jpg](https://commons.wikimedia.org/wiki/File:Chip_layout_from_the_development_phase_of_the_Intel_4004_from_1971,_the_first_microprocessor_of_the_world_(cropped_and_edited_image).jpg) | Wolfgang Stief (derivative by Pittigrilli) | CC0 |
-| Patent drawing, easy chair (A. Wood) (*card*) | [A. Wood's Patent Drawing for an Easy Chair - DPLA - ec39e740837685e8ec74bc9a82b402b2.jpg](https://commons.wikimedia.org/wiki/File:A._Wood%27s_Patent_Drawing_for_an_Easy_Chair_-_DPLA_-_ec39e740837685e8ec74bc9a82b402b2.jpg) | Department of State. Patent Office. (1836 - 1849) | Public domain |
-| Patent drawing, easy chair (B. F. Hays) | [Benjamin F. Hays' Patent Drawing for an Easy Chair - DPLA - c5deccfb37a7289718d5e5cb6c4d73a6.jpg](https://commons.wikimedia.org/wiki/File:Benjamin_F._Hays%27_Patent_Drawing_for_an_Easy_Chair_-_DPLA_-_c5deccfb37a7289718d5e5cb6c4d73a6.jpg) | Department of State. Patent Office. (1836 - 1849) | Public domain |
-| Patent drawing, couches and chairs (C. Adams) | [C. Adams' Patent Drawing for Couches, Sofas, Settees, and Chairs - DPLA - 035aab3641f45dc2fabe44ed495a7bc1.jpg](https://commons.wikimedia.org/wiki/File:C._Adams%27_Patent_Drawing_for_Couches,_Sofas,_Settees,_and_Chairs_-_DPLA_-_035aab3641f45dc2fabe44ed495a7bc1.jpg) | Department of State. Patent Office. (1836 - 1849) | Public domain |
-| Bauhaus Dessau, workshop wing | [Bauhaus-Dessau Werkstätten.jpg](https://commons.wikimedia.org/wiki/File:Bauhaus-Dessau_Werkst%C3%A4tten.jpg) | Cethegus | Public domain |
-| Bauhaus Dessau, main building | [Bauhaus-Dessau main building.jpg](https://commons.wikimedia.org/wiki/File:Bauhaus-Dessau_main_building.jpg) | Cethegus | Public domain |
-| Schlemmer, Bauhaus poster | [Schlemmer-Bauhaus Werbeblatt DSC8965.jpg](https://commons.wikimedia.org/wiki/File:Schlemmer-Bauhaus_Werbeblatt_DSC8965.jpg) | Oskar Schlemmer | CC0 |
-| Chrysler Building | [Chrysler Building (NBY 2828).jpg](https://commons.wikimedia.org/wiki/File:Chrysler_Building_(NBY_2828).jpg) | Unknown author | Public domain |
-| Chrysler Building, crown | [Chrysler Building top.jpg](https://commons.wikimedia.org/wiki/File:Chrysler_Building_top.jpg) | Detroit Publishing Co. | Public domain |
-| Fallingwater (*card*) | [Fallingwater 2007.jpg](https://commons.wikimedia.org/wiki/File:Fallingwater_2007.jpg) | Carol M. Highsmith | Public domain |
-| Porsche 356 Super coupe, 1958 (*card*) | [1958 Porsche 356 1600 Super coupe (2010-07-05) 01.jpg](https://commons.wikimedia.org/wiki/File:1958_Porsche_356_1600_Super_coupe_(2010-07-05)_01.jpg) | OSX | Public domain |
-| Porsche 356 Super coupe, 1958, rear | [1958 Porsche 356 1600 Super coupe (2010-07-05) 03.jpg](https://commons.wikimedia.org/wiki/File:1958_Porsche_356_1600_Super_coupe_(2010-07-05)_03.jpg) | OSX | Public domain |
-| New Haven pocket watch movement | [New Haven Thin Model Pocket Watch, Nickel Movement.png](https://commons.wikimedia.org/wiki/File:New_Haven_Thin_Model_Pocket_Watch,_Nickel_Movement.png) | Anonymous illustrator | Public domain |
-| Redouté, Anemone (1827) | [Anemone simple. Redouté, P.J., Choix des plus belles fleurs et des plus beaux fruits t. 107 (1827).tiff](https://commons.wikimedia.org/wiki/File:Anemone_simple._Redout%C3%A9,_P.J.,_Choix_des_plus_belles_fleurs_et_des_plus_beaux_fruits_t._107_(1827).tiff) | Redouté, P.J. | Public domain |
-| Redouté, plate 100 | [Choix des plus belles fleurs (Plate 100) (7851487576).jpg](https://commons.wikimedia.org/wiki/File:Choix_des_plus_belles_fleurs_(Plate_100)_(7851487576).jpg) | Pierre-Joseph Redouté | Public domain |
-| Redouté, plate 101 | [Choix des plus belles fleurs (Plate 101) (7851488402).jpg](https://commons.wikimedia.org/wiki/File:Choix_des_plus_belles_fleurs_(Plate_101)_(7851488402).jpg) | Pierre-Joseph Redouté | Public domain |
-| Hokusai, South Wind, Clear Sky | ['South Wind, Clear Sky' by Hokusai, Honolulu Museum of Art.jpg](https://commons.wikimedia.org/wiki/File:%27South_Wind,_Clear_Sky%27_by_Hokusai,_Honolulu_Museum_of_Art.jpg) | Katsushika Hokusai | Public domain |
-| Hokusai, Fine Wind, Clear Morning | [Fine Wind, Clear Morning by Hokusai (Shimane Art Museum).jpg](https://commons.wikimedia.org/wiki/File:Fine_Wind,_Clear_Morning_by_Hokusai_(Shimane_Art_Museum).jpg) | Katsushika Hokusai | Public domain |
-| Hokusai, The Great Wave (*card*) | [Great Wave off Kanagawa2.jpg](https://commons.wikimedia.org/wiki/File:Great_Wave_off_Kanagawa2.jpg) | After Katsushika Hokusai | Public domain |
-| Japan travel poster, 1930s (1) (*card*) | [1930s Japan Travel Poster - 01.jpg](https://commons.wikimedia.org/wiki/File:1930s_Japan_Travel_Poster_-_01.jpg) | Japanese Government Railways | Public domain |
-| Japan travel poster, 1930s (2) | [1930s Japan Travel Poster - 02.jpg](https://commons.wikimedia.org/wiki/File:1930s_Japan_Travel_Poster_-_02.jpg) | Japanese Government Railways | Public domain |
-| Japan travel poster, 1930s (3) | [1930s Japan Travel Poster - 03.jpg](https://commons.wikimedia.org/wiki/File:1930s_Japan_Travel_Poster_-_03.jpg) | Japanese Government Railways | Public domain |
-| Eames LCW chair | [LCW (Lounge Chair Wood) Chair by Charles and Ray Eames, Honolulu Museum of Art 4410.1.JPG](https://commons.wikimedia.org/wiki/File:LCW_(Lounge_Chair_Wood)_Chair_by_Charles_and_Ray_Eames,_Honolulu_Museum_of_Art_4410.1.JPG) | Hiart | CC0 |
-| Ordnance Survey, Arundel Street, 1910s | [Arundel Street area Ordnance Survey map 1910s.jpg](https://commons.wikimedia.org/wiki/File:Arundel_Street_area_Ordnance_Survey_map_1910s.jpg) | Ordnance Survey | Public domain |
-| Ordnance Survey, Barnsbury, 1870s | [Barnsbury, Ordnance Survey map, 1870s.png](https://commons.wikimedia.org/wiki/File:Barnsbury,_Ordnance_Survey_map,_1870s.png) | Ordnance Survey | Public domain |
-| Apollo 11 Lunar Module | [Apollo 11 Lunar Module (48286345716).jpg](https://commons.wikimedia.org/wiki/File:Apollo_11_Lunar_Module_(48286345716).jpg) | NASA | Public domain |
-| Saturn V 500F at the VAB | [Apollo Saturn 500F and VAB.jpg](https://commons.wikimedia.org/wiki/File:Apollo_Saturn_500F_and_VAB.jpg) | NASA/unknown photographer | Public domain |
-| Saturn V diagram | [Diagram of Saturn V Launch Vehicle.jpg](https://commons.wikimedia.org/wiki/File:Diagram_of_Saturn_V_Launch_Vehicle.jpg) | NASA/MSFC | Public domain |
-| Olivetti M1 poster, 1912 | [Teodoro Wolf Ferrari - Affiche Olivetti M1 (1912).jpg](https://commons.wikimedia.org/wiki/File:Teodoro_Wolf_Ferrari_-_Affiche_Olivetti_M1_(1912).jpg) | Teodoro Wolf Ferrari | Public domain |
-| Golden Gate Bridge, construction (1) | [Construction of the Golden Gate Bridge 3c22793u.jpg](https://commons.wikimedia.org/wiki/File:Construction_of_the_Golden_Gate_Bridge_3c22793u.jpg) | Associated Oil Company / Chas. M. Hiller | Public domain |
-| Golden Gate Bridge, construction (2) | [Golden Gate Bridge under construction 3c00678u.jpg](https://commons.wikimedia.org/wiki/File:Golden_Gate_Bridge_under_construction_3c00678u.jpg) | Associated Oil Company / Chas. M. Hiller | Public domain |
-| Leica M9 | [A Leica M9 Camera on June 29, 2019.jpg](https://commons.wikimedia.org/wiki/File:A_Leica_M9_Camera_on_June_29,_2019.jpg) | George E. Koronaios | CC0 |
-| Lockheed Constellation N422NA | [Constellation-N422NA.jpg](https://commons.wikimedia.org/wiki/File:Constellation-N422NA.jpg) | Cchhey0 | CC0 |
-| Lockheed Constellation, three-view | [Lockheed Model 049 Constellation 3-view line drawing.png](https://commons.wikimedia.org/wiki/File:Lockheed_Model_049_Constellation_3-view_line_drawing.png) | U.S. Military | Public domain |
-| William Morris, Brer Rabbit | [Designed by William Morris, British - Printed Textile- Brer Rabbit - Google Art Project.jpg](https://commons.wikimedia.org/wiki/File:Designed_by_William_Morris,_British_-_Printed_Textile-_Brer_Rabbit_-_Google_Art_Project.jpg) | William Morris | Public domain |
-| William Morris, Peacock and Dragon (*card*) | [Designed by William Morris - Panel Entitled "Peacock and Dragon" - Google Art Project.jpg](https://commons.wikimedia.org/wiki/File:Designed_by_William_Morris_-_Panel_Entitled_%22Peacock_and_Dragon%22_-_Google_Art_Project.jpg) | William Morris | Public domain |
-| William Morris, African Marigold, 1876 | [Morris African Marigold textile drawing 1876.jpg](https://commons.wikimedia.org/wiki/File:Morris_African_Marigold_textile_drawing_1876.jpg) | William Morris | Public domain |
-| Bodoni, Manuale Tipografico | [Manuale-Tipografico1.jpg](https://commons.wikimedia.org/wiki/File:Manuale-Tipografico1.jpg) | Giambattista Bodoni | Public domain |
-| Case Study House No. 10, construction | [Case Study House No. 10 construction.JPG](https://commons.wikimedia.org/wiki/File:Case_Study_House_No._10_construction.JPG) | TheCatalyst31 | CC0 |
-| Eames House, Case Study House 8 | [Eames House, Case Study House -8, Chautauqua Drive, Pacific Palisades, California LCCN2011631330.tif](https://commons.wikimedia.org/wiki/File:Eames_House,_Case_Study_House_-8,_Chautauqua_Drive,_Pacific_Palisades,_California_LCCN2011631330.tif) | Carol M. Highsmith | Public domain |
+Kist shows each under its short name (`name` in `library.json`); the info
+panel carries the artist, the Met object page and the licence.
 
-"Public domain" on Commons can mean public domain in the United States only;
-see each file page, and check again before a release.
+| Name in Kist | Work (Met object page) | Artist | Date | Credit line | Accession |
+|---|---|---|---|---|---|
+| Hokusai, The Great Wave | [Under the Wave off Kanagawa (Kanagawa oki nami ura), also known as The Great Wave, from the series Thirty-six Views of Mount Fuji (Fugaku sanjūrokkei)](https://www.metmuseum.org/art/collection/search/45434) | Katsushika Hokusai | ca. 1830–32 | H. O. Havemeyer Collection, Bequest of Mrs. H. O. Havemeyer, 1929 | JP1847 |
+| Hokusai, Red Fuji | [South Wind, Clear Sky (Gaifū kaisei), also known as Red Fuji, from the series Thirty-six Views of Mount Fuji (Fugaku sanjūrokkei)](https://www.metmuseum.org/art/collection/search/55736) | Katsushika Hokusai | ca. 1830–32 | Henry L. Phillips Collection, Bequest of Henry L. Phillips, 1939 | JP2960 |
+| Hokusai, Red Fuji (second impression) | [South Wind, Clear Sky (Gaifū kaisei), also known as Red Fuji, from the series Thirty-six Views of Mount Fuji (Fugaku sanjūrokkei)](https://www.metmuseum.org/art/collection/search/36490) | Katsushika Hokusai | ca. 1830–32 | Rogers Fund, 1914 | JP9 |
+| Hokusai, Storm below Mount Fuji | [Storm below Mount Fuji (Sanka no haku u), from the series Thirty-six Views of Mount Fuji (Fugaku sanjūrokkei)](https://www.metmuseum.org/art/collection/search/36492) | Katsushika Hokusai | ca. 1830–32 | Rogers Fund, 1914 | JP11 |
+| Hokusai, Reflection in Lake at Misaka | [Reflection in Lake at Misaka in Kai Province (Kōshū Misaka suimen), from the series Thirty-six Views of Mount Fuji (Fugaku sanjūrokkei](https://www.metmuseum.org/art/collection/search/54868) | Katsushika Hokusai | ca. 1830–32 | Henry L. Phillips Collection, Bequest of Henry L. Phillips, 1939 | JP2969 |
+| Hiroshige, Sudden Shower over Shin-Ōhashi | [Sudden Shower over Shin-Ōhashi Bridge and Atake (Ōhashi Atake no yūdachi), from the series One Hundred Famous Views of Edo (Meisho Edo hyakkei)](https://www.metmuseum.org/art/collection/search/55433) | Utagawa Hiroshige | 1857 | The Howard Mansfield Collection, Purchase, Rogers Fund, 1936 | JP2522 |
+| Hiroshige, Evening Snow at Kanbara | [Evening Snow at Kanbara, from the series "Fifty-three Stations of the Tōkaidō"](https://www.metmuseum.org/art/collection/search/56915) | Utagawa Hiroshige | ca. 1833–34 | The Howard Mansfield Collection, Purchase, Rogers Fund, 1936 | JP2492 |
+| Hiroshige, Sudden Shower at Shōno | [Sudden Shower at Shōno, from the series Fifty-three Stations of the Tōkaidō](https://www.metmuseum.org/art/collection/search/36521) | Utagawa Hiroshige | 1834–35 | Rogers Fund, 1914 | JP41 |
+| Hiroshige, Kinryūsan Temple at Asakusa | [Kinryūsan Temple at Asakusa, from the series "One Hundred Famous Views of Edo"](https://www.metmuseum.org/art/collection/search/56689) | Utagawa Hiroshige | 1856 | The Howard Mansfield Collection, Purchase, Rogers Fund, 1936 | JP2519 |
+| Van Gogh, Wheat Field with Cypresses | [Wheat Field with Cypresses](https://www.metmuseum.org/art/collection/search/436535) | Vincent van Gogh | 1889 | Purchase, The Annenberg Foundation Gift, 1993 | 1993.132 |
+| Van Gogh, Irises | [Irises](https://www.metmuseum.org/art/collection/search/436528) | Vincent van Gogh | 1890 | Gift of Adele R. Levy, 1958 | 58.187 |
+| Van Gogh, Cypresses | [Cypresses](https://www.metmuseum.org/art/collection/search/437980) | Vincent van Gogh | 1889 | Rogers Fund, 1949 | 49.30 |
+| Van Gogh, Self-Portrait with a Straw Hat | [Self-Portrait with a Straw Hat (obverse: The Potato Peeler)](https://www.metmuseum.org/art/collection/search/436532) | Vincent van Gogh | 1887 | Bequest of Miss Adelaide Milton de Groot (1876-1967), 1967 | 67.187.70a |
+| Seurat, Study for La Grande Jatte | [Study for "A Sunday on La Grande Jatte"](https://www.metmuseum.org/art/collection/search/437658) | Georges Seurat | 1884 | Bequest of Sam A. Lewisohn, 1951 | 51.112.6 |
+| Seurat, Circus Sideshow | [Circus Sideshow (Parade de cirque)](https://www.metmuseum.org/art/collection/search/437654) | Georges Seurat | 1887–88 | Bequest of Stephen C. Clark, 1960 | 61.101.17 |
+| Cézanne, The Card Players | [The Card Players](https://www.metmuseum.org/art/collection/search/435868) | Paul Cézanne | 1890–92 | Bequest of Stephen C. Clark, 1960 | 61.101.1 |
+| Cézanne, Still Life with Apples and Primroses | [Still Life with Apples and a Pot of Primroses](https://www.metmuseum.org/art/collection/search/435882) | Paul Cézanne | ca. 1890 | Bequest of Sam A. Lewisohn, 1951 | 51.112.1 |
+| Degas, The Dance Class | [The Dance Class](https://www.metmuseum.org/art/collection/search/438817) | Edgar Degas | 1874 | Bequest of Mrs. Harry Payne Bingham, 1986 | 1987.47.1 |
+| Manet, Boating | [Boating](https://www.metmuseum.org/art/collection/search/436947) | Edouard Manet | 1874 | H. O. Havemeyer Collection, Bequest of Mrs. H. O. Havemeyer, 1929 | 29.100.115 |
+| Renoir, Nini in the Garden | [Nini in the Garden (Nini Lopez)](https://www.metmuseum.org/art/collection/search/438010) | Auguste Renoir | 1876 | The Walter H. and Leonore Annenberg Collection, Gift of Walter H. and Leonore Annenberg, 2002, Bequest of Walter H. Annenberg, 2002 | 2002.62.2 |
+| Sargent, Madame X | [Madame X (Virginie Amélie Avegno Gautreau)](https://www.metmuseum.org/art/collection/search/12127) | John Singer Sargent | 1883–84 | Arthur Hoppock Hearn Fund, 1916 | 16.53 |
+| Vermeer, Young Woman with a Water Pitcher | [Young Woman with a Water Pitcher](https://www.metmuseum.org/art/collection/search/437881) | Johannes Vermeer | ca. 1662 | Marquand Collection, Gift of Henry G. Marquand, 1889 | 89.15.21 |
+| Rembrandt, Aristotle with a Bust of Homer | [Aristotle with a Bust of Homer](https://www.metmuseum.org/art/collection/search/437394) | Rembrandt (Rembrandt van Rijn) | 1653 | Purchase, special contributions and funds given or bequeathed by friends of the Museum, 1961 | 61.198 |
+| Bruegel, The Harvesters | [The Harvesters](https://www.metmuseum.org/art/collection/search/435809) | Pieter Bruegel the Elder | 1565 | Rogers Fund, 1919 | 19.164 |
+| El Greco, View of Toledo | [View of Toledo](https://www.metmuseum.org/art/collection/search/436575) | El Greco (Domenikos Theotokopoulos) | ca. 1599–1600 | H. O. Havemeyer Collection, Bequest of Mrs. H. O. Havemeyer, 1929 | 29.100.6 |
+| Caravaggio, The Musicians | [The Musicians](https://www.metmuseum.org/art/collection/search/435844) | Caravaggio (Michelangelo Merisi) | 1597 | Rogers Fund, 1952 | 52.81 |
+| Georges de La Tour, The Fortune-Teller | [The Fortune-Teller](https://www.metmuseum.org/art/collection/search/436838) | Georges de La Tour | probably 1630s | Rogers Fund, 1960 | 60.30 |
+| Velázquez, Juan de Pareja | [Juan de Pareja (ca. 1608–1670)](https://www.metmuseum.org/art/collection/search/437869) | Velázquez (Diego Rodríguez de Silva y Velázquez) | 1650 | Purchase, Fletcher and Rogers Funds, and Bequest of Miss Adelaide Milton de Groot (1876-1967), by exchange, supplemented by gifts from friends of the Museum, 1971 | 1971.86 |
+| Goya, Manuel Osorio (the Red Boy) | [Manuel Osorio Manrique de Zuñiga (1784–1792)](https://www.metmuseum.org/art/collection/search/436545) | Goya (Francisco de Goya y Lucientes) | 1787–88 | The Jules Bache Collection, 1949 | 49.7.41 |
+| David, The Death of Socrates | [The Death of Socrates](https://www.metmuseum.org/art/collection/search/436105) | Jacques Louis David | 1787 | Catharine Lorillard Wolfe Collection, Wolfe Fund, 1931 | 31.45 |
+| Ingres, Princesse de Broglie | [Joséphine-Éléonore-Marie-Pauline de Galard de Brassac de Béarn (1825–1860), Princesse de Broglie](https://www.metmuseum.org/art/collection/search/459106) | Jean Auguste Dominique Ingres | 1851–53 | Robert Lehman Collection, 1975 | 1975.1.186 |
+| Turner, Venice from the Salute | [Venice, from the Porch of Madonna della Salute](https://www.metmuseum.org/art/collection/search/437853) | Joseph Mallord William Turner | ca. 1835 | Bequest of Cornelius Vanderbilt, 1899 | 99.31 |
+| Rosa Bonheur, The Horse Fair | [The Horse Fair](https://www.metmuseum.org/art/collection/search/435702) | Rosa Bonheur | 1852–55 | Gift of Cornelius Vanderbilt, 1887 | 87.25 |
+| Thomas Cole, The Oxbow | [View from Mount Holyoke, Northampton, Massachusetts, after a Thunderstorm—The Oxbow](https://www.metmuseum.org/art/collection/search/10497) | Thomas Cole | 1836 | Gift of Mrs. Russell Sage, 1908 | 08.228 |
+| Bierstadt, The Rocky Mountains, Lander's Peak | [The Rocky Mountains, Lander's Peak](https://www.metmuseum.org/art/collection/search/10154) | Albert Bierstadt | 1863 | Rogers Fund, 1907 | 07.123 |
+| Winslow Homer, The Gulf Stream | [The Gulf Stream](https://www.metmuseum.org/art/collection/search/11122) | Winslow Homer | 1899; reworked by 1906 | Catharine Lorillard Wolfe Collection, Wolfe Fund, 1906 | 06.1234 |
+| Leutze, Washington Crossing the Delaware | [Washington Crossing the Delaware](https://www.metmuseum.org/art/collection/search/11417) | Emanuel Leutze | 1851 | Gift of John Stewart Kennedy, 1897 | 97.34 |

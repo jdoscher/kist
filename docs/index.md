@@ -17,7 +17,7 @@ things for you.</p>
 
 [Install](install.md){ .md-button .md-button--primary } [Connect an agent](mcp.md){ .md-button }
 
-![Kist's grid in the dark theme: Hokusai's Great Wave, an Olivetti poster, chip dies, Fallingwater, a Porsche 356 and other public-domain images, with folders and boards on the left](assets/screenshots/grid-dark.webp){ .kist-shot }
+![Kist's grid in the dark theme: Hokusai's Great Wave, Van Gogh's Wheat Field with Cypresses, Vermeer's Young Woman with a Water Pitcher, Bruegel's Harvesters, Hokusai's Red Fuji and other public-domain works from The Met, with folders and boards on the left](assets/screenshots/grid-dark.webp){ .kist-shot }
 
 </div>
 
@@ -50,7 +50,7 @@ things for you.</p>
 - **On your phone.** Install it to the Home Screen; tap stars, tags, Move to…
   and Trash with Undo, and it opens offline.
 
-![Search by colour: items whose palette holds a deep print blue (William Morris, Hokusai, the Saturn V, Bauhaus), best match first](assets/screenshots/colour-dark.webp){ .kist-shot }
+![Search by colour: items whose palette holds a deep print blue (Hokusai's Red Fuji and Great Wave, Van Gogh's Irises, Ingres, Manet), best match first](assets/screenshots/colour-dark.webp){ .kist-shot }
 
 ## Three themes
 
