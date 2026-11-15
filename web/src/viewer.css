@@ -408,7 +408,7 @@
 .mobile .cbook-code {
   min-height: 44px;
 }
-/* native checkboxes and number fields stay neutral (brass is only for the
+/* native checkboxes and number fields stay neutral (accent is only for the
    primary button, selection, focus and stars) */
 :is(.va-menu, .cbook-row, .cbook-import) input {
   accent-color: var(--text);

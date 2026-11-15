@@ -29,7 +29,7 @@
 .cutout-model:hover {
   background: var(--bg-hover);
 }
-/* selected: a neutral fill and a 1 px outline (no brass bar) */
+/* selected: a neutral fill and a 1 px outline (no accent bar) */
 .cutout-model.is-on {
   background: var(--accent-soft);
   border-color: var(--selected-line);
@@ -149,7 +149,7 @@
   border-radius: 0;
   background: transparent;
 }
-/* native controls stay neutral (brand.md: brass only for the primary button) */
+/* native controls stay neutral (brand.md: accent only for the primary button) */
 .cutout-dialog input[type='checkbox'] {
   accent-color: var(--text);
 }

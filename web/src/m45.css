@@ -64,9 +64,9 @@ a.button {
   color: inherit;
 }
 a.btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--on-accent);
+  background: var(--primary);
+  border-color: var(--primary-line);
+  color: var(--on-primary);
   font-weight: 600;
 }
 /* a link inside a sentence: text-sized, no control height */
@@ -718,8 +718,9 @@ a.btn-primary {
   display: inline-block;
   padding: 8px 14px;
   border-radius: 6px;
-  background: var(--accent);
-  color: var(--on-accent);
+  border: 1px solid var(--primary-line);
+  background: var(--primary);
+  color: var(--on-primary);
   font-weight: 600;
   text-decoration: none;
 }
@@ -761,7 +762,7 @@ a.btn-primary {
   flex: 1;
   padding: 12px 16px 40px;
 }
-/* the year index: quiet figures, no brass (B20) */
+/* the year index: quiet figures, no accent (B20) */
 .timeline-jump {
   display: flex;
   flex-wrap: wrap;
@@ -822,7 +823,7 @@ a.btn-primary {
   background: var(--bg-hover);
 }
 /* bars are data, not a signal: neutral text-colour at 62 % on a 14 %
-   track; brass only on the row you point at or focus (B20) */
+   track; accent only on the row you point at or focus (B20) */
 .tl-bar {
   height: 3px;
   background: color-mix(in srgb, var(--text) 14%, transparent);

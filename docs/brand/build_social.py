@@ -116,7 +116,7 @@ def text_path(s: str, font_path: Path, size: float, x: float, baseline: float, t
 
 def card_svg(font: Path) -> tuple[str, float]:
     w = bb.wordmark()
-    lock = bb.lockup_svg(w, bb.INK_DARK, bb.BRASS)
+    lock = bb.lockup_svg(w, bb.INK_DARK, bb.INK_DARK)
     # the lockup's own viewBox, placed by a nested <svg>
     vb = lock.split('viewBox="')[1].split('"')[0]
     vx, vy, vw, vh = (float(v) for v in vb.split())

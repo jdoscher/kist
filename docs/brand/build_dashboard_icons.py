@@ -4,7 +4,7 @@
 
 Writes docs/brand/dashboard-icons/:
 
-- kist.svg        the brass mark (#E8B04B) on transparent
+- kist.svg        the mark in dark grey (#2B2B2B) on transparent
 - kist-light.svg  white, for dark dashboards   (dashboard-icons' "-light")
 - kist-dark.svg   #1C1B19, for light dashboards (dashboard-icons' "-dark")
 - the same as 512 px-high PNGs, for previews and for collections that want PNG
@@ -39,7 +39,7 @@ def cropped(fill: str) -> str:
 
 def main() -> None:
     OUT.mkdir(exist_ok=True)
-    files = {"kist.svg": bb.BRASS, "kist-light.svg": "#FFFFFF", "kist-dark.svg": bb.INK_LIGHT}
+    files = {"kist.svg": bb.GREY, "kist-light.svg": "#FFFFFF", "kist-dark.svg": bb.INK_LIGHT}
     for name, fill in files.items():
         p = OUT / name
         p.write_text(cropped(fill))

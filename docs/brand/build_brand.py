@@ -1,4 +1,4 @@
-"""Build Kist's brand assets: the Brass corners mark, the wordmark and the icon kit.
+"""Build Kist's brand assets: the Corners mark, the wordmark and the icon kit.
 
 Everything is generated from the construction below, so a change to the
 mark is one edit here plus a re-run. Run from the repository root:
@@ -26,15 +26,16 @@ PUBLIC = ROOT / "web" / "public"
 FONT = ROOT / "web/node_modules/@fontsource/instrument-serif/files/instrument-serif-latin-400-normal.woff"
 
 # ---------- palette (docs/brand.md) ----------
-BRASS = "#E8B04B"  # on dark
-BRASS_DEEP = "#8C5A00"  # on light
-TILE = "#1C1C1A"  # app tile
+# Monochrome since Nov 2026 (was brass #E8B04B / #8C5A00 on a #1C1C1A tile)
+MARK = "#FFFFFF"  # the mark on the app tile
+GREY = "#2B2B2B"  # the mark on light backgrounds (the light theme's accent)
+TILE = "#3A3A3A"  # app tile: dark grey
 INK_DARK = "#ECEAE4"  # text on dark
 INK_LIGHT = "#1C1B19"  # text on light
 PAPER = "#FAF9F6"
 BG_DARK = "#131312"
 
-# ---------- the mark: two brass corners and the kept item ----------
+# ---------- the mark: two corners and the kept item ----------
 # All on a 64-unit grid. Every length is a multiple of 4, so at 16 px (4
 # units per pixel) every edge lands on a whole pixel.
 R_OUTER = 2.0  # outer corner of each bracket: stamped metal, not a line icon
@@ -88,7 +89,7 @@ def svg(body: str, size: int = 64, extra: str = "") -> str:
     return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {size} {size}"{extra}>{body}</svg>\n'
 
 
-# ---------- wordmark: lowercase kist, Instrument Serif, brass square i-dot ----------
+# ---------- wordmark: lowercase kist, Instrument Serif, square i-dot ----------
 def wordmark() -> dict:
     from fontTools.pens.recordingPen import RecordingPen
     from fontTools.pens.svgPathPen import SVGPathPen
@@ -147,7 +148,7 @@ def wordmark() -> dict:
     )
 
 
-def wordmark_svg(w: dict, ink: str, brass: str, pad: float = 0) -> str:
+def wordmark_svg(w: dict, ink: str, mark: str, pad: float = 0) -> str:
     x, y, s = w["dot"]
     top = w["top"] - pad
     bottom = w["asc"] + 20 + pad  # baseline plus overshoot
@@ -155,11 +156,11 @@ def wordmark_svg(w: dict, ink: str, brass: str, pad: float = 0) -> str:
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{vb}" role="img" aria-label="kist">'
         f'<path fill="{ink}" d="{w["ink"]}"/>'
-        f'<rect fill="{brass}" x="{fmt(x)}" y="{fmt(y)}" width="{fmt(s)}" height="{fmt(s)}" rx="{fmt(s * 0.08)}"/></svg>\n'
+        f'<rect fill="{mark}" x="{fmt(x)}" y="{fmt(y)}" width="{fmt(s)}" height="{fmt(s)}" rx="{fmt(s * 0.08)}"/></svg>\n'
     )
 
 
-def lockup_svg(w: dict, ink: str, brass: str) -> str:
+def lockup_svg(w: dict, ink: str, mark: str) -> str:
     """Mark + wordmark. Mark height = cap height x 1.25, centred on the cap
     height; gap = twice the i's stem width."""
     mh = w["cap"] * 1.25
@@ -172,8 +173,8 @@ def lockup_svg(w: dict, ink: str, brass: str) -> str:
     top = min(my, w["top"]) - 40
     bottom = max(my + mh, w["asc"] + 20) + 40
     total = tx + w["width"] + 40
-    g = f'<g transform="translate({fmt(-4 * scale)} {fmt(my - 4 * scale)}) scale({fmt(scale)})" fill="{brass}"><path d="{d(GLYPH)}"/></g>'
-    t = f'<g transform="translate({fmt(tx)} 0)"><path fill="{ink}" d="{w["ink"]}"/><rect fill="{brass}" x="{fmt(x)}" y="{fmt(y)}" width="{fmt(s)}" height="{fmt(s)}" rx="{fmt(s * 0.08)}"/></g>'
+    g = f'<g transform="translate({fmt(-4 * scale)} {fmt(my - 4 * scale)}) scale({fmt(scale)})" fill="{mark}"><path d="{d(GLYPH)}"/></g>'
+    t = f'<g transform="translate({fmt(tx)} 0)"><path fill="{ink}" d="{w["ink"]}"/><rect fill="{mark}" x="{fmt(x)}" y="{fmt(y)}" width="{fmt(s)}" height="{fmt(s)}" rx="{fmt(s * 0.08)}"/></g>'
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="-40 {fmt(top)} {fmt(total + 40)} {fmt(bottom - top)}" role="img" aria-label="Kist">{g}{t}</svg>\n'
     )
@@ -182,35 +183,35 @@ def lockup_svg(w: dict, ink: str, brass: str) -> str:
 def build_svgs() -> dict[str, str]:
     files: dict[str, str] = {}
     glyph, app, tab = d(GLYPH), d(APP), d(TAB)
-    # favicon.svg: the bare mark, deep brass on light browser chrome, bright on dark
+    # favicon.svg: the bare mark, dark grey on light browser chrome, ink on dark
     files["web/public/favicon.svg"] = svg(
-        f"<style>path{{fill:{BRASS_DEEP}}}@media (prefers-color-scheme:dark){{path{{fill:{BRASS}}}}}</style><path d=\"{glyph}\"/>"
+        f"<style>path{{fill:{GREY}}}@media (prefers-color-scheme:dark){{path{{fill:{INK_DARK}}}}}</style><path d=\"{glyph}\"/>"
     )
     # single-colour marks: mono (currentColor-friendly black), dashboard -light/-dark
     files["web/public/icon-mono.svg"] = svg(f'<path fill="#000" d="{glyph}"/>')
-    files["docs/brand/kist.svg"] = svg(f'<path fill="{BRASS}" d="{glyph}"/>')
+    files["docs/brand/kist.svg"] = svg(f'<path fill="{GREY}" d="{glyph}"/>')
     files["docs/brand/kist-light.svg"] = svg(f'<path fill="#FFFFFF" d="{glyph}"/>')
     files["docs/brand/kist-dark.svg"] = svg(f'<path fill="{INK_LIGHT}" d="{glyph}"/>')
     # app tiles
-    files["docs/brand/icon-tile.svg"] = svg(f'<rect width="64" height="64" rx="14" fill="{TILE}"/><path fill="{BRASS}" d="{app}"/>')
-    files["docs/brand/icon-tile-light.svg"] = svg(f'<rect width="64" height="64" rx="14" fill="{PAPER}"/><path fill="{BRASS_DEEP}" d="{app}"/>')
-    files["docs/brand/icon-fullbleed.svg"] = svg(f'<rect width="64" height="64" fill="{TILE}"/><path fill="{BRASS}" d="{app}"/>')
+    files["docs/brand/icon-tile.svg"] = svg(f'<rect width="64" height="64" rx="14" fill="{TILE}"/><path fill="{MARK}" d="{app}"/>')
+    files["docs/brand/icon-tile-light.svg"] = svg(f'<rect width="64" height="64" rx="14" fill="{PAPER}"/><path fill="{GREY}" d="{app}"/>')
+    files["docs/brand/icon-fullbleed.svg"] = svg(f'<rect width="64" height="64" fill="{TILE}"/><path fill="{MARK}" d="{app}"/>')
     # maskable: full bleed, mark scaled 0.8 about the centre so its corners
     # sit 22.6 units from the centre, inside the 25.6-unit (40 %) safe circle
     files["docs/brand/icon-maskable.svg"] = svg(
-        f'<rect width="64" height="64" fill="{TILE}"/><path fill="{BRASS}" transform="translate(6.4 6.4) scale(.8)" d="{app}"/>'
+        f'<rect width="64" height="64" fill="{TILE}"/><path fill="{MARK}" transform="translate(6.4 6.4) scale(.8)" d="{app}"/>'
     )
-    files["docs/brand/icon-tab.svg"] = svg(f'<rect width="64" height="64" rx="12" fill="{TILE}"/><path fill="{BRASS}" d="{tab}"/>')
+    files["docs/brand/icon-tab.svg"] = svg(f'<rect width="64" height="64" rx="12" fill="{TILE}"/><path fill="{MARK}" d="{tab}"/>')
     w = wordmark()
-    files["docs/brand/wordmark-dark.svg"] = wordmark_svg(w, INK_DARK, BRASS, pad=30)
-    files["docs/brand/wordmark-light.svg"] = wordmark_svg(w, INK_LIGHT, BRASS_DEEP, pad=30)
-    files["docs/brand/lockup-dark.svg"] = lockup_svg(w, INK_DARK, BRASS)
-    files["docs/brand/lockup-light.svg"] = lockup_svg(w, INK_LIGHT, BRASS_DEEP)
+    files["docs/brand/wordmark-dark.svg"] = wordmark_svg(w, INK_DARK, INK_DARK, pad=30)
+    files["docs/brand/wordmark-light.svg"] = wordmark_svg(w, INK_LIGHT, INK_LIGHT, pad=30)
+    files["docs/brand/lockup-dark.svg"] = lockup_svg(w, INK_DARK, INK_DARK)
+    files["docs/brand/lockup-light.svg"] = lockup_svg(w, INK_LIGHT, INK_LIGHT)
     x, y, s = w["dot"]
     top = w["top"]
     files["web/src/brandPaths.ts"] = (
         "// Generated by docs/brand/build_brand.py: do not edit by hand.\n"
-        "// The Brass corners mark (64-unit grid) and the outlined kist wordmark.\n\n"
+        "// The Corners mark (64-unit grid) and the outlined kist wordmark.\n\n"
         f"export const MARK_PATH = {json.dumps(glyph)}\n\n"
         f"export const WORDMARK = {{\n"
         f"  viewBox: {json.dumps(f'0 {fmt(top)} {fmt(w["width"])} {fmt(w["asc"] + 20 - top)}')},\n"

@@ -695,7 +695,7 @@ export function redo(h: History, current: BoardContent): { history: History; con
 // ---------- new nodes ----------
 
 export const NOTE_COLOURS = ['#fff3b0', '#ffd6cc', '#d4f0d0', '#d6e6ff', '#ead9ff', '#f2f0eb'] as const
-export const SWATCHES = ['#e8b04b', '#c2410c', '#15803d', '#1d4ed8', '#7e22ce', '#1c1b19', '#f5f5f4'] as const
+export const SWATCHES = ['#c2410c', '#15803d', '#1d4ed8', '#7e22ce', '#1c1b19', '#f5f5f4'] as const
 /** canvas.bg "theme": the board sits on the app theme's image canvas, so
  * it matches the grid in every theme (the default for new boards since the
  * design pass; older boards keep the colour they have). */

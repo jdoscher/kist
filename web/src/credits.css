@@ -2,7 +2,7 @@
  * Class prefix cr- (keeps tests/css-collisions.test.ts green). Only
  * existing tokens: no new colour pairs. Neutral styling on purpose: a
  * missing credit or an uncleared item is information, not "needs
- * attention", and brass stays for the primary button, selection, focus and
+ * attention", and accent stays for the primary button, selection, focus and
  * stars. */
 
 /* the clearance warning in share/export dialogs and the board's Export menu */

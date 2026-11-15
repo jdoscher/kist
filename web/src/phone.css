@@ -387,7 +387,7 @@
 }
 
 /* ---------- the open tile (B18) ---------- */
-/* one item open in the sheet: the brass corners mark it; the check is for
+/* one item open in the sheet: the accent corners mark it; the check is for
    real multi-select */
 .mobile .grid-area.sheet-open .tile .sel-check {
   display: none;
@@ -556,7 +556,7 @@
 /* one surface for every control over the image: dark glass, a hairline and
    a soft shadow, so the controls hold on a light picture too. Solid
    --preview-capsule when the device asks for less transparency or more
-   contrast. Light theme's brass (#8C5A00) is too dark on it: the preview
+   contrast. Light theme's dark-grey accent (#2B2B2B) is too dark on it: the preview
    uses --preview-star. */
 .mobile .preview-overlay {
   --star: var(--preview-star);

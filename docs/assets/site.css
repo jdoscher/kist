@@ -1,5 +1,5 @@
 /* Kist's docs site: the app's palette (docs/brand.md) on Material for MkDocs.
-   Neutral chrome, one brass accent; Instrument Serif for headings, as in the
+   Neutral chrome, monochrome accent (dark grey on light, ink on dark); Instrument Serif for headings, as in the
    wordmark. Fonts are self-hosted, so the site makes no third-party request. */
 
 @font-face {
@@ -23,13 +23,13 @@
   --md-primary-fg-color: #FAF9F6;
   --md-primary-bg-color: #1C1B19;
   --md-primary-bg-color--light: #5F5D57;
-  --md-accent-fg-color: #8C5A00;
-  --md-typeset-a-color: #8C5A00;
+  --md-accent-fg-color: #2B2B2B;
+  --md-typeset-a-color: #2B2B2B;
   --md-footer-bg-color: #1C1C1A;
 }
 
 [data-md-color-scheme="slate"] {
-  --kist-on-accent: #1A1408;
+  --kist-on-accent: #131312;
   --md-hue: 40;
   --md-default-bg-color: #131312;
   --md-default-fg-color: #ECEAE4;
@@ -37,8 +37,8 @@
   --md-primary-fg-color: #1C1C1A;
   --md-primary-bg-color: #ECEAE4;
   --md-primary-bg-color--light: #9C9A93;
-  --md-accent-fg-color: #E8B04B;
-  --md-typeset-a-color: #E8B04B;
+  --md-accent-fg-color: #ECEAE4;
+  --md-typeset-a-color: #ECEAE4;
   --md-code-bg-color: #1C1C1A;
   --md-footer-bg-color: #0D0D0C;
 }

@@ -37,7 +37,7 @@
      and in the preview, 2 px on boards) */
   --tile-radius: 4px;
   --board-radius: 2px;
-  --corner: 18px; /* brass selection corners */
+  --corner: 18px; /* accent selection corners */
   /* controls: one height and corner for buttons and fields */
   --ctl-h: 28px;
   --ctl-radius: 6px;
@@ -194,8 +194,8 @@ p,
 
 /* ---------- controls: one height, three kinds (docs/brand.md) ----------
    1. quiet (every plain <button>): no fill or border at rest, a fill on
-      hover, a fill + 3 px brass bar when pressed (.on / aria-pressed);
-   2. primary (.btn-primary): the brass fill, one per view;
+      hover, a fill + 3 px accent bar when pressed (.on / aria-pressed);
+   2. primary (.btn-primary): the dark grey fill (--primary), one per view;
    3. field (input, select, textarea): the --field-border outline, selects
       with their own chevron.
    All 28 px tall (--ctl-h); phone layouts keep 44 px hit areas with their
@@ -223,14 +223,14 @@ button:active:not(:disabled) {
   transform: scale(0.98);
 }
 .btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--on-accent);
+  background: var(--primary);
+  border-color: var(--primary-line);
+  color: var(--on-primary);
   font-weight: 600;
 }
 .btn-primary:hover {
-  background: var(--accent-hover);
-  border-color: var(--accent-hover);
+  background: var(--primary-hover);
+  border-color: var(--primary-line);
 }
 button.danger {
   color: var(--danger);
@@ -288,7 +288,7 @@ select:focus {
 }
 
 /* one visible focus ring for everything reached by keyboard (2.4.7,
-   2.4.11, 2.4.13): 2 px brass, at least 5.5:1 on every theme's surfaces
+   2.4.11, 2.4.13): 2 px accent, at least 5.5:1 on every theme's surfaces
    (tests/contrast.test.ts) */
 :focus {
   outline: none;
@@ -465,7 +465,7 @@ select:focus-visible {
 }
 /* Desktop: one 48 px line (B2). Brand, then the search starting over the
    grid's left edge (the sidebar's width plus the tiles' inset), a spacer,
-   Paste and Upload (the one brass control), a hairline, then the quiet
+   Paste and Upload (the one primary control), a hairline, then the quiet
    icons. The view controls live in the grid header. */
 .app-shell:not(.mobile) .topbar {
   min-height: 48px;
@@ -593,7 +593,7 @@ select:focus-visible {
 .searchbox input:focus-visible {
   outline: none;
 }
-/* tag, folder and board chips are neutral (brass budget, docs/brand.md);
+/* tag, folder and board chips are neutral (accent budget, docs/brand.md);
    tags are pills, folders (.folder-chip) have square-ish corners */
 .chip {
   display: inline-flex;
@@ -1119,7 +1119,7 @@ select:focus-visible {
   user-select: none;
 }
 /* the keyboard cursor: a 2 px ring outside the tile (2.4.11/2.4.13),
-   distinct from the brass corners that mark selection */
+   distinct from the accent corners that mark selection */
 .tile:focus-visible {
   outline: 2px solid var(--canvas-focus);
   outline-offset: 2px;
@@ -1135,7 +1135,7 @@ select:focus-visible {
 .tile img.loaded {
   opacity: 1;
 }
-/* Selected: brass corner brackets (the logo) plus a check badge, so
+/* Selected: accent corner brackets (the logo) plus a check badge, so
    "selected" reads apart from "focused" and from the image under it. The
    dark halo keeps the corners at 3:1 or more on any image (1.4.11). */
 .tile .sel-corners {
@@ -1264,14 +1264,14 @@ select:focus-visible {
 /* Quiet tiles (B1): the rating is one star and a number on the caption
    strip, shown on hover, keyboard focus and selection, or on every tile
    while filtering or sorting by rating (.ratings-shown, query.ts
-   ratingsShown). Brass stays the rating colour (brand.md brass budget). */
+   ratingsShown). Accent stays the rating colour (brand.md accent budget). */
 .tile .badge.rating {
   top: auto;
   bottom: 4px;
   right: 6px;
   gap: 3px;
   padding: 1px 6px 1px 4px;
-  color: #e8b04b;
+  color: #ffffff;
   opacity: 0;
   transition:
     opacity var(--dur-1) var(--ease),
@@ -1468,7 +1468,7 @@ select:focus-visible {
   text-overflow: ellipsis;
 }
 .open-original,
-/* links in the inspector are text with an underline, not brass (brass
+/* links in the inspector are text with an underline, not accent (accent
    budget: docs/brand.md) */
 .meta-list a,
 .detail-panel a,
@@ -1540,7 +1540,7 @@ select:focus-visible {
 .multi-summary .hint-text {
   margin-bottom: 14px;
 }
-/* a pressed toggle: neutral fill and a thin neutral outline; never brass
+/* a pressed toggle: neutral fill and a thin neutral outline; never accent
    (that reads like a second primary button) */
 .panel-toggle.on {
   background: var(--bg-active);
@@ -1564,6 +1564,7 @@ select:focus-visible {
   --soft-dim: var(--preview-soft-dim);
   --selected-line: var(--preview-dim);
   --on-accent: var(--preview-on-accent);
+  --primary-line: var(--preview-line);
   --bg: var(--preview-panel);
   --border: var(--preview-border);
   --danger: var(--preview-danger);

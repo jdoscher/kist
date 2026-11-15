@@ -60,7 +60,7 @@
 }
 /* Desktop (A6): a 30 px rail beside the grid, starting 8 px below the
    grid header. Year labels are centred in it and hang 4 px below their
-   tick, so they never meet the brass mark at the same tick, the info
+   tick, so they never meet the accent mark at the same tick, the info
    panel's pinstripe or the header. The grid keeps its 12 px gutter on
    both sides: sidebar to tiles, tiles to rail. */
 .app-shell:not(.mobile) .scrubber {

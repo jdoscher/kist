@@ -19,9 +19,9 @@ kbd {
 .dim {
   color: var(--text-dim);
 }
-/* a pressed toggle (quiet control, .on): neutral fill, never a brass
-   outline (brass budget, docs/brand.md); icon toggles and segments add a
-   3 px brass bar, since the fill alone is too faint (1.4.11) */
+/* a pressed toggle (quiet control, .on): neutral fill, never a accent
+   outline (accent budget, docs/brand.md); icon toggles and segments add a
+   3 px accent bar, since the fill alone is too faint (1.4.11) */
 button.on,
 .seg button.on {
   background: var(--bg-active);
@@ -194,7 +194,7 @@ button.on,
   gap: 4px;
 }
 .tile .badge.cull .pick {
-  color: #e8b04b;
+  color: #ffffff;
 }
 .tile .badge.cull .reject {
   color: #ff8a80;
@@ -395,6 +395,7 @@ button.on,
   --soft-dim: var(--preview-soft-dim);
   --selected-line: var(--preview-dim);
   --on-accent: var(--preview-on-accent);
+  --primary-line: var(--preview-line);
   --bg: var(--preview-panel);
   --bg-raised: var(--preview-raised);
   --bg-hover: var(--preview-hover);
@@ -800,7 +801,7 @@ button.on,
 }
 .ann-mark.box {
   border: 2px solid var(--accent);
-  background: #e8b04b1f;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
   border-radius: 2px;
   box-shadow: 0 0 0 1px #0008;
 }
@@ -820,7 +821,7 @@ button.on,
   justify-content: center;
 }
 .ann-mark.box:hover {
-  background: #e8b04b33;
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
 }
 .ann-mark.resolved {
   opacity: 0.45;
@@ -1586,7 +1587,7 @@ button.on,
 }
 /* desktop: one 48 px row, never wrapping (B15). Tools are quiet buttons
    in groups split by a hairline; the active tool is the pressed fill plus
-   the brass underline (.icon-btn.on). When the bar gets narrow the text
+   the accent underline (.icon-btn.on). When the bar gets narrow the text
    labels (Boards, Library, List, Export) fold to icons, still named for
    screen readers. The phone header is its own (phone.css). */
 .board-screen:not(.mobile) .board-bar {
@@ -1990,7 +1991,7 @@ body.board-space .board-viewport,
 .board-marquee {
   position: absolute;
   border: solid var(--accent);
-  background: #e8b04b1a;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
   pointer-events: none;
 }
 .board-empty-hint {
@@ -2299,6 +2300,7 @@ body.board-space .board-viewport,
 /* the preview's surround: tokens the notes panel needs beyond styles.css's */
 .preview-overlay {
   --on-accent: var(--preview-on-accent);
+  --primary-line: var(--preview-line);
   --accent-soft: var(--preview-soft);
   --soft-dim: var(--preview-soft-dim);
   --selected-line: var(--preview-dim);

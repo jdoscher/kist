@@ -27,7 +27,7 @@ test('controls share one height and corner', () => {
 })
 
 test('the primary kind is .btn-primary everywhere (no stray "primary" class)', () => {
-  assert.match(styles, /^\.btn-primary \{[^}]*background: var\(--accent\);/m)
+  assert.match(styles, /^\.btn-primary \{[^}]*background: var\(--primary\);/m)
   for (const css of files(src, '.css')) assert.ok(!/button\.primary\b|\.primary\s*\{/.test(css))
   for (const tsx of files(src, '.tsx')) assert.ok(!/className=["'`{][^"'`]*\bprimary\b(?!-)/.test(tsx.replace(/btn-primary/g, '')))
 })

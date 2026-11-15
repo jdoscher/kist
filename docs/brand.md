@@ -10,9 +10,9 @@ construction, so a change to the mark is one edit plus a re-run
 see the script header). Masters live in `docs/brand/`, the shipped icons in
 `web/public/`, and the inline paths the app uses in `web/src/brandPaths.ts`.
 
-## The mark: Brass corners
+## The mark: Corners
 
-Two L-shaped brass brackets at opposite corners of an implied square, and a
+Two L-shaped brackets at opposite corners of an implied square, and a
 small square in the middle: the kept item. It reads three ways at once: the
 brass corner guards on a wooden chest, the paper corners that hold a photo in
 an album, and a designer's crop marks. Chest, photographs, picked.
@@ -51,9 +51,12 @@ lands on a whole pixel.
 
 ### Icon kit (web/public)
 
+Tiles are dark grey #3A3A3A with the mark in white (#1C1C1A with a brass
+mark until Nov 2026).
+
 | File | Size | Notes |
 |---|---|---|
-| favicon.svg | any | bare mark; #8C5A00 on light browser chrome, #E8B04B on dark (`prefers-color-scheme`) |
+| favicon.svg | any | bare mark; dark grey #2B2B2B on light browser chrome, #ECEAE4 on dark (`prefers-color-scheme`) |
 | favicon.ico | 16, 32, 48 | small tile; each size rendered from the SVG, not downscaled |
 | favicon-32.png | 32 | small tile |
 | apple-touch-icon.png | 180 | opaque, full bleed (iOS rounds the corners itself) |
@@ -68,21 +71,23 @@ browsers cache icons by URL.
 ## Wordmark
 
 Lowercase **kist** in Instrument Serif Regular, tracking −1 %, outlined to
-paths (no font needed at runtime). The dot of the i is a small brass square
+paths (no font needed at runtime). The dot of the i is a small square
 that echoes the kept item in the mark (it replaces the round dot, centred
 where it was, 92 % of its width).
 
 - Lockup: mark height = cap height × 1.25, centred on the cap height; gap =
   twice the i's stem width. (`lockup-dark.svg`, `lockup-light.svg`)
-- Ink: #ECEAE4 on dark, #1C1B19 on light. Dot: #E8B04B on dark, #8C5A00 on
-  light.
+- Ink: #ECEAE4 on dark, #1C1B19 on light. Dot: the same ink as the letters
+  (brass until Nov 2026).
 - Never set the name in capitals in the wordmark; in running text it is
   "Kist".
 
 ## Palette
 
-The images carry the colour; the chrome stays neutral with one brass accent,
-which also replaces the old star yellow. All colours are CSS variables in
+The images carry the colour; the chrome stays neutral and the accent is monochrome:
+the theme's own ink (near-white on dark and gallery, dark grey #2B2B2B on
+light). Brass was dropped in Nov 2026 (Jay); the only hues left in the
+chrome are danger red, success green and info blue. All colours are CSS variables in
 `web/src/themes.css`; nothing else in the stylesheet hard-codes a theme colour
 (the only fixed colours are the dark badges and captions drawn over images).
 
@@ -92,8 +97,9 @@ which also replaces the old star yellow. All colours are CSS variables in
 | bg-raised | #1C1C1A | #FFFFFF | #565656 |
 | text | #ECEAE4 | #1C1B19 | #F5F5F5 |
 | text-dim | #9C9A93 | #5F5D57 | #DADADA |
-| accent / focus / stars | #E8B04B | #8C5A00 | #F6CF7E |
-| on-accent | #1A1408 | #FFFFFF | #1A1408 |
+| accent / focus / stars / warn | #ECEAE4 | #2B2B2B | #FFFFFF (warn #F5F5F5) |
+| primary / on-primary / primary-line (primary button: fill, label, outline) | #3A3A38 / #FFFFFF / #ECEAE4 | #2B2B2B / #FFFFFF / #2B2B2B | #2B2B2B / #FFFFFF / #F5F5F5 |
+| on-accent | #131312 | #FFFFFF | #2B2B2B |
 | field outline | #6E6C66 | #8A877F | #BDBDBD |
 | danger | #F2716A | #B42318 | #FFD0CC |
 | chip-bg / chip-text | #31302D / #ECEAE4 | #E6E3DC / #1C1B19 | #4A4A4A / #F5F5F5 |
@@ -111,7 +117,7 @@ which also replaces the old star yellow. All colours are CSS variables in
 | Present caption credit (`present-text-dim`) | #DADADA | #DADADA | #DADADA |
 | phone-fill (phone controls) | #2C2C29 | #EFEDE8 | #6A6A6A |
 | phone-sunken (phone search pill) | #121211 | #EBE9E4 | #4B4B4B |
-| preview-capsule / preview-star (phone preview capsules) | #262624 / #E8B04B | #2A2A2A / #F6CF7E | #2A2A2A / #F6CF7E |
+| preview-capsule / preview-star (phone preview capsules) | #262624 / #ECEAE4 | #2A2A2A / #FFFFFF | #2A2A2A / #FFFFFF |
 
 - **Gallery grey** is for judging colour: one neutral mid-grey (#5C5C5C)
   behind everything, top bar, side panels, grid and full-screen preview
@@ -120,7 +126,7 @@ which also replaces the old star yellow. All colours are CSS variables in
   side read as a mistake, so the chrome never steps away from the canvas;
   menus and dialogs, which float, step darker (`--bg-float`). (Until Nov 2026 the canvas was
   the 18 % grey #767676, but on that grey only pure white text passes AA, so
-  one surface there would have cost the brass links and coloured error text.)
+  one surface there would have cost the accent links and coloured error text.)
 - **Light theme: neutral canvas, grey preview.** The chrome (top bar,
   sidebar, panels) stays warm paper, but the image canvas is a neutral
   #ECECEC: a warm near-white surround makes photos look cooler and darker
@@ -151,31 +157,36 @@ which also replaces the old star yellow. All colours are CSS variables in
   stylesheet loads (`THEME_BG`), so gallery and light never flash the dark
   #131312. The manifest's splash colour can only follow the OS scheme, not
   the stored theme. `tests/theme.test.ts` checks all three against themes.css.
-- Never use the bright brass #E8B04B as a fill or text on a light
-  background: it is 1.86:1 there. Use #8C5A00.
+- The primary button is the one place dark grey is a fill in dark and
+  gallery: #3A3A38 / #2B2B2B alone sinks into the page there, so it carries a
+  1 px `--primary-line` outline in the theme's ink (3:1 against the page).
 
-### Brass budget
+### Accent budget
 
-Brass means one of four things, and nothing else:
+The accent (ink) means one of four things, and nothing else:
 
-1. **the primary action** (`.btn-primary` / `button.primary`: Upload, Save,
-   New token; one per view);
-2. **selection on images**: the tile corners and check (the theme's
-   `--canvas-focus`, never a hard-coded #E8B04B);
-3. **the focus ring**;
-4. **ratings** (stars).
+1. **selection on images**: the tile corners and check (the theme's
+   `--canvas-focus`, white on dark and gallery, dark grey on light);
+2. **the focus ring**;
+3. **ratings** (stars);
+4. **links and small accent fills** (pick stamps, count badges, map pins).
+
+The **primary action** (`.btn-primary`: Upload, Save, New token; one per
+view) is its own kind: a dark grey fill (`--primary`) with a white label and
+an ink outline (`--primary-line`). Warnings (`--warn`) are neutral too; only
+danger keeps its red.
 
 Everything else is neutral: tag, folder and board chips use `--chip-bg` /
 `--chip-text` (tags are pills, folders have 6 px corners), inspector links
 are `--text` with a thin underline, and a pressed toggle is a fill, not a
-second brass button. Brass on everything means nothing.
+second primary button.
 
 A selected row, section, chip or pressed toggle (sidebar, Settings nav, ⌘K
 active row, tag chips, the Info toggle, tile-shape and board tools) is a
 neutral fill (`--accent-soft` / `--bg-active`, both neutral greys despite the
 name) with a 1 px `--selected-line` outline that follows the control's own
-corners. No brass bars on a side or underneath: Jay found they read like a
-bracket hanging off the control (Nov 2026). Native checkboxes, radios, sliders and progress bars use `accent-color: var(--text)`, and the date scrubber's position mark is `--canvas-text`, so neither adds brass.
+corners. No accent bars on a side or underneath: Jay found they read like a
+bracket hanging off the control (Nov 2026). Native checkboxes, radios, sliders and progress bars use `accent-color: var(--text)`, and the date scrubber's position mark is `--canvas-text`, so neither adds an accent.
 
 ### Contrast (WCAG 2.2 AA, computed from themes.css)
 
@@ -195,11 +206,16 @@ parts and focus indicators (1.4.11, 2.4.11/2.4.13).
 | secondary text on hover (`text-dim` on `bg-hover`) | 4.5 | 5.31 | 5.68 | 5.77 |
 | text in the top bar and side panels (`text` on `chrome`) | 4.5 | 14.19 | 17.21 | 6.13 |
 | secondary text in the top bar and side panels (`text-dim` on `chrome`) | 4.5 | 6.06 | 6.58 | 4.78 |
-| links in the top bar and side panels (`accent` on `chrome`) | 4.5 | 8.73 | 5.87 | 4.50 |
-| links (`accent` on `bg`) | 4.5 | 9.51 | 5.58 | 4.50 |
-| links on panels (`accent` on `bg-raised`) | 4.5 | 8.73 | 5.87 | 4.94 |
-| primary button label (`on-accent` on `accent`) | 4.5 | 9.36 | 5.87 | 12.33 |
-| primary button label, hover (`on-accent` on `accent-hover`) | 4.5 | 11.03 | 7.71 | 13.75 |
+| links in the top bar and side panels (`accent` on `chrome`) | 4.5 | 14.19 | 14.16 | 6.69 |
+| links (`accent` on `bg`) | 4.5 | 15.45 | 13.45 | 6.69 |
+| links on panels (`accent` on `bg-raised`) | 4.5 | 14.19 | 14.16 | 7.34 |
+| label on an accent fill (pick stamps, badges) (`on-accent` on `accent`) | 4.5 | 15.45 | 14.16 | 14.16 |
+| label on an accent fill, hover (`on-accent` on `accent-hover`) | 4.5 | 18.59 | 18.88 | 11.34 |
+| primary button label (`on-primary` on `primary`) | 4.5 | 11.40 | 14.16 | 14.16 |
+| primary button label, hover (`on-primary` on `primary-hover`) | 4.5 | 9.32 | 18.88 | 11.73 |
+| primary button edge in the top bar (`primary-line` on `chrome`) | 3 | 14.19 | 14.16 | 6.13 |
+| primary button edge (`primary-line` on `bg`) | 3 | 15.45 | 13.45 | 6.13 |
+| primary button edge in dialogs (`primary-line` on `bg-float`) | 3 | 13.41 | 14.16 | 8.79 |
 | selected row / chip text (`text` on `accent-soft`) | 4.5 | 10.97 | 13.43 | 8.13 |
 | Present: caption title on the grey surround (`present-text` on `present-grey`) | 4.5 | 6.13 | 6.13 | 6.13 |
 | Present: caption credit on the grey surround (`present-text-dim` on `present-grey`) | 4.5 | 4.78 | 4.78 | 4.78 |
@@ -215,56 +231,56 @@ parts and focus indicators (1.4.11, 2.4.11/2.4.13).
 | pressed-toggle outline in the preview (`preview-dim` on `preview-active`) | 3 | 6.22 | 5.68 | 5.68 |
 | field outline (`field-border` on `bg`) | 3 | 3.54 | 3.41 | 3.56 |
 | field outline on panels (`field-border` on `bg-raised`) | 3 | 3.25 | 3.59 | 3.91 |
-| focus ring (`focus` on `bg`) | 3 | 9.51 | 5.58 | 4.50 |
-| focus ring on panels (`focus` on `bg-raised`) | 3 | 8.73 | 5.87 | 4.94 |
-| rating stars (`star` on `bg-raised`) | 3 | 8.73 | 5.87 | 4.94 |
+| focus ring (`focus` on `bg`) | 3 | 15.45 | 13.45 | 6.69 |
+| focus ring on panels (`focus` on `bg-raised`) | 3 | 14.19 | 14.16 | 7.34 |
+| rating stars (`star` on `bg-raised`) | 3 | 14.19 | 14.16 | 7.34 |
 | error text (`danger` on `bg`) | 4.5 | 6.50 | 6.24 | 4.82 |
 | error text on panels (`danger` on `bg-raised`) | 4.5 | 5.97 | 6.57 | 5.29 |
 | server banner (`danger-on` on `danger-bg`) | 4.5 | 10.90 | 8.84 | 10.58 |
 | done marker (`success` on `bg-raised`) | 3 | 7.92 | 5.35 | 5.57 |
-| warning icon (`warn` on `bg-raised`) | 3 | 8.73 | 5.87 | 4.94 |
+| warning icon (`warn` on `bg-raised`) | 3 | 14.19 | 14.16 | 6.73 |
 | info text (`info` on `bg-raised`) | 4.5 | 7.90 | 6.09 | 5.25 |
 | grid heading on the canvas (`canvas-text` on `canvas`) | 4.5 | 15.45 | 14.57 | 6.13 |
 | grid counts on the canvas (`canvas-dim` on `canvas`) | 4.5 | 6.60 | 5.57 | 4.78 |
-| tile focus ring (`canvas-focus` on `canvas`) | 3 | 9.51 | 4.97 | 4.50 |
+| tile focus ring (`canvas-focus` on `canvas`) | 3 | 18.59 | 11.99 | 6.69 |
 | edge of a stack's second sheet on the canvas (`field-border` on `canvas`) | 3 | 3.54 | 3.04 | 3.56 |
-| bar on a pressed toggle / selected section (`accent` on `bg-active`) | 3 | 6.75 | 4.58 | 5.97 |
+| bar on a pressed toggle / selected section (`accent` on `bg-active`) | 3 | 10.97 | 11.05 | 8.86 |
 | tag / folder / board chips (`chip-text` on `chip-bg`) | 4.5 | 10.97 | 13.43 | 8.13 |
 | counts on chips (`text-dim` on `chip-bg`) | 4.5 | 4.69 | 5.14 | 6.34 |
-| tile selection check (`on-accent` on `canvas-focus`) | 4.5 | 9.36 | 5.87 | 12.33 |
+| tile selection check (`on-accent` on `canvas-focus`) | 4.5 | 18.59 | 14.16 | 14.16 |
 | phone: filled controls (top bar row two, sheet actions) (`text` on `phone-fill`) | 4.5 | 11.64 | 14.71 | 4.96 |
 | phone: the sheet's Trash icon (`danger` on `phone-fill`) | 3 | 4.90 | 5.62 | 3.90 |
 | phone: search pill text (`text` on `phone-sunken`) | 4.5 | 15.58 | 14.18 | 8.00 |
 | phone: search pill placeholder (`text-dim` on `phone-sunken`) | 4.5 | 6.66 | 5.43 | 6.24 |
 | phone preview: capsule buttons (`preview-text` on `preview-capsule`) | 4.5 | 12.60 | 14.35 | 14.35 |
-| phone preview: stars in their capsule (`preview-star` on `preview-capsule`) | 3 | 7.76 | 9.67 | 9.67 |
+| phone preview: stars in their capsule (`preview-star` on `preview-capsule`) | 3 | 12.60 | 14.35 | 14.35 |
 | text on menus, dialogs, palette (`text` on `bg-float`) | 4.5 | 13.41 | 17.21 | 8.79 |
 | secondary text on menus and dialogs (`text-dim` on `bg-float`) | 4.5 | 5.73 | 6.58 | 6.86 |
-| links on menus and dialogs (`accent` on `bg-float`) | 4.5 | 8.25 | 5.87 | 6.46 |
-| focus ring on menus and dialogs (`focus` on `bg-float`) | 3 | 8.25 | 5.87 | 6.46 |
+| links on menus and dialogs (`accent` on `bg-float`) | 4.5 | 13.41 | 14.16 | 9.59 |
+| focus ring on menus and dialogs (`focus` on `bg-float`) | 3 | 13.41 | 14.16 | 9.59 |
 | field outline in dialogs (`field-border` on `bg-float`) | 3 | 3.07 | 3.59 | 5.10 |
 | error text in dialogs (`danger` on `bg-float`) | 4.5 | 5.64 | 6.57 | 6.92 |
 | hovered / active menu row (`text` on `float-hover`) | 4.5 | 10.97 | 14.84 | 7.17 |
 | secondary text on a hovered menu row (`text-dim` on `float-hover`) | 4.5 | 4.69 | 5.68 | 5.59 |
-| active-row bar in the palette (`accent` on `float-hover`) | 3 | 6.75 | 5.06 | 5.26 |
+| active-row bar in the palette (`accent` on `float-hover`) | 3 | 10.97 | 12.21 | 7.81 |
 | text in the full-screen preview (`preview-text` on `preview-bg`) | 4.5 | 16.16 | 6.69 | 6.69 |
 | secondary text in the preview (`preview-dim` on `preview-bg`) | 4.5 | 9.16 | 4.78 | 4.78 |
-| links and focus ring in the preview (`preview-accent` on `preview-bg`) | 4.5 | 9.95 | 6.69 | 6.69 |
+| links and focus ring in the preview (`preview-accent` on `preview-bg`) | 4.5 | 16.16 | 6.69 | 6.69 |
 | preview buttons (`preview-text` on `preview-raised`) | 4.5 | 14.19 | 10.86 | 10.86 |
 | preview buttons, hover (`preview-text` on `preview-hover`) | 4.5 | 12.44 | 9.29 | 9.29 |
 | preview buttons, pressed (`preview-text` on `preview-active`) | 4.5 | 10.97 | 7.94 | 7.94 |
-| focus ring on preview buttons (`preview-accent` on `preview-raised`) | 3 | 8.73 | 10.86 | 10.86 |
+| focus ring on preview buttons (`preview-accent` on `preview-raised`) | 3 | 14.19 | 10.86 | 10.86 |
 | field outline in the preview (`preview-line` on `preview-bg`) | 3 | 3.70 | 3.56 | 3.56 |
-| primary button in the preview (`preview-on-accent` on `preview-accent`) | 4.5 | 9.36 | 18.88 | 18.88 |
+| primary button in the preview (`preview-on-accent` on `preview-accent`) | 4.5 | 15.45 | 18.88 | 18.88 |
 | notes panel text (`preview-text` on `preview-panel`) | 4.5 | 15.45 | 13.58 | 13.58 |
 | notes panel secondary text (`preview-dim` on `preview-panel`) | 4.5 | 8.76 | 9.71 | 9.71 |
 | error text in the notes panel (`preview-danger` on `preview-panel`) | 4.5 | 6.50 | 9.79 | 9.79 |
 | selected chip in the preview (`preview-text` on `preview-soft`) | 4.5 | 10.97 | 7.46 | 7.46 |
 | counts on a selected chip in the preview (`preview-soft-dim` on `preview-soft`) | 4.5 | 4.69 | 7.46 | 7.46 |
 
-all 213 pairs pass
+all 240 pairs pass
 
-Selected tiles use brass corners (`--canvas-focus`) with a 1 px black halo
+Selected tiles use accent corners (`--canvas-focus`) with a 1 px black halo
 plus a check badge (`--on-accent` on `--canvas-focus`, #1A1408 outline), so
 the state reads on any image; the keyboard
 focus ring is a separate 2 px ring outside the tile.
@@ -319,7 +335,7 @@ One height, three kinds. Nothing else.
 - The top bar is one 48 px line: brand, the search box (32 px, one line,
   starting over the grid's left edge, the palette's `⌘K` / `Ctrl K` as a
   keycap inside it that opens the palette), a spacer, Paste and Upload (the
-  only brass control), a `--chrome-line` hairline (`.topbar-sep`), then the
+  only primary control), a `--chrome-line` hairline (`.topbar-sep`), then the
   quiet icons (Info, Recent changes, Share, Appearance, Settings). Filter
   chips stay on the line and scroll sideways.
 - The view controls (tile shape, size, type, filters, rating, sort) sit in
@@ -390,7 +406,7 @@ The images lead; anything drawn on them earns its place.
   decorative, no contrast minimum) with a faint 1.4 s sheen (none under
   reduced motion). Badges stay hidden until the thumbnail has loaded
   (`img.loaded`), or failed (`img.failed`, which also stops the sheen).
-- **Ratings (quiet tiles):** one brass star and a tabular number ("★ 5"),
+- **Ratings (quiet tiles):** one star (white on the caption's gradient) and a tabular number ("★ 5"),
   bottom right on the caption's dark gradient, only on hover, keyboard
   focus or selection; on every tile while the grid is filtered or sorted
   by rating (`.ratings-shown`, `ratingsShown()` in query.ts). Never on a
@@ -404,7 +420,7 @@ The images lead; anything drawn on them earns its place.
 - **Gutters and the date rail:** 12 px from the sidebar to the first tile
   and 12 px from the last tile to the 30 px date rail; the rail starts
   8 px below the grid header, year labels are centred in it and hang 4 px
-  below their tick (clear of the brass mark and the info panel's line).
+  below their tick (clear of the accent mark and the info panel's line).
 - **Counts:** the grid header leads with the same number as the sidebar
   (every item) and adds the tiles when closed stacks make fewer: "43 items
   · 41 tiles" (`gridCountText` / `sidebarCount` in query.ts). A search or
@@ -412,7 +428,7 @@ The images lead; anything drawn on them earns its place.
 
 - **Empty states** (`EmptyState` in GridExtras.tsx): the outline mark
   (`OutlineMark`, Brand.tsx: brackets as thin `--canvas-dim` lines, the
-  kept item a brass square; `aria-hidden`), one Instrument Serif line
+  kept item a solid `--accent` square; `aria-hidden`), one Instrument Serif line
   (24 px, at most 22ch), one dim 13 px line and at most one action. Empty
   Unfiled, Trash, Picks, Rejects, a folder, a tag, a smart folder and a
   search with no hits all use it (words in `emptyState`, query.ts); the
@@ -585,7 +601,7 @@ desktop shrunk down.
   grid; a visible 36 × 5 grabber (`--field-border`); neutral chips;
   Move to… fills the action row and Trash is a 52 px icon button in
   `--danger` (its accessible name stays "Trash"). The tile that is open in
-  the sheet shows the brass corners only, no multi-select check.
+  the sheet shows the accent corners only, no multi-select check.
 - **Drawer head.** Mark and wordmark on the left, Share/Export and a 44 px
   borderless ✕ on the right, on `--chrome` with the pinstripe below.
 - **Preview capsules.** Everything over the full-screen image (Notes,
@@ -595,7 +611,7 @@ desktop shrunk down.
   `prefers-reduced-transparency` or `prefers-contrast: more` it is the solid
   `--preview-capsule`. Stars sit in their own 24 px-radius capsule above a
   30 px-radius bar of 64 × 54 buttons; the arrows are 48 px circles on the
-  bar's line. Stars there use `--preview-star` (light's #8C5A00 brass is
+  bar's line. Stars there use `--preview-star` (light's dark grey accent is
   too dark on the capsule). Blur is kept to these few elements.
 - **Board header.** One 57 px row: a 44 px back button, the board name in
   Instrument Serif 24 px, "Saved" 11 px dim, and a 44 px ••• menu

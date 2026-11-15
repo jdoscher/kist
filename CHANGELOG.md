@@ -1176,6 +1176,25 @@ The aesthetic pass: one grey, one control language, one type system.
   notice offers Undo (which selects it again). Protected items can't be
   trashed (the button says why); a trashed item shows Restore instead.
 
+### Monochrome
+
+- **No more brass.** The accent is now the theme's own ink: near-white in
+  dark and gallery, dark grey (#2B2B2B) in light. That covers selection
+  corners and checks on tiles, the focus ring, stars (also the white star on
+  tile captions), links, pick stamps, badges and the logo's i-dot.
+  Warnings turn neutral too; red stays for Trash, delete and errors, and
+  green and blue stay for done and info.
+- **Primary button.** Upload, Save and the other one-per-view actions are a
+  dark grey fill with a white label in every theme, with a thin ink outline
+  so it holds on the dark and gallery backgrounds (new tokens `--primary`,
+  `--primary-hover`, `--on-primary`, `--primary-line`).
+- **App icon.** The mark is white on a dark grey (#3A3A3A) tile; the
+  favicon is dark grey on light browser chrome and near-white on dark. Icon
+  URLs moved to `?v=5`, so browsers and home screens pick up the new icon.
+- **Boards.** The brass swatch is gone from the board colour swatches; a
+  new colour block starts orange. Existing notes keep their colour.
+- The docs site and README badge follow (dark grey / near-white links).
+
 ## [1.5.0] - 2026-11-09
 
 A hardening release. Kist was reviewed for security, data integrity,
