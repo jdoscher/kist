@@ -1162,6 +1162,20 @@ The aesthetic pass: one grey, one control language, one type system.
   MCP and extension answers are unchanged; edits still check
   `base_modified_at` against the item you opened.
 
+### Info panel editing
+
+- **Edit the tags of several items from the info panel.** With two or more
+  items selected, the panel lists every tag on any of them; a tag only some
+  of them carry is outlined instead of filled, with a count (`3/5`). Its ✕ takes the tag
+  off every selected item that has it, and the field below adds tags (with
+  matching existing tags offered as you type) to the items that miss them.
+  Each change is one batch: the notice offers Undo, and it is one entry in
+  Recent changes. The bottom bar's Tag field still adds too.
+- **Trash from the info panel.** One item selected, a Trash button sits
+  under Protect: no question asked, the item goes to the Trash and the
+  notice offers Undo (which selects it again). Protected items can't be
+  trashed (the button says why); a trashed item shows Restore instead.
+
 ## [1.5.0] - 2026-11-09
 
 A hardening release. Kist was reviewed for security, data integrity,

@@ -1,4 +1,4 @@
-import { ExternalLink, Lock, LockOpen, Maximize2, Star, X } from 'lucide-react'
+import { ExternalLink, Lock, LockOpen, Maximize2, Star, Trash2, X } from 'lucide-react'
 import { useId, useMemo, useState } from 'react'
 import { api, fileUrl, thumbUrl, type Item } from '../api'
 import { useCaps, useCurrentItems, useFolderNames, useFolders, useShownItem, useStats, useVersion } from '../data'
@@ -19,6 +19,8 @@ import { CaptionField, ImpliedTags, ItemFaces, MatchWhy, MoreLikeThisButton, Pal
 import { ItemBoards, ItemCull, ItemVersions } from './m3/ItemCreative'
 import { ItemKinds } from './kinds/KindsUI'
 import { ItemProjectFields } from './projects/ItemProjectFields'
+import { MultiTags } from './MultiTags'
+import { useTrashItem } from './PhoneEdit'
 
 /** Protected items can't be trashed or deleted. Agents can protect but not
  * unprotect; removing protection needs a full-access (write/admin) token. */
@@ -43,6 +45,27 @@ function ProtectToggle({ item }: { item: Item }) {
     >
       {on ? <Lock size={14} aria-hidden="true" /> : <LockOpen size={14} aria-hidden="true" />}
       {on ? 'Protected' : 'Protect'}
+    </button>
+  )
+}
+
+/** Move it to Trash: no question asked, the notice offers Undo (and Undo
+ * selects it again). A protected item can't go; a trashed one has Restore
+ * in its status line instead (ItemStatus). */
+function TrashButton({ item }: { item: Item }) {
+  const { trash, busy } = useTrashItem()
+  const { clearSelection } = useAppState()
+  if (item.state === 'trashed') return null
+  const locked = !!item.protected
+  return (
+    <button
+      className="btn-icon danger detail-trash"
+      disabled={busy(item.id) || locked}
+      title={locked ? 'Protected: remove protection to trash it' : 'Move to Trash (Delete). Undo is in the notice.'}
+      onClick={() => void trash(item, clearSelection)}
+    >
+      <Trash2 size={14} aria-hidden="true" />
+      Trash
     </button>
   )
 }
@@ -136,6 +159,7 @@ function SingleItem({ item }: { item: Item }) {
           onChange={(rating) => void write('rating', () => api.patchItem(item.id, { rating }))}
         />
         <ProtectToggle item={item} />
+        <TrashButton item={item} />
         <span className="saving" role="status">
           {busy() ? 'saving…' : ''}
         </span>
@@ -310,7 +334,7 @@ function LibrarySummary() {
 // always mounted while open (even with nothing selected) so selecting an
 // item never changes the grid's width and reflows the columns
 export function DetailPanel() {
-  const { selection, panelOpen, density, chromeShown } = useAppState()
+  const { selection, panelOpen, density, chromeShown, query } = useAppState()
   const { items } = useCurrentItems()
   const selected = useMemo(() => items.filter((i) => selection.has(i.id)), [items, selection])
   // one item that isn't in the loaded grid (opened from a link): fetch it
@@ -344,7 +368,11 @@ export function DetailPanel() {
         <div className="multi-summary">
           <h2 className="panel-title view-title">{selected.length} items selected</h2>
           <p>{fmtBytes(selected.reduce((acc, i) => acc + i.size_bytes, 0))} total</p>
-          <p className="hint">Use the bar below for bulk tag / move / trash.</p>
+          {caps.canEdit && !query.deleted ? (
+            <MultiTags items={selected} selected={selection.size} />
+          ) : query.deleted && caps.canEdit ? (
+            <p className="hint">Use the bar below to restore them or delete them forever.</p>
+          ) : null}
         </div>
       )}
     </aside>

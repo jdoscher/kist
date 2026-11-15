@@ -3267,3 +3267,56 @@ progress:not([value])::-moz-progress-bar {
     background: var(--text-dim);
   }
 }
+
+/* ---------- info panel: tags of a multi-selection (MultiTags.tsx) ---------- */
+.mt-tags {
+  margin-top: 12px;
+}
+.mt-tags .tag-chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.multi-summary .mt-note {
+  padding: 0;
+  margin: 2px 0;
+}
+/* a tag only some of the selection carries: outlined, not filled, plus "3/5" */
+.chip.mt-partial {
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--field-border);
+}
+.mt-share {
+  color: var(--text-dim);
+  font-size: var(--fs-1);
+  font-variant-numeric: tabular-nums;
+  margin-left: 2px;
+}
+.mt-add input {
+  width: 100%;
+}
+.mt-suggest {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.mt-suggest button {
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 20px;
+  border: 1px dashed var(--field-border);
+  background: none;
+  color: var(--text);
+}
+.mt-suggest button:hover {
+  background: var(--bg-hover);
+}
+/* the info panel's Trash: under Protect, right-aligned with it (the row
+   wraps at panel width) */
+.detail-trash {
+  margin-left: auto;
+  padding: 3px 8px;
+}
