@@ -16,6 +16,22 @@ The **Release** workflow builds the multi-arch image
 from that version's changelog section. After the first release, make the GHCR
 package public under **Packages → kist → Package settings**.
 
+## Docs site (kist.pictures)
+
+The docs site is built from `docs/` by `site/mkdocs.yml` and published to
+GitHub Pages at **https://kist.pictures** (domain verified on the jdoscher
+account; DNS at Cloudflare, records DNS-only). Publishing is manual: after
+the release is tagged, run **Actions → Docs site → Run workflow** on `main`
+with **deploy** ticked. Check the build locally first:
+
+```bash
+uvx --with-requirements site/requirements.txt mkdocs build --strict -f site/mkdocs.yml
+```
+
+One-time setup (first publish): **Settings → Pages → Source: GitHub
+Actions**, custom domain `kist.pictures`, then **Enforce HTTPS** once the
+certificate is issued.
+
 ## Demo loop and screenshots
 
 Re-shoot them on a throwaway demo instance seeded with the public-domain

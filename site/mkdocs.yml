@@ -11,7 +11,7 @@
 
 site_name: Kist
 site_description: A self-hosted visual library for people and their AI agents. Keep what catches your eye.
-site_url: https://jdoscher.github.io/kist/
+site_url: https://kist.pictures/
 repo_url: https://github.com/jdoscher/kist
 repo_name: jdoscher/kist
 edit_uri: edit/main/docs/
@@ -36,7 +36,7 @@ theme:
   language: en
   # fonts are self-hosted (assets/fonts); no request to Google Fonts
   font: false
-  logo: brand/icon-tile.svg  # the bright brass needs the dark tile on a light header
+  logo: brand/icon-tile.svg  # the white mark needs the dark tile on a light header
   favicon: brand/icon-tab.svg
   palette:
     - media: "(prefers-color-scheme: dark)"

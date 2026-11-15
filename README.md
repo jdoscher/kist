@@ -9,6 +9,7 @@
 A self-hosted visual library for people and their AI agents.</p>
 
 <p align="center">
+  <a href="https://kist.pictures"><img alt="Docs" src="https://img.shields.io/badge/docs-kist.pictures-1C1B19"></a>
   <a href="https://github.com/jdoscher/kist/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/jdoscher/kist?color=2B2B2B&label=release"></a>
   <a href="LICENSE"><img alt="MIT licence" src="https://img.shields.io/badge/licence-MIT-1C1B19"></a>
   <a href="https://github.com/jdoscher/kist/pkgs/container/kist"><img alt="Docker image" src="https://img.shields.io/badge/docker-ghcr.io%2Fjdoscher%2Fkist-1C1B19"></a>
