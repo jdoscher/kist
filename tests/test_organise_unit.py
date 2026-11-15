@@ -30,8 +30,8 @@ def test_yunet_decoding_puts_a_cell_where_it_belongs():
     dets = mlfaces.decode(outs)
     assert dets.shape == (1, 15)
     x, y, w, h = dets[0, :4]
-    assert (w, h) == (64.0, 80.0)
-    assert (x + w / 2, y + h / 2) == ((7 + 0.5) * 16, (5 + 0.25) * 16)
+    assert (w, h) == (pytest.approx(64.0), pytest.approx(80.0))
+    assert (x + w / 2, y + h / 2) == (pytest.approx((7 + 0.5) * 16), pytest.approx((5 + 0.25) * 16))
     assert dets[0, 4] == pytest.approx((7 + 0.1) * 16) and dets[0, 5] == pytest.approx(
         (5 + 0.2) * 16)
     assert dets[0, 14] == pytest.approx(0.9)  # sqrt(cls * obj)
