@@ -6,18 +6,23 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
-Kist 2.0, milestones 1 to 5: the platform and AI infrastructure; finding
-things (search by meaning, colour, text in images and by image; a tag
-vocabulary, stacks, duplicates, suggested collections, faces); the
-backend for creative workflows (boards, flags and labels, annotations,
-versions, templates, triage, the command palette); getting things in and
-out (share links, portable exports, export presets, provenance, page
-snapshots, the link-rot watch, importers, XMP sidecars); and formats and
-media (video scrubbing, clips and proxies, audio, camera metadata, RAW,
-design files, SVG, 3D, fonts, bundles, a timeline and a map). Everything runs on your
-own hardware unless you choose a cloud caption provider, every change is in
-the item history and undoes as a batch, and every new piece of data is a
-plain file next to the library, so `kist rebuild-index` restores it.
+## [2.0.0] - 2026-11-15
+
+Kist 2.0 is the biggest release yet. Search by meaning, colour, text inside
+images, or with another image. Organise with a tag vocabulary, stacks,
+duplicates, suggested collections and (opt-in) faces. Work creatively with
+boards, flags and labels, annotations, versions, triage and a command
+palette. Get things in and out with share links (with client proofing),
+portable exports, provenance and credits, page snapshots, importers and XMP
+sidecars. It handles video, audio, camera RAW, design files, SVG, 3D, fonts,
+a timeline and a map. A phone layout you can install as an app edits on the
+go, the grid stays fast past 100,000 items, and the look is new: a
+monochrome gallery-grey interface with a new mark. AI runs on your own
+hardware in a separate `ml` service, and can borrow a second machine's CPU
+with `kist helper`. Every change is in the item history and undoes as one
+batch. Every new piece of data is a plain file beside the library, so
+`kist rebuild-index` restores it. Documentation now lives at
+[kist.pictures](https://kist.pictures).
 
 ### Upgrade notes
 From 1.5.0, in this order:
@@ -72,7 +77,7 @@ From 1.5.0, in this order:
   every `meta.json` and writes `vocabulary.json` and `.kist/people.json`.
 - Palettes changed (they keep small saturated areas):
   `docker compose exec worker kist regen-previews --colors-only` refreshes
-  older items' palettes in seconds. Fonts added before get a specimen
+  older items' palettes; it prints nothing until it finishes (roughly 10–20 minutes per 5,000 items). Fonts added before get a specimen
   preview queued on upgrade.
 - Optional: captions for what you already have,
   `kist ai-backfill --kind caption` (only once a caption provider is set;
@@ -378,7 +383,7 @@ undoes as one batch.
   everyday colour names; colour search uses perceptual distance (CIEDE2000),
   not RGB. New palettes keep small saturated areas (a red car in a grey
   street now counts as red); `kist regen-previews --colors-only` refreshes
-  older items' palettes in seconds.
+  older items' palettes; it prints nothing until it finishes (roughly 10–20 minutes per 5,000 items).
 - **Fonts.** TTF, OTF, WOFF and WOFF2 files are now their own type (`font`)
   with a specimen preview showing the family name and "Aa Bb Cc 0123 The
   quick brown fox". Fonts you added before are queued for a specimen when
