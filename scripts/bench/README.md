@@ -2,7 +2,7 @@
 
 Synthetic libraries and timings for Kist's read paths (Milestone 6). Never
 point either script at a real library: `make_library.py` refuses a database
-that already has items, and `run.py` refuses kist.example.com and any library
+that already has items, and `run.py` refuses the hosts in `KIST_BENCH_REFUSE_HOSTS` (your production library) and any library
 without its "Smart 0" smart folder (`--any-library` overrides that, never
 the host check).
 
@@ -62,7 +62,7 @@ python scripts/bench/thumbs.py --url http://localhost:8080 --token "$KIST_TOKEN"
 
 `thumbs.py` lists items like the grid and fetches `--n` thumbnails per size
 from `--concurrency` keep-alive connections: p50/p95/max, wall time,
-requests/s, MB/s, average size. It refuses kist.example.com unless
+requests/s, MB/s, average size. It refuses the `KIST_BENCH_REFUSE_HOSTS` hosts unless
 `--read-only-prod` (GETs only, capped at 300 requests from 30 connections).
 Run it once with the owner token and once with a named token to see what
 the token check costs.

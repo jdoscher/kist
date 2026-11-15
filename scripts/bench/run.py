@@ -38,7 +38,11 @@ import urllib.parse
 import urllib.request
 from datetime import UTC, datetime
 
-FORBIDDEN_HOSTS = {"kist.example.com"}
+# Hosts these benchmarks refuse to load: kist.example.com plus any listed in
+# KIST_BENCH_REFUSE_HOSTS (comma-separated), e.g. your own production library.
+FORBIDDEN_HOSTS = {"kist.example.com"} | {
+    h.strip().lower() for h in os.environ.get("KIST_BENCH_REFUSE_HOSTS", "").split(",") if h.strip()
+}
 ORDERS = ["-created", "created", "-modified", "modified", "-taken", "taken",
           "filename", "-size", "-rating"]
 DATE_SORTS = [("created", "desc"), ("modified", "desc"), ("taken", "desc"), ("taken", "asc")]

@@ -16,6 +16,7 @@ refuses kist.example.com unless --read-only-prod is given (then it caps itself a
 import argparse
 import http.client
 import json
+import os
 import statistics
 import sys
 import threading
@@ -23,7 +24,11 @@ import time
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 
-FORBIDDEN_HOSTS = {"kist.example.com"}
+# Hosts these benchmarks refuse to load: kist.example.com plus any listed in
+# KIST_BENCH_REFUSE_HOSTS (comma-separated), e.g. your own production library.
+FORBIDDEN_HOSTS = {"kist.example.com"} | {
+    h.strip().lower() for h in os.environ.get("KIST_BENCH_REFUSE_HOSTS", "").split(",") if h.strip()
+}
 
 
 class Conn(threading.local):
@@ -45,7 +50,7 @@ def main(argv=None) -> int:
     p.add_argument("--out", help="write <out>.json with every run")
     args = p.parse_args(argv)
     host = urllib.parse.urlsplit(args.url).hostname or ""
-    if host in FORBIDDEN_HOSTS:
+    if host.lower() in FORBIDDEN_HOSTS:
         if not args.read_only_prod:
             print(f"refusing {host}: a real library (use --read-only-prod for GET-only, "
                   "capped timings)", file=sys.stderr)
