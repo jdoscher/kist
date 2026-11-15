@@ -112,7 +112,7 @@ def main() -> int:
         api("PATCH", f"/api/items/{ids[name]}/tags", {"add": ["Favourites"], "remove": []})
     for cover, other in STACKS:
         api("POST", "/api/stacks", {"item_ids": [ids[cover], ids[other]], "cover": ids[cover]})
-    board = api("POST", "/api/boards", {"name": "Mid-century mood", "layout": "masonry",
+    api("POST", "/api/boards", {"name": "Mid-century mood", "layout": "masonry",
                                         "item_ids": [ids[n] for n in BOARD]})
     # the board keeps the new default background: the theme's own canvas
     api("POST", "/api/smart-folders", {"name": "Five stars", "query": {"rating": 5}})
