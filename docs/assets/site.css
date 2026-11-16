@@ -69,3 +69,6 @@
 .md-typeset .md-button--primary:hover,
 .md-typeset .md-button:hover { background: var(--md-accent-fg-color); border-color: var(--md-accent-fg-color); color: var(--kist-on-accent); }
 .md-typeset h1.kist-hero__line { font-size: 3.2rem; line-height: 1.05; margin: .5rem 0; }
+
+/* the hero tagline is not a section to link to: no permalink mark */
+.md-typeset .kist-hero__line .headerlink { display: none; }
