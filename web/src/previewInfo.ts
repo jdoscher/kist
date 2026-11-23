@@ -1,6 +1,6 @@
 // The full-screen preview's info strip (D, or the Info button): where the
 // item came from and what you've said about it, under the image. Off by
-// default; the choice is remembered. No React: tests/previewInfo.test.ts.
+// default; the choice is remembered. No React: tests/boardWalk.test.ts.
 
 import type { Item } from './api.ts'
 import { creditLine } from './credits.ts'
