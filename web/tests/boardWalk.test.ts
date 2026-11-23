@@ -71,6 +71,8 @@ test('info: credit, tags, rating, caption and notes; empty ones left out, except
   // the rating is always there, even unrated
   assert.deepEqual(infoRows(base), [{ label: 'Rating', text: '☆☆☆☆☆ not rated' }])
   assert.equal(infoRows({ ...base, rating: 5 })[0].text, '★★★★★')
+  // an editor gets the Tags row even when there are none, for its tag field
+  assert.deepEqual(infoRows(base, { editable: true }).map((r) => r.label), ['Tags', 'Rating'])
 })
 
 test('info pref: off by default, remembered, and safe without storage', () => {

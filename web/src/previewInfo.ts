@@ -45,8 +45,12 @@ function str(v: unknown): string {
   return typeof v === 'string' ? v.trim() : ''
 }
 
-/** The rows the strip shows, empty ones left out. */
-export function infoRows(item: Pick<Item, 'source_url' | 'provenance' | 'tags' | 'rating' | 'notes' | 'caption'>): InfoRow[] {
+/** The rows the strip shows, empty ones left out. With `editable` the Tags
+ * row is always there too (the strip puts the tag field in it). */
+export function infoRows(
+  item: Pick<Item, 'source_url' | 'provenance' | 'tags' | 'rating' | 'notes' | 'caption'>,
+  opts: { editable?: boolean } = {},
+): InfoRow[] {
   const p = item.provenance ?? {}
   const rows: InfoRow[] = []
   // the page it was saved from beats the file's own URL (an image CDN)
@@ -59,7 +63,7 @@ export function infoRows(item: Pick<Item, 'source_url' | 'provenance' | 'tags' |
   }
   const credit = creditLine(p)
   if (credit) rows.push({ label: 'Credit', text: credit })
-  if (item.tags.length) rows.push({ label: 'Tags', text: item.tags.join(', ') })
+  if (item.tags.length || opts.editable) rows.push({ label: 'Tags', text: item.tags.join(', ') })
   // always shown, so an unrated item reads as unrated rather than missing
   const stars = Math.max(0, Math.min(5, Math.round(item.rating || 0)))
   rows.push({ label: 'Rating', text: stars ? '★'.repeat(stars) + '☆'.repeat(5 - stars) : '☆☆☆☆☆ not rated' })

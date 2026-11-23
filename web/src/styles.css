@@ -3325,7 +3325,7 @@ progress:not([value])::-moz-progress-bar {
 /* ---------- the preview's info strip (D / Info; previewInfo.ts) ----------
    Sits above the bottom band; the image's room shrinks by its height. */
 .preview-overlay.pinfo-open {
-  --pinfo-h: 120px;
+  --pinfo-h: 168px;
   --preview-room: calc(100vh - 2 * var(--preview-band) - var(--pinfo-h));
   padding-bottom: calc(var(--preview-band) + var(--pinfo-h));
 }
@@ -3378,4 +3378,106 @@ progress:not([value])::-moz-progress-bar {
 .pinfo-empty {
   margin: 0;
   color: var(--text-dim);
+}
+/* editors: stars and tags right in the strip (components/PreviewInfo.tsx) */
+.pinfo-edit dt {
+  align-self: center;
+}
+.pinfo-edit dd {
+  white-space: normal;
+  overflow: visible;
+}
+.pinfo-stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+}
+.pinfo-stars button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: var(--ctl-radius);
+  background: none;
+  color: var(--text-dim);
+}
+.pinfo-stars button.on,
+.pinfo-stars button[aria-pressed='true'] {
+  color: var(--text);
+  background: none;
+}
+.pinfo-stars button:hover {
+  background: var(--bg-hover);
+}
+.pinfo-dim {
+  margin-left: 8px;
+  color: var(--text-dim);
+}
+.pinfo-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+}
+.pinfo-chips,
+.pinfo-suggest {
+  display: contents;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.pinfo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 24px;
+  padding: 0 2px 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+.pinfo-chip button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background: none;
+  color: var(--text-dim);
+}
+.pinfo-chip button:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.pinfo-tag-add {
+  display: inline-flex;
+}
+.pinfo-tag-add input {
+  height: 24px;
+  width: 150px;
+  padding: 0 8px;
+  border: 1px solid var(--field-border);
+  border-radius: 12px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+}
+.pinfo-suggest button {
+  height: 24px;
+  padding: 0 8px;
+  border: 1px dashed var(--field-border);
+  border-radius: 12px;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+}
+.pinfo-suggest button:hover {
+  color: var(--text);
+  background: var(--bg-hover);
 }

@@ -9,7 +9,7 @@ All notable changes to this project are documented here. The format follows
 ### Step through a board full screen, with an info strip
 - Double-click an item on a board (or **Open item** in the board inspector) to see it full screen; ← and → now step through the board's own items in reading order (rows top to bottom, left to right), skipping notes, text and shapes. Before, they stepped through the library grid behind the board. Read-only viewers can open items this way too.
 - **Info** (or **D**) in the full-screen preview shows a strip under the image: the source link (the page it was saved from, by title), credit, tags, rating, caption and notes. It stays on or off until you change it. Desktop only; on a phone the item sheet has this.
-- The info strip always shows the rating, as stars (“not rated” when there is none).
+- The info strip always shows the rating, as stars (“not rated” when there is none). If you can edit, click a star there to rate (the same star again clears it), and add tags in the strip's tag field (comma-separated, Enter; matching tags are offered as you type) or remove one with its ✕.
 
 ### Boards list
 - Clicking anywhere on a board's card in All boards opens it: the name, the item count and the empty space too, not just the picture. Rename, Duplicate and Trash still do only their own thing.

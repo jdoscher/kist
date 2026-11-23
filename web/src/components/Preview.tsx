@@ -16,7 +16,8 @@ import { hasMediaView, MediaView } from './m45/lazy'
 import { useViewAidKeys, useViewAids, ViewAidsBadge, ViewAidsFrame, ViewAidsMenu } from './viewaids/ViewAids'
 import { DEFAULT_AIDS } from '../viewAids'
 import { setPreviewWalk, usePreviewWalk } from '../boardWalk'
-import { infoRows, readInfoPref, writeInfoPref } from '../previewInfo'
+import { readInfoPref, writeInfoPref } from '../previewInfo'
+import { PreviewInfo } from './PreviewInfo'
 
 // notes on the image (Milestone 3) load apart from the first page, and are
 // fetched once the app is idle so opening a preview doesn't wait for them
@@ -149,7 +150,7 @@ export function Preview() {
   const name = splitName(item.filename)
   const meta = previewMeta(item.width, item.height, idx, total)
   // desktop only: the phone has its info sheet
-  const info = infoOn && !mobile ? infoRows(item) : null
+  const info = infoOn && !mobile
 
   const onTouchStart = (e: React.TouchEvent) => {
     // scrubbing, turning a model, typing a font sample, picking a file
@@ -264,7 +265,7 @@ export function Preview() {
             </a>
           </span>
         </figcaption>
-        {info && <PreviewInfo rows={info} />}
+        {info && <PreviewInfo item={item} canEdit={canEdit} />}
       </figure>
 
       {phoneEdit && (
@@ -303,35 +304,5 @@ export function Preview() {
         <ChevronRight size={36} aria-hidden="true" />
       </button>
     </div>
-  )
-}
-
-/** The info strip: one line per thing Kist knows about where the item came
- * from and what you've said about it (previewInfo.ts infoRows). */
-function PreviewInfo({ rows }: { rows: ReturnType<typeof infoRows> }) {
-  return (
-    <section className="pinfo" aria-label="Item info">
-      {rows.length ? (
-        <dl>
-          {rows.map((r) => (
-            <div key={r.label} className="pinfo-row">
-              <dt>{r.label}</dt>
-              <dd title={r.text}>
-                {r.href ? (
-                  <a href={r.href} target="_blank" rel="noreferrer noopener">
-                    {r.text} <ExternalLink size={14} aria-hidden="true" />
-                    <span className="sr-only"> (new tab)</span>
-                  </a>
-                ) : (
-                  r.text
-                )}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      ) : (
-        <p className="pinfo-empty">No source, credit, tags or notes saved for this item.</p>
-      )}
-    </section>
   )
 }
