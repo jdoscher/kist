@@ -6,6 +6,18 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-11-22
+
+Kist 2.1 makes boards easier to look through. Open an item on a board full
+screen and ← → step through the board itself, in reading order. Press **D**
+(or **Info**) for a strip under the image with where it came from (the source
+link), credit, tags, rating, caption and notes, and set the rating or add and
+remove tags right there. In All boards, a click anywhere on a board's card now
+opens it.
+
+**Upgrading from 2.0:** web changes only, no database migration and no new
+settings. Pull the new image (or rebuild) and restart.
+
 ### Step through a board full screen, with an info strip
 - Double-click an item on a board (or **Open item** in the board inspector) to see it full screen; ← and → now step through the board's own items in reading order (rows top to bottom, left to right), skipping notes, text and shapes. Before, they stepped through the library grid behind the board. Read-only viewers can open items this way too.
 - **Info** (or **D**) in the full-screen preview shows a strip under the image: the source link (the page it was saved from, by title), credit, tags, rating, caption and notes. It stays on or off until you change it. Desktop only; on a phone the item sheet has this.
