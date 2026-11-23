@@ -53,9 +53,10 @@ export const KEYMAP: Record<KeyContext, Binding[]> = {
     { keys: ['Escape'], does: 'close' },
   ],
   preview: [
-    { keys: ['ArrowRight', 'ArrowDown'], does: 'next item' },
+    { keys: ['ArrowRight', 'ArrowDown'], does: 'next item (opened from a board: the board’s next item, in reading order)' },
     { keys: ['ArrowLeft', 'ArrowUp'], does: 'previous item' },
     { keys: ['Escape'], does: 'leave 100 % or repeat; cancel a note, tool or loupe; else close' },
+    { keys: ['D'], does: 'info strip (source link, credit, tags, rating, notes) on or off; remembered' },
     { keys: ['A'], does: 'show or hide notes (annotations)' },
     { keys: ['Z'], does: 'loupe on or off (images)' },
     { keys: ['M'], does: 'note at the current time (video)' },

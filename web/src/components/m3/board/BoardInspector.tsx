@@ -42,6 +42,7 @@ import {
   type OrderMode,
 } from '../../../board'
 import { useAppState } from '../../../state'
+import { boardWalkOrder, setPreviewWalk } from '../../../boardWalk'
 import type { Editor } from './BoardEditor'
 import { CropDialog } from './CropDialog'
 import { BoardCutoutButton } from '../../cutouts/Cutouts' // F7
@@ -265,7 +266,14 @@ export function BoardInspector({ ed }: { ed: Editor }) {
                   Reset crop
                 </button>
               )}
-              <button onClick={() => setPreviewId(one.item_id as string)}>Open item</button>
+              <button
+                onClick={() => {
+                  setPreviewWalk(boardWalkOrder(ed.content.nodes).filter((id) => !ed.missing.has(id)))
+                  setPreviewId(one.item_id as string)
+                }}
+              >
+                Open item
+              </button>
               <BoardCutoutButton boardId={ed.id} nodeId={one.id} item={ed.items.get(one.item_id)} />
             </div>
           )}

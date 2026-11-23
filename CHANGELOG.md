@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Step through a board full screen, with an info strip
+- Double-click an item on a board (or **Open item** in the board inspector) to see it full screen; ← and → now step through the board's own items in reading order (rows top to bottom, left to right), skipping notes, text and shapes. Before, they stepped through the library grid behind the board. Read-only viewers can open items this way too.
+- **Info** (or **D**) in the full-screen preview shows a strip under the image: the source link (the page it was saved from, by title), credit, tags, rating, caption and notes. It stays on or off until you change it. Desktop only; on a phone the item sheet has this.
+
 ## [2.0.0] - 2026-11-15
 
 Kist 2.0 is the biggest release yet. Search by meaning, colour, text inside

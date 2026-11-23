@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, ExternalLink, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ExternalLink, Info, X } from 'lucide-react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fileUrl, thumbUrl, type Item } from '../api'
 import { swipeDirection } from '../mobile'
@@ -15,6 +15,8 @@ import { PhoneEditBar } from './PhoneEdit'
 import { hasMediaView, MediaView } from './m45/lazy'
 import { useViewAidKeys, useViewAids, ViewAidsBadge, ViewAidsFrame, ViewAidsMenu } from './viewaids/ViewAids'
 import { DEFAULT_AIDS } from '../viewAids'
+import { setPreviewWalk, usePreviewWalk } from '../boardWalk'
+import { infoRows, readInfoPref, writeInfoPref } from '../previewInfo'
 
 // notes on the image (Milestone 3) load apart from the first page, and are
 // fetched once the app is idle so opening a preview doesn't wait for them
@@ -51,18 +53,31 @@ export function Preview() {
   // phone editing (Milestone 6): stars, tags, Move to…, Trash
   const phoneEdit = mobile && canEdit
   const { result, items } = useCurrentItems()
-  const idx = useMemo(() => items.findIndex((i) => i.id === previewId), [items, previewId])
+  // opened from a board (boardWalk.ts): step through the board's items in
+  // reading order instead of the library grid behind it
+  const walk = usePreviewWalk()
+  const walking = !!walk && !!previewId && walk.includes(previewId)
+  useEffect(() => {
+    if (previewId === null) setPreviewWalk(null)
+  }, [previewId])
+  const gridIdx = useMemo(() => items.findIndex((i) => i.id === previewId), [items, previewId])
+  const idx = walking ? walk.indexOf(previewId) : gridIdx
+  const total = walking ? walk.length : items.length
   // the full item (the list's are slim, P4); one opened from a link may not
   // be in the loaded grid at all: it shows alone. While the next item's full
   // copy arrives (neighbours are prefetched) the current one stays, so the
   // dialog never closes in between
   const item = useShownItem(previewId, items) ?? null
-  usePrefetchItems(idx >= 0 ? [items[idx + 1]?.id, items[idx - 1]?.id] : [])
+  usePrefetchItems(idx < 0 ? [] : walking ? [walk[idx + 1], walk[idx - 1]] : [items[idx + 1]?.id, items[idx - 1]?.id])
 
   const go = useCallback(
     (delta: number) => {
       if (idx < 0) return
       const next = idx + delta
+      if (walking) {
+        if (next >= 0 && next < walk.length) setPreviewId(walk[next])
+        return
+      }
       if (next >= 0 && next < items.length) {
         setPreviewId(items[next].id)
         selectOnly(items[next].id)
@@ -71,8 +86,15 @@ export function Preview() {
         }
       }
     },
-    [idx, items, setPreviewId, selectOnly, result],
+    [idx, items, setPreviewId, selectOnly, result, walking, walk],
   )
+
+  // the info strip (previewInfo.ts): D or the Info button, remembered
+  const [infoOn, setInfoOnRaw] = useState(readInfoPref)
+  const setInfoOn = useCallback((on: boolean) => {
+    setInfoOnRaw(on)
+    writeInfoPref(on)
+  }, [])
 
   useEffect(() => {
     const idle = window.requestIdleCallback ?? ((fn: () => void) => window.setTimeout(fn, 2000))
@@ -86,6 +108,7 @@ export function Preview() {
     'preview',
     (e) => {
       if (e.key === 'Escape') setPreviewId(null)
+      else if (!mobile && !e.metaKey && !e.ctrlKey && !e.altKey && e.key.toLowerCase() === 'd') setInfoOn(!infoOn)
       else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
         e.preventDefault()
         go(1)
@@ -124,7 +147,9 @@ export function Preview() {
   if (!item) return null
 
   const name = splitName(item.filename)
-  const meta = previewMeta(item.width, item.height, idx, items.length)
+  const meta = previewMeta(item.width, item.height, idx, total)
+  // desktop only: the phone has its info sheet
+  const info = infoOn && !mobile ? infoRows(item) : null
 
   const onTouchStart = (e: React.TouchEvent) => {
     // scrubbing, turning a model, typing a font sample, picking a file
@@ -172,7 +197,7 @@ export function Preview() {
   return (
     <div
       ref={overlayRef}
-      className={`preview-overlay${phoneEdit ? ' phone-editing' : ''}`}
+      className={`preview-overlay${phoneEdit ? ' phone-editing' : ''}${info ? ' pinfo-open' : ''}`}
       role="dialog"
       aria-modal="true"
       aria-label={`Preview: ${item.filename}`}
@@ -185,6 +210,19 @@ export function Preview() {
       <div className="preview-band" onClick={(e) => e.stopPropagation()}>
         {aidsOk && <ViewAidsMenu aids={aids} setAids={setAids} mobile={mobile} />}
         <div className="preview-tools" ref={setToolbar} />
+        {!mobile && (
+          <button
+            type="button"
+            className={`pinfo-toggle btn-icon${infoOn ? ' on' : ''}`}
+            aria-pressed={infoOn}
+            title="Source, credit, tags and notes under the image (D)"
+            aria-keyshortcuts="D"
+            onClick={() => setInfoOn(!infoOn)}
+          >
+            <Info size={16} aria-hidden="true" />
+            Info
+          </button>
+        )}
         <button ref={closeRef} className="preview-close" aria-label="Close preview" title="Close (Esc)" onClick={() => setPreviewId(null)}>
           <X size={16} aria-hidden="true" />
         </button>
@@ -226,6 +264,7 @@ export function Preview() {
             </a>
           </span>
         </figcaption>
+        {info && <PreviewInfo rows={info} />}
       </figure>
 
       {phoneEdit && (
@@ -235,6 +274,13 @@ export function Preview() {
           onTrashed={() => {
             // on to the next item (or the previous one at the end); the
             // last one closes the preview
+            if (walking) {
+              const rest = walk.filter((id) => id !== item.id)
+              const nextId = rest[idx] ?? rest[idx - 1]
+              setPreviewWalk(rest)
+              setPreviewId(nextId ?? null)
+              return
+            }
             const rest = items.filter((i) => i.id !== item.id)
             const next = idx >= 0 ? (rest[idx] ?? rest[idx - 1]) : undefined
             if (next) {
@@ -248,7 +294,7 @@ export function Preview() {
       <button
         className="preview-nav next"
         aria-label="Next item"
-        disabled={idx < 0 || idx >= items.length - 1}
+        disabled={idx < 0 || idx >= total - 1}
         onClick={(e) => {
           e.stopPropagation()
           go(1)
@@ -257,5 +303,35 @@ export function Preview() {
         <ChevronRight size={36} aria-hidden="true" />
       </button>
     </div>
+  )
+}
+
+/** The info strip: one line per thing Kist knows about where the item came
+ * from and what you've said about it (previewInfo.ts infoRows). */
+function PreviewInfo({ rows }: { rows: ReturnType<typeof infoRows> }) {
+  return (
+    <section className="pinfo" aria-label="Item info">
+      {rows.length ? (
+        <dl>
+          {rows.map((r) => (
+            <div key={r.label} className="pinfo-row">
+              <dt>{r.label}</dt>
+              <dd title={r.text}>
+                {r.href ? (
+                  <a href={r.href} target="_blank" rel="noreferrer noopener">
+                    {r.text} <ExternalLink size={14} aria-hidden="true" />
+                    <span className="sr-only"> (new tab)</span>
+                  </a>
+                ) : (
+                  r.text
+                )}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <p className="pinfo-empty">No source, credit, tags or notes saved for this item.</p>
+      )}
+    </section>
   )
 }

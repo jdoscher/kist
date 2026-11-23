@@ -575,9 +575,10 @@ the handlers and the table in step.
 
 | Keys | Does |
 | --- | --- |
-| `→` `↓` | next item |
+| `→` `↓` | next item (opened from a board: the board’s next item, in reading order) |
 | `←` `↑` | previous item |
 | `Escape` | leave 100 % or repeat; cancel a note, tool or loupe; else close |
+| `D` | info strip (source link, credit, tags, rating, notes) on or off; remembered |
 | `A` | show or hide notes (annotations) |
 | `Z` | loupe on or off (images) |
 | `M` | note at the current time (video) |

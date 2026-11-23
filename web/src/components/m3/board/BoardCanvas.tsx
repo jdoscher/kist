@@ -7,6 +7,7 @@ import { Link2, ImageOff } from 'lucide-react'
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { thumbUrl, type Item } from '../../../api'
 import { cutoutPreviewUrl, isCutout } from '../../../cutouts' // F7
+import { boardWalkOrder, setPreviewWalk } from '../../../boardWalk'
 import {
   byZ,
   canvasCss,
@@ -284,12 +285,14 @@ export function BoardCanvas({ ed, viewportRef }: { ed: Editor; viewportRef: RefO
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
       onDoubleClick={(e) => {
-        if (!ed.canEdit) return
         const w = world(e)
         const hit = hitTest(c.nodes, w.x, w.y)
         if (!hit) return
-        if (hit.type === 'item' && hit.item_id) setPreviewId(hit.item_id)
-        else ed.setEditingText(hit.id)
+        // full screen, with ←/→ through the board's items (read-only too)
+        if (hit.type === 'item' && hit.item_id) {
+          setPreviewWalk(boardWalkOrder(c.nodes).filter((id) => !ed.missing.has(id)))
+          setPreviewId(hit.item_id)
+        } else if (ed.canEdit) ed.setEditingText(hit.id)
       }}
       onDragOver={onDragOver}
       onDragLeave={() => setDropHint(false)}

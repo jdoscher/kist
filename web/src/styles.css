@@ -1732,7 +1732,7 @@ select:focus-visible {
   align-items: center;
   gap: 4px;
 }
-.app-shell:not(.mobile) .preview-band :is(.ann-toggle, .ann-loupe-toggle, .preview-close) {
+.app-shell:not(.mobile) .preview-band :is(.ann-toggle, .ann-loupe-toggle, .pinfo-toggle, .preview-close) {
   position: static;
   height: 32px;
   min-height: 32px;
@@ -1745,10 +1745,10 @@ select:focus-visible {
   align-items: center;
   gap: 6px;
 }
-.app-shell:not(.mobile) .preview-band :is(.ann-toggle, .ann-loupe-toggle, .preview-close):hover {
+.app-shell:not(.mobile) .preview-band :is(.ann-toggle, .ann-loupe-toggle, .pinfo-toggle, .preview-close):hover {
   background: var(--bg-hover);
 }
-.app-shell:not(.mobile) .preview-band :is(.ann-toggle, .ann-loupe-toggle).on {
+.app-shell:not(.mobile) .preview-band :is(.ann-toggle, .ann-loupe-toggle, .pinfo-toggle).on {
   background: var(--bg-active);
 }
 .app-shell:not(.mobile) .preview-band .preview-close {
@@ -3320,4 +3320,62 @@ progress:not([value])::-moz-progress-bar {
 .detail-trash {
   margin-left: auto;
   padding: 3px 8px;
+}
+
+/* ---------- the preview's info strip (D / Info; previewInfo.ts) ----------
+   Sits above the bottom band; the image's room shrinks by its height. */
+.preview-overlay.pinfo-open {
+  --pinfo-h: 120px;
+  --preview-room: calc(100vh - 2 * var(--preview-band) - var(--pinfo-h));
+  padding-bottom: calc(var(--preview-band) + var(--pinfo-h));
+}
+.pinfo {
+  position: fixed;
+  left: 72px;
+  right: 72px;
+  bottom: var(--preview-band);
+  height: var(--pinfo-h);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  overflow-y: auto;
+  color: var(--text);
+  font-size: var(--fs-2);
+}
+.pinfo dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: 14px;
+  row-gap: 4px;
+  width: min(760px, 100%);
+}
+.pinfo-row {
+  display: contents;
+}
+.pinfo dt {
+  color: var(--text-dim);
+  text-align: right;
+}
+.pinfo dd {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pinfo dd a {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.pinfo dd a svg {
+  vertical-align: -1px;
+  color: var(--text-dim);
+}
+.pinfo-empty {
+  margin: 0;
+  color: var(--text-dim);
 }
