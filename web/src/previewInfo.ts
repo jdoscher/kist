@@ -60,7 +60,9 @@ export function infoRows(item: Pick<Item, 'source_url' | 'provenance' | 'tags' |
   const credit = creditLine(p)
   if (credit) rows.push({ label: 'Credit', text: credit })
   if (item.tags.length) rows.push({ label: 'Tags', text: item.tags.join(', ') })
-  if (item.rating > 0) rows.push({ label: 'Rating', text: '★'.repeat(item.rating) + '☆'.repeat(Math.max(0, 5 - item.rating)) })
+  // always shown, so an unrated item reads as unrated rather than missing
+  const stars = Math.max(0, Math.min(5, Math.round(item.rating || 0)))
+  rows.push({ label: 'Rating', text: stars ? '★'.repeat(stars) + '☆'.repeat(5 - stars) : '☆☆☆☆☆ not rated' })
   const caption = str(item.caption)
   if (caption) rows.push({ label: 'Caption', text: caption })
   const notes = str(item.notes)

@@ -53,10 +53,10 @@ test('info: the page it was saved from wins over the file URL, titled, as a link
 })
 
 test('info: never links a non-http URL', () => {
-  assert.deepEqual(infoRows({ ...base, source_url: 'javascript:alert(1)', provenance: { page_url: 'file:///etc/passwd' } }), [])
+  assert.deepEqual(infoRows({ ...base, source_url: 'javascript:alert(1)', provenance: { page_url: 'file:///etc/passwd' } }).map((r) => r.label), ['Rating'])
 })
 
-test('info: credit, tags, rating, caption and notes; empty ones left out', () => {
+test('info: credit, tags, rating, caption and notes; empty ones left out, except the rating', () => {
   const rows = infoRows({ ...base, provenance: { creator: 'Ann', credit: 'The Met' }, tags: ['coat', 'wool'], rating: 3, notes: ' check the collar ', caption: 'A grey coat' })
   assert.deepEqual(
     rows.map((r) => [r.label, r.text]),
@@ -68,7 +68,9 @@ test('info: credit, tags, rating, caption and notes; empty ones left out', () =>
       ['Notes', 'check the collar'],
     ],
   )
-  assert.deepEqual(infoRows(base), [])
+  // the rating is always there, even unrated
+  assert.deepEqual(infoRows(base), [{ label: 'Rating', text: '☆☆☆☆☆ not rated' }])
+  assert.equal(infoRows({ ...base, rating: 5 })[0].text, '★★★★★')
 })
 
 test('info pref: off by default, remembered, and safe without storage', () => {

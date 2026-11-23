@@ -94,8 +94,19 @@ export function BoardsScreen({ trash = false }: { trash?: boolean }) {
       )}
       <ul className="board-cards">
         {(boards.data ?? []).map((b) => (
-          <li key={b.id} className="board-card">
-            <button className="board-open" onClick={() => !trash && openScreen({ kind: 'board', id: b.id })} disabled={trash} aria-label={`${b.name}, ${b.item_count} items, edited ${when(b.modified_at)}`}>
+          <li
+            key={b.id}
+            className={`board-card${trash ? '' : ' opens'}`}
+            // the whole card opens the board, except its action buttons;
+            // the picture below is the button keyboards and screen readers use
+            onClick={(e) => {
+              const control = (e.target as HTMLElement).closest('button, a, input')
+              if (trash || (control && !control.classList.contains('board-open'))) return
+              openScreen({ kind: 'board', id: b.id })
+            }}
+          >
+            {/* its click (mouse, Enter, Space) bubbles to the card's */}
+            <button className="board-open" disabled={trash} aria-label={`${b.name}, ${b.item_count} items, edited ${when(b.modified_at)}`}>
               <BoardThumb b={b} />
             </button>
             <div className="board-card-text">

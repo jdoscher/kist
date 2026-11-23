@@ -1506,12 +1506,30 @@ button.on,
   gap: 16px;
 }
 .board-card {
+  position: relative;
   background: var(--bg-raised);
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+/* the whole card opens the board, not just its picture (BoardsScreen's
+   card click; the picture stays the keyboard's button). Not a stretched
+   ::after on the button: the buttons' :active scale makes the button the
+   ::after's containing block mid-click, so the release lands outside it */
+.board-card.opens {
+  cursor: pointer;
+}
+.board-card.opens:hover {
+  border-color: var(--selected-line);
+}
+.board-card:has(.board-open:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.board-card-actions {
+  cursor: default;
 }
 .board-open {
   padding: 0;
